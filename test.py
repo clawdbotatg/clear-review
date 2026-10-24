@@ -43,6 +43,20 @@ def test_round():
     assert sign.verify(bad, pub).startswith("bad proof")
     other = subprocess.run([str(ROOT / "se/clear-review-signer"), "create", str(tmp / "o.key"), "--no-touch"], check=True, capture_output=True, text=True).stdout.strip()
     assert sign.verify(r, other) == "bad signature"
+    add = sign.build(sign.pick(cat, tmp / "reviews", ["f4.json"]), tmp / "reviews", 3, sign.ADD)
+    add["add"] = 1
+    assert add["passed"] == 5
+    add["signature"] = subprocess.run([str(ROOT / "se/clear-review-signer"), "sign", str(key), add["message"]], check=True, capture_output=True, text=True).stdout.strip()
+    assert sign.verify(add, pub) is None
+    bad = copy.deepcopy(add); del bad["add"]                     # an add never passes as a round
+    assert sign.verify(bad, pub) == "message does not match round, registry and root"
+    bad = copy.deepcopy(r); bad["add"] = 1                       # nor a round as an add
+    assert sign.verify(bad, pub) == "message does not match round, registry and root"
+    for w in ("f2.json", "f3.json", "nope.json"):                # failed, incomplete, unknown: never added
+        try:
+            sign.pick(cat, tmp / "reviews", [w]); assert False, w
+        except SystemExit:
+            pass
     one = sign.build({**cat, "descriptors": cat["descriptors"][:1]}, tmp / "reviews", 1)
     assert one["leaves"][0]["proof"] == [] and one["root"] == sign.leaf(1, "0x" + "00" * 20, "0x%064x" % 1).hex()
 

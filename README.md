@@ -27,6 +27,7 @@ No real key or round yet.
 ./review.py report               # REPORT.md
 ./sign.py keygen                 # once: the review key, in this Mac's Secure Enclave
 ./sign.py round                  # one Touch ID: rounds/<n>.json
+./sign.py add <file|hash>...     # between rounds, just these passed descriptors: adds/<round>-<k>.json
 ./sign.py verify                 # check the latest round
 ./test.py                        # offline tests
 ```
@@ -61,8 +62,8 @@ Optional: `SOURCIFY_TOKEN` (fewer 429s). Env: `REVIEWERS` (`claude,grok`), `MODE
 
 ## Why one signature per round, not one per descriptor
 
-Small devices check signatures slowly (the wedgie: ~2.2 s for one P-256 check in MicroPython). One signed root
-is checked once. After that, each descriptor is a Merkle proof: hashes only, fast.
+Small devices check signatures slowly (the wedgie: ~2.2 s for one P-256 check in MicroPython; its Trust M chip
+does it in hardware, not yet timed). One signed root is checked once. After that, each descriptor is a Merkle proof: hashes only, fast.
 The round number only goes up, so a wallet can refuse an old round.
 
 ## Formats
@@ -70,6 +71,7 @@ The round number only goes up, so a wallet can refuse an old round.
 - Leaf: `SHA-256(0x00 || chainId (8 bytes BE) || address (20) || descriptor hash (32))`
 - Node: `SHA-256(0x01 || smaller || bigger)`, odd one out goes up as is (same as wedgie-dev `release.py`).
 - Message: `"clear-review/v1\0" || round (4 bytes BE) || registry commit (20) || root (32)`.
+- Add: `"clear-review/add/v1\0" || round || registry commit || root of the added leaves`, same leaves and nodes.
 - Signature: ECDSA P-256 over SHA-256(message), `r || s`, 64 bytes.
 
 ## The key
@@ -84,6 +86,7 @@ The round number only goes up, so a wallet can refuse an old round.
 
 - Pin the review public key.
 - Get `rounds/<latest>.json`, check its signature once, keep the root.
+- Adds: take one only if its round is the one you hold; check it once, keep its root. A newer round drops them.
 - For each descriptor: check its proof against the root → show "🤖 checked".
   The leaf has the descriptor hash, so the wallet must know the hash of what it shows (ERC-8176; the wedgie's
   build has to carry it inside its signed data).
