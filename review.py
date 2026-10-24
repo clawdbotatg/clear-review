@@ -237,6 +237,10 @@ checked by a robot. Read the input description above with these changes:
   file was merged. A descriptor may have no test file at all: that is not a finding.
 - Older descriptors may still carry `context.contract.abi` or `context.eip712.schemas`; that is not a finding.
 - The deterministic checks ran at merge time. The same topics stay out of scope.
+- "What could not be reviewed" decides whether this descriptor can be marked checked, so write it only when
+  something missing kept you from checking an effect on the signer's assets: the code that runs is not in the
+  input, a source is unverified, a proxy does not resolve. Not a reason: deployments in other units, omitted
+  files you did not need, a missing test, a value read from storage. If nothing blocked you, leave it out.
 """
 
 
