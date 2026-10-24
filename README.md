@@ -62,8 +62,8 @@ Optional: `SOURCIFY_TOKEN` (fewer 429s). Env: `REVIEWERS` (`claude,grok`), `MODE
 
 ## Why one signature per round, not one per descriptor
 
-Small devices check signatures slowly (the wedgie: ~2.2 s for one P-256 check in MicroPython; its Trust M chip
-does it in hardware, not yet timed). One signed root is checked once. After that, each descriptor is a Merkle proof: hashes only, fast.
+Small devices check signatures slowly (the wedgie: 2.4 s for one P-256 check in MicroPython, 0.18 s on its
+Trust M chip). One signed root is checked once. After that, each descriptor is a Merkle proof: hashes only, fast.
 The round number only goes up, so a wallet can refuse an old round.
 
 ## Formats

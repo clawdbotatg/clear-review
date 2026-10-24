@@ -29,9 +29,9 @@ We copy Trezor (one root, refuse old ones) and add Ledger's one-at-a-time adds f
 ## The key
 
 - **P-256 (secp256r1), ECDSA over SHA-256.** It's the only curve that's fast on our hardware:
-  - The wedgie's Trust M chip checks P-256 in hardware (`optiga.verify`). Should take milliseconds. **Not yet timed**:
-    run the read-only probe below on an unlocked board that no browser has open.
-  - Without that chip: pure Python `p256.verify`, about 2.2 s on an RP2040, once per signature.
+  - The wedgie's Trust M chip checks P-256 in hardware: `optiga.verify`, **181 ms** (measured 10-24, real board,
+    `tools/timeprobe.py`; a tampered signature correctly fails).
+  - Without that chip: pure Python `p256.verify`, **2.4 s** on the same RP2040. Once per signature.
   - The Trust M has no secp256k1 or Ed25519, so those would be slow everywhere. The Secure Enclave only does P-256.
   - Hash-based signatures (WOTS/XMSS) only need hashes to check, but each key signs once, and the Secure Enclave
     can't hold them. Maybe later, for quantum safety.
@@ -100,8 +100,8 @@ Files:
 - An add for round n stays valid until round n+1 ships. To pull a bad add fast, ship a new round.
 - A pass means "two models found nothing critical", not an audit. See `REPORT.md` for what it catches and misses.
 
-## Timing probe (todo)
+## Timing probe
 
 `tools/timeprobe.py`: signs a test message with a throwaway key, then times `p256.verify` and `optiga.verify` on the
 board over raw REPL. Read only. The board must be unlocked, and no browser can have its port open.
-10-24: Chrome had the port open, so it hasn't run yet. Put the numbers in "The key" above once it has.
+10-24, real board: `p256.verify` 2,421 ms, `optiga.verify` 181 ms (and a tampered signature fails).
