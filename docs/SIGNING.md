@@ -40,8 +40,8 @@ We copy Trezor (one root, refuse old ones) and add Ledger's one-at-a-time adds f
   blob that only works on that one Mac. Losing the Mac means a new key and a wallet update.
 - Public key: `clear-review.pub` (65 bytes, `04 || X || Y`):
   `046547ba38ee30aa55b77c7308f93d5e70def2def67bc9ffff458f511e669a25de268adb3b274a9cdc9783cbc89302566529b52140523e419f51ba3fbf5ed9dac9`
-- Outside ERC-7730's wire format on purpose: the spec only lists secp256k1 and Ed25519 so far. If it adds P-256,
-  this can move into it.
+- Not an ERC-8176 attestation: those are secp256k1 (EAS), which hardware can't check fast. The wire format draft
+  doesn't pick a curve yet (research doc 27, gap 1). If it picks P-256, rounds can move into it.
 
 ## Formats
 

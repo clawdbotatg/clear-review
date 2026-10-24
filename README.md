@@ -82,8 +82,8 @@ Full detail (key, round, add, wallet rules, why P-256, how Ledger and Trezor com
 - P-256: fast on hardware wallets and secure elements.
 - Only for this. Made in and held by a Mac's Secure Enclave (`se/clear-review-signer.swift`): one Touch ID per round. The key file
   (`~/.clear-review/clear-review.key`) is wrapped by the Enclave and useless on any other machine. Public half: `clear-review.pub`.
-- This is outside the ERC-7730 wire format on purpose (the spec allows secp256k1 / Ed25519 only, so far).
-  If the spec adds P-256, rounds can move into it.
+- Not an ERC-8176 attestation (those are secp256k1). The wire format draft doesn't pick a curve yet;
+  if it picks P-256, rounds can move into it.
 
 ## For a wallet
 
