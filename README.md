@@ -7,7 +7,7 @@ neither finds anything critical. Passes are signed by one key, once per round.
 Any wallet can check that signature and show those descriptors as **🤖 checked**: between "audited" and
 "not audited". First user: the [wedgie](https://wedgie.dev) Safe Signer.
 
-Status 2026-10-24: review, sign and verify built and tested. Trial run on 20 audited + 3 known-bad descriptors.
+Status 2026-10-24: review, sign (rounds + adds) and verify built and tested. Trial run on 20 audited + 3 known-bad descriptors.
 No real key or round yet.
 
 ## Why
@@ -67,6 +67,9 @@ does it in hardware, not yet timed). One signed root is checked once. After that
 The round number only goes up, so a wallet can refuse an old round.
 
 ## Formats
+
+Full detail (key, round, add, wallet rules, why P-256, how Ledger and Trezor compare): [`docs/SIGNING.md`](docs/SIGNING.md).
+
 
 - Leaf: `SHA-256(0x00 || chainId (8 bytes BE) || address (20) || descriptor hash (32))`
 - Node: `SHA-256(0x01 || smaller || bigger)`, odd one out goes up as is (same as wedgie-dev `release.py`).
