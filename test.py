@@ -32,8 +32,8 @@ def test_round():
     r = sign.build(cat, tmp / "reviews", 3)
     assert r["passed"] == 1 + 2 + 5, r["passed"]
     key = tmp / "t.key"
-    pub = subprocess.run([str(ROOT / "se/key"), "create", str(key), "--no-touch"], check=True, capture_output=True, text=True).stdout.strip()
-    r["signature"] = subprocess.run([str(ROOT / "se/key"), "sign", str(key), r["message"]], check=True, capture_output=True, text=True).stdout.strip()
+    pub = subprocess.run([str(ROOT / "se/clear-review-signer"), "create", str(key), "--no-touch"], check=True, capture_output=True, text=True).stdout.strip()
+    r["signature"] = subprocess.run([str(ROOT / "se/clear-review-signer"), "sign", str(key), r["message"]], check=True, capture_output=True, text=True).stdout.strip()
     assert sign.verify(r, pub) is None
     bad = copy.deepcopy(r); bad["round"] = 2
     assert sign.verify(bad, pub) == "message does not match round, registry and root"
@@ -41,7 +41,7 @@ def test_round():
     assert sign.verify(bad, pub).startswith("bad proof")
     bad = copy.deepcopy(r); bad["leaves"][0]["chainId"] = 999
     assert sign.verify(bad, pub).startswith("bad proof")
-    other = subprocess.run([str(ROOT / "se/key"), "create", str(tmp / "o.key"), "--no-touch"], check=True, capture_output=True, text=True).stdout.strip()
+    other = subprocess.run([str(ROOT / "se/clear-review-signer"), "create", str(tmp / "o.key"), "--no-touch"], check=True, capture_output=True, text=True).stdout.strip()
     assert sign.verify(r, other) == "bad signature"
     one = sign.build({**cat, "descriptors": cat["descriptors"][:1]}, tmp / "reviews", 1)
     assert one["leaves"][0]["proof"] == [] and one["root"] == sign.leaf(1, "0x" + "00" * 20, "0x%064x" % 1).hex()

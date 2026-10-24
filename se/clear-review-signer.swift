@@ -1,9 +1,9 @@
 // The review key: P-256, made in and never leaving this Mac's Secure Enclave. The file it writes is the key
 // wrapped by the Enclave: useless on any other machine, and every signature asks for Touch ID (or the password).
 //
-//   key create <file> [--no-touch]   new key (--no-touch: no Touch ID, for tests only); prints the public key
-//   key pub <file>                   the public key: 04 || x || y, hex
-//   key sign <file> <hex message>    ECDSA P-256 over SHA-256(message): r || s, hex
+//   clear-review-signer create <file> [--no-touch]   new key (--no-touch: no Touch ID, for tests only); prints the public key
+//   clear-review-signer pub <file>                   the public key: 04 || x || y, hex
+//   clear-review-signer sign <file> <hex message>    ECDSA P-256 over SHA-256(message): r || s, hex
 import CryptoKit
 import Foundation
 import LocalAuthentication
@@ -17,7 +17,7 @@ func unhex(_ s: String) -> Data {
 }
 
 let a = CommandLine.arguments
-guard a.count >= 3, SecureEnclave.isAvailable else { die("usage: key create|pub|sign <file> ... (needs a Secure Enclave)") }
+guard a.count >= 3, SecureEnclave.isAvailable else { die("usage: clear-review-signer create|pub|sign <file> ... (needs a Secure Enclave)") }
 let file = URL(fileURLWithPath: a[2])
 do {
     switch a[1] {
@@ -32,7 +32,7 @@ do {
     case "pub":
         print(hex(try SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: Data(contentsOf: file)).publicKey.x963Representation))
     case "sign":
-        guard a.count == 4 else { die("usage: key sign <file> <hex message>") }
+        guard a.count == 4 else { die("usage: clear-review-signer sign <file> <hex message>") }
         let ctx = LAContext()
         ctx.localizedReason = "sign a clear-review round"
         let k = try SecureEnclave.P256.Signing.PrivateKey(dataRepresentation: Data(contentsOf: file), authenticationContext: ctx)

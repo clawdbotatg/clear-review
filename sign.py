@@ -4,21 +4,21 @@
 # ///
 # One signed Merkle root per round over every descriptor deployment the robot review passed.
 #
-#   ./sign.py keygen                     make the review key in this Mac's Secure Enclave (Touch ID), write key.pub
+#   ./sign.py keygen                     make the review key in this Mac's Secure Enclave (Touch ID), write clear-review.pub
 #   ./sign.py round                      build the tree from work/catalog.json + reviews/, sign it (one Touch ID),
 #                                        write rounds/<n>.json
-#   ./sign.py verify [rounds/<n>.json]   check the signature against key.pub and every proof (default: latest)
+#   ./sign.py verify [rounds/<n>.json]   check the signature against clear-review.pub and every proof (default: latest)
 #
 # Leaf    = SHA-256(0x00 || chainId, 8 bytes big-endian || address, 20 bytes || descriptor hash, 32 bytes)
 # Node    = SHA-256(0x01 || the smaller hash || the bigger); an odd one out goes up as is (as wedgie-dev release.py)
 # Message = "clear-review/v1\0" || round, 4 bytes big-endian || registry commit, 20 bytes || root, 32 bytes
-# Signature: ECDSA P-256 over SHA-256(message), r || s. Env: KEY (default ~/.clear-review/review.key).
+# Signature: ECDSA P-256 over SHA-256(message), r || s. Env: KEY (default ~/.clear-review/clear-review.key).
 import hashlib, json, os, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-KEY = Path(os.environ.get("KEY", Path.home() / ".clear-review/review.key"))
-PUB = ROOT / "key.pub"
+KEY = Path(os.environ.get("KEY", Path.home() / ".clear-review/clear-review.key"))
+PUB = ROOT / "clear-review.pub"
 ROUNDS = ROOT / "rounds"
 MAGIC = b"clear-review/v1\x00"
 
@@ -109,15 +109,15 @@ def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "keygen":
         KEY.parent.mkdir(parents=True, exist_ok=True)
-        pub = subprocess.run([str(ROOT / "se/key"), "create", str(KEY)], check=True, capture_output=True, text=True).stdout.strip()
+        pub = subprocess.run([str(ROOT / "se/clear-review-signer"), "create", str(KEY)], check=True, capture_output=True, text=True).stdout.strip()
         PUB.write_text(pub + "\n")
-        print("key.pub:", pub)
+        print("clear-review.pub:", pub)
     elif cmd == "round":
         last = latest()
         rnd = int(last.stem) + 1 if last else 1
         r = build(json.loads((ROOT / "work/catalog.json").read_text()), ROOT / "reviews", rnd)
         r["key"] = PUB.read_text().strip()
-        sig = subprocess.run([str(ROOT / "se/key"), "sign", str(KEY), r["message"]], check=True, capture_output=True, text=True)
+        sig = subprocess.run([str(ROOT / "se/clear-review-signer"), "sign", str(KEY), r["message"]], check=True, capture_output=True, text=True)
         r["signature"] = sig.stdout.strip()
         err = verify(r, r["key"])
         if err:

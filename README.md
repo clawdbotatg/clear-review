@@ -75,8 +75,8 @@ The round number only goes up, so a wallet can refuse an old round.
 ## The key
 
 - P-256: fast on hardware wallets and secure elements.
-- Only for this. Made in and held by a Mac's Secure Enclave (`se/key.swift`): one Touch ID per round. The key file
-  (`~/.clear-review/review.key`) is wrapped by the Enclave and useless on any other machine. Public half: `key.pub`.
+- Only for this. Made in and held by a Mac's Secure Enclave (`se/clear-review-signer.swift`): one Touch ID per round. The key file
+  (`~/.clear-review/clear-review.key`) is wrapped by the Enclave and useless on any other machine. Public half: `clear-review.pub`.
 - This is outside the ERC-7730 wire format on purpose (the spec allows secp256k1 / Ed25519 only, so far).
   If the spec adds P-256, rounds can move into it.
 
@@ -93,7 +93,7 @@ The round number only goes up, so a wallet can refuse an old round.
 
 1. ~~`review.py`: one descriptor in, a record out.~~ Trial: 20 audited, 3 known-bad (see REPORT.md).
 2. Run the whole registry. Read a sample of passes and fails by hand.
-3. ~~`sign.py`: build the tree, sign the root with the Secure Enclave key, write the round.~~ Needs `keygen` (Austin, Touch ID).
+3. ~~`sign.py`: build the tree, sign the root with the Secure Enclave key, write the round.~~ Key made 10-24 (`clear-review.pub`).
 4. wedgie: Safe Signer checks the round (wedgie-dev `docs/PLAN-ROBOT-REVIEW.md`).
 5. File the failures upstream.
 
