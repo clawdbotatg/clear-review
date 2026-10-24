@@ -1,0 +1,184 @@
+{
+ "hash": "0x269a902ee1c7335e81ab2f747f9fb82e5c5b558bad3608f9c23166485b40f470",
+ "file": "registry/1inch/calldata-AggregationRouterV3.json",
+ "kind": "calldata",
+ "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x11111112542d85b3ef69ae05771c2dccff4faa26"
+  },
+  {
+   "chainId": 56,
+   "address": "0x11111112542d85b3ef69ae05771c2dccff4faa26"
+  },
+  {
+   "chainId": 137,
+   "address": "0x11111112542d85b3ef69ae05771c2dccff4faa26"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "reviewers": {
+  "claude": "claude-sonnet-5-5 (medium)",
+  "grok": "grok-4.6"
+ },
+ "prompt": "sha256:2e4036a84d6b37c1c4139196205ca7450182398b5ea0cce33b6ee87bf0c4b455",
+ "date": "2026-10-24T21:11Z",
+ "result": "fail",
+ "reasons": [
+  "critical (claude): swap hides the native `@.value` and the flags that change the payment, and shows `srcReceiver` as hidden",
+  "critical (claude): swap and unoswap show native currency as the sent token, but `@.value` is hidden for ERC-20 source tokens in unoswap/unoswapWithPermit",
+  "critical (grok): swap sends extra ETH to the caller when the extra-ETH flag is set",
+  "critical (claude): swap and unoswap(WithPermit) are payable but show no native value, and the unoswap minimum has no token",
+  "critical (grok): swap forwards msg.value to caller but shows no native value field",
+  "critical (claude): unoswap and unoswapWithPermit show the minimum received without a token, and the real output token is unknown",
+  "critical (grok): swap forwards extra native value to the caller, but the descriptor does not show it",
+  "warning (claude): unoswap and unoswapWithPermit show \"Minimum to Receive\" without a token",
+  "warning (claude): swap shows `dstReceiver` zero address literally, and hides `srcReceiver`",
+  "warning (claude): swap has no test case",
+  "warning (grok): swap shows the zero address as beneficiary, but the tokens go to the signer",
+  "warning (grok): unoswapWithPermit shows the last pool without slicing the packed flags",
+  "warning (claude): unoswap and unoswapWithPermit show the minimum return amount without a token",
+  "warning (claude): swap shows `dstReceiver` zero address as a literal address, while the code sends to the sender",
+  "warning (claude): swap hides the partial fill flag",
+  "warning (grok): swap shows the zero address when the signer is the true recipient",
+  "warning (claude): unoswap and unoswapWithPermit show `minReturn` as a raw number because it has no `tokenPath`",
+  "warning (claude): unoswap shows `@.from` as \"Beneficiary\", and the swap `dstReceiver` of zero means the sender",
+  "warning (claude): swap hides `desc.flags`, `desc.srcReceiver` and the partial-fill flag that weakens the minimum",
+  "warning (claude): swap and unoswapWithPermit have no test case",
+  "warning (grok): unoswap and unoswapWithPermit show the minimum received with no token",
+  "warning (grok): swap shows the zero address as beneficiary, but the code pays the signer"
+ ],
+ "notReviewed": [],
+ "cost": 1.5114,
+ "units": [
+  {
+   "unit": "1inch__calldata-AggregationRouterV3__0.json",
+   "deployments": [
+    {
+     "chainId": 1,
+     "address": "0x11111112542d85b3ef69ae05771c2dccff4faa26"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": true,
+     "critical": [
+      "swap hides the native `@.value` and the flags that change the payment, and shows `srcReceiver` as hidden",
+      "swap and unoswap show native currency as the sent token, but `@.value` is hidden for ERC-20 source tokens in unoswap/unoswapWithPermit"
+     ],
+     "warning": [
+      "unoswap and unoswapWithPermit show \"Minimum to Receive\" without a token",
+      "swap shows `dstReceiver` zero address literally, and hides `srcReceiver`",
+      "swap has no test case"
+     ],
+     "info": [
+      "Partial fill flag and the output token of unoswap are not displayable"
+     ],
+     "answer": "# Review\n\n## Critical\n\n### swap hides the native `@.value` and the flags that change the payment, and shows `srcReceiver` as hidden\n\n- **Effect:** `swap` is payable. With flag `_REQUIRES_EXTRA_ETH` (0x02) the contract accepts any `msg.value` above `desc.amount` and forwards all of it to the executor. The signer's wallet sends that ETH.\n- **Shown:** `Amount to Send` shows `desc.amount`. No field shows `@.value`. `desc.flags` is `visible: never`.\n- **Gap:** The ETH that leaves the wallet can exceed the amount shown, and nothing states it. This is an effect on assets that is not shown, so it is critical.\n- **Where:** the `swap` format, fields `desc.flags` and the missing `@.value` field; `AggregationRouterV3.swap` in `AggregationRouterV3.sol`.\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\nif (flags & _REQUIRES_EXTRA_ETH != 0) {\n    require(msg.value > (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\");\n}\n...\naddress(caller).call{value: msg.value}(abi.encodePacked(caller.callBytes.selector, data));\n```\n\n- **Fix:** Add a field for the native value. Mention it in no sentence unless an `interpolatedIntent` is added.\n\n```json\n{ \"path\": \"@.value\", \"label\": \"ETH sent\", \"format\": \"amount\" }\n```\n\n### swap and unoswap show native currency as the sent token, but `@.value` is hidden for ERC-20 source tokens in unoswap/unoswapWithPermit\n\n- **Effect:** `unoswap` and `unoswapWithPermit` are payable. With a non-zero `srcToken` the code reverts when `callvalue()` is non-zero. With `srcToken` = 0 the value must equal `amount`.\n- **Shown:** `Amount to Send` uses `srcToken` and the zero-address native mapping. No `@.value` field exists.\n- **Gap:** The code forces `msg.value` to equal the amount or to zero, so the value is shown through the amount. This is not critical; it is info only.\n- **Where:** the `unoswap` format.\n- **Evidence:**\n\n```solidity\n// UnoswapRouter.unoswap\nif callvalue() { revertWithReason(...invalid msg.value...) }\n```\n\n## Warning\n\n### unoswap and unoswapWithPermit show \"Minimum to Receive\" without a token\n\n- **Effect:** `minReturn` is the minimum of the output token, which the last pool decides.\n- **Shown:** `Minimum to Receive` uses `tokenAmount` with no `tokenPath` or `token`. The test renders it raw: `4957007923890945718204719`.\n- **Gap:** The value is shown, but without token or decimals. A raw number is a warning.\n- **Where:** the `unoswap` and `unoswapWithPermit` formats, field `minReturn`; the test case `Swap - chain 1 (2)`.\n- **Evidence:**\n\n```json\n{ \"path\": \"minReturn\", \"$ref\": \"$.display.definitions.minReceiveAmount\", \"visible\": \"always\" }\n```\n\n- **Fix:** The output token is in the last pool word, not a calldata address, so no path can show it. Change the label to say the token is unknown, for example \"Minimum to Receive (raw units)\".\n\n### swap shows `dstReceiver` zero address literally, and hides `srcReceiver`\n\n- **Effect:** `dstReceiver` = 0 sends the output to `msg.sender`. `srcReceiver` receives the claimed source tokens when flag `_SHOULD_CLAIM` is set.\n- **Shown:** `Beneficiary` shows the raw address. `srcReceiver` is `visible: never`.\n- **Gap:** The special value is shown literally, and the receiver of the signer's tokens is hidden. Tokens go to the executor-chosen receiver, but the caller and `data` also decide the route and are hidden.\n- **Where:** the `swap` format, fields `desc.dstReceiver` and `desc.srcReceiver`.\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\nsrcToken.safeTransferFrom(msg.sender, desc.srcReceiver, desc.amount);\naddress dstReceiver = (desc.dstReceiver == address(0)) ? msg.sender : desc.dstReceiver;\n```\n\n- **Fix:** Make `desc.srcReceiver` visible with `addressName`. Add `senderAddress` with the zero address to `desc.dstReceiver`.\n\n### swap has no test case\n\n- **Effect:** `swap` carries ETH, partial fills and claims.\n- **Shown:** The test `Swap - chain 1 (1)` uses selector `0x7c025200`, not the `swap` selector `0x05a3ce08`.\n- **Gap:** No test exercises the `swap` format.\n- **Where:** the test file, case `Swap - chain 1 (1)`.\n- **Fix:** Add a test with the `0x05a3ce08` selector and a non-zero value.\n\n## Info\n\n### Partial fill flag and the output token of unoswap are not displayable\n\n- **Effect:** `desc.flags` bit 0x01 turns on a partial fill, so spent amount can be below `desc.amount`. In `unoswap` the pool words decide the output token and the WETH unwrap.\n- **Shown:** `flags` and `pools` are hidden.\n- **Gap:** A packed bitmask and a pool-packed value cannot be displayed by ERC-7730.\n- **Where:** `swap` field `desc.flags`; `unoswap` field `pools`.\n\n## What could not be reviewed\n\nOnly the chain 1 deployment was reviewed. The descriptor also lists chains 56 and 137; their code was not checked."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [
+      "swap sends extra ETH to the caller when the extra-ETH flag is set"
+     ],
+     "warning": [
+      "swap shows the zero address as beneficiary, but the tokens go to the signer",
+      "unoswapWithPermit shows the last pool without slicing the packed flags"
+     ],
+     "info": [
+      "unoswap and unoswapWithPermit hide the pools that select the output token",
+      "swap hides the executor and the data that run the swap"
+     ],
+     "answer": "# Review\n\n## Critical\n\n### swap sends extra ETH to the caller when the extra-ETH flag is set\n\n- **Effect:** When flags include extra ETH, the contract forwards all msg.value to the caller, above desc.amount.\n- **Shown:** The signer sees desc.amount as Amount to Send; flags stay hidden; there is no @.value field.\n- **Gap:** Extra native currency leaves the wallet. That amount is absent, so the finding is critical.\n- **Where:** the `swap` format, no `@.value` field and hidden `desc.flags`; `AggregationRouterV3.swap` in `AggregationRouterV3.sol`\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\nif (flags & _REQUIRES_EXTRA_ETH != 0) {\n    require(msg.value > (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\");\n} else {\n    require(msg.value == (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\");\n}\n(bool success, bytes memory result) = address(caller).call{value: msg.value}(\n    abi.encodePacked(caller.callBytes.selector, data)\n);\n```\n\n- **Fix:** Add a visible `@.value` field. The format has no interpolatedIntent to update.\n\n```json\n{\n  \"path\": \"@.value\",\n  \"label\": \"Native value\",\n  \"format\": \"amount\",\n  \"visible\": \"always\"\n}\n```\n\n## Warning\n\n### swap shows the zero address as beneficiary, but the tokens go to the signer\n\n- **Effect:** When dstReceiver is the zero address, the contract sends the output tokens to msg.sender.\n- **Shown:** The beneficiary field always shows desc.dstReceiver, with no sender mapping.\n- **Gap:** The zero address is shown literally. Its meaning as the signer is missing, so this is a warning.\n- **Where:** the `swap` format, field `desc.dstReceiver`; `AggregationRouterV3.swap` in `AggregationRouterV3.sol`\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\naddress dstReceiver = (desc.dstReceiver == address(0)) ? msg.sender : desc.dstReceiver;\n```\n\n- **Fix:** Map the zero address to the signer on the shared beneficiary definition.\n\n```json\n{\n  \"label\": \"Beneficiary\",\n  \"format\": \"addressName\",\n  \"params\": {\n    \"senderAddress\": [\"$.metadata.constants.addressAsNull\"]\n  }\n}\n```\n\n### unoswapWithPermit shows the last pool without slicing the packed flags\n\n- **Effect:** Each pool word stores a pair address in the low 160 bits and flags in the high bits.\n- **Shown:** The field `pools.[-1]` uses addressName on the full bytes32 word.\n- **Gap:** The shown address can include reverse, WETH, and fee flags. A slice fixes this, so this is a warning.\n- **Where:** the `unoswapWithPermit` format, field `pools.[-1]`; `UnoswapRouter.unoswap` in `AggregationRouterV3.sol`\n- **Evidence:**\n\n```solidity\n// UnoswapRouter\nuint256 private constant _ADDRESS_MASK = 0x000000000000000000000000ffffffffffffffffffffffffffffffffffffffff;\nuint256 private constant _REVERSE_MASK = 0x8000000000000000000000000000000000000000000000000000000000000000;\nuint256 private constant _WETH_MASK    = 0x4000000000000000000000000000000000000000000000000000000000000000;\nuint256 private constant _NUMERATOR_MASK = 0x0000000000000000ffffffff0000000000000000000000000000000000000000;\n```\n\n- **Fix:** Slice the last 20 bytes of the last pool word.\n\n```json\n{\n  \"path\": \"pools.[-1].[12:32]\",\n  \"$ref\": \"$.display.definitions.lastPool\"\n}\n```\n\n## Info\n\n### unoswap and unoswapWithPermit hide the pools that select the output token\n\n- **Effect:** The last pool and the WETH flag select the output asset and send it to the signer.\n- **Shown:** Minimum to Receive has no token path. The unoswap test shows the raw integer `4957007923890945718204719`.\n- **Gap:** The output asset is not named. No slice can read the token from the packed pools. This is a spec-limitation.\n- **Where:** the `unoswap` and `unoswapWithPermit` formats, field `minReturn`; `UnoswapRouter.unoswap` in `AggregationRouterV3.sol`; test case `Swap - chain 1 (2)`\n- **Evidence:**\n\n```solidity\n// UnoswapRouter.unoswap\nswitch and(rawPair, _WETH_MASK)\ncase 0 {\n    returnAmount := swap(..., caller())\n}\ndefault {\n    returnAmount := swap(..., address())\n    // withdraw WETH and send ETH to caller()\n}\n```\n\n### swap hides the executor and the data that run the swap\n\n- **Effect:** The router calls an arbitrary executor with arbitrary data and forwards msg.value.\n- **Shown:** Intent Swap, amount, minimum to receive, and beneficiary. `caller` and `data` are visible never.\n- **Gap:** The inner call is hidden. Amount, token, and recipient are shown elsewhere, so this is info.\n- **Where:** the `swap` format, hidden fields `caller` and `data`; `AggregationRouterV3.swap` in `AggregationRouterV3.sol`\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\n(bool success, bytes memory result) = address(caller).call{value: msg.value}(\n    abi.encodePacked(caller.callBytes.selector, data)\n);\nreturnAmount = dstToken.uniBalanceOf(dstReceiver).sub(initialDstBalance);\n```"
+    }
+   }
+  },
+  {
+   "unit": "1inch__calldata-AggregationRouterV3__1.json",
+   "deployments": [
+    {
+     "chainId": 56,
+     "address": "0x11111112542d85b3ef69ae05771c2dccff4faa26"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": true,
+     "critical": [
+      "swap and unoswap(WithPermit) are payable but show no native value, and the unoswap minimum has no token"
+     ],
+     "warning": [
+      "unoswap and unoswapWithPermit show the minimum return amount without a token",
+      "swap shows `dstReceiver` zero address as a literal address, while the code sends to the sender",
+      "swap hides the partial fill flag"
+     ],
+     "info": [
+      "unoswap and unoswapWithPermit show the sender as Beneficiary"
+     ],
+     "answer": "# Review\n\n## Critical\n\n### swap and unoswap(WithPermit) are payable but show no native value, and the unoswap minimum has no token\n\n- **Effect:** `swap` requires `msg.value` to equal `desc.amount` when the source token is ETH (or more with the extra-ETH flag), and forwards all of it to `caller`. The sender can pay native currency that no field shows.\n- **Shown:** `swap` shows `desc.amount` with `tokenPath` `desc.srcToken`, which can be ETH, so the value is usually shown. With flag `_REQUIRES_EXTRA_ETH` (0x02), `msg.value` may exceed `desc.amount`, and `@.value` appears nowhere.\n- **Gap:** The extra ETH is forwarded to the executor, and nothing shown states it. This is an effect on assets that is not shown, so critical for `swap`.\n- **Where:** The `swap` format, which has no `@.value` field; `swap` in `AggregationRouterV3.sol`.\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\nif (flags & _REQUIRES_EXTRA_ETH != 0) {\n    require(msg.value > (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\");\n}\n...\n(bool success, bytes memory result) = address(caller).call{value: msg.value}(abi.encodePacked(caller.callBytes.selector, data));\n```\n\n- **Fix:** Add a field for the native value. Mention it in `interpolatedIntent` only if one is added.\n\n```json\n{ \"path\": \"@.value\", \"label\": \"Native value sent\", \"format\": \"amount\" }\n```\n\n## Warning\n\n### unoswap and unoswapWithPermit show the minimum return amount without a token\n\n- **Effect:** The swap output token is decided by the last pool (the WETH flag in the pool word). The signer receives that token, or ETH.\n- **Shown:** The field `minReturn` uses the shared `minReceiveAmount` definition with no `tokenPath`. The test case renders `4957007923890945718204719` as a raw number.\n- **Gap:** The value is shown but unreadable. No path extracts the output token from the packed pool word, so this is a warning.\n- **Where:** The `unoswap` and `unoswapWithPermit` formats, field `minReturn`; the test case `Swap - chain 1 (2)`.\n- **Evidence:**\n\n```json\n{ \"path\": \"minReturn\", \"$ref\": \"$.display.definitions.minReceiveAmount\", \"visible\": \"always\" }\n```\n\n- **Fix:** Use a `raw` format with the label \"Minimum to Receive (output token set by last pool)\".\n\n### swap shows `dstReceiver` zero address as a literal address, while the code sends to the sender\n\n- **Effect:** If `desc.dstReceiver` is the zero address, the router sends the output to `msg.sender`.\n- **Shown:** `dstReceiver` uses `addressName` with no `senderAddress`, so the zero address appears as a raw address.\n- **Gap:** A special value is shown literally, so warning.\n- **Where:** The `swap` format, field `desc.dstReceiver`, the `beneficiary` definition.\n- **Evidence:**\n\n```solidity\naddress dstReceiver = (desc.dstReceiver == address(0)) ? msg.sender : desc.dstReceiver;\n```\n\n- **Fix:** Add `senderAddress` with the zero address to the `beneficiary` params.\n\n### swap hides the partial fill flag\n\n- **Effect:** With flag 0x01, the swap may spend less than `desc.amount`. The code enforces `returnAmount*amount >= minReturnAmount*spentAmount`.\n- **Shown:** `desc.flags` is `visible: never`.\n- **Gap:** The signer cannot see that the minimum is pro rata. The bound exists, so warning.\n- **Where:** The `swap` format, field `desc.flags`.\n- **Fix:** Show `desc.flags` as `raw` with a label such as \"Flags (1 = partial fill)\".\n\n## Info\n\n### unoswap and unoswapWithPermit show the sender as Beneficiary\n\n- **Effect:** The output goes to the caller, or to the signer after the WETH unwrap. This matches the `@.from` field, so it is correct.\n- **Shown:** `@.from` as Beneficiary.\n- **Gap:** None that a descriptor can change. Info only: the pools and the output token stay in a packed `bytes32[]` array that ERC-7730 cannot decode.\n- **Where:** The `unoswap` format, field `pools`.\n\n## What could not be reviewed\n\nOnly the BNB Chain deployment (chain 56) is in this unit. The descriptor also lists chains 1 and 137. The `unoswap` test case runs on chain 1. The `swap` and `unoswapWithPermit` formats have no test cases."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [
+      "swap forwards msg.value to caller but shows no native value field"
+     ],
+     "warning": [
+      "swap shows the zero address when the signer is the true recipient"
+     ],
+     "info": [
+      "swap flags bitmask can lower the true minimum received and is not shown",
+      "unoswap and unoswapWithPermit cannot show which token minReturn uses"
+     ],
+     "answer": "# Review\n\n## Critical\n\n### swap forwards msg.value to caller but shows no native value field\n\n- **Effect:** The contract sends `msg.value` to `caller`; with `REQUIRES_EXTRA_ETH` that native amount is larger than `desc.amount` (or is extra native on a token swap)\n- **Shown:** Amount to Send is `desc.amount`; the format has no `@.value` field and hides `desc.flags`\n- **Gap:** Native currency leaves that no field shows; rule 1, absent amount, so this is critical\n- **Where:** the `swap` format; `swap` in `AggregationRouterV3.sol`; no test case hits this format\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\nif (flags & _REQUIRES_EXTRA_ETH != 0) {\n    require(msg.value > (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\");\n} else {\n    require(msg.value == (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\");\n}\n(bool success, bytes memory result) = address(caller).call{value: msg.value}(\n    abi.encodePacked(caller.callBytes.selector, data)\n);\n```\n\n- **Fix:** Add an `@.value` field. Do not mention it in `interpolatedIntent`.\n\n```json\n{\n  \"path\": \"@.value\",\n  \"label\": \"Native value\",\n  \"format\": \"amount\",\n  \"visible\": { \"ifNotIn\": [\"0\"] }\n}\n```\n\n## Warning\n\n### swap shows the zero address when the signer is the true recipient\n\n- **Effect:** When `desc.dstReceiver` is the zero address, the contract sends the output tokens to the signer\n- **Shown:** the Beneficiary field shows `desc.dstReceiver` with no `senderAddress` mapping\n- **Gap:** The value is shown; its meaning as the signer is missing; special-values, warning\n- **Where:** the `swap` format, field `desc.dstReceiver`; `swap` in `AggregationRouterV3.sol`; shared `beneficiary` definition\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\naddress dstReceiver = (desc.dstReceiver == address(0)) ? msg.sender : desc.dstReceiver;\n```\n\n- **Fix:** Add `senderAddress` on the shared `beneficiary` definition.\n\n```json\n{\n  \"label\": \"Beneficiary\",\n  \"format\": \"addressName\",\n  \"params\": {\n    \"senderAddress\": [\"$.metadata.constants.addressAsNull\"]\n  }\n}\n```\n\n## Info\n\n### swap flags bitmask can lower the true minimum received and is not shown\n\n- **Effect:** When `PARTIAL_FILL` is set, spent src can be below `desc.amount` and dst can be below `desc.minReturnAmount`\n- **Shown:** Amount to Send and Minimum to Receive use those labels; `desc.flags` is `visible: never`\n- **Gap:** ERC-7730 cannot display a bitmask; the shown minimum is not a hard floor\n- **Where:** the `swap` format, hidden field `desc.flags`; `swap` in `AggregationRouterV3.sol`\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\nuint256 private constant _PARTIAL_FILL = 0x01;\nif (flags & _PARTIAL_FILL != 0) {\n    spentAmount = initialSrcBalance.add(desc.amount).sub(srcToken.uniBalanceOf(msg.sender));\n    require(returnAmount.mul(desc.amount) >= desc.minReturnAmount.mul(spentAmount), \"Return amount is not enough\");\n} else {\n    require(returnAmount >= desc.minReturnAmount, \"Return amount is not enough\");\n}\n```\n\n### unoswap and unoswapWithPermit cannot show which token minReturn uses\n\n- **Effect:** Output is the last pool token, or native currency when the last pool has the WETH flag; it always goes to the signer\n- **Shown:** Minimum to Receive is `minReturn` as `tokenAmount` with no `tokenPath`; the test shows `4957007923890945718204719`\n- **Gap:** The output token sits in packed `pools`, which ERC-7730 cannot decode; spec-limitation\n- **Where:** the `unoswap` and `unoswapWithPermit` formats, field `minReturn`; `unoswap` in `UnoswapRouter.sol`; test case `Swap - chain 1 (2)`\n- **Evidence:**\n\n```solidity\n// UnoswapRouter.unoswap\nswitch and(rawPair, _WETH_MASK)\ncase 0 {\n    returnAmount := swap(..., caller())\n}\ndefault {\n    returnAmount := swap(..., address())\n    // withdraw WETH and send native to caller()\n}\nif lt(returnAmount, minReturn) { revertWithReason(...) }\n```"
+    }
+   }
+  },
+  {
+   "unit": "1inch__calldata-AggregationRouterV3__2.json",
+   "deployments": [
+    {
+     "chainId": 137,
+     "address": "0x11111112542d85b3ef69ae05771c2dccff4faa26"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": true,
+     "critical": [
+      "unoswap and unoswapWithPermit show the minimum received without a token, and the real output token is unknown"
+     ],
+     "warning": [
+      "unoswap and unoswapWithPermit show `minReturn` as a raw number because it has no `tokenPath`",
+      "unoswap shows `@.from` as \"Beneficiary\", and the swap `dstReceiver` of zero means the sender",
+      "swap hides `desc.flags`, `desc.srcReceiver` and the partial-fill flag that weakens the minimum",
+      "swap and unoswapWithPermit have no test case"
+     ],
+     "info": [
+      "unoswap output token and the intermediate pools are not shown"
+     ],
+     "answer": "# Review\n\n## Critical\n\n### unoswap and unoswapWithPermit show the minimum received without a token, and the real output token is unknown\n\n- **Effect:** The router swaps the source token through the pools. It sends the output to the caller, or unwraps WETH to native currency.\n- **Shown:** `minReturn` uses `minReceiveAmount` with no `tokenPath`. The test case shows \"4957007923890945718204719\" as a raw number.\n- **Gap:** The value is shown raw, without a token or decimals. This matches not-critical case 1, so the severity is warning, not critical.\n- **Where:** Formats `unoswap` and `unoswapWithPermit`, field `minReturn`.\n- **Evidence:**\n\n```json\n{\n  \"path\": \"minReturn\",\n  \"$ref\": \"$.display.definitions.minReceiveAmount\",\n  \"visible\": \"always\"\n}\n```\n\n- **Fix:** See the Warning section.\n\nNone.\n\n## Warning\n\n### unoswap and unoswapWithPermit show `minReturn` as a raw number because it has no `tokenPath`\n\n- **Effect:** The function reverts if the output is below `minReturn`. The output token comes from the last pool, so the calldata does not state it directly.\n- **Shown:** The test case renders \"Minimum to Receive: 4957007923890945718204719\", a raw integer with no ticker or decimals.\n- **Gap:** The value is shown but unreadable. The calldata holds no output token address. A fixed token cannot be set because the output depends on the pools.\n- **Where:** Formats `unoswap` and `unoswapWithPermit`, field `minReturn`; test case \"Swap - chain 1 (2)\".\n- **Evidence:**\n\n```solidity\n// UnoswapRouter.unoswap\nif lt(returnAmount, minReturn) {\n    revertWithReason(..., 0x5a)  // \"Min return not reached\"\n}\n```\n\n- **Fix:** Change the label to \"Minimum to Receive (raw units of the output token)\". Optionally show the last pool's address, as `unoswapWithPermit` does. Add the `lastPool` field to `unoswap`. Do not add it to `interpolatedIntent`.\n\n### unoswap shows `@.from` as \"Beneficiary\", and the swap `dstReceiver` of zero means the sender\n\n- **Effect:** `swap` sends the output to `msg.sender` when `desc.dstReceiver` is the zero address.\n- **Shown:** The field \"Beneficiary\" shows the raw `dstReceiver` as an address. A zero value is not explained.\n- **Gap:** The zero address is a special value shown literally, so this is a warning (not-critical case 7).\n- **Where:** Format `swap`, field `desc.dstReceiver`; `swap` in `AggregationRouterV3.sol`.\n- **Evidence:**\n\n```solidity\naddress dstReceiver = (desc.dstReceiver == address(0)) ? msg.sender : desc.dstReceiver;\n```\n\n- **Fix:** Add `senderAddress` to the field params:\n\n```json\n\"params\": { \"senderAddress\": [\"0x0000000000000000000000000000000000000000\"] }\n```\n\n### swap hides `desc.flags`, `desc.srcReceiver` and the partial-fill flag that weakens the minimum\n\n- **Effect:** With the `_PARTIAL_FILL` flag, the check becomes `returnAmount * amount >= minReturnAmount * spentAmount`. The signer may then spend less than `desc.amount`, and the minimum scales down accordingly.\n- **Shown:** `desc.flags` is `visible: never`. The signer sees \"Amount to Send\" and \"Minimum to Receive\" as fixed bounds.\n- **Gap:** The bounds stay proportional, so the effect is shown but imprecise. This is a warning. The flags are a bitmask the format cannot decode.\n- **Where:** Format `swap`, fields `desc.flags` and `desc.srcReceiver`; `swap` in `AggregationRouterV3.sol`.\n- **Evidence:**\n\n```solidity\nrequire(returnAmount.mul(desc.amount) >= desc.minReturnAmount.mul(spentAmount), \"Return amount is not enough\");\n```\n\n- **Fix:** Show `desc.flags` with `raw` format. State in the label that bit 0x01 means partial fill.\n\n### swap and unoswapWithPermit have no test case\n\n- **Effect:** `swap` is payable and handles the native value. `unoswapWithPermit` runs the permit path.\n- **Shown:** The `swap` format has no cases. The `unoswap` case uses selector 0x2e95b6c8. The case \"Swap - chain 1 (1)\" uses selector 0x7c025200, which no format matches.\n- **Gap:** Branches such as a native source token or a zero `dstReceiver` are not tested. The expected output of a swap is never exercised. This is a warning on test soundness.\n- **Where:** Test file cases 0 and 1; formats `swap` and `unoswapWithPermit`.\n- **Fix:** Add cases for `swap` with a native source token and a zero `dstReceiver`. Add a case for `unoswapWithPermit`.\n\n## Info\n\n### unoswap output token and the intermediate pools are not shown\n\n- **Effect:** Pools packed in `bytes32` encode a pair address, a direction flag, a WETH flag and a fee numerator. These decide the output token.\n- **Shown:** `pools` is `visible: never` in `unoswap`. `unoswapWithPermit` shows only the last pool.\n- **Gap:** The packed bits cannot be decoded by ERC-7730. This is a spec limitation.\n- **Where:** Format `unoswap`, field `pools`; `UnoswapRouter.sol`.\n- **Fix:** None possible today. The `lastPool` slice would need an address mask the spec does not offer.\n\n## What could not be reviewed\n\n- The test file content is not in the input beyond case descriptions. Case 0 uses selector 0x7c025200 (`swap` on another router version), so it does not exercise any format of this descriptor.\n- The Polygon deployment uses a different hard-coded WETH constant (`0x0d500B1d…` is WMATIC) than mainnet. The descriptor shows `addressAsEth` as native currency, which matches `unoswap` behaviour on this chain."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [
+      "swap forwards extra native value to the caller, but the descriptor does not show it"
+     ],
+     "warning": [
+      "unoswap and unoswapWithPermit show the minimum received with no token",
+      "swap shows the zero address as beneficiary, but the code pays the signer"
+     ],
+     "info": [
+      "unoswap output token depends on packed pool flags that the descriptor cannot show"
+     ],
+     "answer": "# Review\n\n## Critical\n\n### swap forwards extra native value to the caller, but the descriptor does not show it\n\n- **Effect:** When `flags` include `_REQUIRES_EXTRA_ETH`, the contract sends all `msg.value` to `caller`, and that native amount can exceed `desc.amount`.\n- **Shown:** The signer sees only `desc.amount` as Amount to Send. There is no `@.value` field. `desc.flags` is `visible: never`.\n- **Gap:** Extra native currency leaves the signer and nothing shown states it. Rule 1: an asset effect is not shown.\n- **Where:** the `swap` format, no `@.value` field and hidden `desc.flags`; `AggregationRouterV3.swap` in `AggregationRouterV3.sol`\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\nif (flags & _REQUIRES_EXTRA_ETH != 0) {\n    require(msg.value > (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\");\n} else {\n    require(msg.value == (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\");\n}\n(bool success, bytes memory result) = address(caller).call{value: msg.value}(\n    abi.encodePacked(caller.callBytes.selector, data)\n);\n```\n\n- **Fix:** Add an always visible `@.value` field. Do not put it in `interpolatedIntent` unless that field stays always visible.\n\n```json\n{\n  \"path\": \"@.value\",\n  \"label\": \"Native value\",\n  \"format\": \"amount\",\n  \"visible\": \"always\"\n}\n```\n\n## Warning\n\n### unoswap and unoswapWithPermit show the minimum received with no token\n\n- **Effect:** The contract sends the output asset to the signer and reverts if the received amount is below `minReturn`.\n- **Shown:** Minimum to Receive is `4957007923890945718204719` with no ticker in test case `Swap - chain 1 (2)`.\n- **Gap:** The value is shown but unreadable without a token. A raw value without a token is a warning, never a critical.\n- **Where:** the `unoswap` and `unoswapWithPermit` formats, field `minReturn`; `UnoswapRouter.unoswap` in `AggregationRouterV3.sol`; test case `Swap - chain 1 (2)`\n- **Evidence:**\n\n```json\n{\n  \"path\": \"minReturn\",\n  \"$ref\": \"$.display.definitions.minReceiveAmount\",\n  \"visible\": \"always\"\n}\n```\n\n- **Fix:** Switch `minReturn` to `raw` and say the units are the output token. Do not add a `tokenPath`. The output token is not an argument.\n\n```json\n{\n  \"path\": \"minReturn\",\n  \"label\": \"Minimum to receive (output units)\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```\n\n### swap shows the zero address as beneficiary, but the code pays the signer\n\n- **Effect:** When `desc.dstReceiver` is the zero address, the contract sends the output tokens to `msg.sender`.\n- **Shown:** The Beneficiary field shows `desc.dstReceiver` with no `senderAddress` mapping.\n- **Gap:** The value shown is the zero address; its meaning as the signer is missing. That special value is a warning.\n- **Where:** the `swap` format, field `desc.dstReceiver`; `AggregationRouterV3.swap` in `AggregationRouterV3.sol`\n- **Evidence:**\n\n```solidity\n// AggregationRouterV3.swap\naddress dstReceiver = (desc.dstReceiver == address(0)) ? msg.sender : desc.dstReceiver;\nuint256 initialDstBalance = dstToken.uniBalanceOf(dstReceiver);\n```\n\n- **Fix:** Map the zero address to the signer on that field. Do not add it to `interpolatedIntent`.\n\n```json\n{\n  \"path\": \"desc.dstReceiver\",\n  \"$ref\": \"$.display.definitions.beneficiary\",\n  \"params\": {\n    \"senderAddress\": [\"$.metadata.constants.addressAsNull\"]\n  },\n  \"visible\": \"always\"\n}\n```\n\n## Info\n\n### unoswap output token depends on packed pool flags that the descriptor cannot show\n\n- **Effect:** The last pool word selects the pair, the direction, the fee, and whether the contract unwraps WMATIC and sends native currency to the signer.\n- **Shown:** `unoswap` hides `pools`. `unoswapWithPermit` shows only the last pool as an address. `minReturn` has no token.\n- **Gap:** Packed bits and a pair contract decide the output asset. ERC-7730 cannot decode that from calldata. Spec-limitation.\n- **Where:** the `unoswap` and `unoswapWithPermit` formats, field `pools`; `UnoswapRouter.unoswap` in `AggregationRouterV3.sol`\n- **Evidence:**\n\n```solidity\n// UnoswapRouter.unoswap\nuint256 private constant _WETH_MASK = 0x4000000000000000000000000000000000000000000000000000000000000000;\nswitch and(rawPair, _WETH_MASK)\ncase 0 {\n    returnAmount := swap(emptyPtr, returnAmount, and(rawPair, _ADDRESS_MASK), and(rawPair, _REVERSE_MASK), shr(_NUMERATOR_OFFSET, and(rawPair, _NUMERATOR_MASK)), caller())\n}\n```"
+    }
+   }
+  }
+ ]
+}

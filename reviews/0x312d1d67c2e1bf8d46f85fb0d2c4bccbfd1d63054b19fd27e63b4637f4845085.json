@@ -1,0 +1,106 @@
+{
+ "hash": "0x312d1d67c2e1bf8d46f85fb0d2c4bccbfd1d63054b19fd27e63b4637f4845085",
+ "file": "registry/p2p/calldata-P2pMessageSender.json",
+ "kind": "calldata",
+ "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x4e1224f513048e18e7a1883985b45dc0fe1d917e"
+  },
+  {
+   "chainId": 560048,
+   "address": "0x917105cc314c12890d9c8224aee5af9574f871cf"
+  },
+  {
+   "chainId": 560048,
+   "address": "0x158f2bbef21cf9f92cf4a294999ba422948c8242"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "reviewers": {
+  "claude": "claude-sonnet-5-5 (medium)",
+  "grok": "grok-4.6"
+ },
+ "prompt": "sha256:0dd454484df7ee580f00bc97d71b279e82c00c64fe7db4c3c5ddc39689458634",
+ "date": "2026-10-24T21:45Z",
+ "result": "pass",
+ "reasons": [
+  "warning (grok): send always shows intent Withdrawal message for any text",
+  "warning (grok): send labels the full message string as Public keys",
+  "warning (grok): send shows Withdrawal message, but the call only emits an event",
+  "warning (grok): send labels the full message JSON as Public keys"
+ ],
+ "notReviewed": [],
+ "cost": 0.4784,
+ "units": [
+  {
+   "unit": "p2p__calldata-P2pMessageSender__0.json",
+   "deployments": [
+    {
+     "chainId": 1,
+     "address": "0x4e1224f513048e18e7a1883985b45dc0fe1d917e"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": false,
+     "critical": [],
+     "warning": [],
+     "info": [
+      "send shows the text as raw string, but the contract only emits it as a log and the text cannot be checked"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\n### send shows the text as raw string, but the contract only emits it as a log and the text cannot be checked\n\n- **Effect:** `send` emits a `Message` event with the text. It moves no asset, sets no allowance and changes no state.\n- **Shown:** The intent \"Withdrawal message\" and the field \"Public keys\" with the raw text. The test case shows a JSON string with the action \"withdraw\" and four public keys.\n- **Gap:** The intent and the label claim a withdrawal, but the call only logs the string. Any text renders under this screen. No descriptor change can verify the content, so this is info.\n- **Where:** The `send(string text)` format, intent and field `text`; `send` in `P2pMessageSender.sol`; the test case `Withdrawal message - chain 1`.\n- **Evidence:**\n\n```solidity\n// P2pMessageSender.send\nfunction send(string calldata text) external {\n    emit Message(msg.sender, text, text);\n}\n```\n\n- **Fix:** Change the intent to \"Send message\" and the label to \"Message\". A withdrawal on the beacon chain comes from another contract; this call does not trigger it."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "send always shows intent Withdrawal message for any text",
+      "send labels the full message string as Public keys"
+     ],
+     "info": [],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### send always shows intent Withdrawal message for any text\n\n- **Effect:** The contract emits a Message event with the given text and does not move assets.\n- **Shown:** The intent is \"Withdrawal message\" for every `send` call.\n- **Gap:** The intent names a withdrawal this call does not perform; that imprecise goal is a warning.\n- **Where:** the `send(string text)` format, intent; `send` in `P2pMessageSender.sol`; the test case `Withdrawal message - chain 1`\n- **Evidence:**\n\n```solidity\n// P2pMessageSender.send\nfunction send(string calldata text) external {\n    emit Message(msg.sender, text, text);\n}\n```\n\n- **Fix:** Change the intent to name this step.\n\n```json\n{\n  \"intent\": \"Send message\"\n}\n```\n\n### send labels the full message string as Public keys\n\n- **Effect:** The signer publishes the full `text` string in the Message event.\n- **Shown:** The field label is \"Public keys\" while the test shows the whole JSON, including the action.\n- **Gap:** The label names public keys, but the value is the whole message; a misleading label is a warning.\n- **Where:** the `send(string text)` format, field `text`; `send` in `P2pMessageSender.sol`; the test case `Withdrawal message - chain 1`\n- **Evidence:**\n\n```solidity\n// display.formats send(string text)\n\"label\": \"Public keys\",\n\"format\": \"raw\",\n\"path\": \"#.text\"\n```\n\n- **Fix:** Change the label to name the whole message.\n\n```json\n{\n  \"label\": \"Message\"\n}\n```\n\n## Info\n\nNone."
+    }
+   }
+  },
+  {
+   "unit": "p2p__calldata-P2pMessageSender__1.json",
+   "deployments": [
+    {
+     "chainId": 560048,
+     "address": "0x917105cc314c12890d9c8224aee5af9574f871cf"
+    },
+    {
+     "chainId": 560048,
+     "address": "0x158f2bbef21cf9f92cf4a294999ba422948c8242"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": false,
+     "critical": [],
+     "warning": [],
+     "info": [
+      "send shows the message text as a raw string; the contract only emits an event and moves no assets"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\n### send shows the message text as a raw string; the contract only emits an event and moves no assets\n\n- **Effect:** `send` only emits a `Message` event with the text; it moves no asset and sets no allowance or right.\n- **Shown:** The intent \"Withdrawal message\" and a \"Public keys\" field with the raw text, for example a JSON string with `action: withdraw` and the pubkeys.\n- **Gap:** The label and intent claim a withdrawal, but the contract performs none. The text is free-form, and the descriptor cannot decode or check it. This is a spec-limitation, so it is info.\n- **Where:** The `send` format, intent and field `text`; `send` in `P2pMessageSender.sol`.\n- **Evidence:**\n\n```solidity\n// P2pMessageSender.send\nfunction send(string calldata text) external {\n    emit Message(msg.sender, text, text);\n}\n```\n\n- **Fix:** Optionally change the intent to \"Send withdrawal request message\" and the label to \"Message\", so the signer does not expect an on-chain withdrawal from this call."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "send shows Withdrawal message, but the call only emits an event",
+      "send labels the full message JSON as Public keys"
+     ],
+     "info": [],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### send shows Withdrawal message, but the call only emits an event\n\n- **Effect:** The contract emits a Message event with the text and does not move assets.\n- **Shown:** The intent is \"Withdrawal message\".\n- **Gap:** The intent names a withdrawal instead of this emit step, so warning.\n- **Where:** the `send` format, intent; `send` in `P2pMessageSender.sol`; the test case `Withdrawal message - chain 1`\n- **Evidence:**\n\n```solidity\n// P2pMessageSender.send\nfunction send(string calldata text) external {\n    emit Message(msg.sender, text, text);\n}\n```\n\n```json\n\"send(string text)\": {\n    \"intent\": \"Withdrawal message\"\n}\n```\n\n- **Fix:** Change the intent to name this step.\n\n```json\n{\n  \"intent\": \"Send message\"\n}\n```\n\n### send labels the full message JSON as Public keys\n\n- **Effect:** The signer sends a string, and the contract emits that full string.\n- **Shown:** The field label is \"Public keys\"; the test value is the full JSON.\n- **Gap:** The label misleads without changing the outcome, so warning.\n- **Where:** the `send` format, field `text`; `send` in `P2pMessageSender.sol`; the test case `Withdrawal message - chain 1`\n- **Evidence:**\n\n```json\n{\n  \"label\": \"Public keys\",\n  \"format\": \"raw\",\n  \"path\": \"#.text\",\n  \"visible\": \"always\"\n}\n```\n\n```json\n{\n  \"label\": \"Public keys\",\n  \"value\": \"{\\\"action\\\":\\\"withdraw\\\",\\\"pubkeys\\\":[\\\"0xa9a64a27dcf0c89f6115d25542b61900f7de3f3298b19d12f1797c510596aed854df1826dc9ec8c694119971c1471808\\\"]}\"\n}\n```\n\n- **Fix:** Change the label to name the whole message.\n\n```json\n{\n  \"label\": \"Message\"\n}\n```\n\n## Info\n\nNone."
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,67 @@
+{
+ "hash": "0x53b8ac2c9d72e19349b0686cc955d3e08885c6595ca50a905cf501982d7f5e02",
+ "file": "registry/uniswap/calldata-UniswapV2Router02.json",
+ "kind": "calldata",
+ "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d"
+  }
+ ],
+ "auditedBy": [],
+ "reviewers": {
+  "claude": "claude-sonnet-5-5 (medium)",
+  "grok": "grok-4.6"
+ },
+ "prompt": "sha256:2e4036a84d6b37c1c4139196205ca7450182398b5ea0cce33b6ee87bf0c4b455",
+ "date": "2026-10-24T21:31Z",
+ "result": "pass",
+ "reasons": [
+  "warning (claude): removeLiquidity and its ETH variants show LP tokens as an 18-decimal number without a token, and the token addresses are hidden",
+  "warning (claude): removeLiquidity*WithPermit shows \"Unlimited to router\" for `approveMax`, but the permit grants an LP token allowance to the router that stays after the call",
+  "warning (claude): Swap and liquidity formats hide the token path or tokens, so intermediate hops are not shown",
+  "warning (grok): Swap formats hide the path, so the signer does not see intermediate tokens",
+  "warning (grok): Add-liquidity and swap interpolatedIntent omit the recipient"
+ ],
+ "notReviewed": [],
+ "cost": 0.5216,
+ "units": [
+  {
+   "unit": "uniswap__calldata-UniswapV2Router02__0.json",
+   "deployments": [
+    {
+     "chainId": 1,
+     "address": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "removeLiquidity and its ETH variants show LP tokens as an 18-decimal number without a token, and the token addresses are hidden",
+      "removeLiquidity*WithPermit shows \"Unlimited to router\" for `approveMax`, but the permit grants an LP token allowance to the router that stays after the call",
+      "Swap and liquidity formats hide the token path or tokens, so intermediate hops are not shown"
+     ],
+     "info": [
+      "Fee-on-transfer variants show \"Minimum Before Fees\" for the token side, which the contract does not enforce",
+      "addLiquidity amounts that move are decided by pool reserves"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### removeLiquidity and its ETH variants show LP tokens as an 18-decimal number without a token, and the token addresses are hidden\n\n- **Effect:** The function burns the signer's LP tokens of the pair for `tokenA`/`tokenB` (or the token and WETH). The pair address comes from the hidden token addresses.\n- **Shown:** \"LP Tokens (UNI-V2)\" as a plain number (for example `0.000000099999999`), and minimum amounts that carry the token ticker.\n- **Gap:** The amount is shown, raw but readable, so this is a warning. The signer cannot tell which pair's LP token is burned, though the minimums name the tokens.\n- **Where:** All `removeLiquidity*` formats, field `liquidity`; the test case `removeLiquidity - chain 1`.\n- **Evidence:**\n\n```json\n{ \"path\": \"liquidity\", \"label\": \"LP Tokens (UNI-V2)\", \"format\": \"unit\", \"params\": { \"base\": \"\", \"decimals\": 18 } }\n```\n\n- **Fix:** Keep the format. Optionally add visible token fields, for example change the `tokenA` and `tokenB` fields to `visible: \"optional\"` with format `addressName`, `types` `[\"token\"]`.\n\n### removeLiquidity*WithPermit shows \"Unlimited to router\" for `approveMax`, but the permit grants an LP token allowance to the router that stays after the call\n\n- **Effect:** When `approveMax` is true, the permit sets the router's allowance on the LP token to `uint(-1)`. The allowance stays after the removal.\n- **Shown:** \"LP Token Approval: Unlimited to router\", or \"This removal only\" when false.\n- **Gap:** The label states the effect correctly. When false, the permit value equals `liquidity`, so \"This removal only\" is accurate. The only issue is that \"to router\" names no address, so this is a warning for clarity.\n- **Where:** The `removeLiquidityWithPermit` format, field `approveMax`; `removeLiquidityWithPermit` in `UniswapV2Router02.sol`.\n- **Evidence:**\n\n```solidity\n// UniswapV2Router02.removeLiquidityWithPermit\nuint value = approveMax ? uint(-1) : liquidity;\nIUniswapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);\n```\n\n- **Fix:** Change the enum value for `true` to \"Unlimited LP token allowance for this router\".\n\n### Swap and liquidity formats hide the token path or tokens, so intermediate hops are not shown\n\n- **Effect:** The router swaps along every hop of `path`. The hidden middle tokens decide the route and the pools used.\n- **Shown:** Only the first and last tokens, through the amounts' tickers.\n- **Gap:** Input and output tokens and bounds are shown, so the outcome is as stated. The route is not shown. This is a warning at most.\n- **Where:** All swap formats, field `path.[]` with `visible: never`.\n- **Evidence:**\n\n```json\n{ \"path\": \"path.[]\", \"label\": \"Path\", \"visible\": \"never\" }\n```\n\n- **Fix:** Optional. Set `visible: \"optional\"` and add `\"format\": \"addressName\"` with `types` `[\"token\"]` for `path.[]`.\n\n## Info\n\n### Fee-on-transfer variants show \"Minimum Before Fees\" for the token side, which the contract does not enforce\n\n- **Effect:** `removeLiquidityETHSupportingFeeOnTransferTokens` sends the router's whole token balance to `to`. The minimum is checked before the token fee, not on the amount received.\n- **Shown:** The label \"Minimum Before Fees\" states this.\n- **Gap:** The label is accurate. The amount actually received depends on the token's fee logic, which no descriptor can show.\n- **Where:** The `removeLiquidityETHSupportingFeeOnTransferTokens` and `...WithPermitSupportingFeeOnTransferTokens` formats, field `amountTokenMin`.\n- **Evidence:**\n\n```solidity\nTransferHelper.safeTransfer(token, to, IERC20(token).balanceOf(address(this)));\n```\n\n- **Fix:** None.\n\n### addLiquidity amounts that move are decided by pool reserves\n\n- **Effect:** The router adds between the minimum and the desired amounts, as the pool ratio decides. The signer pays at most the desired amounts.\n- **Shown:** \"Maximum to Add\" and \"Minimum to Add\" for both tokens.\n- **Gap:** Both bounds are shown. The final split depends on pool state.\n- **Where:** The `addLiquidity` and `addLiquidityETH` formats; `_addLiquidity` in `UniswapV2Router02.sol`.\n- **Evidence:**\n\n```solidity\nuint amountBOptimal = UniswapV2Library.quote(amountADesired, reserveA, reserveB);\n```\n\n- **Fix:** None."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "Swap formats hide the path, so the signer does not see intermediate tokens",
+      "Add-liquidity and swap interpolatedIntent omit the recipient"
+     ],
+     "info": [],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### Swap formats hide the path, so the signer does not see intermediate tokens\n\n- **Effect:** Each swap sends the input asset through every pair in `path` and pays the last token to `to`.\n- **Shown:** `path.[]` is `visible: never`. Only `path.[0]` and `path.[-1]` appear as `tokenPath` on the amounts.\n- **Gap:** Intermediate tokens are not shown. Input, output, amount and recipient are shown, so this is a warning.\n- **Where:** every `swap*` format, field `path.[]`; `_swap` and `_swapSupportingFeeOnTransferTokens` in `UniswapV2Router02.sol`\n- **Evidence:**\n\n```solidity\n// UniswapV2Router02._swap\nfunction _swap(uint[] memory amounts, address[] memory path, address _to) internal virtual {\n    for (uint i; i < path.length - 1; i++) {\n        (address input, address output) = (path[i], path[i + 1]);\n        ...\n        address to = i < path.length - 2\n            ? UniswapV2Library.pairFor(factory, output, path[i + 2]) : _to;\n        IUniswapV2Pair(...).swap(amount0Out, amount1Out, to, new bytes(0));\n    }\n}\n```\n\n- **Fix:** Show `path.[]` as token addresses. Do not add the path to `interpolatedIntent`.\n\n```json\n{\n  \"path\": \"path.[]\",\n  \"label\": \"Route\",\n  \"format\": \"addressName\",\n  \"params\": {\n    \"types\": [\"token\", \"contract\"]\n  }\n}\n```\n\n### Add-liquidity and swap interpolatedIntent omit the recipient\n\n- **Effect:** The contract mints LP tokens, or sends the output asset, to `to`, which can be any address.\n- **Shown:** The Recipient field shows `to`. The sentence does not. Case 13 reads \"Swap 2105496.648067163 Gato for at least 0 ETH\" while Recipient is `0x75aD…`.\n- **Gap:** The recipient is shown as a field, but the sentence omits it. Warning: the sentence can carry this address.\n- **Where:** `addLiquidity`, `addLiquidityETH`, and every `swap*` format, `interpolatedIntent`; test cases 13 and 15\n- **Evidence:**\n\n```json\n\"interpolatedIntent\": \"Swap {amountIn} for at least {amountOutMin}\"\n```\n\n- **Fix:** Add `{to}` to those sentences. Keep remove-liquidity sentences unchanged; they already name three fields.\n\n```json\n{\n  \"interpolatedIntent\": \"Swap {amountIn} for at least {amountOutMin} to {to}\"\n}\n```\n\n## Info\n\nNone."
+    }
+   }
+  }
+ ]
+}

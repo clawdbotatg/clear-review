@@ -1,0 +1,88 @@
+{
+ "hash": "0x7f52775921826414acfeeab334e5bc8022dc228406a912493ed62e3d62d76e37",
+ "file": "registry/paraswap/calldata-AugustusSwapper-v5.json",
+ "kind": "calldata",
+ "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "deployments": [
+  {
+   "chainId": 56,
+   "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57"
+  },
+  {
+   "chainId": 1,
+   "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57"
+  },
+  {
+   "chainId": 137,
+   "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "reviewers": {
+  "claude": "claude-sonnet-5-5 (medium)",
+  "grok": "grok-4.6"
+ },
+ "prompt": "sha256:2e4036a84d6b37c1c4139196205ca7450182398b5ea0cce33b6ee87bf0c4b455",
+ "date": "2026-10-24T21:12Z",
+ "result": "fail",
+ "reasons": [
+  "critical (claude): Every swap and buy format hides the payable `@.value`, and the source has no `@.value` field or zero check",
+  "critical (claude): `megaSwap`, `multiSwap` and `simpleSwap`/`simpleBuy` show the minimum received but hide the exact exchange route and callees",
+  "critical (grok): All swap formats omit the native value sent with the transaction",
+  "warning (claude): `buyOnUniswapV2Fork`, `swapOnUniswapV2Fork` and the permit variants show the received amount as a raw number",
+  "warning (claude): The `beneficiary` is missing from `swapOnUniswap*`, `swapOnZeroX*` and `buyOnUniswap*` formats"
+ ],
+ "notReviewed": [],
+ "cost": 0.5105,
+ "units": [
+  {
+   "unit": "paraswap__calldata-AugustusSwapper-v5__0.json",
+   "deployments": [
+    {
+     "chainId": 56,
+     "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57"
+    },
+    {
+     "chainId": 1,
+     "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57"
+    },
+    {
+     "chainId": 137,
+     "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": true,
+     "critical": [
+      "Every swap and buy format hides the payable `@.value`, and the source has no `@.value` field or zero check",
+      "`megaSwap`, `multiSwap` and `simpleSwap`/`simpleBuy` show the minimum received but hide the exact exchange route and callees"
+     ],
+     "warning": [
+      "`buyOnUniswapV2Fork`, `swapOnUniswapV2Fork` and the permit variants show the received amount as a raw number",
+      "The `beneficiary` is missing from `swapOnUniswap*`, `swapOnZeroX*` and `buyOnUniswap*` formats"
+     ],
+     "info": [
+      "`simpleSwap`/`simpleBuy` execute arbitrary `callees` and `exchangeData` that ERC-7730 cannot decode",
+      "Nested route arrays in `megaSwap` and `multiSwap` are not shown"
+     ],
+     "answer": "# Review\n\n## Critical\n\n### Every swap and buy format hides the payable `@.value`, and the source has no `@.value` field or zero check\n\n- **Effect:** `AugustusSwapper` has a payable `fallback` that delegatecalls the router; with `fromToken` set to the ETH address, native value from the transaction is the amount sold, and the contract does not check it against `fromAmount`.\n- **Shown:** none of the 16 formats has an `@.value` field; the amount shown is the calldata `fromAmount`, `amountIn` or `amountInMax`.\n- **Gap:** native currency leaving the wallet is not shown, which is critical under rule 1. The router code is not in the unit, so the exact use of the value is not visible.\n- **Where:** all formats, for example `simpleSwap` and `swapOnUniswap`; the `fallback` in `AugustusSwapper.sol`.\n- **Evidence:**\n\n```solidity\n// AugustusSwapper.fallback\nfallback() external payable {\n    ...\n    (bool success, bytes memory resultData) = implementation.delegatecall(msg.data);\n```\n\n- **Fix:** Add a field `{\"path\": \"@.value\", \"label\": \"Amount to Send (native)\", \"format\": \"amount\"}` to each format, or mark it `visible: \"optional\"` where the router needs it. State in `interpolatedIntent` that the value is the amount sent when `fromToken` is the ETH address.\n\n### `megaSwap`, `multiSwap` and `simpleSwap`/`simpleBuy` show the minimum received but hide the exact exchange route and callees\n\n- **Effect:** `simpleSwap` and `simpleBuy` run `callees`, `exchangeData`, `startIndexes` and `values` from the router's context. The fields shown are only `fromAmount`, `toAmount` and `beneficiary`. Per the router interface, the output goes to `beneficiary`, so only the destination of arbitrary callee calls is unseen.\n- **Shown:** `fromAmount`, `toAmount` and `beneficiary` with their tokens.\n- **Gap:** the amounts and the recipient are shown, so this matches not-critical rule 5 (hidden bytes that move none of the signer's assets directly). It is info.\n- **Where:** the `simpleSwap` and `simpleBuy` formats.\n- **Evidence:**\n\n```json\n\"simpleSwap((address fromToken, ... address[] callees, bytes exchangeData, uint256[] startIndexes, uint256[] values, address beneficiary ...) data)\"\n```\n\n- **Fix:** None possible; see the Info section.\n\n## Warning\n\n### `buyOnUniswapV2Fork`, `swapOnUniswapV2Fork` and the permit variants show the received amount as a raw number\n\n- **Effect:** the user receives the output token of the last pool, with `amountOut` or `amountOutMin` in that token's units.\n- **Shown:** `amountOutMin` or `amountOut` with format `raw`, with no token or decimals.\n- **Gap:** the value is shown but unreadable, a warning under rule 2. The output token is packed into `pools` (the last pool's address in the low bits), so no slice extracts it.\n- **Where:** the `swapOnUniswapV2Fork`, `swapOnUniswapV2ForkWithPermit`, `buyOnUniswapV2Fork` and `buyOnUniswapV2ForkWithPermit` formats, field `amountOutMin` or `amountOut`.\n- **Evidence:**\n\n```json\n{\"path\": \"amountOutMin\", \"label\": \"Minimum to Receive\", \"format\": \"raw\", \"visible\": \"always\"}\n```\n\n- **Fix:** Add a label such as \"Minimum to Receive (output token units)\". Show `weth` as a field to warn when the native token is involved.\n\n### The `beneficiary` is missing from `swapOnUniswap*`, `swapOnZeroX*` and `buyOnUniswap*` formats\n\n- **Effect:** these functions send the output to the signer, per the Augustus design, so the signer is the recipient. The code for these routers is not in the unit.\n- **Shown:** no recipient field.\n- **Gap:** unresolved because router source is missing; if the recipient is the signer, this is not a finding.\n- **Where:** the formats without a `beneficiary` parameter.\n- **Evidence:**\n\n```json\n\"swapOnUniswap(uint256 amountIn, uint256 amountOutMin, address[] path)\"\n```\n\n- **Fix:** none; see \"What could not be reviewed\".\n\n## Info\n\n### `simpleSwap`/`simpleBuy` execute arbitrary `callees` and `exchangeData` that ERC-7730 cannot decode\n\n- **Effect:** the router calls each `callees[i]` with `exchangeData` slices, which can include approvals.\n- **Shown:** amounts and `beneficiary` only.\n- **Gap:** the payload is opaque bytes and the descriptor cannot decode it; spec limitation.\n- **Where:** the `simpleSwap` and `simpleBuy` formats.\n- **Evidence:**\n\n```json\n\"address[] callees, bytes exchangeData, uint256[] startIndexes, uint256[] values\"\n```\n\n### Nested route arrays in `megaSwap` and `multiSwap` are not shown\n\n- **Effect:** the route adapters and payloads decide the path.\n- **Shown:** only the first or last `to` as the output token.\n- **Gap:** the arrays nest more than one level deep, and the runners do not iterate them.\n- **Where:** the `megaSwap` and `multiSwap` formats.\n- **Evidence:**\n\n```json\n\"tokenPath\": \"data.path.[0].path.[-1].to\"\n```\n\n- **Fix:** none until the runners support nested arrays.\n\n## What could not be reviewed\n\nThe router implementations behind the `fallback` selector table are not in the unit, so how `@.value`, the recipient and the permit are used could not be checked. No test cases exist, so the rendered output was not reviewed."
+    },
+    "grok": {
+     "limited": true,
+     "critical": [
+      "All swap formats omit the native value sent with the transaction"
+     ],
+     "warning": [],
+     "info": [
+      "Uniswap V2 fork formats show the receive amount as a raw integer"
+     ],
+     "answer": "# Review\n\n## Critical\n\n### All swap formats omit the native value sent with the transaction\n\n- **Effect:** The transaction sends its native value to this contract. The payable fallback keeps that value and delegatecalls the router with it.\n- **Shown:** No format has a field for the native value. Send fields only show token `fromAmount` or `amountIn`.\n- **Gap:** Native currency leaves the wallet and nothing shown states that amount. A payable call with no native-value field is critical.\n- **Where:** All 16 formats in the descriptor. The fallback function in `AugustusSwapper.sol`.\n- **Evidence:**\n\n```solidity\n// AugustusSwapper.fallback\nreceive () payable external {\n}\n\nfallback() external payable {\n    bytes4 selector = msg.sig;\n    address implementation = getImplementation(selector);\n    // ...\n    (bool success, bytes memory resultData) = implementation.delegatecall(msg.data);\n```\n\n- **Fix:** Add a native-value field to every format. The formats have no interpolated intent, so do not add a sentence.\n\n```json\n{\n  \"path\": \"@.value\",\n  \"label\": \"Native value\",\n  \"format\": \"amount\",\n  \"visible\": \"always\"\n}\n```\n\n## Warning\n\nNone.\n\n## Info\n\n### Uniswap V2 fork formats show the receive amount as a raw integer\n\n- **Effect:** The signer receives `amountOutMin` or `amountOut` of the token from the last pool.\n- **Shown:** The field label is \"Minimum to Receive\" or \"Amount to Receive\", with format `raw`.\n- **Gap:** The amount is shown, but not as a token amount. The output token sits in packed pool ids, which ERC-7730 cannot decode. This is a spec limitation.\n- **Where:** Formats `swapOnUniswapV2Fork`, `swapOnUniswapV2ForkWithPermit`, `buyOnUniswapV2Fork`, and `buyOnUniswapV2ForkWithPermit`; fields `amountOutMin` and `amountOut`.\n- **Evidence:**\n\n```json\n{\n  \"path\": \"amountOutMin\",\n  \"label\": \"Minimum to Receive\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```\n\n## What could not be reviewed\n\nThe verified source is only `AugustusSwapper`. Swap functions run by `delegatecall` to routers in `selectorVsRouter`. Those router contracts are not in the source.\n\nThis blocked checks of fee taking versus `toAmount`, beneficiary defaults, `msg.value` versus `fromAmount`, inner `callees` and `exchangeData` in `simpleSwap` and `simpleBuy`, adapter payloads in `multiSwap` and `megaSwap`, and ZeroX `payload` handling."
+    }
+   }
+  }
+ ]
+}

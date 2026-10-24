@@ -1,0 +1,72 @@
+{
+ "hash": "0x0cc6d035deedf8a9afa8df6de69099efa932b41b145cf5b310d8f0c56589f006",
+ "file": "registry/uniswap/calldata-UniswapV3Router02.json",
+ "kind": "calldata",
+ "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45"
+  }
+ ],
+ "auditedBy": [],
+ "reviewers": {
+  "claude": "claude-sonnet-5-5 (medium)",
+  "grok": "grok-4.6"
+ },
+ "prompt": "sha256:2e4036a84d6b37c1c4139196205ca7450182398b5ea0cce33b6ee87bf0c4b455",
+ "date": "2026-10-24T21:31Z",
+ "result": "fail",
+ "reasons": [
+  "critical (claude): All six swap formats omit `@.value` although every function is payable and `pay` wraps native ETH into WETH9",
+  "critical (claude): exactInput, exactInputSingle and the V2 exact-input swap show `amountIn` of 0 as \"0 TOKEN\", but the code swaps the router's entire balance of the token",
+  "critical (grok): Payable swap functions omit native value, so ETH can leave or wrap unseen",
+  "warning (claude): `exactOutputSingle`, `exactInput` and `exactInputSingle` omit the recipient special values and `sqrtPriceLimitX96`",
+  "warning (claude): Tests lack coverage for the single-hop and multi-hop V3 formats",
+  "warning (claude): Intent inconsistent: `exactInputSingle` uses lowercase \"swap\" and labels differ between formats",
+  "warning (grok): Five swap formats show recipient 0x1 raw, but the signer receives the tokens"
+ ],
+ "notReviewed": [],
+ "cost": 0.5075,
+ "units": [
+  {
+   "unit": "uniswap__calldata-UniswapV3Router02__0.json",
+   "deployments": [
+    {
+     "chainId": 1,
+     "address": "0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": true,
+     "critical": [
+      "All six swap formats omit `@.value` although every function is payable and `pay` wraps native ETH into WETH9",
+      "exactInput, exactInputSingle and the V2 exact-input swap show `amountIn` of 0 as \"0 TOKEN\", but the code swaps the router's entire balance of the token"
+     ],
+     "warning": [
+      "`exactOutputSingle`, `exactInput` and `exactInputSingle` omit the recipient special values and `sqrtPriceLimitX96`",
+      "Tests lack coverage for the single-hop and multi-hop V3 formats",
+      "Intent inconsistent: `exactInputSingle` uses lowercase \"swap\" and labels differ between formats"
+     ],
+     "info": [
+      "Multi-hop path intermediate tokens are not shown"
+     ],
+     "answer": "# Review\n\n## Critical\n\n### All six swap formats omit `@.value` although every function is payable and `pay` wraps native ETH into WETH9\n\n- **Effect:** When the input token is WETH9 and the router holds ETH, `pay` wraps the router's ETH balance (sent with the call) and uses it instead of pulling the signer's WETH.\n- **Shown:** Nothing about the native value. No format has an `@.value` field. The test cases all use value 0.\n- **Gap:** Native currency can leave the wallet in an amount never shown, so this is critical.\n- **Where:** All six formats (`exactInput`, `exactInputSingle`, `exactOutput`, `exactOutputSingle`, `swapExactTokensForTokens`, `swapTokensForExactTokens`); `pay` in `PeripheryPayments.sol`; every test case uses value \"0\".\n- **Evidence:**\n\n```solidity\n// PeripheryPayments.pay\nif (token == WETH9 && address(this).balance >= value) {\n    IWETH9(WETH9).deposit{value: value}();\n    IWETH9(WETH9).transfer(recipient, value);\n```\n\n- **Fix:** Add a field to each format, and add a test with a non-zero value.\n\n```json\n{ \"path\": \"@.value\", \"label\": \"ETH to Send\", \"format\": \"amount\" }\n```\n\nDo not add it to `interpolatedIntent`.\n\n### exactInput, exactInputSingle and the V2 exact-input swap show `amountIn` of 0 as \"0 TOKEN\", but the code swaps the router's entire balance of the token\n\n- **Effect:** `amountIn == 0` (`CONTRACT_BALANCE`) makes the router use its own token balance as the input amount and as the payer.\n- **Shown:** \"Amount to Send\" or \"Send\" shows the literal `0 <token>`.\n- **Gap:** The special value is shown literally without its meaning, so this is a warning.\n- **Where:** The `exactInput`, `exactInputSingle` and `swapExactTokensForTokens` formats, field `amountIn`; `Constants.sol`.\n- **Evidence:**\n\n```solidity\n// V3SwapRouter.exactInputSingle\nif (params.amountIn == Constants.CONTRACT_BALANCE) {\n    hasAlreadyPaid = true;\n    params.amountIn = IERC20(params.tokenIn).balanceOf(address(this));\n```\n\n- **Fix:** Add a `threshold` and `message` that show a clear label for the value 0, if a wallet can express it. Otherwise set the label to \"Amount to Send (0 = router's balance)\".\n\n## Warning\n\n### `exactOutputSingle`, `exactInput` and `exactInputSingle` omit the recipient special values and `sqrtPriceLimitX96`\n\n- **Effect:** The recipient value `address(1)` means the signer, and `address(2)` means the router itself. The price limit bounds execution, and 0 means no limit.\n- **Shown:** The recipient appears as a raw address. The price limit appears nowhere.\n- **Gap:** The values are shown but without their meaning, or the bound is hidden, so this is a warning.\n- **Where:** `Beneficiary` and `Recipient` fields in all formats; `sqrtPriceLimitX96` in the single-hop formats.\n- **Evidence:**\n\n```solidity\n// V3SwapRouter.exactInputInternal\nif (recipient == Constants.MSG_SENDER) recipient = msg.sender;\nelse if (recipient == Constants.ADDRESS_THIS) recipient = address(this);\n```\n\n- **Fix:** Add `senderAddress` with `0x0000000000000000000000000000000000000001` to every recipient field. Currently only `swapTokensForExactTokens` has it.\n\n### Tests lack coverage for the single-hop and multi-hop V3 formats\n\n- **Effect:** Not applicable. This is about test soundness.\n- **Shown:** `exactInput`, `exactInputSingle`, `exactOutput` and `exactOutputSingle` have no test case in `formats`. Cases 0-5 use selectors `0xb858183f`, `0x04e45aaf`, `0x09b81346` and `0x5023b4df`. These are the SwapRouter (V1) selectors, not the router02 formats.\n- **Gap:** The test cases do not exercise the paths they claim, so this is a warning.\n- **Where:** The test file; cases 0-5.\n- **Evidence:** In `formats`, the four V3 formats list `\"cases\": []`.\n- **Fix:** Add test cases that hit selectors `0x2aad91b4`, `0x6150ec00`, `0x7e1cdb1a` and `0x6f6b477e`. Correct the selectors in the existing cases.\n\n### Intent inconsistent: `exactInputSingle` uses lowercase \"swap\" and labels differ between formats\n\n- **Effect:** None.\n- **Shown:** \"swap\", \"Send\" and \"Uniswap fee\" differ from the other formats. \"Uniswap fee\" is shown in single-hop formats but not in the multi-hop path formats.\n- **Gap:** The wording differs, but the outcome is as stated, so this is a warning.\n- **Where:** The `exactInputSingle` format, field `intent`.\n- **Evidence:** `\"intent\": \"swap\"`\n- **Fix:** Change the intent to \"Swap\".\n\n## Info\n\n### Multi-hop path intermediate tokens are not shown\n\n- **Effect:** The `bytes path` of `exactInput` and `exactOutput` contains intermediate tokens and fees. The swap runs through those pools.\n- **Shown:** Only the first and last tokens, through slices.\n- **Gap:** The inner path is a packed value that ERC-7730 cannot display, so this is info.\n- **Where:** The `exactInput` and `exactOutput` formats.\n- **Fix:** None possible today.\n\n## What could not be reviewed\n\n- The `multicall` entry points and other router functions are not in this descriptor. They can wrap the swaps and are outside the scope of the unit."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [
+      "Payable swap functions omit native value, so ETH can leave or wrap unseen"
+     ],
+     "warning": [
+      "Five swap formats show recipient 0x1 raw, but the signer receives the tokens"
+     ],
+     "info": [],
+     "answer": "# Review\n\n## Critical\n\n### Payable swap functions omit native value, so ETH can leave or wrap unseen\n\n- **Effect:** Each swap is payable. The router wraps sent ETH into WETH when the input token is WETH, or it keeps the ETH.\n- **Shown:** No field shows `@.value`. Tests use value 0 and only show token amounts and the recipient.\n- **Gap:** Native currency can leave the wallet in an amount the screen never states. Rule 1 applies: the effect is absent.\n- **Where:** All six formats; `pay` in `PeripheryPayments.sol`; payable swaps in `V3SwapRouter.sol` and `V2SwapRouter.sol`; every test case\n- **Evidence:**\n\n```solidity\n// PeripheryPayments.pay\nif (token == WETH9 && address(this).balance >= value) {\n    IWETH9(WETH9).deposit{value: value}();\n    IWETH9(WETH9).transfer(recipient, value);\n} else if (payer == address(this)) {\n    TransferHelper.safeTransfer(token, recipient, value);\n} else {\n    TransferHelper.safeTransferFrom(token, payer, recipient, value);\n}\n```\n\n- **Fix:** Add an `@.value` field with format `amount` on every format. There is no `interpolatedIntent`; if you add one, include this field. Add a test with non-zero native value.\n\n```json\n{\n  \"path\": \"@.value\",\n  \"label\": \"Native amount\",\n  \"format\": \"amount\"\n}\n```\n\n## Warning\n\n### Five swap formats show recipient 0x1 raw, but the signer receives the tokens\n\n- **Effect:** Recipient `address(1)` is replaced with `msg.sender`, so the signer receives the output tokens.\n- **Shown:** Only `swapTokensForExactTokens` maps `0x000…0001` with `senderAddress`. The other five formats show that address as the beneficiary.\n- **Gap:** The value is shown, but its meaning is missing. This is a special value, so it is a warning.\n- **Where:** `recipient` on the four V3 formats and `to` on `swapExactTokensForTokens`; `exactInputInternal` in `V3SwapRouter.sol`; `Constants.sol`\n- **Evidence:**\n\n```solidity\n// Constants.sol and V3SwapRouter.exactInputInternal\naddress internal constant MSG_SENDER = address(1);\nif (recipient == Constants.MSG_SENDER) recipient = msg.sender;\nelse if (recipient == Constants.ADDRESS_THIS) recipient = address(this);\n```\n\n- **Fix:** Add the same `senderAddress` list used on `swapTokensForExactTokens` to every recipient field. Do not add it to `interpolatedIntent` until that sentence exists.\n\n```json\n{\n  \"params\": {\n    \"types\": [\"eoa\", \"contract\"],\n    \"sources\": [\"local\", \"ens\"],\n    \"senderAddress\": [\"0x0000000000000000000000000000000000000001\"]\n  }\n}\n```\n\n## Info\n\nNone."
+    }
+   }
+  }
+ ]
+}

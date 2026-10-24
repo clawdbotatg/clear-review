@@ -1,0 +1,179 @@
+{
+ "hash": "0xbe316a27254d8378433acb2b2d86d9e32a6665d1797aa271386b0a2629153bbf",
+ "file": "registry/threshold/calldata-L2BitcoinDepositor.json",
+ "kind": "calldata",
+ "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xa2a81d9445b4f898b028c96d164bcd6c8c8c512e"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x1c8d7b744b474c080faadd5bf9ad965be4258f9e"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xdebd9aa9bc4845c7cd2d9a997f82a2daea540bd5"
+  },
+  {
+   "chainId": 421614,
+   "address": "0xb2fec598a9374078bb639f3d70555fc4389b7a78"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "reviewers": {
+  "claude": "claude-sonnet-5-5 (medium)",
+  "grok": "grok-4.6"
+ },
+ "prompt": "sha256:0dd454484df7ee580f00bc97d71b279e82c00c64fe7db4c3c5ddc39689458634",
+ "date": "2026-10-24T21:40Z",
+ "result": "incomplete",
+ "reasons": [
+  "warning (claude): initializeDeposit hides the L1 mint recipient context and shows the deposit owner without saying that it receives the minted tBTC",
+  "warning (claude): The Bitcoin deposit data fields use `raw` and `visible: optional`, so a wallet may hide the funding transaction",
+  "warning (claude): The test case selector does not match the format selector",
+  "warning (claude): initializeDeposit test case sends selector 0x642dc033 while the format selector is 0xb0b5b540, so the test does not exercise this format",
+  "warning (grok): initializeDeposit hides the blinding factor that identifies the Bitcoin deposit script",
+  "warning (claude): initializeDeposit shows the test case selector 0x642dc033 against the format selector 0xb0b5b540, so the test may not exercise this format",
+  "warning (claude): The `walletPubKeyHash` and `refundPubKeyHash` fields show raw hashes with no label that says they fix the Bitcoin deposit address",
+  "warning (claude): initializeDeposit shows the pubkey hashes and refund locktime raw, and the test case uses a selector that does not match the format"
+ ],
+ "notReviewed": [],
+ "cost": 1.4919,
+ "units": [
+  {
+   "unit": "threshold__calldata-L2BitcoinDepositor__0.json",
+   "deployments": [
+    {
+     "chainId": 8453,
+     "address": "0xa2a81d9445b4f898b028c96d164bcd6c8c8c512e"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "initializeDeposit hides the L1 mint recipient context and shows the deposit owner without saying that it receives the minted tBTC",
+      "The Bitcoin deposit data fields use `raw` and `visible: optional`, so a wallet may hide the funding transaction",
+      "The test case selector does not match the format selector"
+     ],
+     "info": [
+      "The contract does not move assets in this call"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### initializeDeposit hides the L1 mint recipient context and shows the deposit owner without saying that it receives the minted tBTC\n\n- **Effect:** The function only emits `DepositInitialized`. A relayer then initializes the deposit on L1, and `l2DepositOwner` receives the minted tBTC on L2. The function moves no assets of the signer.\n- **Shown:** The intent is \"Initialize L2 tBTC deposit\". The field is labelled \"L2 deposit owner\".\n- **Gap:** The recipient is shown, so this is not critical. The intent does not say that this call only emits an event, and that it does not move funds. A signer could expect the deposit to complete. This is a label problem and a warning.\n- **Where:** The `initializeDeposit` format, the intent and the field `l2DepositOwner`; `initializeDeposit` in `L2BitcoinDepositor.sol`.\n- **Evidence:**\n\n```solidity\n// L2BitcoinDepositor.initializeDeposit\n) external {\n    emit DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender);\n}\n```\n\n- **Fix:** Change the label to \"Receives tBTC on L2\" and the intent to \"Announce L2 tBTC deposit\".\n\n```json\n\"intent\": \"Announce L2 tBTC deposit\",\n\"label\": \"tBTC recipient on L2\"\n```\n\nDo not add `interpolatedIntent` fields beyond `l2DepositOwner`.\n\n### The Bitcoin deposit data fields use `raw` and `visible: optional`, so a wallet may hide the funding transaction\n\n- **Effect:** The funding transaction fields (`inputVector`, `outputVector`, `version`, `locktime`) define which Bitcoin transaction funds the deposit. The relayer uses them to mint tBTC for `l2DepositOwner`.\n- **Shown:** The four `fundingTx` fields are `visible: optional`, with the `raw` format. `reveal.blindingFactor` has no field.\n- **Gap:** The values are shown or can be shown. They only bind the deposit on L1 and move none of the signer's assets in this call. A wallet that skips optional fields shows less. This is a warning at most.\n- **Where:** The `initializeDeposit` format, the `fundingTx.*` fields and the missing `reveal.blindingFactor` field.\n- **Evidence:**\n\n```json\n{ \"path\": \"fundingTx.inputVector\", \"label\": \"Bitcoin inputs\", \"format\": \"raw\", \"visible\": \"optional\" }\n```\n\n- **Fix:** Add a field for `reveal.blindingFactor`. Keep the other fields optional because they are long hex data.\n\n### The test case selector does not match the format selector\n\n- **Effect:** The test case sends the selector `0x642dc033`. The format key gives the selector `0xb0b5b540`.\n- **Shown:** The expected rendering matches the format, but the test input selector differs from the format selector.\n- **Gap:** The test may not exercise this format as claimed. This is a test-soundness warning. The `formats` entry also shows an empty case list for the format.\n- **Where:** The test case \"Initialize a Base L2 Bitcoin deposit\".\n- **Evidence:**\n\n```json\n\"selector\": \"0x642dc033\"   // case input\n\"selector\": \"0xb0b5b540\"   // format key\n```\n\n- **Fix:** Check the test transaction. Use calldata that starts with the selector of the format key.\n\n## Info\n\n### The contract does not move assets in this call\n\n- **Effect:** `initializeDeposit` only emits an event. The relayer reads the event and starts the L1 mint. The result depends on off-chain behavior.\n- **Shown:** Fields for the deposit owner, wallet pubkey hash, refund data and vault.\n- **Gap:** ERC-7730 cannot show off-chain relayer behavior or the later L1 mint. This is a spec limitation.\n- **Where:** The `initializeDeposit` format; `L2BitcoinDepositor.sol`.\n- **Evidence:**\n\n```solidity\nemit DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender);\n```\n\n- **Fix:** None possible in the descriptor."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [],
+     "info": [
+      "initializeDeposit cannot show the Bitcoin amount in the funding output vector",
+      "initializeDeposit hides reveal.blindingFactor used to build the deposit script"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\n### initializeDeposit cannot show the Bitcoin amount in the funding output vector\n\n- **Effect:** The call only emits `DepositInitialized`. The BTC amount sits in `fundingTx.outputVector`.\n- **Shown:** Field `Bitcoin outputs` shows the full output vector as raw hex, and it is optional.\n- **Gap:** ERC-7730 cannot parse Bitcoin serialization, so the signer never sees a BTC amount. Spec-limitation.\n- **Where:** the `initializeDeposit` format, field `fundingTx.outputVector`; `initializeDeposit` in `L2BitcoinDepositor.sol`; the test case `Initialize a Base L2 Bitcoin deposit`\n- **Evidence:**\n\n```solidity\n// L2BitcoinDepositor.initializeDeposit\nfunction initializeDeposit(\n    IBridgeTypes.BitcoinTxInfo calldata fundingTx,\n    IBridgeTypes.DepositRevealInfo calldata reveal,\n    address l2DepositOwner\n) external {\n    emit DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender);\n}\n```\n\n### initializeDeposit hides reveal.blindingFactor used to build the deposit script\n\n- **Effect:** The call records `reveal.blindingFactor` in the event. That value is part of the Bitcoin deposit script.\n- **Shown:** nothing for `reveal.blindingFactor`. The other reveal fields are shown.\n- **Gap:** These bytes move none of the signer assets on this call. Hidden payload consumed by L1.\n- **Where:** the `initializeDeposit` format fields; `DepositRevealInfo.blindingFactor` in the ABI; `initializeDeposit` in `L2BitcoinDepositor.sol`\n- **Evidence:**\n\n```solidity\n// L2BitcoinDepositor.initializeDeposit\nevent DepositInitialized(\n    IBridgeTypes.BitcoinTxInfo fundingTx,\n    IBridgeTypes.DepositRevealInfo reveal,\n    address indexed l2DepositOwner,\n    address indexed l2Sender\n);\n```\n\n- **Fix:** Add a raw field for `reveal.blindingFactor`.\n\n```json\n{\n  \"path\": \"reveal.blindingFactor\",\n  \"label\": \"Blinding factor\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```"
+    }
+   }
+  },
+  {
+   "unit": "threshold__calldata-L2BitcoinDepositor__1.json",
+   "deployments": [
+    {
+     "chainId": 42161,
+     "address": "0x1c8d7b744b474c080faadd5bf9ad965be4258f9e"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "initializeDeposit test case sends selector 0x642dc033 while the format selector is 0xb0b5b540, so the test does not exercise this format"
+     ],
+     "info": [
+      "Bitcoin funding transaction data is optional, and the blinding factor is hidden"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### initializeDeposit test case sends selector 0x642dc033 while the format selector is 0xb0b5b540, so the test does not exercise this format\n\n- **Effect:** `initializeDeposit` only emits a `DepositInitialized` event. Nothing of the signer's moves on L2. A relayer then starts the L1 deposit for `l2DepositOwner`, who receives the minted tBTC.\n- **Shown:** The only test case has selector `0x642dc033`. The format key has selector `0xb0b5b540`. The case list of the format is empty.\n- **Gap:** The test does not exercise the format it should cover. The rendering of the descriptor is therefore unproven, which is a warning.\n- **Where:** The `initializeDeposit` format; the test case \"Initialize a Base L2 Bitcoin deposit\".\n- **Evidence:**\n\n```json\n\"selector\": \"0xb0b5b540\", \"cases\": []\n// case: \"selector\": \"0x642dc033\"\n```\n\n- **Fix:** Replace the test case with a real `initializeDeposit` transaction. Include one that uses the selector `0xb0b5b540`, with a unit that matches the deployments tested.\n\n## Info\n\n### Bitcoin funding transaction data is optional, and the blinding factor is hidden\n\n- **Effect:** The `fundingTx` data and `reveal.blindingFactor` define the Bitcoin deposit script. They decide which deposit the relayer initializes on L1 for `l2DepositOwner`. No L2 asset moves.\n- **Shown:** `fundingTx` fields are `visible: optional`. `reveal.blindingFactor` has no field.\n- **Gap:** The deposit owner and vault are always shown. The hidden data moves none of the signer's assets on L2. Info.\n- **Where:** The `initializeDeposit` format, the fields `fundingTx.*` and `reveal.blindingFactor`.\n- **Evidence:**\n\n```solidity\n// L2BitcoinDepositor.initializeDeposit\nemit DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender);\n```\n\n- **Fix:** Optionally add a field for `reveal.blindingFactor`."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "initializeDeposit hides the blinding factor that identifies the Bitcoin deposit script"
+     ],
+     "info": [],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### initializeDeposit hides the blinding factor that identifies the Bitcoin deposit script\n\n- **Effect:** The call announces a Bitcoin deposit whose script includes the blinding factor.\n- **Shown:** nothing\n- **Gap:** The descriptor omits this reveal field. Incomplete display is a warning a field can fix.\n- **Where:** the `initializeDeposit` format, missing field `reveal.blindingFactor`; `initializeDeposit` in `L2BitcoinDepositor.sol`\n- **Evidence:**\n\n```solidity\n// L2BitcoinDepositor.initializeDeposit\nfunction initializeDeposit(\n    IBridgeTypes.BitcoinTxInfo calldata fundingTx,\n    IBridgeTypes.DepositRevealInfo calldata reveal,\n    address l2DepositOwner\n) external {\n    emit DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender);\n}\n```\n\n- **Fix:** Add a raw field for `reveal.blindingFactor`. Do not put it in `interpolatedIntent`.\n\n```json\n{\n  \"path\": \"reveal.blindingFactor\",\n  \"label\": \"Blinding factor\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```\n\n## Info\n\nNone."
+    }
+   }
+  },
+  {
+   "unit": "threshold__calldata-L2BitcoinDepositor__2.json",
+   "deployments": [
+    {
+     "chainId": 84532,
+     "address": "0xdebd9aa9bc4845c7cd2d9a997f82a2daea540bd5"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "initializeDeposit shows the test case selector 0x642dc033 against the format selector 0xb0b5b540, so the test may not exercise this format",
+      "The `walletPubKeyHash` and `refundPubKeyHash` fields show raw hashes with no label that says they fix the Bitcoin deposit address"
+     ],
+     "info": [
+      "The contract only emits an event, and the deposit result depends on an off-chain relayer"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### initializeDeposit shows the test case selector 0x642dc033 against the format selector 0xb0b5b540, so the test may not exercise this format\n\n- **Effect:** The function only emits `DepositInitialized`. The signer's L2 call starts a relayer flow that mints tBTC on L1 for `l2DepositOwner`. No asset of the signer moves on L2.\n- **Shown:** The only test case carries selector `0x642dc033` and chain 8453. The format list for this unit shows selector `0xb0b5b540` with an empty case list.\n- **Gap:** The test cannot be shown to hit this format, and it does not cover this unit's chain 84532. This is a test that does not exercise what it claims, so it is a warning.\n- **Where:** The `initializeDeposit` format; the test case `Initialize a Base L2 Bitcoin deposit`.\n- **Evidence:**\n\n```json\n\"selector\": \"0xb0b5b540\", \"cases\": []\n// case input: \"selector\": \"0x642dc033\", \"chainId\": 8453\n```\n\n- **Fix:** Check the selector of the test case against the format key. Regenerate the test with calldata for `initializeDeposit`. Add a case for chain 84532 if the file keeps per-chain cases.\n\n### The `walletPubKeyHash` and `refundPubKeyHash` fields show raw hashes with no label that says they fix the Bitcoin deposit address\n\n- **Effect:** The `reveal` data defines the Bitcoin deposit script, and `l2DepositOwner` receives the minted tBTC. A wrong wallet key hash makes the signer's Bitcoin deposit go to the wrong script.\n- **Shown:** Raw hex for `Wallet pubkey hash` and `Refund pubkey hash`. The `blindingFactor` is not shown. `Bitcoin inputs`, `Bitcoin outputs` and the other `fundingTx` fields are `visible: optional`.\n- **Gap:** The values are shown but unreadable, and one script input is absent. This is a warning, not a critical.\n- **Where:** The `initializeDeposit` format, fields `reveal.walletPubKeyHash` and `reveal.refundPubKeyHash`, and the missing `reveal.blindingFactor`.\n- **Evidence:**\n\n```json\n{\"path\":\"reveal.walletPubKeyHash\",\"label\":\"Wallet pubkey hash\",\"format\":\"raw\",\"visible\":\"always\"}\n```\n\n- **Fix:** Add a field for `reveal.blindingFactor` with format `raw`. Make the labels say that these values fix the Bitcoin deposit address. Make `fundingTx.outputVector` `visible: always`, so the funded amount shows.\n\n## Info\n\n### The contract only emits an event, and the deposit result depends on an off-chain relayer\n\n- **Effect:** `initializeDeposit` emits `DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender)` and changes no balance. A relayer later finalizes the deposit on L1.\n- **Shown:** The intent \"Initialize L2 tBTC deposit\" and the raw fields.\n- **Gap:** The tBTC amount and the later L1 finalization are off-chain. The descriptor cannot show them.\n- **Where:** `initializeDeposit` in `L2BitcoinDepositor.sol`.\n- **Evidence:**\n\n```solidity\nemit DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender);\n```\n\n- **Fix:** None possible in the descriptor."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [],
+     "info": [],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\nNone."
+    }
+   }
+  },
+  {
+   "unit": "threshold__calldata-L2BitcoinDepositor__3.json",
+   "deployments": [
+    {
+     "chainId": 421614,
+     "address": "0xb2fec598a9374078bb639f3d70555fc4389b7a78"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": true,
+     "critical": [],
+     "warning": [
+      "initializeDeposit shows the pubkey hashes and refund locktime raw, and the test case uses a selector that does not match the format"
+     ],
+     "info": [
+      "Hidden `blindingFactor` and optional Bitcoin funding transaction fields"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### initializeDeposit shows the pubkey hashes and refund locktime raw, and the test case uses a selector that does not match the format\n\n- **Effect:** The function only emits an event. It moves no assets. A relayer uses the data to start the tBTC deposit on L1 for `l2DepositOwner`.\n- **Shown:** The test case input has selector `0x642dc033`, but the format selector is `0xb0b5b540`. The `blindingFactor` is not shown.\n- **Gap:** The expected rendering does not show that the test hits this format. The test is not meaningful for this format, so this is a warning.\n- **Where:** The `initializeDeposit` format; the test case `Initialize a Base L2 Bitcoin deposit`.\n- **Evidence:**\n\n```json\n\"selector\": \"0xb0b5b540\", \"cases\": []\n// case input: \"selector\": \"0x642dc033\"\n```\n\n- **Fix:** Regenerate the test case with calldata for `initializeDeposit`. The case must hit selector `0xb0b5b540`. Also cover the deployment on chain 421614.\n\n## Info\n\n### Hidden `blindingFactor` and optional Bitcoin funding transaction fields\n\n- **Effect:** The deposit address on Bitcoin derives from `blindingFactor`, the wallet pubkey hash and the refund data. The signer's L2 assets do not move in this call.\n- **Shown:** `blindingFactor` is not a field. The Bitcoin transaction fields are `visible: optional`.\n- **Gap:** The function only emits an event and moves no L2 assets. The hidden values are protocol payload, and the signer cannot check them in a wallet. This is info.\n- **Where:** The `initializeDeposit` format, the `reveal` fields.\n- **Evidence:**\n\n```solidity\n// L2BitcoinDepositor.initializeDeposit\nemit DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender);\n```\n\n## What could not be reviewed\n\nThe contract at the unit address is a transparent proxy. Its implementation source was reviewed. The deployments on the other chains of the descriptor belong to other units and were not reviewed here."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [],
+     "info": [
+      "initializeDeposit omits reveal.blindingFactor from the displayed reveal",
+      "initializeDeposit cannot show the Bitcoin amount inside fundingTx.outputVector"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\n### initializeDeposit omits reveal.blindingFactor from the displayed reveal\n\n- **Effect:** The call emits `DepositInitialized` with the full reveal, including `blindingFactor`. No L2 assets move.\n- **Shown:** The format shows the other reveal fields and has no field for `reveal.blindingFactor`.\n- **Gap:** Hidden bytes move none of the signer's assets, so this is info. A raw field can still show the value.\n- **Where:** the `initializeDeposit` format; `initializeDeposit` in `L2BitcoinDepositor.sol`; the test case `Initialize a Base L2 Bitcoin deposit`\n- **Evidence:**\n\n```solidity\n// L2BitcoinDepositor.initializeDeposit\nfunction initializeDeposit(\n    IBridgeTypes.BitcoinTxInfo calldata fundingTx,\n    IBridgeTypes.DepositRevealInfo calldata reveal,\n    address l2DepositOwner\n) external {\n    emit DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender);\n}\n```\n\n- **Fix:** Add a raw field for `reveal.blindingFactor`. Do not put this bytes value in `interpolatedIntent`.\n\n```json\n{\n  \"path\": \"reveal.blindingFactor\",\n  \"label\": \"Blinding factor\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```\n\n### initializeDeposit cannot show the Bitcoin amount inside fundingTx.outputVector\n\n- **Effect:** The Bitcoin amount sits in the serialized `fundingTx.outputVector`. This call does not move that Bitcoin.\n- **Shown:** Field `fundingTx.outputVector` uses `raw` and `visible` `optional`.\n- **Gap:** No ERC-7730 slice or format can decode a Bitcoin output vector. This is a spec limit.\n- **Where:** the `initializeDeposit` format, field `fundingTx.outputVector`; `BitcoinTxInfo` on `initializeDeposit` in `L2BitcoinDepositor.sol`\n- **Evidence:**\n\n```json\n{\n  \"path\": \"fundingTx.outputVector\",\n  \"label\": \"Bitcoin outputs\",\n  \"format\": \"raw\",\n  \"visible\": \"optional\"\n}\n```"
+    }
+   }
+  }
+ ]
+}

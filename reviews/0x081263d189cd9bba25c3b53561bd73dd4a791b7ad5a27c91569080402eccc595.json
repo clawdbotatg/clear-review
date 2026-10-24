@@ -1,0 +1,67 @@
+{
+ "hash": "0x081263d189cd9bba25c3b53561bd73dd4a791b7ad5a27c91569080402eccc595",
+ "file": "registry/ethena/calldata-ethena.json",
+ "kind": "calldata",
+ "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x9d39a5de30e57443bff2a8307a4256c8797a3497"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "reviewers": {
+  "claude": "claude-sonnet-5-5 (medium)",
+  "grok": "grok-4.6"
+ },
+ "prompt": "sha256:2e4036a84d6b37c1c4139196205ca7450182398b5ea0cce33b6ee87bf0c4b455",
+ "date": "2026-10-24T20:52Z",
+ "result": "pass",
+ "reasons": [
+  "warning (claude): unstake shows only the receiver, but the call also withdraws the signer's whole cooled-down USDe amount",
+  "warning (claude): cooldownAssets has no test case",
+  "warning (grok): unstake limits receiver types to eoa and wallet, but any address can receive"
+ ],
+ "notReviewed": [],
+ "cost": 0.5908,
+ "units": [
+  {
+   "unit": "ethena__calldata-ethena__0.json",
+   "deployments": [
+    {
+     "chainId": 1,
+     "address": "0x9d39a5de30e57443bff2a8307a4256c8797a3497"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "unstake shows only the receiver, but the call also withdraws the signer's whole cooled-down USDe amount",
+      "cooldownAssets has no test case"
+     ],
+     "info": [
+      "cooldownShares and cooldownAssets intents do not say that the signer's sUSDe is burned and the USDe is locked"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### unstake shows only the receiver, but the call also withdraws the signer's whole cooled-down USDe amount\n\n- **Effect:** `unstake` sends the signer's full `underlyingAmount` in USDe from the silo to `receiver` and clears the cooldown.\n- **Shown:** Intent \"Unstake\" and one field \"Receiver\"; the amount and the token are not shown.\n- **Gap:** The recipient is shown, but the signer sees neither the amount nor the asset that moves. The amount is read from storage, so only a label can help; warning.\n- **Where:** The `unstake` format, intent and `receiver` field; `unstake` in `StakedUSDeV2.sol`; the test case `Unstake - chain 1`.\n- **Evidence:**\n\n```solidity\n// StakedUSDeV2.unstake\nuint256 assets = userCooldown.underlyingAmount;\n...\nsilo.withdraw(receiver, assets);\n```\n\n- **Fix:** Change the intent to \"Claim all cooled-down USDe\". Add a label \"Receiver of all cooled-down USDe\".\n\n### cooldownAssets has no test case\n\n- **Effect:** `cooldownAssets` burns sUSDe shares from the signer and locks the USDe in the silo for the cooldown.\n- **Shown:** The format shows the `assets` amount as USDe through a fixed token constant.\n- **Gap:** The format has an empty case list, so the USDe token constant and the rendering are never checked. Missing tests for EIP-712 formats are a warning; calldata coverage belongs to the deterministic checks, so this is only a note on the token constant. Severity: warning.\n- **Where:** The `cooldownAssets` format; the test file has no case for it.\n- **Evidence:**\n\n```json\n\"cooldownAssets(uint256 assets)\": { \"params\": { \"token\": \"0x4c9EDD5852cd905f086C759E8383e09bff1E68B3\" } }\n```\n\n- **Fix:** Add a test case that shows an amount rendered as USDe.\n\n## Info\n\n### cooldownShares and cooldownAssets intents do not say that the signer's sUSDe is burned and the USDe is locked\n\n- **Effect:** Both functions burn sUSDe and move USDe to the silo. The signer claims it later with `unstake` after the cooldown, at most 90 days.\n- **Shown:** \"Cooldown Shares\" and \"Cooldown Assets\" with one amount.\n- **Gap:** The effect is implied by the word cooldown; the cooldown length is in storage. Info.\n- **Where:** The `cooldownShares` and `cooldownAssets` formats, field `Amount`.\n- **Evidence:**\n\n```solidity\n// StakedUSDeV2.cooldownShares\ncooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;\n_withdraw(msg.sender, address(silo), msg.sender, assets, shares);\n```\n\n- **Fix:** Consider the intents \"Start cooldown: redeem sUSDe\" and \"Start cooldown: withdraw USDe\"."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "unstake limits receiver types to eoa and wallet, but any address can receive"
+     ],
+     "info": [
+      "unstake sends all cooled USDe, but the amount is not in the calldata",
+      "cooldownShares and cooldownAssets restart the signer's cooldown timer"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### unstake limits receiver types to eoa and wallet, but any address can receive\n\n- **Effect:** `unstake` sends all cooled USDe to the `receiver` address, and that address can be a contract.\n- **Shown:** the Receiver field uses `addressName` with types `eoa` and `wallet` only.\n- **Gap:** the types are narrower than the code allows; the address is still shown, so this is a warning.\n- **Where:** the `unstake` format, field `receiver`; `unstake` in `StakedUSDeV2.sol`; the test case `Unstake - chain 1`\n- **Evidence:**\n\n```solidity\n// StakedUSDeV2.unstake\nfunction unstake(address receiver) external {\n  UserCooldown storage userCooldown = cooldowns[msg.sender];\n  uint256 assets = userCooldown.underlyingAmount;\n  if (block.timestamp >= userCooldown.cooldownEnd || cooldownDuration == 0) {\n    userCooldown.cooldownEnd = 0;\n    userCooldown.underlyingAmount = 0;\n    silo.withdraw(receiver, assets);\n```\n\n- **Fix:** Add `contract` to the receiver types.\n\n```json\n{\n  \"path\": \"#.receiver\",\n  \"label\": \"Receiver\",\n  \"format\": \"addressName\",\n  \"params\": {\n    \"types\": [\"eoa\", \"wallet\", \"contract\"],\n    \"sources\": [\"local\", \"ens\"]\n  }\n}\n```\n\n## Info\n\n### unstake sends all cooled USDe, but the amount is not in the calldata\n\n- **Effect:** `unstake` transfers the signer's full `underlyingAmount` of USDe from the silo to the receiver.\n- **Shown:** only the Receiver address; the test case shows no amount.\n- **Gap:** the amount sits in storage, not in calldata; ERC-7730 cannot show it, so this is info.\n- **Where:** the `unstake` format; `unstake` in `StakedUSDeV2.sol`; the test case `Unstake - chain 1`\n- **Evidence:**\n\n```solidity\n// StakedUSDeV2.unstake\nUserCooldown storage userCooldown = cooldowns[msg.sender];\nuint256 assets = userCooldown.underlyingAmount;\nif (block.timestamp >= userCooldown.cooldownEnd || cooldownDuration == 0) {\n  userCooldown.cooldownEnd = 0;\n  userCooldown.underlyingAmount = 0;\n  silo.withdraw(receiver, assets);\n}\n```\n\n### cooldownShares and cooldownAssets restart the signer's cooldown timer\n\n- **Effect:** both functions set `cooldownEnd` to now plus `cooldownDuration` and add the new USDe to `underlyingAmount`.\n- **Shown:** only the new shares or assets amount; nothing states that an open cooldown starts again.\n- **Gap:** an earlier cooldown is delayed; the old end time is in storage, so this is info.\n- **Where:** the `cooldownShares` and `cooldownAssets` formats; both functions in `StakedUSDeV2.sol`\n- **Evidence:**\n\n```solidity\n// StakedUSDeV2.cooldownShares (same pattern in cooldownAssets)\nassets = previewRedeem(shares);\ncooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration;\ncooldowns[msg.sender].underlyingAmount += uint152(assets);\n_withdraw(msg.sender, address(silo), msg.sender, assets, shares);\n```"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,99 @@
+{
+ "hash": "0xb1794f73721629c01fda2e566c64f1b3ff4832ec51ccdd6db044126dd8ea9c3d",
+ "file": "registry/threshold/calldata-TBTCVault.json",
+ "kind": "calldata",
+ "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x9c070027cdc9dc8f82416b2e5314e11dfb4fe3cd"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xb5679de944a79732a75ce556191df11f489448d5"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "reviewers": {
+  "claude": "claude-sonnet-5-5 (medium)",
+  "grok": "grok-4.6"
+ },
+ "prompt": "sha256:0dd454484df7ee580f00bc97d71b279e82c00c64fe7db4c3c5ddc39689458634",
+ "date": "2026-10-24T21:50Z",
+ "result": "pass",
+ "reasons": [
+  "warning (claude): finalizeOptimisticMint shows only a tx hash and output index, so the signer cannot see who receives the mint or how much",
+  "warning (claude): finalizeOptimisticMint mints TBTC to a depositor read from the Bridge and to the treasury, but the screen shows only a funding tx hash"
+ ],
+ "notReviewed": [],
+ "cost": 0.7762,
+ "units": [
+  {
+   "unit": "threshold__calldata-TBTCVault__0.json",
+   "deployments": [
+    {
+     "chainId": 1,
+     "address": "0x9c070027cdc9dc8f82416b2e5314e11dfb4fe3cd"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "finalizeOptimisticMint shows only a tx hash and output index, so the signer cannot see who receives the mint or how much"
+     ],
+     "info": [
+      "Deposit recipient and amount come from Bridge storage and cannot be displayed",
+      "Both functions are restricted to Minter addresses chosen by governance"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### finalizeOptimisticMint shows only a tx hash and output index, so the signer cannot see who receives the mint or how much\n\n- **Effect:** The function mints TBTC to the depositor of the deposit, equal to the deposit amount minus the Bridge fee. It also mints a fee of 1/divisor to the Bridge treasury.\n- **Shown:** Intent \"Finalize optimistic mint\", with the raw \"Funding tx hash\" and \"Funding output\" only.\n- **Gap:** The signer is a Minter, a permissioned role, and mints no assets to themselves. The recipient and amount come from Bridge storage keyed by the hash, which the descriptor cannot decode. The hash is shown, so this is a warning.\n- **Where:** The `finalizeOptimisticMint` format, fields `fundingTxHash` and `fundingOutputIndex`; `finalizeOptimisticMint` in `TBTCOptimisticMinting.sol`; test case \"Finalize optimistic mint for a deposit\".\n- **Evidence:**\n\n```solidity\n// TBTCOptimisticMinting.finalizeOptimisticMint\n_mint(deposit.depositor, amountToMint - optimisticMintFee);\nif (optimisticMintFee > 0) {\n    _mint(bridge.treasury(), optimisticMintFee);\n}\n```\n\n- **Fix:** Change the intent to \"Mint TBTC for revealed deposit\". The text states the effect, which is a mint. Keep the hash fields.\n\n## Info\n\n### Deposit recipient and amount come from Bridge storage and cannot be displayed\n\n- **Effect:** `requestOptimisticMint` and `finalizeOptimisticMint` read the depositor and amount from `bridge.deposits(depositKey)`.\n- **Shown:** Only the funding tx hash and output index.\n- **Gap:** The value is in storage, not in calldata. No descriptor change can show it.\n- **Where:** Both formats; `TBTCOptimisticMinting.sol`.\n- **Evidence:**\n\n```solidity\nDeposit.DepositRequest memory deposit = bridge.deposits(depositKey);\n```\n\n- **Fix:** None possible in the descriptor.\n\n### Both functions are restricted to Minter addresses chosen by governance\n\n- **Effect:** `onlyMinter` allows only permissioned Minters to call both functions. Ordinary signers cannot call them.\n- **Shown:** The descriptor binds the contract with no sign of this restriction.\n- **Gap:** No effect on the signer's assets differs from what is shown. This is a doubt about the audience, not a descriptor defect.\n- **Where:** The `requestOptimisticMint` and `finalizeOptimisticMint` formats; the `onlyMinter` modifier in `TBTCOptimisticMinting.sol`.\n- **Evidence:**\n\n```solidity\nmodifier onlyMinter() {\n    require(isMinter[msg.sender], \"Caller is not a minter\");\n    _;\n}\n```\n\n- **Fix:** None required."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [],
+     "info": [
+      "finalizeOptimisticMint funding tx hash hides the mint amount and the depositor"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\n### finalizeOptimisticMint funding tx hash hides the mint amount and the depositor\n\n- **Effect:** The function mints TBTC to the depositor minus a fee and raises that depositor's debt.\n- **Shown:** The signer sees intent \"Finalize optimistic mint\" plus the funding tx hash and output index.\n- **Gap:** The amount, depositor and fee sit in Bridge storage, so this is a spec-limitation.\n- **Where:** the `finalizeOptimisticMint` format; `finalizeOptimisticMint` in `TBTCOptimisticMinting.sol`; the test case `Finalize optimistic mint for a deposit`\n- **Evidence:**\n\n```solidity\n// TBTCOptimisticMinting.finalizeOptimisticMint\nDeposit.DepositRequest memory deposit = bridge.deposits(depositKey);\nrequire(deposit.sweptAt == 0, \"The deposit is already swept\");\nuint256 amountToMint = (deposit.amount - deposit.treasuryFee) *\n    SATOSHI_MULTIPLIER;\nuint256 optimisticMintFee = optimisticMintingFeeDivisor > 0\n    ? (amountToMint / optimisticMintingFeeDivisor)\n    : 0;\n_mint(deposit.depositor, amountToMint - optimisticMintFee);\nif (optimisticMintFee > 0) {\n    _mint(bridge.treasury(), optimisticMintFee);\n}\n```"
+    }
+   }
+  },
+  {
+   "unit": "threshold__calldata-TBTCVault__1.json",
+   "deployments": [
+    {
+     "chainId": 11155111,
+     "address": "0xb5679de944a79732a75ce556191df11f489448d5"
+    }
+   ],
+   "unverified": [],
+   "by": {
+    "claude": {
+     "limited": false,
+     "critical": [],
+     "warning": [
+      "finalizeOptimisticMint mints TBTC to a depositor read from the Bridge and to the treasury, but the screen shows only a funding tx hash"
+     ],
+     "info": [
+      "Funding tx hash is a Bitcoin transaction hash that the descriptor cannot decode into amount or depositor"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### finalizeOptimisticMint mints TBTC to a depositor read from the Bridge and to the treasury, but the screen shows only a funding tx hash\n\n- **Effect:** The function mints `(amount - treasuryFee)` minus a 0.2% fee as TBTC to the depositor, mints the fee to the Bridge treasury, and raises the depositor's optimistic minting debt.\n- **Shown:** The intent \"Finalize optimistic mint\" with the fields \"Funding tx hash\" and \"Funding output\". The amount, depositor and fee are not shown.\n- **Gap:** The caller must be a Minter and receives no asset. The depositor, the amount and the fee come from Bridge storage, so no descriptor can show them. The intent states the step correctly. This is a warning for readability only, not a critical.\n- **Where:** The `finalizeOptimisticMint` format, field `fundingTxHash`; `finalizeOptimisticMint` in `TBTCOptimisticMinting.sol`.\n- **Evidence:**\n\n```solidity\n// TBTCOptimisticMinting.finalizeOptimisticMint\n_mint(deposit.depositor, amountToMint - optimisticMintFee);\nif (optimisticMintFee > 0) {\n    _mint(bridge.treasury(), optimisticMintFee);\n}\n```\n\n- **Fix:** Change the intent to \"Mint TBTC for revealed deposit\" so the signer sees that TBTC is minted. Keep the fields as they are. No `interpolatedIntent` change is needed.\n\n```json\n\"intent\": \"Mint TBTC for revealed deposit\"\n```\n\n## Info\n\n### Funding tx hash is a Bitcoin transaction hash that the descriptor cannot decode into amount or depositor\n\n- **Effect:** `requestOptimisticMint` and `finalizeOptimisticMint` look up the deposit in the Bridge by `keccak256(fundingTxHash | fundingOutputIndex)`.\n- **Shown:** The raw hash and the raw output index.\n- **Gap:** The deposit terms, the depositor and the amount live in Bridge storage, so ERC-7730 cannot show them. Only a Minter can call these functions.\n- **Where:** Both formats, fields `fundingTxHash` and `fundingOutputIndex`; `calculateDepositKey` in `TBTCOptimisticMinting.sol`.\n- **Evidence:**\n\n```solidity\n// TBTCOptimisticMinting.calculateDepositKey\nuint256(keccak256(abi.encodePacked(fundingTxHash, fundingOutputIndex)))\n```\n\n- **Fix:** None possible in the descriptor. This is a spec limitation."
+    },
+    "grok": {
+     "limited": false,
+     "critical": [],
+     "warning": [],
+     "info": [
+      "finalizeOptimisticMint mints TBTC to a depositor but shows only the funding id"
+     ],
+     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\n### finalizeOptimisticMint mints TBTC to a depositor but shows only the funding id\n\n- **Effect:** The contract mints TBTC to the deposit depositor and a fee to the treasury.\n- **Shown:** The signer sees \"Finalize optimistic mint\", the funding tx hash, and the output index.\n- **Gap:** The amount and the depositor are in Bridge storage, not in calldata, so this is a spec-limitation.\n- **Where:** the `finalizeOptimisticMint` format; `finalizeOptimisticMint` in `TBTCOptimisticMinting.sol`; the test case `Finalize optimistic mint for a deposit`\n- **Evidence:**\n\n```solidity\n// TBTCOptimisticMinting.finalizeOptimisticMint\nuint256 amountToMint = (deposit.amount - deposit.treasuryFee) *\n    SATOSHI_MULTIPLIER;\nuint256 optimisticMintFee = optimisticMintingFeeDivisor > 0\n    ? (amountToMint / optimisticMintingFeeDivisor)\n    : 0;\n_mint(deposit.depositor, amountToMint - optimisticMintFee);\nif (optimisticMintFee > 0) {\n    _mint(bridge.treasury(), optimisticMintFee);\n}\n```"
+    }
+   }
+  }
+ ]
+}
