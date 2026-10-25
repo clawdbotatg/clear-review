@@ -72,8 +72,25 @@ def test_review_parsing():
     assert review.verdict([u(claude=[], grok=[])], [{"why": "model error"}]) == "incomplete"
     assert review.verdict([{**u(claude=[]), "unverified": ["1:0x"]}], []) == "incomplete"
     assert review.verdict([], []) == "error"
+    assert review.verdict([{**u(claude=[], grok=[]), "hiddenValue": ["swap()"]}], []) == "fail"
     assert review.selector("transfer(address to, uint256 amount)") == "0xa9059cbb"
     assert review.canon("(address a, uint256[] b)[] c, bytes d") == "(address,uint256[])[],bytes"
+    assert review.canon("(address a, uint256[] b) c, (uint8 x)[2][] y") == "(address,uint256[]),(uint8)[2][]"
+
+
+def test_hidden_value():
+    fn = lambda name, pay, ins=(): {"type": "function", "name": name, "stateMutability": "payable" if pay else "nonpayable",
+                                    "inputs": [t if isinstance(t, dict) else {"type": t} for t in ins]}
+    shows = {"fields": [{"path": "@.value", "label": "Send"}]}
+    hides = {"fields": [{"path": "amount", "label": "Amount"}], "excluded": ["@.value"]}
+    viadef = {"fields": [{"$ref": "$.display.definitions.sent"}]}
+    unit = lambda abi, formats: {"contracts": [{"abi": abi}], "head": {"display": {"formats": formats, "definitions": {"sent": {"path": "@.value"}}}}}
+    abi = [fn("buy", True, ["uint256"]), fn("sell", False, ["uint256"]), fn("swap", True, [{"type": "tuple", "components": [{"type": "address"}, {"type": "uint256[]"}]}])]
+    assert review.hidden_value(unit(abi, {"buy(uint256 a)": hides, "sell(uint256 a)": hides})) == ["buy(uint256 a)"]
+    assert review.hidden_value(unit(abi, {"buy(uint256 a)": shows, "swap((address t, uint256[] p) d)": viadef})) == []
+    assert review.hidden_value(unit(abi, {"swap((address t, uint256[] p) d)": hides})) == ["swap((address t, uint256[] p) d)"]
+    other = {"zap(uint256 a)": hides}            # not in the ABI (a proxy we can't see through): left to the models
+    assert review.hidden_value(unit(abi + [{"type": "fallback", "stateMutability": "payable"}], other)) == []
 
 
 def test_tx_input():

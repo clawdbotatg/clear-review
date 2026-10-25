@@ -201,7 +201,7 @@ def canon(params):
                     d += (c == "(") - (c == ")")
                     if d == 0:
                         break
-                out.append("(" + canon(p[1:j]) + ")" + p[j + 1:].split()[0] if p[j + 1:].strip() else "(" + canon(p[1:j]) + ")")
+                out.append("(" + canon(p[1:j]) + ")" + re.match(r"(\[\d*\])*", p[j + 1:])[0])    # keep [] / [3], drop a name
             else:
                 out.append(p.split()[0])
             continue
@@ -310,12 +310,37 @@ def limited(text):
     return bool(re.search(r"^## What could not be reviewed\s*$", text, re.M))
 
 
+def abi_type(x):
+    """An ABI input's canonical type: tuples spelled out, as in a selector."""
+    t = x["type"]
+    return "(" + ",".join(abi_type(c) for c in x["components"]) + ")" + t[5:] if t.startswith("tuple") else t
+
+
+def hidden_value(unit):
+    """Format keys of payable functions whose screen never shows the ETH sent (@.value): a hard fail, no model
+    needed. A payable function's ABI says it takes ETH; the format lists what the screen shows."""
+    payable = set()                     # a function only a payable fallback runs isn't counted: that could be an
+    for c in unit.get("contracts") or []:  # unresolved proxy's (Celo), and is left to the models (ParaSwap's Augustus)
+        for f in c.get("abi") or []:
+            if f.get("type") == "function" and f.get("stateMutability") == "payable":
+                payable.add(selector(f"{f['name']}({','.join(abi_type(i) for i in f['inputs'])})"))
+    disp = (unit.get("head") or {}).get("display") or {}
+    defs = disp.get("definitions") or {}
+    out = []
+    for key, fmt in (disp.get("formats") or {}).items():
+        shown = json.dumps({k: v for k, v in fmt.items() if k != "excluded"})
+        shown += "".join(json.dumps(defs.get(n)) for n in re.findall(r'"\$\.display\.definitions\.(\w+)"', shown))
+        if selector(key) in payable and '"@.value"' not in shown:
+            out.append(key)
+    return out
+
+
 def verdict(units, missing):
     """pass: every unit reviewed by every reviewer, every contract verified, no reviewer found anything critical
     or could not check something. Warnings (shown right, could be clearer) don't fail it: they go upstream."""
     if not units:
         return "error"
-    if any(r["critical"] for u in units for r in u["by"].values()):
+    if any(u.get("hiddenValue") or any(r["critical"] for r in u["by"].values()) for u in units):
         return "fail"
     if missing or any(u["unverified"] or r["limited"] for u in units for r in u["by"].values()):
         return "incomplete"
@@ -361,11 +386,12 @@ def review_one(d, system, out=None, given=None):
                     continue
                 by[name] = {"limited": limited(text), **counts(text), "answer": text}
             if by:
-                units.append({"unit": u["file"], "deployments": unit["unit"]["deployments"],
+                units.append({"unit": u["file"], "deployments": unit["unit"]["deployments"], "hiddenValue": hidden_value(unit),
                               "unverified": [f"{x['chainId']}:{x['address']}" for x in unit["contracts"] if x["match"] is None],
                               "by": by})
     v = verdict(units, missing)
-    reasons = [f"{sev} ({n}): {t}" for sev in ("critical", "warning") for u in units for n, r in u["by"].items() for t in r[sev]]
+    reasons = sorted({f"critical (check): {k} takes ETH but never shows how much (@.value)" for u in units for k in u["hiddenValue"]})
+    reasons += [f"{sev} ({n}): {t}" for sev in ("critical", "warning") for u in units for n, r in u["by"].items() for t in r[sev]]
     return write(out, {**base, "result": v, "reasons": reasons, "notReviewed": missing, "cost": round(cost, 4), "units": units})
 
 

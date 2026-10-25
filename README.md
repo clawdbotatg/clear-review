@@ -54,7 +54,9 @@ Optional: `SOURCIFY_TOKEN` (fewer 429s). Env: `REVIEWERS` (`claude,grok`), `MODE
    The hash is ERC-8176's, so a descriptor that changes upstream is unreviewed again on its own.
    - **pass**: both models reviewed every unit, nothing critical, every contract has verified source,
      nothing they said they could not check. Warnings (shown right, could be clearer) don't fail it.
-   - **fail**: a model found something critical.
+   - **fail**: a model found something critical, or a function takes ETH but its screen never shows how much
+     (`@.value`). That second one is a plain code check, no model: the ABI says which functions are payable,
+     and the descriptor says what the screen shows.
    - **incomplete**: unverified source, a unit too big, a model error, or something a model could not check.
 4. **Sign.** Every passed deployment is a leaf in one Merkle tree. The review key signs `(round, registry commit, root)`.
    One signature per round → `rounds/<round>.json`, with every leaf's proof.
