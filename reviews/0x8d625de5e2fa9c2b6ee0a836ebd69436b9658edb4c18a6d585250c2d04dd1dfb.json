@@ -2,7 +2,7 @@
  "hash": "0x8d625de5e2fa9c2b6ee0a836ebd69436b9658edb4c18a6d585250c2d04dd1dfb",
  "file": "registry/safe/eip712-Safe-Multisig.json",
  "kind": "eip712",
- "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
  "deployments": [
   {
    "chainId": 1,
@@ -716,1039 +716,274 @@
  "auditedBy": [
   "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
  ],
- "reviewers": {
-  "claude": "claude-sonnet-5-5 (medium)",
-  "grok": "grok-4.6"
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T15:49Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "DeleteRequest(bytes32 safeTxHash,uint256 totp)",
+    "effects": [
+     "Signer authorizes the off-chain multisig service to delete the pending transaction proposal with hash safeTxHash from its queue.",
+     "No asset, allowance or on-chain state of the Safe changes; the Safe nonce is not consumed, so the transaction is not rejected on chain.",
+     "totp is a time window that limits how long the signature is valid."
+    ],
+    "shown": "\"Reject transaction\" with the raw Safe TX hash; totp hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "DeleteRequest says \"Reject transaction\" but only deletes the proposal from the off-chain queue.",
+      "evidence": "descriptor.json DeleteRequest format: \"intent\": \"Reject transaction\". The type DeleteRequest(bytes32 safeTxHash,uint256 totp) carries no Safe nonce or on-chain call; the Safe contracts in contracts/ (Safe.sol) verify only SafeTx and contain no DeleteRequest type. In Safe wording, a rejection is an on-chain nonce-replacing transaction. A deleted proposal with collected signatures can still be executed.",
+      "fix": "Change the intent to \"Delete pending transaction proposal\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "DeleteRequest shows only a Safe tx hash, which hides the terms of the deleted transaction.",
+      "evidence": "descriptor.json DeleteRequest field safeTxHash, \"format\": \"raw\". The hash stands for a SafeTx (to, value, data, nonce) that the message does not carry.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "All formats bind to Safe singletons that never verify these Ledger Multisig messages.",
+      "evidence": "descriptor.json context.eip712.domain {\"name\": \"Ledger Multisig\", \"version\": \"1.0.0\"} with deployments 0xd9db…9552, 0x4167…461a, etc. Safe.sol uses DOMAIN_SEPARATOR_TYPEHASH over (chainId, this) and only SAFE_TX_TYPEHASH. A grep for DeleteRequest, Delegate, AddressBook and totp in all sources finds nothing. The real verifier is an off-chain service.",
+      "fix": "Bind the descriptor to the domain the off-chain service really uses (chainId, verifyingContract if any), and document the service.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 45
+   },
+   {
+    "key": "Delegate(address delegateAddress,uint256 totp)",
+    "effects": [
+     "Signer authorizes the off-chain service to add delegateAddress as a proposer for the signer's Safe(s), or to remove it; the HTTP request decides which, not the message.",
+     "A proposer can submit transaction proposals to the Safe queue; it cannot execute them.",
+     "The message names no Safe, so the scope of the delegation is decided by the service."
+    ],
+    "shown": "\"Add or remove proposer\" with the raw proposer address; totp hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Delegate intent \"Add or remove proposer\" does not say which action the signature authorizes.",
+      "evidence": "descriptor.json Delegate format: \"intent\": \"Add or remove proposer\". The type Delegate(address delegateAddress,uint256 totp) has no add/remove flag, so the same signature can serve both actions within the totp window.",
+      "fix": "Prefer the AddProposer and RemoveProposer types; for Delegate, change the intent to \"Add or remove proposer (both allowed)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Delegate message names no Safe, so the scope of the proposer right is not shown.",
+      "evidence": "Delegate(address delegateAddress,uint256 totp) carries only the delegate and a time window; the Safe(s) affected come from the off-chain service.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Delegate shows the proposer address raw instead of with addressName.",
+      "evidence": "descriptor.json Delegate field delegateAddress: \"format\": \"raw\".",
+      "fix": "Use {\"format\": \"addressName\", \"params\": {\"types\": [\"eoa\", \"wallet\"], \"sources\": [\"local\", \"ens\"]}}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "AddProposer(address delegateAddress,uint256 totp)",
+    "effects": [
+     "Signer authorizes the off-chain service to add delegateAddress as a proposer for the signer's Safe(s).",
+     "The proposer can put transaction proposals in the Safe queue; it cannot sign or execute them.",
+     "No asset or on-chain state changes."
+    ],
+    "shown": "\"Add proposer\" with the raw proposer address; totp hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "AddProposer shows the proposer address raw instead of with addressName.",
+      "evidence": "descriptor.json AddProposer field delegateAddress: \"format\": \"raw\".",
+      "fix": "Use {\"format\": \"addressName\", \"params\": {\"types\": [\"eoa\", \"wallet\"], \"sources\": [\"local\", \"ens\"]}} and add interpolatedIntent \"Add {delegateAddress} as proposer\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "AddProposer message names no Safe, so the scope of the proposer right is not shown.",
+      "evidence": "AddProposer(address delegateAddress,uint256 totp) carries no Safe address; the service decides which Safes are affected.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "RemoveProposer(address delegateAddress,uint256 totp)",
+    "effects": [
+     "Signer authorizes the off-chain service to remove delegateAddress as a proposer for the signer's Safe(s).",
+     "No asset or on-chain state changes."
+    ],
+    "shown": "\"Remove proposer\" with the raw proposer address; totp hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "RemoveProposer shows the proposer address raw instead of with addressName.",
+      "evidence": "descriptor.json RemoveProposer field delegateAddress: \"format\": \"raw\".",
+      "fix": "Use {\"format\": \"addressName\", \"params\": {\"types\": [\"eoa\", \"wallet\"], \"sources\": [\"local\", \"ens\"]}}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "AuthentAddressBook(uint256 totp)",
+    "effects": [
+     "Signer proves control of the account to the off-chain address book service for the current totp window.",
+     "No asset, allowance or on-chain state changes."
+    ],
+    "shown": "\"Authenticate address book\"; totp hidden.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "AddAddressBookEntry(AddressBookEntry[] entries,uint256 totp)AddressBookEntry(string alias,address address)",
+    "effects": [
+     "Signer authorizes the off-chain service to add each (alias, address) pair to the address book.",
+     "The wallet UI later uses these aliases to name recipients, so a wrong pair can mislabel a future recipient.",
+     "No asset or on-chain state changes."
+    ],
+    "shown": "\"Add address book entry\" with the aliases and the raw addresses as two separate lists; totp hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "AddAddressBookEntry shows aliases and addresses as separate arrays, so the signer cannot pair them.",
+      "evidence": "descriptor.json AddAddressBookEntry fields: {\"path\": \"entries.[].alias\"} and {\"path\": \"entries.[].address\"} as two independent fields.",
+      "fix": "Use one field group with \"path\": \"entries.[]\" and nested fields \"alias\" and \"address\" so each pair renders together.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "AddAddressBookEntry shows entry addresses raw instead of with addressName.",
+      "evidence": "descriptor.json AddAddressBookEntry field entries.[].address: \"format\": \"raw\".",
+      "fix": "Use \"format\": \"addressName\" for entries.[].address.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "These EIP-712 types (DeleteRequest, Delegate, AddProposer, RemoveProposer, AuthentAddressBook, AddAddressBookEntry) are checked by an off-chain Ledger Multisig service whose code is not in the directory. None of the Safe contracts in the directory verifies them. So I could not confirm the domain, the type strings, or what each signature lets the service do (for example, whether Delegate covers all Safes)."
+  ]
  },
- "prompt": "sha256:2e4036a84d6b37c1c4139196205ca7450182398b5ea0cce33b6ee87bf0c4b455",
- "date": "2026-10-24T20:56Z",
- "result": "fail",
- "reasons": [
-  "critical (grok): GnosisSafe does not verify the Ledger domain or any displayed EIP-712 type",
-  "critical (claude): The descriptor binds a Ledger Multisig EIP-712 domain to Safe contract addresses that never verify these types",
-  "critical (claude): The descriptor binds Ledger Multisig messages to Safe L2 contracts whose EIP-712 domain and types differ",
-  "critical (claude): The descriptor binds Ledger Multisig EIP-712 types to a GnosisSafeL2 contract that does not verify them",
-  "critical (claude): The descriptor binds Ledger Multisig EIP-712 messages to Safe contracts whose domain differs, so the signature covers another type",
-  "warning (claude): The descriptor binds the Ledger Multisig EIP-712 types to Safe contract addresses whose source defines none of these types",
-  "warning (claude): Proposer and address book formats show addresses and aliases as `raw` and hide `totp`",
-  "warning (grok): DeleteRequest intent says Reject transaction, but the Safe does not cancel it",
-  "warning (grok): Proposer and address-book address fields use raw hex, not addressName",
-  "warning (claude): The `Delegate` format has an intent \"Add or remove proposer\" that does not say which action the signature performs",
-  "warning (claude): The `AddAddressBookEntry` format shows alias and address as two separate arrays that the signer cannot pair",
-  "warning (claude): The `DeleteRequest` and proposer formats show addresses and hashes in `raw` format, and the EIP-712 context lacks `verifyingContract`",
-  "warning (grok): Proposer and address book fields show addresses as raw hex",
-  "warning (claude): AddAddressBookEntry shows the alias and address arrays as separate lists the signer cannot pair",
-  "warning (claude): Proposer and address book addresses use `raw` format and cannot resolve to names",
-  "warning (claude): The test file is missing for six EIP-712 formats",
-  "warning (grok): AddAddressBookEntry shows aliases and addresses as two lists the signer cannot pair",
-  "warning (grok): AddAddressBookEntry intent names one entry but the message can add many",
-  "warning (claude): The descriptor binds the Ledger Multisig EIP-712 messages to the Safe contract at 0xff51…a44b, which verifies a different domain and type",
-  "warning (claude): Add and remove proposer formats show the proposer address with the raw format",
-  "warning (grok): DeleteRequest intent says Reject transaction but only deletes a queued request",
-  "warning (grok): Delegate intent does not say whether the proposer is added or removed",
-  "warning (grok): AddAddressBookEntry shows aliases and addresses as two lists the signer cannot pair",
-  "warning (grok): Proposer addresses use raw format instead of addressName",
-  "warning (claude): DeleteRequest, Delegate, AddProposer, RemoveProposer and AddAddressBookEntry show addresses as raw values",
-  "warning (claude): Delegate intent \"Add or remove proposer\" does not say which action occurs",
-  "warning (grok): AddAddressBookEntry shows aliases and addresses as two lists the signer cannot pair",
-  "warning (grok): Delegate, AddProposer, RemoveProposer and AddAddressBookEntry show addresses as raw hex",
-  "warning (claude): Five formats show addresses as `raw` and the `totp` field is hidden",
-  "warning (claude): `Delegate` intent does not say whether the proposer is added or removed",
-  "warning (claude): Address book entries show alias and address as separate array lists",
-  "warning (grok): Safe does not verify these EIP-712 types, but intents describe Safe actions",
-  "warning (grok): Proposer and address-book fields show raw hex instead of address names",
-  "warning (grok): Delegate intent does not say if the proposer is added or removed",
-  "warning (grok): AddAddressBookEntry intent is singular but the list can add many entries",
-  "warning (grok): Delegate, AddProposer, RemoveProposer and AddAddressBookEntry show addresses as raw",
-  "warning (grok): AddAddressBookEntry shows aliases and addresses as two separate lists",
-  "warning (claude): AddAddressBookEntry shows only the raw alias and address arrays, so the signer cannot pair entries",
-  "warning (claude): Delegate, AddProposer and RemoveProposer show the proposer address as raw bytes",
-  "warning (claude): No tests exist for any of the six EIP-712 formats",
-  "warning (grok): Proposer and address-book formats show addresses as raw hex"
- ],
- "notReviewed": [],
- "cost": 3.7753,
- "units": [
-  {
-   "unit": "safe__eip712-Safe-Multisig__0.json",
-   "deployments": [
-    {
-     "chainId": 1,
-     "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
-    },
-    {
-     "chainId": 10,
-     "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
-    },
-    {
-     "chainId": 137,
-     "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
-    },
-    {
-     "chainId": 8453,
-     "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
-    },
-    {
-     "chainId": 42161,
-     "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
-    },
-    {
-     "chainId": 11155111,
-     "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
-    },
-    {
-     "chainId": 1,
-     "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
-    },
-    {
-     "chainId": 10,
-     "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
-    },
-    {
-     "chainId": 56,
-     "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
-    },
-    {
-     "chainId": 137,
-     "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
-    },
-    {
-     "chainId": 8453,
-     "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
-    },
-    {
-     "chainId": 42161,
-     "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
-    },
-    {
-     "chainId": 11155111,
-     "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
-    },
-    {
-     "chainId": 7777777,
-     "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": true,
-     "critical": [],
-     "warning": [
-      "The descriptor binds the Ledger Multisig EIP-712 types to Safe contract addresses whose source defines none of these types",
-      "Proposer and address book formats show addresses and aliases as `raw` and hide `totp`"
-     ],
-     "info": [
-      "The `DeleteRequest` format shows only a hash"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### The descriptor binds the Ledger Multisig EIP-712 types to Safe contract addresses whose source defines none of these types\n\n- **Effect:** The verified contract (GnosisSafe 1.3.0) verifies only `EIP712Domain(uint256 chainId,address verifyingContract)` and `SafeTx(...)`. It has no `name` or `version` in its domain and no `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook` or `AddAddressBookEntry` type.\n- **Shown:** The descriptor requires domain `name` \"Ledger Multisig\" and `version` \"1.0.0\", and it renders six off-chain message types such as \"Reject transaction\" and \"Add proposer\".\n- **Gap:** The messages are not verified by this contract. Its domain has no `name` or `version`, so the binding never matches a message the contract signs. The signature is checked by an off-chain service, not by the contract, so the review cannot confirm the types. This is a mismatch of domain and verifier; warning, because no asset effect is provable from the source.\n- **Where:** The `context.eip712` domain and deployments of the descriptor; `GnosisSafe.sol`, `domainSeparator` and `DOMAIN_SEPARATOR_TYPEHASH`.\n- **Evidence:**\n\n```solidity\n// GnosisSafe.domainSeparator\n// keccak256(\"EIP712Domain(uint256 chainId,address verifyingContract)\");\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534...9218;\n```\n\n- **Fix:** Confirm with the Safe Transaction Service owner which domain these types use. Document it, or remove the `verifyingContract` deployments that do not belong to this flow.\n\n### Proposer and address book formats show addresses and aliases as `raw` and hide `totp`\n\n- **Effect:** `Delegate`, `AddProposer` and `RemoveProposer` grant or revoke the right to propose transactions for the Safe. `AddAddressBookEntry` writes address book entries.\n- **Shown:** The proposer address and the entry alias and address are shown as `raw`. `totp` is hidden.\n- **Gap:** The values are shown, but not as names. This is a readability warning. `Delegate` has the intent \"Add or remove proposer\", so the signer cannot tell which action happens.\n- **Where:** The `Delegate` format, the intent and field `delegateAddress`; the `AddAddressBookEntry` format, fields `entries.[].address`.\n- **Evidence:**\n\n```json\n\"Delegate(address delegateAddress,uint256 totp)\": { \"intent\": \"Add or remove proposer\", ... \"format\": \"raw\" }\n```\n\n- **Fix:** Use `\"format\": \"addressName\"` for the address fields. State the one action each format does, or check whether the `Delegate` type is still in use.\n\n## Info\n\n### The `DeleteRequest` format shows only a hash\n\n- **Effect:** `DeleteRequest` rejects a pending Safe transaction, identified by `safeTxHash`.\n- **Shown:** The raw `safeTxHash` appears as \"Safe TX hash\".\n- **Gap:** The hash stands for terms the message does not carry. No descriptor change can decode it.\n- **Where:** The `DeleteRequest` format, field `safeTxHash`.\n- **Evidence:**\n\n```json\n{ \"path\": \"safeTxHash\", \"label\": \"Safe TX hash\", \"format\": \"raw\" }\n```\n\n## What could not be reviewed\n\n- The unit has 14 deployments in 2 addresses, but only the source of the first address on chain 1 is in the input. The other addresses and the 30 omitted source files could not be checked.\n- The unit has no test cases for any format, so the rendering was not reviewed.\n- The off-chain verifier of the Ledger Multisig messages has no source here, so the types could not be verified."
-    },
-    "grok": {
-     "limited": true,
-     "critical": [],
-     "warning": [
-      "DeleteRequest intent says Reject transaction, but the Safe does not cancel it",
-      "Proposer and address-book address fields use raw hex, not addressName"
-     ],
-     "info": [
-      "GnosisSafe does not verify this domain or these EIP-712 types",
-      "DeleteRequest shows only a hash, not the transaction the signer rejects"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### DeleteRequest intent says Reject transaction, but the Safe does not cancel it\n\n- **Effect:** The signature only deletes a queued request off chain. The Safe does not cancel that transaction.\n- **Shown:** Intent `Reject transaction` and the `safeTxHash` field labelled `Safe TX hash`.\n- **Gap:** The intent names a goal this message does not do. That is a warning for goal versus step.\n- **Where:** the `DeleteRequest` format, field `intent`; `GnosisSafe` in `GnosisSafe.sol`; no test case\n\n- **Evidence:**\n\n```json\n\"DeleteRequest(bytes32 safeTxHash,uint256 totp)\": {\n    \"intent\": \"Reject transaction\",\n    \"fields\": [\n        {\n            \"path\": \"safeTxHash\",\n            \"label\": \"Safe TX hash\",\n            \"format\": \"raw\"\n        }\n    ]\n}\n```\n\n```solidity\n// GnosisSafe.encodeTransactionData\n// keccak256(\n//     \"SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)\"\n// );\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;\n```\n\n- **Fix:** Change the intent to name this off-chain delete.\n\n```json\n{\n  \"intent\": \"Delete queued request\"\n}\n```\n\n### Proposer and address-book address fields use raw hex, not addressName\n\n- **Effect:** The signer grants a proposer role or stores an address-book address.\n- **Shown:** `delegateAddress` and `entries.[].address` use format `raw`.\n- **Gap:** The address is shown, but not as a named address. That is a warning for unreadability.\n- **Where:** formats `Delegate`, `AddProposer`, `RemoveProposer`, and `AddAddressBookEntry`; fields `delegateAddress` and `entries.[].address`\n\n- **Evidence:**\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"raw\"\n}\n```\n\n```json\n{\n  \"path\": \"entries.[].address\",\n  \"label\": \"Address book address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Use `addressName` for those address fields.\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"addressName\"\n}\n```\n\n## Info\n\n### GnosisSafe does not verify this domain or these EIP-712 types\n\n- **Effect:** GnosisSafe hashes `EIP712Domain(uint256 chainId,address verifyingContract)` and type `SafeTx`. It does not consume these messages.\n- **Shown:** Domain `name` `Ledger Multisig` and `version` `1.0.0`, with types `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook`, and `AddAddressBookEntry`.\n- **Gap:** The bound contract does not verify these signatures. Another off-chain service does. This is a spec limitation.\n- **Where:** `context.eip712.domain`; `domainSeparator` in `GnosisSafe.sol`\n\n- **Evidence:**\n\n```solidity\n// GnosisSafe.domainSeparator\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;\nfunction domainSeparator() public view returns (bytes32) {\n    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));\n}\n```\n\n```json\n\"domain\": {\n  \"name\": \"Ledger Multisig\",\n  \"version\": \"1.0.0\"\n}\n```\n\n### DeleteRequest shows only a hash, not the transaction the signer rejects\n\n- **Effect:** The message names a Safe transaction by hash only. The signer cannot see `to`, `value`, `data`, or `operation`.\n- **Shown:** Field `safeTxHash` as format `raw`.\n- **Gap:** A hash stands for terms the message does not carry. ERC-7730 cannot decode it. This is a spec limitation.\n- **Where:** the `DeleteRequest` format, field `safeTxHash`\n\n- **Evidence:**\n\n```json\n{\n  \"path\": \"safeTxHash\",\n  \"label\": \"Safe TX hash\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```\n\n## What could not be reviewed\n\nThe unit source is GnosisSafe 1.3.0 only. These types are not in that contract. The off-chain verifier is not in the unit, so type strings, domain fields, and whether `Delegate` adds or removes a proposer could not be checked. There is no test file, so expected renderings could not be judged."
-    }
-   }
+ "cost": 0.463,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 259,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "DeleteRequest(bytes32 safeTxHash,uint256 totp)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "DeleteRequest says \"Reject transaction\" but only deletes the proposal from the off-chain queue.",
+   "comprehension": null
   },
-  {
-   "unit": "safe__eip712-Safe-Multisig__1.json",
-   "deployments": [
-    {
-     "chainId": 56,
-     "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": true,
-     "critical": [],
-     "warning": [
-      "The `Delegate` format has an intent \"Add or remove proposer\" that does not say which action the signature performs",
-      "The `AddAddressBookEntry` format shows alias and address as two separate arrays that the signer cannot pair",
-      "The `DeleteRequest` and proposer formats show addresses and hashes in `raw` format, and the EIP-712 context lacks `verifyingContract`"
-     ],
-     "info": [
-      "Hidden `totp` field in every format",
-      "The source for the Safe contract does not define these EIP-712 types"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### The `Delegate` format has an intent \"Add or remove proposer\" that does not say which action the signature performs\n\n- **Effect:** The signature grants or revokes a proposer right for `delegateAddress`. The signer cannot tell which from the message alone.\n- **Shown:** The intent \"Add or remove proposer\" and the field \"Proposer address\" in `raw` format.\n- **Gap:** The signer sees the address but not whether the right is added or removed. The effect is shown, but imprecise, so this is a warning.\n- **Where:** The `Delegate` format, field `delegateAddress` and the intent.\n- **Evidence:**\n\n```json\n\"Delegate(address delegateAddress,uint256 totp)\": {\n  \"intent\": \"Add or remove proposer\",\n```\n\n- **Fix:** Check the Safe transaction service to see what this type does. If it is one fixed action, name it in the intent. Otherwise leave the format as it is and treat it as a spec limitation.\n\n### The `AddAddressBookEntry` format shows alias and address as two separate arrays that the signer cannot pair\n\n- **Effect:** The signature adds several address book entries, each an alias with an address.\n- **Shown:** One field \"Address book alias\" and one field \"Address book address\", both over `entries.[]`.\n- **Gap:** The wallet may list all aliases and then all addresses. The signer may then not match each alias to its address. A descriptor change fixes this, so this is a warning.\n- **Where:** The `AddAddressBookEntry` format, fields `entries.[].alias` and `entries.[].address`.\n- **Evidence:**\n\n```json\n{\"path\": \"entries.[].alias\", \"label\": \"Address book alias\", \"format\": \"raw\"},\n{\"path\": \"entries.[].address\", \"label\": \"Address book address\", \"format\": \"raw\"}\n```\n\n- **Fix:** Group the two fields under one `entries.[]` group, so each element shows alias and address together. Use `addressName` or a clearer label for the address.\n\n### The `DeleteRequest` and proposer formats show addresses and hashes in `raw` format, and the EIP-712 context lacks `verifyingContract`\n\n- **Effect:** The signature authorizes a rejection, or a proposer change, for the raw values shown.\n- **Shown:** The `safeTxHash` as raw bytes32. The proposer address as raw address.\n- **Gap:** The values are shown. `addressName` would add a trusted name where one exists, so this is only a readability warning.\n- **Where:** The `AddProposer`, `RemoveProposer` and `Delegate` formats, field `delegateAddress`.\n- **Evidence:**\n\n```json\n{\"path\": \"delegateAddress\", \"label\": \"Proposer address\", \"format\": \"raw\"}\n```\n\n- **Fix:** Use the `addressName` format with `types` of `eoa` and `wallet`.\n\n## Info\n\n### Hidden `totp` field in every format\n\n- **Effect:** Each message carries a `totp` value that the Safe service checks as a time-based code.\n- **Shown:** Nothing. The field has `visible: never`.\n- **Gap:** The value does not move assets and the signer does not choose it. This is info.\n- **Where:** All six formats, field `totp`.\n- **Evidence:**\n\n```json\n{\"label\": \"Totp\", \"path\": \"totp\", \"visible\": \"never\"}\n```\n\n### The source for the Safe contract does not define these EIP-712 types\n\n- **Effect:** The `GnosisSafe` contract at this address verifies only `SafeTx` with the domain `EIP712Domain(uint256 chainId,address verifyingContract)`.\n- **Shown:** The descriptor binds the types `DeleteRequest`, `Delegate`, `AddProposer` and others, with the domain name \"Ledger Multisig\" and version \"1.0.0\".\n- **Gap:** The contract never verifies these types. An off-chain service verifies them, so the check on-chain source cannot be done. This is info.\n- **Where:** The `context.eip712` section; `GnosisSafe.sol`.\n- **Evidence:**\n\n```solidity\n// GnosisSafe.sol\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534...;\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d4...;\n```\n\n## What could not be reviewed\n\n- Every format here is verified by an off-chain service, not by this contract, so the source does not confirm the type strings, the domain name or the version. This blocked check 11.\n- The descriptor has no test cases, so no expected rendering was available to judge."
-    },
-    "grok": {
-     "limited": false,
-     "critical": [
-      "GnosisSafe does not verify the Ledger domain or any displayed EIP-712 type"
-     ],
-     "warning": [
-      "Proposer and address book fields show addresses as raw hex"
-     ],
-     "info": [
-      "DeleteRequest shows only a hash, not the transaction it rejects"
-     ],
-     "answer": "# Review\n\n## Critical\n\n### GnosisSafe does not verify the Ledger domain or any displayed EIP-712 type\n\n- **Effect:** The Safe ignores this signature and does not reject a transaction or change proposers or the address book.\n- **Shown:** Intents say Reject transaction, Add proposer, Remove proposer, Authenticate address book, and Add address book entry.\n- **Gap:** The shown actions do not run on this contract. The contract uses another domain and only the SafeTx type.\n- **Where:** The eip712 domain and all six formats; `domainSeparator` and `SAFE_TX_TYPEHASH` in `GnosisSafe.sol`.\n- **Evidence:**\n\n```solidity\n// GnosisSafe.sol domain and type\nstring public constant VERSION = \"1.3.0\";\n// keccak256(\"EIP712Domain(uint256 chainId,address verifyingContract)\")\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;\n// keccak256(\"SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)\")\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;\nfunction domainSeparator() public view returns (bytes32) {\n    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));\n}\n```\n\n- **Fix:** Do not bind these types to GnosisSafe. Keep only types that the verifier implements, with that verifier domain.\n\n```json\n{\n  \"context\": {\n    \"eip712\": {\n      \"domain\": {\n        \"name\": \"Ledger Multisig\",\n        \"version\": \"1.0.0\"\n      }\n    }\n  }\n}\n```\n\n## Warning\n\n### Proposer and address book fields show addresses as raw hex\n\n- **Effect:** The message names a proposer address or an address book address that the signer must check.\n- **Shown:** `delegateAddress` and `entries.[].address` use format `raw`, so the wallet shows bare hex.\n- **Gap:** The address is shown but unreadable. A `addressName` format fixes this. This is a warning.\n- **Where:** Formats `Delegate`, `AddProposer`, `RemoveProposer`, and `AddAddressBookEntry`; fields `delegateAddress` and `entries.[].address`.\n- **Evidence:**\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Change those address fields to `addressName`. Do not add them to `interpolatedIntent` until that string exists.\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"addressName\"\n}\n```\n\n## Info\n\n### DeleteRequest shows only a hash, not the transaction it rejects\n\n- **Effect:** The signature targets one Safe transaction, identified only by its hash.\n- **Shown:** Field `safeTxHash` with format `raw` and intent Reject transaction.\n- **Gap:** The descriptor cannot decode that hash. This is a spec limitation.\n- **Where:** Format `DeleteRequest`; field `safeTxHash`; no `SafeTx` type in this descriptor.\n- **Evidence:**\n\n```json\n{\n  \"path\": \"safeTxHash\",\n  \"label\": \"Safe TX hash\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```"
-    }
-   }
+  "Delegate(address delegateAddress,uint256 totp)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "Delegate intent \"Add or remove proposer\" does not say which action the signature authorizes.",
+   "comprehension": null
   },
-  {
-   "unit": "safe__eip712-Safe-Multisig__2.json",
-   "deployments": [
-    {
-     "chainId": 1,
-     "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
-    },
-    {
-     "chainId": 10,
-     "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
-    },
-    {
-     "chainId": 56,
-     "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
-    },
-    {
-     "chainId": 137,
-     "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
-    },
-    {
-     "chainId": 8453,
-     "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
-    },
-    {
-     "chainId": 42161,
-     "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
-    },
-    {
-     "chainId": 11155111,
-     "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": true,
-     "critical": [
-      "The descriptor binds a Ledger Multisig EIP-712 domain to Safe contract addresses that never verify these types"
-     ],
-     "warning": [
-      "AddAddressBookEntry shows the alias and address arrays as separate lists the signer cannot pair",
-      "Proposer and address book addresses use `raw` format and cannot resolve to names",
-      "The test file is missing for six EIP-712 formats"
-     ],
-     "info": [
-      "The `totp` value is hidden in every format"
-     ],
-     "answer": "# Review\n\n## Critical\n\n### The descriptor binds a Ledger Multisig EIP-712 domain to Safe contract addresses that never verify these types\n\n- **Effect:** The Safe contract at the unit address verifies only the `SafeTx` type, with a domain of `chainId` and `verifyingContract`. It has no `name` or `version` in its domain. It never verifies `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook` or `AddAddressBookEntry`.\n- **Shown:** Intents such as \"Reject transaction\" and \"Add proposer\", with the owner \"Ledger Multisig\" and the domain name \"Ledger Multisig\" version \"1.0.0\".\n- **Gap:** The signed message is not one this contract uses for these types, so a signature has a meaning other than the one shown. This matches the example \"An EIP-712 domain or type that the verifying contract does not use\". The address `0x41675c…` is a Safe 1.4.1 singleton, so the binding is wrong for this deployment.\n- **Where:** The `context.eip712.deployments` list (entry `0x41675c099f32341bf84bfc5382af534df5c7461a`) and the `domain` constraint; `Safe.sol`, `domainSeparator` and `SAFE_TX_TYPEHASH`.\n- **Evidence:**\n\n```solidity\n// Safe.sol\n// \"EIP712Domain(uint256 chainId,address verifyingContract)\"\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534...;\n// \"SafeTx(address to,uint256 value,bytes data,uint8 operation,...)\"\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d4...;\n```\n\n- **Fix:** Remove `0x41675c099f32341bf84bfc5382af534df5c7461a` from the deployments, together with every other Safe singleton or proxy address that is not a Ledger Multisig verifier. A Safe `SafeTx` message needs its own descriptor.\n\n## Warning\n\n### AddAddressBookEntry shows the alias and address arrays as separate lists the signer cannot pair\n\n- **Effect:** The message adds several entries, each linking an alias to an address.\n- **Shown:** Two fields, \"Address book alias\" and \"Address book address\", each over `entries.[]`, as separate lists.\n- **Gap:** The signer sees the values but may not pair each alias with its address; the effect is shown, so this is a warning.\n- **Where:** The `AddAddressBookEntry` format, fields `entries.[].alias` and `entries.[].address`.\n- **Evidence:**\n\n```json\n{\"path\": \"entries.[].alias\", \"label\": \"Address book alias\", \"format\": \"raw\"},\n{\"path\": \"entries.[].address\", \"label\": \"Address book address\", \"format\": \"raw\"}\n```\n\n- **Fix:** Group both fields under a single `entries.[]` group, so each element shows alias and address together.\n\n### Proposer and address book addresses use `raw` format and cannot resolve to names\n\n- **Effect:** The messages grant or revoke proposer rights, and add address book addresses.\n- **Shown:** The address as a raw string, with no `addressName`.\n- **Gap:** The address is shown, but with no name lookup; this is a warning.\n- **Where:** The `Delegate`, `AddProposer` and `RemoveProposer` formats, field `delegateAddress`; and the `AddAddressBookEntry` format.\n- **Evidence:**\n\n```json\n{\"path\": \"delegateAddress\", \"label\": \"Proposer address\", \"format\": \"raw\"}\n```\n\n- **Fix:** Use `\"format\": \"addressName\"` with `\"types\": [\"eoa\", \"contract\"]`.\n\n### The test file is missing for six EIP-712 formats\n\n- **Effect:** None of the six formats has a test case.\n- **Shown:** Nothing was tested, so no expected rendering exists.\n- **Gap:** For EIP-712, an empty case list is a warning.\n- **Where:** All six formats.\n- **Fix:** Add a test case for each primary type.\n\n## Info\n\n### The `totp` value is hidden in every format\n\n- **Effect:** A one-time value authenticates the request; it does not move assets.\n- **Shown:** The field is `visible: never`.\n- **Gap:** The signer chooses nothing of value here; this is info.\n- **Where:** All six formats, field `totp`.\n- **Fix:** None needed.\n\n## What could not be reviewed\n\n- The contract source of the other deployed addresses in the descriptor (`0xd9db27…`, `0x69f4d1…`, and the rest) is not part of this unit. I could not check that they use the `DeleteRequest`, `Delegate` and related types.\n- The source of the Ledger Multisig verifier is not available, so the type strings of the six formats are not checked against any contract."
-    },
-    "grok": {
-     "limited": true,
-     "critical": [],
-     "warning": [
-      "AddAddressBookEntry shows aliases and addresses as two lists the signer cannot pair",
-      "AddAddressBookEntry intent names one entry but the message can add many"
-     ],
-     "info": [
-      "DeleteRequest shows only a hash and not the Safe transaction it names"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### AddAddressBookEntry shows aliases and addresses as two lists the signer cannot pair\n\n- **Effect:** The message adds one or more alias and address pairs to the address book.\n- **Shown:** Two array fields `entries.[].alias` and `entries.[].address`, not grouped per entry.\n- **Gap:** The signer cannot pair each alias with its address; parallel arrays are a warning.\n- **Where:** the `AddAddressBookEntry` format, fields `entries.[].alias` and `entries.[].address`\n\n- **Evidence:**\n\n```json\n{\n  \"path\": \"entries.[].alias\",\n  \"label\": \"Address book alias\",\n  \"format\": \"raw\"\n},\n{\n  \"path\": \"entries.[].address\",\n  \"label\": \"Address book address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Group each entry so alias and address sit together.\n\n```json\n{\n  \"path\": \"entries.[]\",\n  \"fields\": [\n    {\n      \"path\": \"alias\",\n      \"label\": \"Address book alias\",\n      \"format\": \"raw\"\n    },\n    {\n      \"path\": \"address\",\n      \"label\": \"Address book address\",\n      \"format\": \"addressName\"\n    }\n  ]\n}\n```\n\n### AddAddressBookEntry intent names one entry but the message can add many\n\n- **Effect:** The signed type takes `AddressBookEntry[] entries`, so one call can add many entries.\n- **Shown:** The intent is `Add address book entry`.\n- **Gap:** The intent names one entry; a careful signer can miss that every array item is added.\n- **Where:** the `AddAddressBookEntry` format, `intent`\n\n- **Evidence:**\n\n```json\n\"AddAddressBookEntry(AddressBookEntry[] entries,uint256 totp)AddressBookEntry(string alias,address address)\": {\n  \"intent\": \"Add address book entry\"\n}\n```\n\n- **Fix:** Change the intent to name several entries.\n\n```json\n{\n  \"intent\": \"Add address book entries\"\n}\n```\n\n## Info\n\n### DeleteRequest shows only a hash and not the Safe transaction it names\n\n- **Effect:** The signer authorizes a delete or reject for the Safe transaction that hashes to `safeTxHash`.\n- **Shown:** Field `Safe TX hash` as `raw` bytes32; `totp` is hidden.\n- **Gap:** A hash cannot show `to`, `value`, `data` or `operation`; this is a spec-limitation.\n- **Where:** the `DeleteRequest` format, field `safeTxHash`\n\n- **Evidence:**\n\n```json\n{\n  \"path\": \"safeTxHash\",\n  \"label\": \"Safe TX hash\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```\n\n## What could not be reviewed\n\nThis unit source is Safe 1.4.1. It does not define `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook` or `AddAddressBookEntry`. Safe uses domain type `EIP712Domain(uint256 chainId,address verifyingContract)` and primary type `SafeTx`. Checks of eip712-verification, intent-truthfulness against the verifier, and special values for `totp` need the Ledger Multisig verifier, which is not in this unit. Three Safe sources are omitted (`Enum.sol`, `Singleton.sol`, `IERC165.sol`); they do not define these types."
-    }
-   }
+  "AddProposer(address delegateAddress,uint256 totp)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "AddProposer shows the proposer address raw instead of with addressName.",
+   "comprehension": null
   },
-  {
-   "unit": "safe__eip712-Safe-Multisig__3.json",
-   "deployments": [
-    {
-     "chainId": 1,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 11155111,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 10,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 31,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 63,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 81,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 100,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 137,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 338,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 545,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 919,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1001,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1112,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1285,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1287,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1328,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1329,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1480,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1672,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1924,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 2201,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 2222,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 2391,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 4153,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 4202,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 4217,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 4326,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 5003,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 5115,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 6497,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 7001,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 8150,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 8217,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 8453,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 9746,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 13473,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 13505,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 14800,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 17000,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 23294,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 23295,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 36900,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 42431,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 46630,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 48898,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 59141,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 80002,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 80069,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 84532,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 102030,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 127823,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 167013,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 181228,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 190415,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 314159,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 560048,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 656476,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 747474,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 763373,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 808813,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1440000,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 6281971,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 7777777,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 11142220,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 11155931,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 999999999,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 1666600000,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    },
-    {
-     "chainId": 37714555429,
-     "address": "0xff51a5898e281db6dfc7855790607438df2ca44b"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": true,
-     "critical": [],
-     "warning": [
-      "The descriptor binds the Ledger Multisig EIP-712 messages to the Safe contract at 0xff51…a44b, which verifies a different domain and type",
-      "Add and remove proposer formats show the proposer address with the raw format"
-     ],
-     "info": [
-      "The `AddAddressBookEntry` format iterates `entries` as two separate lists, so the alias and the address of each entry are not paired",
-      "The `DeleteRequest` format shows a transaction hash that stands for terms the message does not carry"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### The descriptor binds the Ledger Multisig EIP-712 messages to the Safe contract at 0xff51…a44b, which verifies a different domain and type\n\n- **Effect:** The Safe contract at the unit address verifies only `SafeTx` messages under the domain `EIP712Domain(uint256 chainId,address verifyingContract)`. It has no `name` or `version` in its domain, and it never verifies `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook` or `AddAddressBookEntry`.\n- **Shown:** The descriptor sets the domain `name` to \"Ledger Multisig\" and `version` to \"1.0.0\", and lists this Safe address as a deployment.\n- **Gap:** The binding does not match the verifying contract's domain, so the descriptor is bound to code that never verifies these types. Wallets that match the domain `name` will not apply it to Safe's own signatures, so I rate it a warning. These messages are off-chain authentication messages for the Safe transaction service, so the signer is not exposed to an on-chain effect.\n- **Where:** The context deployments of the descriptor, which include `0xff51a5898e281db6dfc7855790607438df2ca44b`; `Safe.sol`, `DOMAIN_SEPARATOR_TYPEHASH` and `domainSeparator`.\n- **Evidence:**\n\n```solidity\n// Safe.sol\n// keccak256(\"EIP712Domain(uint256 chainId,address verifyingContract)\");\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;\n```\n\n- **Fix:** Confirm that the Ledger Multisig service verifies these messages with `verifyingContract` set to a Safe at this address. If it does not, remove this address from the deployments. If it does, keep it and document the reason.\n\n### Add and remove proposer formats show the proposer address with the raw format\n\n- **Effect:** `Delegate`, `AddProposer` and `RemoveProposer` grant or revoke the right of the delegate address to propose transactions for the Safe.\n- **Shown:** The field \"Proposer address\" uses the `raw` format.\n- **Gap:** The address is shown, but a name lookup could help the signer. This is a readability issue.\n- **Where:** The `AddProposer`, `RemoveProposer` and `Delegate` formats, field `delegateAddress`.\n- **Evidence:**\n\n```json\n{ \"path\": \"delegateAddress\", \"label\": \"Proposer address\", \"format\": \"raw\" }\n```\n\n- **Fix:** Use the `addressName` format for `delegateAddress`, and add `interpolatedIntent` such as \"Add proposer {delegateAddress}\".\n\n## Info\n\n### The `AddAddressBookEntry` format iterates `entries` as two separate lists, so the alias and the address of each entry are not paired\n\n- **Effect:** The message adds several address book entries, each an alias and an address.\n- **Shown:** The \"Address book alias\" and \"Address book address\" fields use paths `entries.[].alias` and `entries.[].address`, so the signer sees two separate lists.\n- **Gap:** The signer must pair the entries by position. A group on `entries.[]` could pair them. I rate it info because the values are shown.\n- **Where:** The `AddAddressBookEntry` format, fields `entries.[].alias` and `entries.[].address`.\n- **Fix:** Use one group on `entries.[]` with the fields `alias` and `address`.\n\n### The `DeleteRequest` format shows a transaction hash that stands for terms the message does not carry\n\n- **Effect:** The signature rejects a pending Safe transaction identified only by its hash.\n- **Shown:** \"Safe TX hash\" as `raw`.\n- **Gap:** The descriptor cannot decode the hash.\n- **Where:** The `DeleteRequest` format, field `safeTxHash`.\n- **Fix:** None. This is a spec limitation.\n\n## What could not be reviewed\n\n- The contract has no test cases, and the file has no test file. I could not check the rendering of any format.\n- The source shows no Ledger Multisig verifier at this address. I could not confirm the type strings of the six formats against any contract, because the Safe at this address does not verify them."
-    },
-    "grok": {
-     "limited": true,
-     "critical": [],
-     "warning": [
-      "DeleteRequest intent says Reject transaction but only deletes a queued request",
-      "Delegate intent does not say whether the proposer is added or removed",
-      "AddAddressBookEntry shows aliases and addresses as two lists the signer cannot pair",
-      "Proposer addresses use raw format instead of addressName"
-     ],
-     "info": [
-      "DeleteRequest shows only a hash; the real Safe transaction stays hidden"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### DeleteRequest intent says Reject transaction but only deletes a queued request\n\n- **Effect:** The signature only binds a `safeTxHash` for an off-chain delete. The Safe does not consume this type and does not stop execution.\n- **Shown:** Intent `Reject transaction` plus the hash in the `DeleteRequest` format.\n- **Gap:** The intent names an on-chain reject. The signer can think the Safe transaction cannot run. Warning: goal named instead of this step.\n- **Where:** the `DeleteRequest` format, field `intent`; `domainSeparator` and `SAFE_TX_TYPEHASH` in `Safe.sol`; no test case\n- **Evidence:**\n\n```solidity\n// Safe.domainSeparator / SAFE_TX_TYPEHASH\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;\n// keccak256(\"EIP712Domain(uint256 chainId,address verifyingContract)\")\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;\n```\n\n```json\n\"DeleteRequest(bytes32 safeTxHash,uint256 totp)\": {\n  \"intent\": \"Reject transaction\"\n}\n```\n\n- **Fix:** Change the intent to name the off-chain delete. Do not say reject.\n\n```json\n{\n  \"intent\": \"Delete queued request\",\n  \"interpolatedIntent\": \"Delete queued request {safeTxHash}\"\n}\n```\n\n### Delegate intent does not say whether the proposer is added or removed\n\n- **Effect:** The signature authorizes a proposer change for `delegateAddress` in the off-chain service.\n- **Shown:** Intent `Add or remove proposer` and the address only.\n- **Gap:** The type has no add/remove flag. The signer cannot see which right changes. Warning: incomplete intent.\n- **Where:** the `Delegate` format, field `intent`; no consuming function in `Safe.sol`; no test case\n- **Evidence:**\n\n```json\n\"Delegate(address delegateAddress,uint256 totp)\": {\n  \"intent\": \"Add or remove proposer\",\n  \"fields\": [\n    {\n      \"path\": \"delegateAddress\",\n      \"label\": \"Proposer address\",\n      \"format\": \"raw\"\n    }\n  ]\n}\n```\n\n- **Fix:** Prefer `AddProposer` and `RemoveProposer`. If `Delegate` must stay, set a clear intent.\n\n```json\n{\n  \"intent\": \"Toggle proposer\"\n}\n```\n\n### AddAddressBookEntry shows aliases and addresses as two lists the signer cannot pair\n\n- **Effect:** The signature adds every `entries` item, each with an alias and an address.\n- **Shown:** Intent `Add address book entry` (one entry) and two array paths `entries.[].alias` and `entries.[].address`.\n- **Gap:** The signer cannot pair alias with address. The intent hides extra items. Warning: parallel arrays.\n- **Where:** the `AddAddressBookEntry` format, fields `entries.[].alias` and `entries.[].address`; no consuming function in `Safe.sol`\n- **Evidence:**\n\n```json\n\"AddAddressBookEntry(AddressBookEntry[] entries,uint256 totp)AddressBookEntry(string alias,address address)\": {\n  \"intent\": \"Add address book entry\",\n  \"fields\": [\n    { \"path\": \"entries.[].alias\", \"label\": \"Address book alias\", \"format\": \"raw\" },\n    { \"path\": \"entries.[].address\", \"label\": \"Address book address\", \"format\": \"raw\" }\n  ]\n}\n```\n\n- **Fix:** Group each entry. Use plural intent. Use `addressName` for the address.\n\n```json\n{\n  \"intent\": \"Add address book entries\",\n  \"fields\": [\n    {\n      \"path\": \"entries.[]\",\n      \"fields\": [\n        { \"path\": \"alias\", \"label\": \"Alias\", \"format\": \"raw\" },\n        { \"path\": \"address\", \"label\": \"Address\", \"format\": \"addressName\" }\n      ]\n    }\n  ]\n}\n```\n\n### Proposer addresses use raw format instead of addressName\n\n- **Effect:** The signature sets or clears a proposer at `delegateAddress`.\n- **Shown:** `delegateAddress` as `raw` in `Delegate`, `AddProposer`, and `RemoveProposer`.\n- **Gap:** The address is shown, but not as a name. Warning: unreadable format the descriptor can fix.\n- **Where:** the `Delegate`, `AddProposer`, and `RemoveProposer` formats, field `delegateAddress`\n- **Evidence:**\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Use `addressName` on `delegateAddress`. Keep the same label. Do not put this field in `interpolatedIntent` if the sentence would exceed three fields.\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"addressName\"\n}\n```\n\n## Info\n\n### DeleteRequest shows only a hash; the real Safe transaction stays hidden\n\n- **Effect:** The signature targets one Safe transaction by `safeTxHash` (to, value, data, operation, nonce).\n- **Shown:** Field `safeTxHash` as `raw`.\n- **Gap:** A hash cannot show those terms. Info: spec-limitation. Not_critical case 11.\n- **Where:** the `DeleteRequest` format, field `safeTxHash`; `getTransactionHash` in `Safe.sol`\n- **Evidence:**\n\n```solidity\n// Safe.getTransactionHash\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;\n// SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,\n//        uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)\n```\n\n- **Fix:** None. ERC-7730 cannot decode this hash.\n\n## What could not be reviewed\n\nThe Safe source does not define `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook`, or `AddAddressBookEntry`. Ten files are omitted, including interfaces. On-chain eip712-verification of these types could not be checked. An off-chain service is the likely verifier. That verifier is not in the unit."
-    }
-   }
+  "RemoveProposer(address delegateAddress,uint256 totp)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "RemoveProposer shows the proposer address raw instead of with addressName.",
+   "comprehension": null
   },
-  {
-   "unit": "safe__eip712-Safe-Multisig__4.json",
-   "deployments": [
-    {
-     "chainId": 1,
-     "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
-    },
-    {
-     "chainId": 10,
-     "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
-    },
-    {
-     "chainId": 137,
-     "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
-    },
-    {
-     "chainId": 8453,
-     "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
-    },
-    {
-     "chainId": 42161,
-     "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
-    },
-    {
-     "chainId": 11155111,
-     "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
-    },
-    {
-     "chainId": 1,
-     "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
-    },
-    {
-     "chainId": 10,
-     "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
-    },
-    {
-     "chainId": 56,
-     "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
-    },
-    {
-     "chainId": 137,
-     "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
-    },
-    {
-     "chainId": 8453,
-     "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
-    },
-    {
-     "chainId": 42161,
-     "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
-    },
-    {
-     "chainId": 11155111,
-     "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": true,
-     "critical": [
-      "The descriptor binds Ledger Multisig messages to Safe L2 contracts whose EIP-712 domain and types differ"
-     ],
-     "warning": [
-      "DeleteRequest, Delegate, AddProposer, RemoveProposer and AddAddressBookEntry show addresses as raw values",
-      "Delegate intent \"Add or remove proposer\" does not say which action occurs"
-     ],
-     "info": [],
-     "answer": "# Review\n\n## Critical\n\n### The descriptor binds Ledger Multisig messages to Safe L2 contracts whose EIP-712 domain and types differ\n\n- **Effect:** The deployed contract is `GnosisSafeL2` v1.3.0. It verifies only `SafeTx` messages, with the domain `EIP712Domain(uint256 chainId,address verifyingContract)` and no `name` or `version`. It has no `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook` or `AddAddressBookEntry` type.\n- **Shown:** Intents such as \"Reject transaction\", \"Add proposer\" and \"Add address book entry\" appear for these addresses. The domain constraint requires the name \"Ledger Multisig\" and version \"1.0.0\".\n- **Gap:** The descriptor describes a different verifier than the one at these addresses, so what is shown does not match what the contract verifies. A Safe signature for a `SafeTx` is never matched. A typed message with the Ledger domain and one of these types, tied to a Safe address, would show a harmless intent. Different contract or execution context is critical.\n- **Where:** The `context` section, domain and deployments, which include `0x3e5c…d36e` and `0xfb1b…91ea`; `GnosisSafe.sol`, constants `DOMAIN_SEPARATOR_TYPEHASH` and `SAFE_TX_TYPEHASH`, and `domainSeparator`.\n- **Evidence:**\n\n```solidity\n// GnosisSafe.domainSeparator / constants\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534...; // \"EIP712Domain(uint256 chainId,address verifyingContract)\"\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d4...; // \"SafeTx(address to,uint256 value,bytes data,uint8 operation,...)\"\nreturn keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));\n```\n\n- **Fix:** Remove the Safe singleton addresses `0x3e5c63644e683549055b9be8653de26e0b4cd36e` and `0xfb1bffc9d739b8d520daf37df666da4c687191ea` from the deployments of this descriptor. Keep only the addresses that run the Ledger Multisig verifier. Add a separate `SafeTx` descriptor for the Safe contracts, if needed.\n\n## Warning\n\n### DeleteRequest, Delegate, AddProposer, RemoveProposer and AddAddressBookEntry show addresses as raw values\n\n- **Effect:** The proposer address and the address book entries are the values the signer authorizes.\n- **Shown:** The fields use the `raw` format, with no name resolution.\n- **Gap:** The values are shown but without `addressName`. A readable label is possible, so this is a warning.\n- **Where:** Formats `Delegate`, `AddProposer`, `RemoveProposer`, field `delegateAddress`; format `AddAddressBookEntry`, field `entries.[].address`.\n- **Evidence:**\n\n```json\n{ \"path\": \"delegateAddress\", \"label\": \"Proposer address\", \"format\": \"raw\" }\n```\n\n- **Fix:** Use `\"format\": \"addressName\"` for these address fields.\n\n### Delegate intent \"Add or remove proposer\" does not say which action occurs\n\n- **Effect:** The signature either adds or removes a proposer. The message does not say which.\n- **Shown:** The intent \"Add or remove proposer\" and the proposer address.\n- **Gap:** The signer cannot tell whether access is granted or revoked. The label misleads without a descriptor-visible fix, so this is a warning.\n- **Where:** The `Delegate` format, field `intent`.\n- **Evidence:**\n\n```json\n\"intent\": \"Add or remove proposer\"\n```\n\n- **Fix:** Keep the text but add a note in the intent that the action depends on the service state. Alternatively, drop this type if the `AddProposer` and `RemoveProposer` types replace it.\n\n## Info\n\nNone.\n\n## What could not be reviewed\n\n- Only the singleton contracts `0x3e5c…d36e` and `0xfb1b…91ea` have verified source in this unit. The Ledger Multisig verifier addresses (`0xd9db…`, `0x69f4…`, `0x4167…`, `0xff51…`, `0x29fc…`, `0xedd1…`) are not in the sources provided. The type strings of the six formats could not be checked against any verifier.\n- The test file has no cases, so no expected rendering was available."
-    },
-    "grok": {
-     "limited": true,
-     "critical": [],
-     "warning": [
-      "AddAddressBookEntry shows aliases and addresses as two lists the signer cannot pair",
-      "Delegate, AddProposer, RemoveProposer and AddAddressBookEntry show addresses as raw hex"
-     ],
-     "info": [
-      "Safe does not verify these EIP-712 types or the Ledger Multisig domain",
-      "DeleteRequest shows only a hash and cannot show the transaction terms",
-      "AuthentAddressBook shows no address-book data because the message has none"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### AddAddressBookEntry shows aliases and addresses as two lists the signer cannot pair\n\n- **Effect:** The message adds each address-book entry as one alias and one address together.\n- **Shown:** Two array fields `entries.[].alias` and `entries.[].address` with no group and no bundled iteration.\n- **Gap:** The signer cannot pair each alias with its address. Warning: parallel arrays the signer cannot pair.\n- **Where:** the `AddAddressBookEntry` format, fields `entries.[].alias` and `entries.[].address`\n- **Evidence:**\n\n```json\n{\n  \"path\": \"entries.[].alias\",\n  \"label\": \"Address book alias\",\n  \"format\": \"raw\"\n},\n{\n  \"path\": \"entries.[].address\",\n  \"label\": \"Address book address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Group the two fields under `entries.[]` so each alias sits next to its address.\n\n```json\n{\n  \"path\": \"entries.[]\",\n  \"fields\": [\n    {\n      \"path\": \"alias\",\n      \"label\": \"Address book alias\",\n      \"format\": \"raw\"\n    },\n    {\n      \"path\": \"address\",\n      \"label\": \"Address book address\",\n      \"format\": \"addressName\"\n    }\n  ]\n}\n```\n\n### Delegate, AddProposer, RemoveProposer and AddAddressBookEntry show addresses as raw hex\n\n- **Effect:** The signer names a proposer or an address-book address.\n- **Shown:** `delegateAddress` and `entries.[].address` use format `raw`.\n- **Gap:** The address is shown, but not as a name. Warning: shown but unreadable.\n- **Where:** the `Delegate`, `AddProposer`, `RemoveProposer` and `AddAddressBookEntry` formats, fields `delegateAddress` and `entries.[].address`\n- **Evidence:**\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Change those address fields to `addressName`.\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"addressName\"\n}\n```\n\n## Info\n\n### Safe does not verify these EIP-712 types or the Ledger Multisig domain\n\n- **Effect:** The Safe contract accepts `SafeTx` only, with domain `chainId` and `verifyingContract`.\n- **Shown:** Domain name `Ledger Multisig` and version `1.0.0`, plus six other primary types.\n- **Gap:** This contract does not use that domain or those types. Info: the consumer is not this contract.\n- **Where:** `context.eip712.domain`; `domainSeparator` and `SAFE_TX_TYPEHASH` in `GnosisSafe.sol`\n- **Evidence:**\n\n```solidity\n// GnosisSafe.domainSeparator\n// keccak256(\"EIP712Domain(uint256 chainId,address verifyingContract)\")\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;\n// keccak256(\"SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)\")\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;\nfunction domainSeparator() public view returns (bytes32) {\n    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));\n}\n```\n\n### DeleteRequest shows only a hash and cannot show the transaction terms\n\n- **Effect:** The signed data is only `safeTxHash` and `totp`. It does not carry `to`, `value` or `data`.\n- **Shown:** Intent `Reject transaction` and field `Safe TX hash` as raw bytes.\n- **Gap:** A hash stands for terms the message does not carry. Info: spec-limitation.\n- **Where:** the `DeleteRequest` format, field `safeTxHash`; no matching type in `GnosisSafe.sol`\n- **Evidence:**\n\n```json\n\"DeleteRequest(bytes32 safeTxHash,uint256 totp)\": {\n  \"intent\": \"Reject transaction\",\n  \"fields\": [\n    {\n      \"path\": \"safeTxHash\",\n      \"label\": \"Safe TX hash\",\n      \"format\": \"raw\"\n    }\n  ]\n}\n```\n\n### AuthentAddressBook shows no address-book data because the message has none\n\n- **Effect:** The signed data is only `totp`. It does not bind any alias or address.\n- **Shown:** Intent `Authenticate address book` and a hidden `totp` field.\n- **Gap:** The address book is not in the message, so the descriptor cannot show it. Info: spec-limitation.\n- **Where:** the `AuthentAddressBook` format; type `AuthentAddressBook(uint256 totp)`\n- **Evidence:**\n\n```json\n\"AuthentAddressBook(uint256 totp)\": {\n  \"intent\": \"Authenticate address book\",\n  \"fields\": [\n    {\n      \"label\": \"Totp\",\n      \"path\": \"totp\",\n      \"visible\": \"never\"\n    }\n  ]\n}\n```\n\n## What could not be reviewed\n\nThe Safe source does not consume these six types. The off-chain verifier is not in the unit, so intent truth against that verifier could not be checked. Twenty-nine Safe source files were omitted; they were not needed for these types."
-    }
-   }
+  "AuthentAddressBook(uint256 totp)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
   },
-  {
-   "unit": "safe__eip712-Safe-Multisig__5.json",
-   "deployments": [
-    {
-     "chainId": 56,
-     "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
-    },
-    {
-     "chainId": 7777777,
-     "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": true,
-     "critical": [
-      "The descriptor binds Ledger Multisig EIP-712 types to a GnosisSafeL2 contract that does not verify them"
-     ],
-     "warning": [
-      "Five formats show addresses as `raw` and the `totp` field is hidden",
-      "`Delegate` intent does not say whether the proposer is added or removed",
-      "Address book entries show alias and address as separate array lists"
-     ],
-     "info": [],
-     "answer": "# Review\n\n## Critical\n\n### The descriptor binds Ledger Multisig EIP-712 types to a GnosisSafeL2 contract that does not verify them\n\n- **Effect:** The deployed code at the unit's addresses is a Gnosis Safe 1.3.0 L2 singleton. It verifies only `SafeTx` hashes under the domain `EIP712Domain(uint256 chainId,address verifyingContract)`, with no `name` or `version`.\n- **Shown:** The descriptor shows \"Reject transaction\", \"Add proposer\", \"Remove proposer\" and \"Add address book entry\", under the domain name \"Ledger Multisig\" version \"1.0.0\". The Safe code never verifies these types.\n- **Gap:** The contract does not use this domain or these types, so a signature for them is not for anything this contract verifies. This matches the critical example \"An EIP-712 domain or type that the verifying contract does not use\".\n- **Where:** The `eip712` context of the descriptor (domain and deployments); the formats `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook` and `AddAddressBookEntry`; `GnosisSafe.sol`, constants `DOMAIN_SEPARATOR_TYPEHASH` and `SAFE_TX_TYPEHASH`.\n- **Evidence:**\n\n```solidity\n// GnosisSafe.sol\n// keccak256(\"EIP712Domain(uint256 chainId,address verifyingContract)\");\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534...;\n// \"SafeTx(address to,uint256 value,bytes data,uint8 operation,...,uint256 nonce)\"\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d4...;\n```\n\nDescriptor: `\"domain\": {\"name\": \"Ledger Multisig\", \"version\": \"1.0.0\"}`. The unit's deployments are the Safe singleton `0x3e5c…d36e` on chains 56 and 7777777.\n\n- **Fix:** Remove the Safe singleton addresses from the `deployments` list. Keep only the addresses of the contract that verifies the \"Ledger Multisig\" domain. Or, if the address is a Safe, add a descriptor with the `SafeTx` type and a domain that matches `EIP712Domain(uint256 chainId,address verifyingContract)`.\n\n## Warning\n\n### Five formats show addresses as `raw` and the `totp` field is hidden\n\n- **Effect:** Each message authorizes a proposer or address book change. The `totp` is a one-time value that the signer does not choose.\n- **Shown:** `Delegate`, `AddProposer`, `RemoveProposer` and `AddAddressBookEntry` show addresses with the `raw` format, and `DeleteRequest` shows `safeTxHash` as `raw`.\n- **Gap:** The values are shown, but the signer has no name or label for them. Fixing this is a descriptor change, so it is a warning.\n- **Where:** The fields `delegateAddress` and `entries.[].address`.\n- **Evidence:** `{\"path\": \"delegateAddress\", \"label\": \"Proposer address\", \"format\": \"raw\"}`\n- **Fix:** Use `\"format\": \"addressName\"` for the address fields.\n\n### `Delegate` intent does not say whether the proposer is added or removed\n\n- **Effect:** `Delegate` either adds or removes a proposer. The signer cannot tell which from the message.\n- **Shown:** Intent \"Add or remove proposer\".\n- **Gap:** The intent names both outcomes, so the signer does not know which one this signature authorizes. It is a warning.\n- **Where:** The `Delegate` format, `intent`.\n- **Evidence:** `\"intent\": \"Add or remove proposer\"`\n- **Fix:** Say in the intent that the action is \"Change proposer\" and note that the message has no add or remove flag.\n\n### Address book entries show alias and address as separate array lists\n\n- **Effect:** The signer adds several alias and address pairs.\n- **Shown:** The fields `entries.[].alias` and `entries.[].address` show as two separate lists.\n- **Gap:** The signer may not pair the aliases with the addresses. It is a warning.\n- **Where:** The `AddAddressBookEntry` format.\n- **Fix:** Group both fields under `entries.[]`.\n\n## Info\n\nNone.\n\n## What could not be reviewed\n\n- Two sources were omitted (`omittedSources: 2`), so the source of the signature check is incomplete. The review used only the files shown.\n- The unit has no test cases, so no expected renderings could be checked."
-    },
-    "grok": {
-     "limited": true,
-     "critical": [],
-     "warning": [
-      "Safe does not verify these EIP-712 types, but intents describe Safe actions",
-      "Proposer and address-book fields show raw hex instead of address names",
-      "Delegate intent does not say if the proposer is added or removed",
-      "AddAddressBookEntry intent is singular but the list can add many entries"
-     ],
-     "info": [
-      "DeleteRequest shows only a hash, not the Safe transaction",
-      "AuthentAddressBook shows no address-book contents"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### Safe does not verify these EIP-712 types, but intents describe Safe actions\n\n- **Effect:** The Safe does not consume these signatures. It does not reject transactions, change owners, or set proposers.\n- **Shown:** Intents such as `Reject transaction`, `Add proposer`, and `Add or remove proposer`, bound to this Safe.\n- **Gap:** The shown actions do not run in this contract. The domain and types differ. This is wording of the step, so it is a warning.\n- **Where:** All six formats and `context.eip712.domain`; `domainSeparator` and `SAFE_TX_TYPEHASH` in `GnosisSafe.sol`.\n- **Evidence:**\n\n```solidity\n// GnosisSafe.domainSeparator / type hashes\nstring public constant VERSION = \"1.3.0\";\n// EIP712Domain(uint256 chainId,address verifyingContract)\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;\n// SafeTx(address to,uint256 value,bytes data,uint8 operation,...)\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;\n```\n\n```json\n{\n  \"domain\": { \"name\": \"Ledger Multisig\", \"version\": \"1.0.0\" }\n}\n```\n\n- **Fix:** Change intents so they name an off-chain Ledger step, not a Safe execution.\n\n```json\n{\n  \"DeleteRequest(bytes32 safeTxHash,uint256 totp)\": {\n    \"intent\": \"Reject queued Ledger request\"\n  },\n  \"Delegate(address delegateAddress,uint256 totp)\": {\n    \"intent\": \"Toggle Ledger proposer\"\n  }\n}\n```\n\n### Proposer and address-book fields show raw hex instead of address names\n\n- **Effect:** The signer names a proposer or an address-book account.\n- **Shown:** `delegateAddress` and `entries.[].address` use `format` `raw`.\n- **Gap:** The value is shown but hard to read. A raw address without a name is a warning.\n- **Where:** Formats `Delegate`, `AddProposer`, `RemoveProposer`, and `AddAddressBookEntry`; fields `delegateAddress` and `entries.[].address`.\n- **Evidence:**\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Use `addressName` for those fields. Do not put them in `interpolatedIntent` unless you add one.\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"addressName\"\n}\n```\n\n### Delegate intent does not say if the proposer is added or removed\n\n- **Effect:** The same `Delegate` message adds or removes a Ledger proposer.\n- **Shown:** Intent `Add or remove proposer` and only `delegateAddress`.\n- **Gap:** The effect is stated, but the signer cannot see which way it goes. That is incomplete, so it is a warning.\n- **Where:** Format `Delegate(address delegateAddress,uint256 totp)`; field `delegateAddress`.\n- **Evidence:**\n\n```json\n{\n  \"intent\": \"Add or remove proposer\",\n  \"fields\": [\n    {\n      \"path\": \"delegateAddress\",\n      \"label\": \"Proposer address\",\n      \"format\": \"raw\"\n    }\n  ]\n}\n```\n\n- **Fix:** Prefer `AddProposer` and `RemoveProposer`. If `Delegate` stays, set intent to `Toggle Ledger proposer`.\n\n### AddAddressBookEntry intent is singular but the list can add many entries\n\n- **Effect:** The message can add every `entries` item, not one item.\n- **Shown:** Intent `Add address book entry`.\n- **Gap:** The outcome matches, but the wording hides a batch. That is a warning.\n- **Where:** Format `AddAddressBookEntry(AddressBookEntry[] entries,uint256 totp)AddressBookEntry(string alias,address address)`.\n- **Evidence:**\n\n```json\n{\n  \"intent\": \"Add address book entry\",\n  \"fields\": [\n    { \"path\": \"entries.[].alias\", \"label\": \"Address book alias\", \"format\": \"raw\" },\n    { \"path\": \"entries.[].address\", \"label\": \"Address book address\", \"format\": \"raw\" }\n  ]\n}\n```\n\n- **Fix:** Set intent to `Add address book entries` (at most 50 characters).\n\n## Info\n\n### DeleteRequest shows only a hash, not the Safe transaction\n\n- **Effect:** The signer rejects a queued request identified by `safeTxHash`.\n- **Shown:** Field `Safe TX hash` as `raw` bytes32.\n- **Gap:** ERC-7730 cannot decode that hash into `to`, `value`, or `data`. This is a spec limitation.\n- **Where:** Format `DeleteRequest(bytes32 safeTxHash,uint256 totp)`; field `safeTxHash`.\n- **Evidence:**\n\n```json\n{\n  \"path\": \"safeTxHash\",\n  \"label\": \"Safe TX hash\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```\n\n### AuthentAddressBook shows no address-book contents\n\n- **Effect:** The signer authenticates an address book that is not in the message.\n- **Shown:** Intent `Authenticate address book` and a hidden `totp` only.\n- **Gap:** The book lives outside the message, so the descriptor cannot show it. This is a spec limitation.\n- **Where:** Format `AuthentAddressBook(uint256 totp)`.\n- **Evidence:**\n\n```json\n{\n  \"intent\": \"Authenticate address book\",\n  \"fields\": [\n    { \"label\": \"Totp\", \"path\": \"totp\", \"visible\": \"never\" }\n  ]\n}\n```\n\n## What could not be reviewed\n\nGnosisSafeL2 does not define `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook`, or `AddAddressBookEntry`. The code that checks these signatures is not in the unit. EIP-712 type strings, member order, and domain name `Ledger Multisig` version `1.0.0` could not be checked against a verifier. Two compiler sources are omitted; they are not these types."
-    }
-   }
-  },
-  {
-   "unit": "safe__eip712-Safe-Multisig__6.json",
-   "deployments": [
-    {
-     "chainId": 1,
-     "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
-    },
-    {
-     "chainId": 10,
-     "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
-    },
-    {
-     "chainId": 56,
-     "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
-    },
-    {
-     "chainId": 137,
-     "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
-    },
-    {
-     "chainId": 8453,
-     "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
-    },
-    {
-     "chainId": 42161,
-     "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
-    },
-    {
-     "chainId": 11155111,
-     "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": true,
-     "critical": [],
-     "warning": [],
-     "info": [
-      "The unit's contract is the Safe L2 singleton, which verifies no \"Ledger Multisig\" typed data, so the descriptor's EIP-712 binding is not tied to its code"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\n### The unit's contract is the Safe L2 singleton, which verifies no \"Ledger Multisig\" typed data, so the descriptor's EIP-712 binding is not tied to its code\n\n- **Effect:** The reviewed contract at `0x29fc…c762` (SafeL2) signs only `SafeTx` data with the domain `EIP712Domain(uint256 chainId,address verifyingContract)`. It has no `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook` or `AddAddressBookEntry` type and no `name` or `version` in its domain.\n- **Shown:** The descriptor binds the domain `name` \"Ledger Multisig\" and `version` \"1.0.0\" to a list of deployments that includes this address, and formats six off-chain message types.\n- **Gap:** The signer is shown what the typed message says, not what this contract does. The messages go to an off-chain Safe service, so the contract's code cannot confirm them. This is a spec limitation, so info.\n- **Where:** The `context` section, `eip712.domain` and `deployments`; `domainSeparator` and `SAFE_TX_TYPEHASH` in `Safe.sol`.\n- **Evidence:**\n\n```solidity\n// Safe.domainSeparator / DOMAIN_SEPARATOR_TYPEHASH\n// \"EIP712Domain(uint256 chainId,address verifyingContract)\"\nreturn keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));\n```\n\n- **Fix:** Have a reviewer confirm that the Safe transaction service verifies these six types, and that the domain `name` and `version` match what that service uses. Consider listing the Safe `SafeTx` type in a separate descriptor.\n\n## What could not be reviewed\n\n- The Safe transaction service, which verifies the six message types off-chain, is not in the input. The check that the type strings and the domain match the verifier was therefore not possible.\n- The test file is absent, so no expected renderings were available."
-    },
-    "grok": {
-     "limited": true,
-     "critical": [],
-     "warning": [
-      "Delegate, AddProposer, RemoveProposer and AddAddressBookEntry show addresses as raw",
-      "AddAddressBookEntry shows aliases and addresses as two separate lists"
-     ],
-     "info": [
-      "DeleteRequest shows only a hash, not the Safe transaction details",
-      "AuthentAddressBook signs no address-book entries",
-      "Safe does not verify these EIP-712 types or this domain"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### Delegate, AddProposer, RemoveProposer and AddAddressBookEntry show addresses as raw\n\n- **Effect:** The signed message names a proposer or address-book account.\n- **Shown:** The address as raw hex, for example field `delegateAddress` with format `raw`.\n- **Gap:** The address is shown but not as a name. A raw value without a name format is a warning.\n- **Where:** Formats `Delegate`, `AddProposer`, `RemoveProposer` and `AddAddressBookEntry`; fields `delegateAddress` and `entries.[].address`.\n\n- **Evidence:**\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Change those address fields to `addressName`. Keep `entries.[].alias` as `raw`.\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"addressName\"\n}\n```\n\n### AddAddressBookEntry shows aliases and addresses as two separate lists\n\n- **Effect:** The message can hold several alias and address pairs in `entries`.\n- **Shown:** Field `entries.[].alias` then field `entries.[].address`, with no group.\n- **Gap:** The signer cannot pair each alias with its address. Parallel arrays are a warning.\n- **Where:** Format `AddAddressBookEntry`; fields `entries.[].alias` and `entries.[].address`.\n\n- **Evidence:**\n\n```json\n{\n  \"path\": \"entries.[].alias\",\n  \"label\": \"Address book alias\",\n  \"format\": \"raw\"\n},\n{\n  \"path\": \"entries.[].address\",\n  \"label\": \"Address book address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Group the two fields under `entries.[]` so each pair is shown together.\n\n```json\n{\n  \"path\": \"entries.[]\",\n  \"fields\": [\n    {\n      \"path\": \"alias\",\n      \"label\": \"Address book alias\",\n      \"format\": \"raw\"\n    },\n    {\n      \"path\": \"address\",\n      \"label\": \"Address book address\",\n      \"format\": \"addressName\"\n    }\n  ]\n}\n```\n\n## Info\n\n### DeleteRequest shows only a hash, not the Safe transaction details\n\n- **Effect:** The message identifies a Safe transaction by `safeTxHash` only.\n- **Shown:** Intent `Reject transaction` and field `Safe TX hash` as raw bytes.\n- **Gap:** The hash stands for `to`, `value`, `data` and `operation`. ERC-7730 cannot decode it.\n- **Where:** Format `DeleteRequest`; field `safeTxHash`; `encodeTransactionData` in `Safe.sol`.\n\n- **Evidence:**\n\n```solidity\n// Safe.encodeTransactionData\nbytes32 safeTxHash = keccak256(\n    abi.encode(\n        SAFE_TX_TYPEHASH,\n        to,\n        value,\n        keccak256(data),\n        operation,\n        safeTxGas,\n        baseGas,\n        gasPrice,\n        gasToken,\n        refundReceiver,\n        _nonce\n    )\n);\n```\n\n### AuthentAddressBook signs no address-book entries\n\n- **Effect:** The message carries only `totp`. It does not list aliases or addresses.\n- **Shown:** Intent `Authenticate address book`. Field `totp` is `visible: never`.\n- **Gap:** The address book is not in the signed data. The descriptor cannot show it.\n- **Where:** Format `AuthentAddressBook`; field `totp`.\n\n- **Evidence:**\n\n```json\n\"AuthentAddressBook(uint256 totp)\": {\n  \"intent\": \"Authenticate address book\",\n  \"fields\": [\n    {\n      \"label\": \"Totp\",\n      \"path\": \"totp\",\n      \"visible\": \"never\"\n    }\n  ]\n}\n```\n\n### Safe does not verify these EIP-712 types or this domain\n\n- **Effect:** Safe accepts `EIP712Domain(uint256 chainId,address verifyingContract)` and `SafeTx`.\n- **Shown:** Domain name `Ledger Multisig`, version `1.0.0`, and Ledger types such as `DeleteRequest`.\n- **Gap:** This contract does not consume these types. That is a spec limit for off-chain messages.\n- **Where:** `context.eip712.domain`; all six formats; `DOMAIN_SEPARATOR_TYPEHASH` in `Safe.sol`.\n\n- **Evidence:**\n\n```solidity\n// Safe.sol\nstring public constant VERSION = \"1.4.1\";\n// keccak256(\"EIP712Domain(uint256 chainId,address verifyingContract)\")\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218;\n// keccak256(\"SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)\")\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;\n```\n\n## What could not be reviewed\n\nThe SafeL2 source has no consumer for `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook` or `AddAddressBookEntry`. EIP-712 checks of Ledger type strings, domain `name`/`version`, and intents against a verifier were not possible. The unit omits 41 compilation files; they were not required for Safe domain types. There are no test renderings to judge."
-    }
-   }
-  },
-  {
-   "unit": "safe__eip712-Safe-Multisig__7.json",
-   "deployments": [
-    {
-     "chainId": 1,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 11155111,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 31,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 63,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 81,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 100,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 137,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 338,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 545,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 919,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1001,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1112,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1285,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1287,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1328,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1329,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1480,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1672,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1924,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 2201,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 2222,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 2391,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 4153,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 4202,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 4217,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 4326,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 5003,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 5115,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 6497,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 7001,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 8150,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 8217,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 8453,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 9746,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 13473,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 13505,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 14800,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 23294,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 23295,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 36900,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 42431,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 46630,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 48898,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 59141,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 80002,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 80069,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 84532,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 102030,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 127823,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 167013,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 181228,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 190415,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 314159,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 560048,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 656476,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 747474,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 763373,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 808813,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1440000,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 6281971,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 11142220,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 11155931,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 999999999,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 1666600000,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    },
-    {
-     "chainId": 37714555429,
-     "address": "0xedd160febbd92e350d4d398fb636302fccd67c7e"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": true,
-     "critical": [
-      "The descriptor binds Ledger Multisig EIP-712 messages to Safe contracts whose domain differs, so the signature covers another type"
-     ],
-     "warning": [
-      "AddAddressBookEntry shows only the raw alias and address arrays, so the signer cannot pair entries",
-      "Delegate, AddProposer and RemoveProposer show the proposer address as raw bytes",
-      "No tests exist for any of the six EIP-712 formats"
-     ],
-     "info": [
-      "The `totp` value is hidden in every format"
-     ],
-     "answer": "# Review\n\n## Critical\n\n### The descriptor binds Ledger Multisig EIP-712 messages to Safe contracts whose domain differs, so the signature covers another type\n\n- **Effect:** The deployed code at this unit's address is Safe `SafeL2`. It verifies only `SafeTx` hashes under the domain `EIP712Domain(uint256 chainId,address verifyingContract)`, which has no name or version. No function of this contract consumes `DeleteRequest`, `Delegate`, `AddProposer`, `RemoveProposer`, `AuthentAddressBook` or `AddAddressBookEntry`.\n- **Shown:** The descriptor binds the domain `name` \"Ledger Multisig\" and `version` \"1.0.0\" to this address, and shows intents such as \"Reject transaction\" and \"Add proposer\".\n- **Gap:** The contract never verifies these typed messages, and its domain has no `name` or `version`. A wallet that applies the descriptor to messages for this address shows a screen for a type the contract does not use. This is a binding mismatch, so it is critical.\n- **Where:** The context `eip712.domain` and the deployments list of the descriptor, entry `0xedd160…c7e`; `getTransactionHash` and `domainSeparator` in `Safe.sol`.\n- **Evidence:**\n\n```solidity\n// Safe.sol\nbytes32 private constant DOMAIN_SEPARATOR_TYPEHASH = 0x47e79534a245952e8b16893a336b85a3d9ea9fa8c573f3d803afb92a79469218; // \"EIP712Domain(uint256 chainId,address verifyingContract)\"\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d4...; // \"SafeTx(address to,...)\"\n```\n\n- **Fix:** Remove the `0xedd160…c7e` deployments from this descriptor, or move them to a descriptor with the `SafeTx` type and a domain without `name` or `version`. Keep only addresses whose verifier uses the \"Ledger Multisig\" domain.\n\n## Warning\n\n### AddAddressBookEntry shows only the raw alias and address arrays, so the signer cannot pair entries\n\n- **Effect:** The message adds several address book entries, each an alias with an address.\n- **Shown:** The fields `entries.[].alias` and `entries.[].address`, both `raw`, as two separate labels.\n- **Gap:** The signer sees separate lists and has no clear pairing, and the addresses show without names. The effect is shown but hard to read, so it is a warning.\n- **Where:** The `AddAddressBookEntry` format, fields `entries.[].alias` and `entries.[].address`.\n- **Evidence:**\n\n```json\n{\"path\": \"entries.[].address\", \"label\": \"Address book address\", \"format\": \"raw\"}\n```\n\n- **Fix:** Group the fields under `entries.[]` so each alias sits with its address, and use `addressName` for the address.\n\n### Delegate, AddProposer and RemoveProposer show the proposer address as raw bytes\n\n- **Effect:** The message grants or revokes proposer rights for an address.\n- **Shown:** `delegateAddress` with format `raw`, a hex address only.\n- **Gap:** The `addressName` format would resolve known names. The value is shown but less readable, so it is a warning.\n- **Where:** The formats `Delegate`, `AddProposer` and `RemoveProposer`, field `delegateAddress`.\n- **Evidence:**\n\n```json\n{\"path\": \"delegateAddress\", \"label\": \"Proposer address\", \"format\": \"raw\"}\n```\n\n- **Fix:** Change `format` to `addressName` with `types` `[\"eoa\",\"wallet\"]`.\n\n### No tests exist for any of the six EIP-712 formats\n\n- **Effect:** The renderings of the formats are never exercised.\n- **Shown:** Every case list is empty.\n- **Gap:** For EIP-712, an empty case list is a warning.\n- **Where:** All six formats.\n- **Fix:** Add one test case per primary type.\n\n## Info\n\n### The `totp` value is hidden in every format\n\n- **Effect:** The message carries a one-time code that the signer does not choose.\n- **Shown:** `visible: never`.\n- **Gap:** It moves no assets and does not change who gets what.\n- **Where:** The `totp` field of every format.\n\n## What could not be reviewed\n\n- Ten source files were omitted. I could not review the other contracts in the descriptor's deployment list, which other units cover."
-    },
-    "grok": {
-     "limited": false,
-     "critical": [],
-     "warning": [
-      "Proposer and address-book formats show addresses as raw hex"
-     ],
-     "info": [
-      "DeleteRequest only shows a hash, not the transaction being rejected"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### Proposer and address-book formats show addresses as raw hex\n\n- **Effect:** The signer confirms a proposer or address-book account named in the message.\n- **Shown:** The address is raw hex under \"Proposer address\" or \"Address book address\".\n- **Gap:** The address is shown without a trusted name, so the unreadable-value warning applies.\n- **Where:** formats `Delegate`, `AddProposer`, `RemoveProposer`, and `AddAddressBookEntry`; fields `delegateAddress` and `entries.[].address`\n- **Evidence:**\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"raw\"\n}\n```\n\n```json\n{\n  \"path\": \"entries.[].address\",\n  \"label\": \"Address book address\",\n  \"format\": \"raw\"\n}\n```\n\n- **Fix:** Change those address fields to `addressName`. Do not change `interpolatedIntent`; these formats have none.\n\n```json\n{\n  \"path\": \"delegateAddress\",\n  \"label\": \"Proposer address\",\n  \"format\": \"addressName\"\n}\n```\n\n## Info\n\n### DeleteRequest only shows a hash, not the transaction being rejected\n\n- **Effect:** The signer authorizes an action on the Safe transaction identified only by this hash.\n- **Shown:** Field \"Safe TX hash\" with format `raw` in intent \"Reject transaction\".\n- **Gap:** A hash stands for terms the message does not carry. This is a spec limitation.\n- **Where:** format `DeleteRequest`, field `safeTxHash`; `getTransactionHash` in `Safe.sol`\n- **Evidence:**\n\n```solidity\n// Safe.getTransactionHash\n// SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)\nbytes32 private constant SAFE_TX_TYPEHASH = 0xbb8310d486368db6bd6f849402fdd73ad53d316b5a4b2644ad6efe0f941286d8;\n```"
-    }
-   }
+  "AddAddressBookEntry(AddressBookEntry[] entries,uint256 totp)AddressBookEntry(string alias,address address)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "AddAddressBookEntry shows aliases and addresses as separate arrays, so the signer cannot pair them.",
+   "comprehension": null
   }
- ]
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 59,
+  "functions": "3B 3C",
+  "incomplete": true,
+  "worst": "DeleteRequest says \"Reject transaction\" but only deletes the proposal from the off-chain queue."
+ }
 }

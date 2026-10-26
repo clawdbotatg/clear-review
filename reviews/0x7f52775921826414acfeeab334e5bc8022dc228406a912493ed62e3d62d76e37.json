@@ -2,7 +2,7 @@
  "hash": "0x7f52775921826414acfeeab334e5bc8022dc228406a912493ed62e3d62d76e37",
  "file": "registry/paraswap/calldata-AugustusSwapper-v5.json",
  "kind": "calldata",
- "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
  "deployments": [
   {
    "chainId": 56,
@@ -20,69 +20,842 @@
  "auditedBy": [
   "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
  ],
- "reviewers": {
-  "claude": "claude-sonnet-5-5 (medium)",
-  "grok": "grok-4.6"
- },
- "prompt": "sha256:2e4036a84d6b37c1c4139196205ca7450182398b5ea0cce33b6ee87bf0c4b455",
- "date": "2026-10-24T21:12Z",
- "result": "fail",
- "reasons": [
-  "critical (claude): Every swap and buy format hides the payable `@.value`, and the source has no `@.value` field or zero check",
-  "critical (claude): `megaSwap`, `multiSwap` and `simpleSwap`/`simpleBuy` show the minimum received but hide the exact exchange route and callees",
-  "critical (grok): All swap formats omit the native value sent with the transaction",
-  "warning (claude): `buyOnUniswapV2Fork`, `swapOnUniswapV2Fork` and the permit variants show the received amount as a raw number",
-  "warning (claude): The `beneficiary` is missing from `swapOnUniswap*`, `swapOnZeroX*` and `buyOnUniswap*` formats"
- ],
- "notReviewed": [],
- "cost": 0.5105,
- "units": [
-  {
-   "unit": "paraswap__calldata-AugustusSwapper-v5__0.json",
-   "deployments": [
-    {
-     "chainId": 56,
-     "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57"
-    },
-    {
-     "chainId": 1,
-     "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57"
-    },
-    {
-     "chainId": 137,
-     "address": "0xdef171fe48cf0115b1d80b88dc8eab59176fee57"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": true,
-     "critical": [
-      "Every swap and buy format hides the payable `@.value`, and the source has no `@.value` field or zero check",
-      "`megaSwap`, `multiSwap` and `simpleSwap`/`simpleBuy` show the minimum received but hide the exact exchange route and callees"
-     ],
-     "warning": [
-      "`buyOnUniswapV2Fork`, `swapOnUniswapV2Fork` and the permit variants show the received amount as a raw number",
-      "The `beneficiary` is missing from `swapOnUniswap*`, `swapOnZeroX*` and `buyOnUniswap*` formats"
-     ],
-     "info": [
-      "`simpleSwap`/`simpleBuy` execute arbitrary `callees` and `exchangeData` that ERC-7730 cannot decode",
-      "Nested route arrays in `megaSwap` and `multiSwap` are not shown"
-     ],
-     "answer": "# Review\n\n## Critical\n\n### Every swap and buy format hides the payable `@.value`, and the source has no `@.value` field or zero check\n\n- **Effect:** `AugustusSwapper` has a payable `fallback` that delegatecalls the router; with `fromToken` set to the ETH address, native value from the transaction is the amount sold, and the contract does not check it against `fromAmount`.\n- **Shown:** none of the 16 formats has an `@.value` field; the amount shown is the calldata `fromAmount`, `amountIn` or `amountInMax`.\n- **Gap:** native currency leaving the wallet is not shown, which is critical under rule 1. The router code is not in the unit, so the exact use of the value is not visible.\n- **Where:** all formats, for example `simpleSwap` and `swapOnUniswap`; the `fallback` in `AugustusSwapper.sol`.\n- **Evidence:**\n\n```solidity\n// AugustusSwapper.fallback\nfallback() external payable {\n    ...\n    (bool success, bytes memory resultData) = implementation.delegatecall(msg.data);\n```\n\n- **Fix:** Add a field `{\"path\": \"@.value\", \"label\": \"Amount to Send (native)\", \"format\": \"amount\"}` to each format, or mark it `visible: \"optional\"` where the router needs it. State in `interpolatedIntent` that the value is the amount sent when `fromToken` is the ETH address.\n\n### `megaSwap`, `multiSwap` and `simpleSwap`/`simpleBuy` show the minimum received but hide the exact exchange route and callees\n\n- **Effect:** `simpleSwap` and `simpleBuy` run `callees`, `exchangeData`, `startIndexes` and `values` from the router's context. The fields shown are only `fromAmount`, `toAmount` and `beneficiary`. Per the router interface, the output goes to `beneficiary`, so only the destination of arbitrary callee calls is unseen.\n- **Shown:** `fromAmount`, `toAmount` and `beneficiary` with their tokens.\n- **Gap:** the amounts and the recipient are shown, so this matches not-critical rule 5 (hidden bytes that move none of the signer's assets directly). It is info.\n- **Where:** the `simpleSwap` and `simpleBuy` formats.\n- **Evidence:**\n\n```json\n\"simpleSwap((address fromToken, ... address[] callees, bytes exchangeData, uint256[] startIndexes, uint256[] values, address beneficiary ...) data)\"\n```\n\n- **Fix:** None possible; see the Info section.\n\n## Warning\n\n### `buyOnUniswapV2Fork`, `swapOnUniswapV2Fork` and the permit variants show the received amount as a raw number\n\n- **Effect:** the user receives the output token of the last pool, with `amountOut` or `amountOutMin` in that token's units.\n- **Shown:** `amountOutMin` or `amountOut` with format `raw`, with no token or decimals.\n- **Gap:** the value is shown but unreadable, a warning under rule 2. The output token is packed into `pools` (the last pool's address in the low bits), so no slice extracts it.\n- **Where:** the `swapOnUniswapV2Fork`, `swapOnUniswapV2ForkWithPermit`, `buyOnUniswapV2Fork` and `buyOnUniswapV2ForkWithPermit` formats, field `amountOutMin` or `amountOut`.\n- **Evidence:**\n\n```json\n{\"path\": \"amountOutMin\", \"label\": \"Minimum to Receive\", \"format\": \"raw\", \"visible\": \"always\"}\n```\n\n- **Fix:** Add a label such as \"Minimum to Receive (output token units)\". Show `weth` as a field to warn when the native token is involved.\n\n### The `beneficiary` is missing from `swapOnUniswap*`, `swapOnZeroX*` and `buyOnUniswap*` formats\n\n- **Effect:** these functions send the output to the signer, per the Augustus design, so the signer is the recipient. The code for these routers is not in the unit.\n- **Shown:** no recipient field.\n- **Gap:** unresolved because router source is missing; if the recipient is the signer, this is not a finding.\n- **Where:** the formats without a `beneficiary` parameter.\n- **Evidence:**\n\n```json\n\"swapOnUniswap(uint256 amountIn, uint256 amountOutMin, address[] path)\"\n```\n\n- **Fix:** none; see \"What could not be reviewed\".\n\n## Info\n\n### `simpleSwap`/`simpleBuy` execute arbitrary `callees` and `exchangeData` that ERC-7730 cannot decode\n\n- **Effect:** the router calls each `callees[i]` with `exchangeData` slices, which can include approvals.\n- **Shown:** amounts and `beneficiary` only.\n- **Gap:** the payload is opaque bytes and the descriptor cannot decode it; spec limitation.\n- **Where:** the `simpleSwap` and `simpleBuy` formats.\n- **Evidence:**\n\n```json\n\"address[] callees, bytes exchangeData, uint256[] startIndexes, uint256[] values\"\n```\n\n### Nested route arrays in `megaSwap` and `multiSwap` are not shown\n\n- **Effect:** the route adapters and payloads decide the path.\n- **Shown:** only the first or last `to` as the output token.\n- **Gap:** the arrays nest more than one level deep, and the runners do not iterate them.\n- **Where:** the `megaSwap` and `multiSwap` formats.\n- **Evidence:**\n\n```json\n\"tokenPath\": \"data.path.[0].path.[-1].to\"\n```\n\n- **Fix:** none until the runners support nested arrays.\n\n## What could not be reviewed\n\nThe router implementations behind the `fallback` selector table are not in the unit, so how `@.value`, the recipient and the permit are used could not be checked. No test cases exist, so the rendered output was not reviewed."
-    },
-    "grok": {
-     "limited": true,
-     "critical": [
-      "All swap formats omit the native value sent with the transaction"
-     ],
-     "warning": [],
-     "info": [
-      "Uniswap V2 fork formats show the receive amount as a raw integer"
-     ],
-     "answer": "# Review\n\n## Critical\n\n### All swap formats omit the native value sent with the transaction\n\n- **Effect:** The transaction sends its native value to this contract. The payable fallback keeps that value and delegatecalls the router with it.\n- **Shown:** No format has a field for the native value. Send fields only show token `fromAmount` or `amountIn`.\n- **Gap:** Native currency leaves the wallet and nothing shown states that amount. A payable call with no native-value field is critical.\n- **Where:** All 16 formats in the descriptor. The fallback function in `AugustusSwapper.sol`.\n- **Evidence:**\n\n```solidity\n// AugustusSwapper.fallback\nreceive () payable external {\n}\n\nfallback() external payable {\n    bytes4 selector = msg.sig;\n    address implementation = getImplementation(selector);\n    // ...\n    (bool success, bytes memory resultData) = implementation.delegatecall(msg.data);\n```\n\n- **Fix:** Add a native-value field to every format. The formats have no interpolated intent, so do not add a sentence.\n\n```json\n{\n  \"path\": \"@.value\",\n  \"label\": \"Native value\",\n  \"format\": \"amount\",\n  \"visible\": \"always\"\n}\n```\n\n## Warning\n\nNone.\n\n## Info\n\n### Uniswap V2 fork formats show the receive amount as a raw integer\n\n- **Effect:** The signer receives `amountOutMin` or `amountOut` of the token from the last pool.\n- **Shown:** The field label is \"Minimum to Receive\" or \"Amount to Receive\", with format `raw`.\n- **Gap:** The amount is shown, but not as a token amount. The output token sits in packed pool ids, which ERC-7730 cannot decode. This is a spec limitation.\n- **Where:** Formats `swapOnUniswapV2Fork`, `swapOnUniswapV2ForkWithPermit`, `buyOnUniswapV2Fork`, and `buyOnUniswapV2ForkWithPermit`; fields `amountOutMin` and `amountOut`.\n- **Evidence:**\n\n```json\n{\n  \"path\": \"amountOutMin\",\n  \"label\": \"Minimum to Receive\",\n  \"format\": \"raw\",\n  \"visible\": \"always\"\n}\n```\n\n## What could not be reviewed\n\nThe verified source is only `AugustusSwapper`. Swap functions run by `delegatecall` to routers in `selectorVsRouter`. Those router contracts are not in the source.\n\nThis blocked checks of fee taking versus `toAmount`, beneficiary defaults, `msg.value` versus `fromAmount`, inner `callees` and `exchangeData` in `simpleSwap` and `simpleBuy`, adapter payloads in `multiSwap` and `megaSwap`, and ZeroX `payload` handling."
-    }
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T15:59Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "simpleBuy((address fromToken, address toToken, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, address[] callees, bytes exchangeData, uint256[] startIndexes, uint256[] values, address beneficiary, address partner, uint256 feePercent, bytes permit, uint256 deadline, bytes16 uuid) data)",
+    "effects": [
+     "Takes up to fromAmount of fromToken from the signer through the TokenTransferProxy, or ETH as msg.value when fromToken is the 0xEeee sentinel.",
+     "Buys toAmount of toToken and sends it to beneficiary, or to the signer when beneficiary is zero.",
+     "Refunds the unspent fromToken to the signer, minus any partner or protocol fee that the router takes.",
+     "May run the signer's permit bytes on fromToken, which sets an allowance."
+    ],
+    "shown": "\"Swap\" with Amount to Send (fromAmount of fromToken), Receive before fees (toAmount of toToken) and Beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "simpleBuy labels the input ceiling 'Amount to Send' and the exact amount bought 'Receive before fees'; the intent says 'Swap'.",
+      "evidence": "descriptor simpleBuy: data.fromAmount uses $.display.definitions.sendAmount ('Amount to Send'), data.toAmount uses minReceiveAmount ('Receive before fees'), intent 'Swap'. In a buy, fromAmount is a maximum with a refund, and toAmount is the target output. Sibling buyOnUniswap uses maxSendAmount/receiveAmount and the intent 'Buy'.",
+      "fix": "Use maxSendAmount for data.fromAmount, receiveAmount for data.toAmount, and the intent 'Buy'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "simpleBuy hides data.partner and data.feePercent, which set the fee taken in the trade.",
+      "evidence": "descriptor simpleBuy has no field for data.partner or data.feePercent. The fee logic sits in the router that the AugustusSwapper fallback delegatecalls to (selectorVsRouter).",
+      "fix": "Add data.feePercent and data.partner fields.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "simpleBuy beneficiary allows only EOA, and a zero beneficiary (meaning the sender) is shown as 0x0.",
+      "evidence": "definitions.beneficiary params.types ['eoa']. The router sends to msg.sender when beneficiary is address(0).",
+      "fix": "Allow types ['eoa','contract'] and add senderAddress: ['0x0000000000000000000000000000000000000000'] so the zero address shows as the signer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "simpleBuy hides the permit bytes; they set an allowance on fromToken, which the swap needs anyway.",
+      "evidence": "data.permit has no field. The bytes are passed to the token's permit before the transferFrom.",
+      "fix": "None needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "simpleBuy is reached through a payable fallback, and no @.value field shows native value sent with token inputs.",
+      "evidence": "AugustusSwapper.sol fallback() external payable delegatecalls the router. sendAmount covers ETH only when fromToken is the sentinel.",
+      "fix": "Add an @.value field, or confirm that the router forces msg.value == 0 for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 60
+   },
+   {
+    "key": "megaSwap((address fromToken, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, address beneficiary, (uint256 fromAmountPercent, (address to, uint256 totalNetworkFee, (address adapter, uint256 percent, uint256 networkFee, (uint256 index, address targetExchange, uint256 percent, bytes payload, uint256 networkFee)[] route)[] adapters)[] path)[] path, address partner, uint256 feePercent, bytes permit, uint256 deadline, bytes16 uuid) data)",
+    "effects": [
+     "Takes fromAmount of fromToken from the signer, or ETH as msg.value when fromToken is the sentinel.",
+     "Swaps across the mega paths and sends the final token (path[0].path[last].to) to beneficiary, or to the signer when zero, checked against toAmount.",
+     "A partner or protocol fee (feePercent, partner, a share of positive slippage above expectedAmount) is cut from the output.",
+     "May run the signer's permit on fromToken."
+    ],
+    "shown": "\"Swap\" with Amount to Send (fromAmount of fromToken), Receive before fees (toAmount of the last token of path[0]) and Beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "megaSwap hides feePercent and partner; the fee cuts the output below the 'before fees' minimum by an amount not shown.",
+      "evidence": "descriptor megaSwap: no field for data.feePercent or data.partner. The minReceiveAmount label 'Receive before fees' admits a fee but not its size.",
+      "fix": "Add data.feePercent and data.partner fields.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "megaSwap beneficiary allows only EOA, and zero (meaning the sender) is shown literally.",
+      "evidence": "definitions.beneficiary types ['eoa'].",
+      "fix": "Allow contract types and map the zero address to the sender.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "megaSwap hides the permit bytes, which set an allowance the swap needs.",
+      "evidence": "data.permit has no field.",
+      "fix": "None needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "megaSwap runs through a payable fallback, and no @.value field shows ETH sent with a token input.",
+      "evidence": "AugustusSwapper.sol fallback() external payable.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 68
+   },
+   {
+    "key": "directUniV3Swap((address fromToken, address toToken, address exchange, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, uint256 feePercent, uint256 deadline, address partner, bool isApproved, address beneficiary, bytes path, bytes permit, bytes16 uuid) data)",
+    "effects": [
+     "Takes fromAmount of fromToken from the signer, or ETH as msg.value when fromToken is the sentinel.",
+     "Swaps on Uniswap V3 along the path and sends toToken to beneficiary, or to the signer when zero, checked against toAmount.",
+     "A partner or protocol fee is cut from the output.",
+     "May run the signer's permit on fromToken."
+    ],
+    "shown": "\"Swap\" with Amount to Send (fromToken), Receive before fees (toToken) and Beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "directUniV3Swap hides feePercent and partner, which cut the output by an amount not shown.",
+      "evidence": "descriptor directUniV3Swap: no field for data.feePercent or data.partner. The label is 'Receive before fees'.",
+      "fix": "Add data.feePercent and data.partner fields.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "directUniV3Swap beneficiary allows only EOA, and zero (meaning the sender) is shown literally.",
+      "evidence": "definitions.beneficiary types ['eoa'].",
+      "fix": "Allow contract types and map the zero address to the sender.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "directUniV3Swap hides the permit bytes, which set an allowance the swap needs.",
+      "evidence": "data.permit has no field.",
+      "fix": "None needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "directUniV3Swap runs through a payable fallback, and no @.value field is shown.",
+      "evidence": "AugustusSwapper.sol fallback() external payable.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 68
+   },
+   {
+    "key": "swapOnUniswap(uint256 amountIn, uint256 amountOutMin, address[] path)",
+    "effects": [
+     "Takes amountIn of path[0] from the signer, or ETH as msg.value when path[0] is the sentinel.",
+     "Swaps through the Uniswap V2 pairs and sends at least amountOutMin of path[last] to the signer."
+    ],
+    "shown": "\"Swap\" with Amount to Send (amountIn of path[0]) and Receive before fees (amountOutMin of path[-1]).",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapOnUniswap labels amountOutMin 'Receive before fees', though this path takes no partner fee.",
+      "evidence": "descriptor swapOnUniswap: amountOutMin uses minReceiveAmount ('Receive before fees'). The function has no partner or feePercent input.",
+      "fix": "Use a 'Minimum to Receive' label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapOnUniswap runs through a payable fallback, and no @.value field shows ETH sent with a token input.",
+      "evidence": "AugustusSwapper.sol fallback() external payable delegatecalls the router.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 82
+   },
+   {
+    "key": "swapOnUniswapFork(address factory, bytes32 initCode, uint256 amountIn, uint256 amountOutMin, address[] path)",
+    "effects": [
+     "Takes amountIn of path[0] from the signer, or ETH as msg.value when path[0] is the sentinel.",
+     "Swaps through the pairs derived from factory and initCode, and sends at least amountOutMin of path[last] to the signer."
+    ],
+    "shown": "\"Swap\" with Amount to Send (path[0]), Receive before fees (path[-1]) and the Uniswap Factory.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapOnUniswapFork labels amountOutMin 'Receive before fees', though no fee applies.",
+      "evidence": "descriptor swapOnUniswapFork: amountOutMin uses minReceiveAmount.",
+      "fix": "Use a 'Minimum to Receive' label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapOnUniswapFork runs through a payable fallback, and no @.value field is shown.",
+      "evidence": "AugustusSwapper.sol fallback() external payable.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 80
+   },
+   {
+    "key": "swapOnUniswapV2Fork(address tokenIn, uint256 amountIn, uint256 amountOutMin, address weth, uint256[] pools)",
+    "effects": [
+     "Takes amountIn of tokenIn from the signer, or ETH as msg.value when tokenIn is the sentinel; the ETH is wrapped through weth.",
+     "Swaps through the packed pools and sends at least amountOutMin of the last pool's output token to the signer, unwrapped to ETH when weth is set and the output is WETH."
+    ],
+    "shown": "\"Swap\" with Amount to Send (amountIn of tokenIn), a raw 'Minimum to Receive' and the last pool word shown as an address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swapOnUniswapV2Fork shows the minimum received as a raw integer with no token or decimals.",
+      "evidence": "descriptor swapOnUniswapV2Fork: {path: 'amountOutMin', label: 'Minimum to Receive', format: 'raw'}.",
+      "fix": "There is no tokenPath, because the output token comes from the pool direction bit. Keep the label and add the weth field as a hint.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swapOnUniswapV2Fork formats a packed uint256 pool word as an address name.",
+      "evidence": "field pools.[-1] uses lastPool (format addressName) on a uint256 that packs the pair address with direction and fee bits.",
+      "fix": "Drop the field, or slice the low 20 bytes when the runners support it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "swapOnUniswapV2Fork cannot show the output token, or whether it arrives as ETH or WETH.",
+      "evidence": "The output token is read from the pair and the direction bit in pools[-1]. The weth parameter has no field.",
+      "fix": "Show weth as a field. Otherwise this waits on the spec.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 45
+   },
+   {
+    "key": "simpleSwap((address fromToken, address toToken, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, address[] callees, bytes exchangeData, uint256[] startIndexes, uint256[] values, address beneficiary, address partner, uint256 feePercent, bytes permit, uint256 deadline, bytes16 uuid) data)",
+    "effects": [
+     "Takes fromAmount of fromToken from the signer, or ETH as msg.value when fromToken is the sentinel.",
+     "Runs the callees with exchangeData and sends toToken to beneficiary, or to the signer when zero, checked against toAmount.",
+     "A partner or protocol fee (feePercent, partner, a share of positive slippage above expectedAmount) is cut from the output.",
+     "May run the signer's permit on fromToken."
+    ],
+    "shown": "\"Swap\" with Amount to Send (fromToken), Receive before fees (toToken) and Beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "simpleSwap hides feePercent and partner, which cut the output by an amount not shown.",
+      "evidence": "descriptor simpleSwap: no field for data.feePercent or data.partner. The label is 'Receive before fees'.",
+      "fix": "Add data.feePercent and data.partner fields.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "simpleSwap beneficiary allows only EOA, and zero (meaning the sender) is shown literally.",
+      "evidence": "definitions.beneficiary types ['eoa'].",
+      "fix": "Allow contract types and map the zero address to the sender.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "simpleSwap hides the callees and exchangeData that run the swap; the output token and recipient are shown elsewhere.",
+      "evidence": "data.callees and data.exchangeData have no field. data.toToken (through tokenPath) and data.beneficiary are shown.",
+      "fix": "None needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "simpleSwap hides the permit bytes, which set an allowance the swap needs.",
+      "evidence": "data.permit has no field.",
+      "fix": "None needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "simpleSwap runs through a payable fallback, and no @.value field is shown.",
+      "evidence": "AugustusSwapper.sol fallback() external payable.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 68
+   },
+   {
+    "key": "swapOnZeroXv4(address fromToken, address toToken, uint256 fromAmount, uint256 amountOutMin, address exchange, bytes payload)",
+    "effects": [
+     "Takes fromAmount of fromToken from the signer, or ETH as msg.value when fromToken is the sentinel.",
+     "Fills the 0x v4 order in payload on exchange and sends at least amountOutMin of toToken to the signer."
+    ],
+    "shown": "\"Swap\" with Amount to Send (fromToken), Receive before fees (toToken) and the Exchange.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapOnZeroXv4 labels amountOutMin 'Receive before fees', though no partner fee applies.",
+      "evidence": "descriptor swapOnZeroXv4: amountOutMin uses minReceiveAmount.",
+      "fix": "Use 'Minimum to Receive'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapOnZeroXv4 runs through a payable fallback, and no @.value field is shown.",
+      "evidence": "AugustusSwapper.sol fallback() external payable.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 80
+   },
+   {
+    "key": "swapOnZeroXv2(address fromToken, address toToken, uint256 fromAmount, uint256 amountOutMin, address exchange, bytes payload)",
+    "effects": [
+     "Takes fromAmount of fromToken from the signer, or ETH as msg.value when fromToken is the sentinel.",
+     "Fills the 0x v2 order in payload on exchange and sends at least amountOutMin of toToken to the signer."
+    ],
+    "shown": "\"Swap\" with Amount to Send (fromToken), Receive before fees (toToken) and the Exchange.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapOnZeroXv2 labels amountOutMin 'Receive before fees', though no partner fee applies.",
+      "evidence": "descriptor swapOnZeroXv2: amountOutMin uses minReceiveAmount.",
+      "fix": "Use 'Minimum to Receive'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapOnZeroXv2 runs through a payable fallback, and no @.value field is shown.",
+      "evidence": "AugustusSwapper.sol fallback() external payable.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 80
+   },
+   {
+    "key": "buyOnUniswap(uint256 amountInMax, uint256 amountOut, address[] path)",
+    "effects": [
+     "Takes up to amountInMax of path[0] from the signer, or ETH as msg.value with the excess refunded.",
+     "Buys exactly amountOut of path[last] and sends it to the signer."
+    ],
+    "shown": "\"Buy\" with Maximum to Send (amountInMax of path[0]) and Amount to Receive (amountOut of path[-1]).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "buyOnUniswap runs through a payable fallback, and no @.value field is shown.",
+      "evidence": "AugustusSwapper.sol fallback() external payable.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 85
+   },
+   {
+    "key": "buyOnUniswapFork(address factory, bytes32 initCode, uint256 amountInMax, uint256 amountOut, address[] path)",
+    "effects": [
+     "Takes up to amountInMax of path[0] from the signer, or ETH as msg.value with the excess refunded.",
+     "Buys exactly amountOut of path[last] through the pairs derived from factory and initCode, and sends it to the signer."
+    ],
+    "shown": "\"Buy\" with Maximum to Send, Amount to Receive and the Uniswap Factory.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "buyOnUniswapFork runs through a payable fallback, and no @.value field is shown.",
+      "evidence": "AugustusSwapper.sol fallback() external payable.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 83
+   },
+   {
+    "key": "buyOnUniswapV2Fork(address tokenIn, uint256 amountInMax, uint256 amountOut, address weth, uint256[] pools)",
+    "effects": [
+     "Takes up to amountInMax of tokenIn from the signer, or ETH as msg.value with the excess refunded.",
+     "Buys exactly amountOut of the last pool's output token for the signer, unwrapped to ETH when weth is set and the output is WETH."
+    ],
+    "shown": "\"Buy\" with Maximum to Send (tokenIn), a raw 'Amount to Receive' and the last pool word shown as an address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "buyOnUniswapV2Fork shows the amount bought as a raw integer with no token.",
+      "evidence": "descriptor buyOnUniswapV2Fork: {path: 'amountOut', label: 'Amount to Receive', format: 'raw'}.",
+      "fix": "There is no tokenPath, because the token comes from the pool direction. Add weth as a hint field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "buyOnUniswapV2Fork formats a packed uint256 pool word as an address name.",
+      "evidence": "field pools.[-1] uses lastPool (addressName) with visible 'always' on a packed uint256.",
+      "fix": "Drop the field, or slice the low 20 bytes.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "buyOnUniswapV2Fork cannot show the output token, or whether it arrives as ETH or WETH.",
+      "evidence": "The output token is read from the pair and the direction bit. weth has no field.",
+      "fix": "Show weth as a field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 45
+   },
+   {
+    "key": "buyOnUniswapV2ForkWithPermit(address tokenIn, uint256 amountInMax, uint256 amountOut, address weth, uint256[] pools, bytes permit)",
+    "effects": [
+     "Runs the signer's permit on tokenIn, which sets an allowance.",
+     "Takes up to amountInMax of tokenIn from the signer.",
+     "Buys exactly amountOut of the last pool's output token for the signer."
+    ],
+    "shown": "\"Buy\" with Maximum to Send (tokenIn), a raw 'Amount to Receive' and the last pool word shown as an address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "buyOnUniswapV2ForkWithPermit shows the amount bought as a raw integer with no token.",
+      "evidence": "descriptor: {path: 'amountOut', label: 'Amount to Receive', format: 'raw'}.",
+      "fix": "Add weth as a hint field. No tokenPath exists.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "buyOnUniswapV2ForkWithPermit formats a packed uint256 pool word as an address name.",
+      "evidence": "field pools.[-1] uses lastPool (addressName) on a packed uint256.",
+      "fix": "Drop the field, or slice the low 20 bytes.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "buyOnUniswapV2ForkWithPermit hides the permit bytes and the output token.",
+      "evidence": "permit and weth have no field. The output token comes from pool state.",
+      "fix": "None needed for the permit; show weth.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 42
+   },
+   {
+    "key": "multiSwap((address fromToken, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, address beneficiary, (address to, uint256 totalNetworkFee, (address adapter, uint256 percent, uint256 networkFee, (uint256 index, address targetExchange, uint256 percent, bytes payload, uint256 networkFee)[] route)[] adapters)[] path, address partner, uint256 feePercent, bytes permit, uint256 deadline, bytes16 uuid) data)",
+    "effects": [
+     "Takes fromAmount of fromToken from the signer, or ETH as msg.value when fromToken is the sentinel.",
+     "Swaps hop by hop and sends the last path token (path[last].to) to beneficiary, or to the signer when zero, checked against toAmount.",
+     "A partner or protocol fee is cut from the output.",
+     "May run the signer's permit on fromToken."
+    ],
+    "shown": "\"Swap\" with Amount to Send (fromToken), Receive before fees (the last path token) and Beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multiSwap hides feePercent and partner, which cut the output by an amount not shown.",
+      "evidence": "descriptor multiSwap: no field for data.feePercent or data.partner. The label is 'Receive before fees'.",
+      "fix": "Add data.feePercent and data.partner fields.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "multiSwap beneficiary allows only EOA, and zero (meaning the sender) is shown literally.",
+      "evidence": "definitions.beneficiary types ['eoa'].",
+      "fix": "Allow contract types and map the zero address to the sender.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "multiSwap hides the permit bytes, which set an allowance the swap needs.",
+      "evidence": "data.permit has no field.",
+      "fix": "None needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multiSwap runs through a payable fallback, and no @.value field is shown.",
+      "evidence": "AugustusSwapper.sol fallback() external payable.",
+      "fix": "Add an @.value field, or confirm that the router rejects value for token inputs.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 68
+   },
+   {
+    "key": "swapOnZeroXv4WithPermit(address fromToken, address toToken, uint256 fromAmount, uint256 amountOutMin, address exchange, bytes payload, bytes permit)",
+    "effects": [
+     "Runs the signer's permit on fromToken, which sets an allowance.",
+     "Takes fromAmount of fromToken from the signer.",
+     "Fills the 0x v4 order and sends at least amountOutMin of toToken to the signer."
+    ],
+    "shown": "\"Swap\" with Amount to Send (fromToken), Receive before fees (toToken) and the Exchange.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "swapOnZeroXv4WithPermit hides the permit bytes, which set the allowance the swap needs.",
+      "evidence": "The permit parameter has no field.",
+      "fix": "None needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapOnZeroXv4WithPermit labels amountOutMin 'Receive before fees', though no partner fee applies.",
+      "evidence": "amountOutMin uses minReceiveAmount.",
+      "fix": "Use 'Minimum to Receive'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 80
+   },
+   {
+    "key": "swapOnUniswapV2ForkWithPermit(address tokenIn, uint256 amountIn, uint256 amountOutMin, address weth, uint256[] pools, bytes permit)",
+    "effects": [
+     "Runs the signer's permit on tokenIn, which sets an allowance.",
+     "Takes amountIn of tokenIn from the signer.",
+     "Sends at least amountOutMin of the last pool's output token to the signer, unwrapped to ETH when weth is set."
+    ],
+    "shown": "\"Swap\" with Amount to Send (tokenIn), a raw 'Minimum to Receive' and the last pool word shown as an address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swapOnUniswapV2ForkWithPermit shows the minimum received as a raw integer with no token.",
+      "evidence": "descriptor: {path: 'amountOutMin', label: 'Minimum to Receive', format: 'raw'}.",
+      "fix": "Add weth as a hint field. No tokenPath exists.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swapOnUniswapV2ForkWithPermit formats a packed uint256 pool word as an address name.",
+      "evidence": "field pools.[-1] uses lastPool (addressName) on a packed uint256.",
+      "fix": "Drop the field, or slice the low 20 bytes.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "swapOnUniswapV2ForkWithPermit hides the permit bytes and cannot show the output token.",
+      "evidence": "permit and weth have no field. The output token comes from pool state.",
+      "fix": "Show weth as a field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 42
    }
+  ],
+  "couldNotCheck": [
+   "All 16 functions run in router contracts that the AugustusSwapper fallback delegatecalls through selectorVsRouter[msg.sig]. AugustusSwapper.sol fallback(): implementation.delegatecall(msg.data). None of these routers (SimpleSwap, MultiPath, UniswapV2/NewUniswapV2, ZeroxV2/V4, DirectSwap) is in contracts/. So the transfers, fee cuts, msg.value checks, beneficiary defaults and refunds could not be checked against source."
+  ]
+ },
+ "cost": 0.642,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 129,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "simpleBuy((address fromToken, address toToken, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, address[] callees, bytes exchangeData, uint256[] startIndexes, uint256[] values, address beneficiary, address partner, uint256 feePercent, bytes permit, uint256 deadline, bytes16 uuid) data)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 38,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "simpleBuy hides data.partner and data.feePercent, which set the fee taken in the trade.",
+   "comprehension": null
+  },
+  "megaSwap((address fromToken, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, address beneficiary, (uint256 fromAmountPercent, (address to, uint256 totalNetworkFee, (address adapter, uint256 percent, uint256 networkFee, (uint256 index, address targetExchange, uint256 percent, bytes payload, uint256 networkFee)[] route)[] adapters)[] path)[] path, address partner, uint256 feePercent, bytes permit, uint256 deadline, bytes16 uuid) data)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "megaSwap hides feePercent and partner; the fee cuts the output below the 'before fees' minimum by an amount not shown.",
+   "comprehension": null
+  },
+  "directUniV3Swap((address fromToken, address toToken, address exchange, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, uint256 feePercent, uint256 deadline, address partner, bool isApproved, address beneficiary, bytes path, bytes permit, bytes16 uuid) data)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "directUniV3Swap hides feePercent and partner, which cut the output by an amount not shown.",
+   "comprehension": null
+  },
+  "swapOnUniswap(uint256 amountIn, uint256 amountOutMin, address[] path)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 61,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapOnUniswap runs through a payable fallback, and no @.value field shows ETH sent with a token input.",
+   "comprehension": null
+  },
+  "swapOnUniswapFork(address factory, bytes32 initCode, uint256 amountIn, uint256 amountOutMin, address[] path)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapOnUniswapFork runs through a payable fallback, and no @.value field is shown.",
+   "comprehension": null
+  },
+  "swapOnUniswapV2Fork(address tokenIn, uint256 amountIn, uint256 amountOutMin, address weth, uint256[] pools)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "swapOnUniswapV2Fork shows the minimum received as a raw integer with no token or decimals.",
+   "comprehension": null
+  },
+  "simpleSwap((address fromToken, address toToken, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, address[] callees, bytes exchangeData, uint256[] startIndexes, uint256[] values, address beneficiary, address partner, uint256 feePercent, bytes permit, uint256 deadline, bytes16 uuid) data)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "simpleSwap hides feePercent and partner, which cut the output by an amount not shown.",
+   "comprehension": null
+  },
+  "swapOnZeroXv4(address fromToken, address toToken, uint256 fromAmount, uint256 amountOutMin, address exchange, bytes payload)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapOnZeroXv4 runs through a payable fallback, and no @.value field is shown.",
+   "comprehension": null
+  },
+  "swapOnZeroXv2(address fromToken, address toToken, uint256 fromAmount, uint256 amountOutMin, address exchange, bytes payload)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapOnZeroXv2 runs through a payable fallback, and no @.value field is shown.",
+   "comprehension": null
+  },
+  "buyOnUniswap(uint256 amountInMax, uint256 amountOut, address[] path)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "buyOnUniswap runs through a payable fallback, and no @.value field is shown.",
+   "comprehension": null
+  },
+  "buyOnUniswapFork(address factory, bytes32 initCode, uint256 amountInMax, uint256 amountOut, address[] path)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "buyOnUniswapFork runs through a payable fallback, and no @.value field is shown.",
+   "comprehension": null
+  },
+  "buyOnUniswapV2Fork(address tokenIn, uint256 amountInMax, uint256 amountOut, address weth, uint256[] pools)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "buyOnUniswapV2Fork shows the amount bought as a raw integer with no token.",
+   "comprehension": null
+  },
+  "buyOnUniswapV2ForkWithPermit(address tokenIn, uint256 amountInMax, uint256 amountOut, address weth, uint256[] pools, bytes permit)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 28,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "buyOnUniswapV2ForkWithPermit shows the amount bought as a raw integer with no token.",
+   "comprehension": null
+  },
+  "multiSwap((address fromToken, uint256 fromAmount, uint256 toAmount, uint256 expectedAmount, address beneficiary, (address to, uint256 totalNetworkFee, (address adapter, uint256 percent, uint256 networkFee, (uint256 index, address targetExchange, uint256 percent, bytes payload, uint256 networkFee)[] route)[] adapters)[] path, address partner, uint256 feePercent, bytes permit, uint256 deadline, bytes16 uuid) data)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "multiSwap hides feePercent and partner, which cut the output by an amount not shown.",
+   "comprehension": null
+  },
+  "swapOnZeroXv4WithPermit(address fromToken, address toToken, uint256 fromAmount, uint256 amountOutMin, address exchange, bytes payload, bytes permit)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "swapOnUniswapV2ForkWithPermit(address tokenIn, uint256 amountIn, uint256 amountOutMin, address weth, uint256[] pools, bytes permit)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 28,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "swapOnUniswapV2ForkWithPermit shows the minimum received as a raw integer with no token.",
+   "comprehension": null
   }
- ]
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 48,
+  "functions": "7B 9C",
+  "incomplete": true,
+  "worst": "simpleBuy hides data.partner and data.feePercent, which set the fee taken in the trade."
+ }
 }

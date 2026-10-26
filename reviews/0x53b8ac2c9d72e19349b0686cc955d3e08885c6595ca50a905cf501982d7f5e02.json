@@ -2,7 +2,7 @@
  "hash": "0x53b8ac2c9d72e19349b0686cc955d3e08885c6595ca50a905cf501982d7f5e02",
  "file": "registry/uniswap/calldata-UniswapV2Router02.json",
  "kind": "calldata",
- "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
  "deployments": [
   {
    "chainId": 1,
@@ -10,58 +10,704 @@
   }
  ],
  "auditedBy": [],
- "reviewers": {
-  "claude": "claude-sonnet-5-5 (medium)",
-  "grok": "grok-4.6"
- },
- "prompt": "sha256:2e4036a84d6b37c1c4139196205ca7450182398b5ea0cce33b6ee87bf0c4b455",
- "date": "2026-10-24T21:31Z",
- "result": "pass",
- "reasons": [
-  "warning (claude): removeLiquidity and its ETH variants show LP tokens as an 18-decimal number without a token, and the token addresses are hidden",
-  "warning (claude): removeLiquidity*WithPermit shows \"Unlimited to router\" for `approveMax`, but the permit grants an LP token allowance to the router that stays after the call",
-  "warning (claude): Swap and liquidity formats hide the token path or tokens, so intermediate hops are not shown",
-  "warning (grok): Swap formats hide the path, so the signer does not see intermediate tokens",
-  "warning (grok): Add-liquidity and swap interpolatedIntent omit the recipient"
- ],
- "notReviewed": [],
- "cost": 0.5216,
- "units": [
-  {
-   "unit": "uniswap__calldata-UniswapV2Router02__0.json",
-   "deployments": [
-    {
-     "chainId": 1,
-     "address": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": false,
-     "critical": [],
-     "warning": [
-      "removeLiquidity and its ETH variants show LP tokens as an 18-decimal number without a token, and the token addresses are hidden",
-      "removeLiquidity*WithPermit shows \"Unlimited to router\" for `approveMax`, but the permit grants an LP token allowance to the router that stays after the call",
-      "Swap and liquidity formats hide the token path or tokens, so intermediate hops are not shown"
-     ],
-     "info": [
-      "Fee-on-transfer variants show \"Minimum Before Fees\" for the token side, which the contract does not enforce",
-      "addLiquidity amounts that move are decided by pool reserves"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### removeLiquidity and its ETH variants show LP tokens as an 18-decimal number without a token, and the token addresses are hidden\n\n- **Effect:** The function burns the signer's LP tokens of the pair for `tokenA`/`tokenB` (or the token and WETH). The pair address comes from the hidden token addresses.\n- **Shown:** \"LP Tokens (UNI-V2)\" as a plain number (for example `0.000000099999999`), and minimum amounts that carry the token ticker.\n- **Gap:** The amount is shown, raw but readable, so this is a warning. The signer cannot tell which pair's LP token is burned, though the minimums name the tokens.\n- **Where:** All `removeLiquidity*` formats, field `liquidity`; the test case `removeLiquidity - chain 1`.\n- **Evidence:**\n\n```json\n{ \"path\": \"liquidity\", \"label\": \"LP Tokens (UNI-V2)\", \"format\": \"unit\", \"params\": { \"base\": \"\", \"decimals\": 18 } }\n```\n\n- **Fix:** Keep the format. Optionally add visible token fields, for example change the `tokenA` and `tokenB` fields to `visible: \"optional\"` with format `addressName`, `types` `[\"token\"]`.\n\n### removeLiquidity*WithPermit shows \"Unlimited to router\" for `approveMax`, but the permit grants an LP token allowance to the router that stays after the call\n\n- **Effect:** When `approveMax` is true, the permit sets the router's allowance on the LP token to `uint(-1)`. The allowance stays after the removal.\n- **Shown:** \"LP Token Approval: Unlimited to router\", or \"This removal only\" when false.\n- **Gap:** The label states the effect correctly. When false, the permit value equals `liquidity`, so \"This removal only\" is accurate. The only issue is that \"to router\" names no address, so this is a warning for clarity.\n- **Where:** The `removeLiquidityWithPermit` format, field `approveMax`; `removeLiquidityWithPermit` in `UniswapV2Router02.sol`.\n- **Evidence:**\n\n```solidity\n// UniswapV2Router02.removeLiquidityWithPermit\nuint value = approveMax ? uint(-1) : liquidity;\nIUniswapV2Pair(pair).permit(msg.sender, address(this), value, deadline, v, r, s);\n```\n\n- **Fix:** Change the enum value for `true` to \"Unlimited LP token allowance for this router\".\n\n### Swap and liquidity formats hide the token path or tokens, so intermediate hops are not shown\n\n- **Effect:** The router swaps along every hop of `path`. The hidden middle tokens decide the route and the pools used.\n- **Shown:** Only the first and last tokens, through the amounts' tickers.\n- **Gap:** Input and output tokens and bounds are shown, so the outcome is as stated. The route is not shown. This is a warning at most.\n- **Where:** All swap formats, field `path.[]` with `visible: never`.\n- **Evidence:**\n\n```json\n{ \"path\": \"path.[]\", \"label\": \"Path\", \"visible\": \"never\" }\n```\n\n- **Fix:** Optional. Set `visible: \"optional\"` and add `\"format\": \"addressName\"` with `types` `[\"token\"]` for `path.[]`.\n\n## Info\n\n### Fee-on-transfer variants show \"Minimum Before Fees\" for the token side, which the contract does not enforce\n\n- **Effect:** `removeLiquidityETHSupportingFeeOnTransferTokens` sends the router's whole token balance to `to`. The minimum is checked before the token fee, not on the amount received.\n- **Shown:** The label \"Minimum Before Fees\" states this.\n- **Gap:** The label is accurate. The amount actually received depends on the token's fee logic, which no descriptor can show.\n- **Where:** The `removeLiquidityETHSupportingFeeOnTransferTokens` and `...WithPermitSupportingFeeOnTransferTokens` formats, field `amountTokenMin`.\n- **Evidence:**\n\n```solidity\nTransferHelper.safeTransfer(token, to, IERC20(token).balanceOf(address(this)));\n```\n\n- **Fix:** None.\n\n### addLiquidity amounts that move are decided by pool reserves\n\n- **Effect:** The router adds between the minimum and the desired amounts, as the pool ratio decides. The signer pays at most the desired amounts.\n- **Shown:** \"Maximum to Add\" and \"Minimum to Add\" for both tokens.\n- **Gap:** Both bounds are shown. The final split depends on pool state.\n- **Where:** The `addLiquidity` and `addLiquidityETH` formats; `_addLiquidity` in `UniswapV2Router02.sol`.\n- **Evidence:**\n\n```solidity\nuint amountBOptimal = UniswapV2Library.quote(amountADesired, reserveA, reserveB);\n```\n\n- **Fix:** None."
-    },
-    "grok": {
-     "limited": false,
-     "critical": [],
-     "warning": [
-      "Swap formats hide the path, so the signer does not see intermediate tokens",
-      "Add-liquidity and swap interpolatedIntent omit the recipient"
-     ],
-     "info": [],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### Swap formats hide the path, so the signer does not see intermediate tokens\n\n- **Effect:** Each swap sends the input asset through every pair in `path` and pays the last token to `to`.\n- **Shown:** `path.[]` is `visible: never`. Only `path.[0]` and `path.[-1]` appear as `tokenPath` on the amounts.\n- **Gap:** Intermediate tokens are not shown. Input, output, amount and recipient are shown, so this is a warning.\n- **Where:** every `swap*` format, field `path.[]`; `_swap` and `_swapSupportingFeeOnTransferTokens` in `UniswapV2Router02.sol`\n- **Evidence:**\n\n```solidity\n// UniswapV2Router02._swap\nfunction _swap(uint[] memory amounts, address[] memory path, address _to) internal virtual {\n    for (uint i; i < path.length - 1; i++) {\n        (address input, address output) = (path[i], path[i + 1]);\n        ...\n        address to = i < path.length - 2\n            ? UniswapV2Library.pairFor(factory, output, path[i + 2]) : _to;\n        IUniswapV2Pair(...).swap(amount0Out, amount1Out, to, new bytes(0));\n    }\n}\n```\n\n- **Fix:** Show `path.[]` as token addresses. Do not add the path to `interpolatedIntent`.\n\n```json\n{\n  \"path\": \"path.[]\",\n  \"label\": \"Route\",\n  \"format\": \"addressName\",\n  \"params\": {\n    \"types\": [\"token\", \"contract\"]\n  }\n}\n```\n\n### Add-liquidity and swap interpolatedIntent omit the recipient\n\n- **Effect:** The contract mints LP tokens, or sends the output asset, to `to`, which can be any address.\n- **Shown:** The Recipient field shows `to`. The sentence does not. Case 13 reads \"Swap 2105496.648067163 Gato for at least 0 ETH\" while Recipient is `0x75aD…`.\n- **Gap:** The recipient is shown as a field, but the sentence omits it. Warning: the sentence can carry this address.\n- **Where:** `addLiquidity`, `addLiquidityETH`, and every `swap*` format, `interpolatedIntent`; test cases 13 and 15\n- **Evidence:**\n\n```json\n\"interpolatedIntent\": \"Swap {amountIn} for at least {amountOutMin}\"\n```\n\n- **Fix:** Add `{to}` to those sentences. Keep remove-liquidity sentences unchanged; they already name three fields.\n\n```json\n{\n  \"interpolatedIntent\": \"Swap {amountIn} for at least {amountOutMin} to {to}\"\n}\n```\n\n## Info\n\nNone."
-    }
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T15:59Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addLiquidity(address tokenA,address tokenB,uint256 amountADesired,uint256 amountBDesired,uint256 amountAMin,uint256 amountBMin,address to,uint256 deadline)",
+    "effects": [
+     "Takes amountA of tokenA from the signer and sends it to the pair. amountA is between amountAMin and amountADesired.",
+     "Takes amountB of tokenB from the signer and sends it to the pair. amountB is between amountBMin and amountBDesired.",
+     "Mints UNI-V2 LP tokens to `to`. The pool reserves decide the amount.",
+     "Creates the pair if it does not exist yet. The signer then sets the initial price with the full desired amounts.",
+     "Reverts after the deadline."
+    ],
+    "shown": "Add up to X tokenA and up to Y tokenB as liquidity, with the minimums, the LP recipient and the deadline.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addLiquidity: the amount of LP tokens minted to the recipient is not shown and has no bound.",
+      "evidence": "UniswapV2Router02.sol addLiquidity: `liquidity = IUniswapV2Pair(pair).mint(to);`. In case 0 the signer received 2961077006359078 UNI-V2 and no field states an amount for it.",
+      "groundTruth": true,
+      "fix": "None possible: the pool reserves decide the amount, and the calldata has no minimum for it."
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right",
+       "partial"
+      ],
+      "notes": "Both deposits were the full desired amounts and match the screen. The screen says LP tokens arrive but gives no amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "addLiquidityETH(address token,uint256 amountTokenDesired,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline)",
+    "effects": [
+     "Takes amountToken of the token from the signer, between amountTokenMin and amountTokenDesired.",
+     "Takes msg.value in ETH. Wraps amountETH (between amountETHMin and msg.value) to WETH and sends it to the pair.",
+     "Refunds any unused ETH (msg.value minus amountETH) to msg.sender.",
+     "Mints UNI-V2 LP tokens to `to`. The pool reserves decide the amount."
+    ],
+    "shown": "Add up to X token and up to the sent ETH as liquidity, with the minimums, the recipient and the deadline.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addLiquidityETH: the amount of LP tokens minted is not shown, and neither is the ETH refund.",
+      "evidence": "addLiquidityETH: `liquidity = IUniswapV2Pair(pair).mint(to);` and `if (msg.value > amountETH) TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);`. In case 1 the signer received 62048368229954282979666 UNI-V2 with no amount shown.",
+      "groundTruth": true,
+      "fix": "None needed for the refund, because 'up to' covers it. The LP amount is decided by the pool."
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right",
+       "partial"
+      ],
+      "notes": "0.5 ETH and 7.7e9 ERIREF left the wallet as shown. LP tokens arrived with no amount on screen."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "removeLiquidity(address tokenA,address tokenB,uint256 liquidity,uint256 amountAMin,uint256 amountBMin,address to,uint256 deadline)",
+    "effects": [
+     "Moves `liquidity` LP tokens of the tokenA/tokenB pair from the signer to the pair and burns them. This spends the signer's allowance to the router.",
+     "The pair sends amountA of tokenA (at least amountAMin) to `to`.",
+     "The pair sends amountB of tokenB (at least amountBMin) to `to`."
+    ],
+    "shown": "Remove N UNI-V2 for at least A tokenA and B tokenB, with the recipient and the deadline.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "removeLiquidity: the minimums are checked on what the pair sends, not on what reaches the recipient.",
+      "evidence": "removeLiquidity: `(uint amount0, uint amount1) = IUniswapV2Pair(pair).burn(to); ... require(amountB >= amountBMin)`. For a fee-on-transfer token, `to` gets less than 'Minimum to Receive'. Case 2 shows a WETH arrival but no EMERALD Transfer to the signer.",
+      "groundTruth": false,
+      "fix": "None from the descriptor. The token's own fee logic decides it."
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "The receipt has no EMERALD movement, probably because the token emits odd events. The WETH received, 0.01018, is above the 0.00993 minimum."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "removeLiquidityETH(address token,uint256 liquidity,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline)",
+    "effects": [
+     "Moves `liquidity` LP tokens of the token/WETH pair from the signer and burns them.",
+     "Sends amountToken of the token (at least amountTokenMin) to `to` through the router.",
+     "Unwraps amountETH of WETH (at least amountETHMin) and sends it to `to` as native ETH."
+    ],
+    "shown": "Remove N UNI-V2 for at least X token and Y ETH, with the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 3,
+      "shownRight": 3,
+      "reader": [
+       "right",
+       "right",
+       "right"
+      ],
+      "notes": "Both minimums are 0, shown literally. The reader correctly saw that there is no protection."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "removeLiquidityETHSupportingFeeOnTransferTokens(address token,uint256 liquidity,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline)",
+    "effects": [
+     "Burns `liquidity` LP tokens of the token/WETH pair, taken from the signer.",
+     "Sends the router's whole token balance to `to`. The minimum is checked before transfer fees.",
+     "Unwraps amountETH of WETH (at least amountETHMin) and sends it to `to` as ETH."
+    ],
+    "shown": "Remove N UNI-V2 for at least Y ETH and X token before token fees, with the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 3,
+      "shownRight": 3,
+      "reader": [
+       "right",
+       "right",
+       "right"
+      ],
+      "notes": "The 'before token fees' label matches the code."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "removeLiquidityETHWithPermit(address token,uint256 liquidity,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline,bool approveMax,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "Uses the signer's permit to set the router's allowance on the LP token: unlimited if approveMax, otherwise exactly `liquidity`. An unlimited allowance stays after the call.",
+     "Burns `liquidity` LP tokens taken from the signer.",
+     "Sends at least amountTokenMin of the token to `to`.",
+     "Sends at least amountETHMin of ETH to `to`."
+    ],
+    "shown": "Remove N UNI-V2 for at least X token and Y ETH, with the LP approval scope (unlimited to router, or this removal only), the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 4,
+      "shownRight": 4,
+      "reader": [
+       "right",
+       "right",
+       "right",
+       "right"
+      ],
+      "notes": "The unlimited LP approval to the router is shown as 'Unlimited to router' and the reader understood it."
+     }
+    ],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(address token,uint256 liquidity,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline,bool approveMax,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "Uses the signer's permit to set the router's LP allowance: unlimited or exactly `liquidity`.",
+     "Burns `liquidity` LP tokens taken from the signer.",
+     "Sends the router's whole token balance to `to`. The minimum is checked before fees.",
+     "Sends at least amountETHMin of ETH to `to`."
+    ],
+    "shown": "Remove N UNI-V2 for at least Y ETH and X token before token fees, with the approval scope, the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 4,
+      "shownRight": 4,
+      "reader": [
+       "right",
+       "right",
+       "right",
+       "right"
+      ],
+      "notes": "The approval was 'This removal only', and the receipt shows an approval of exactly `liquidity`."
+     }
+    ],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "removeLiquidityWithPermit(address tokenA,address tokenB,uint256 liquidity,uint256 amountAMin,uint256 amountBMin,address to,uint256 deadline,bool approveMax,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "Uses the signer's permit to set the router's LP allowance: unlimited or exactly `liquidity`.",
+     "Burns `liquidity` LP tokens taken from the signer.",
+     "The pair sends at least amountAMin of tokenA to `to`.",
+     "The pair sends at least amountBMin of tokenB to `to`."
+    ],
+    "shown": "Remove N UNI-V2 for at least A tokenA and B tokenB, with the approval scope, the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 4,
+      "shownRight": 4,
+      "reader": [
+       "right",
+       "right",
+       "right",
+       "right"
+      ],
+      "notes": "All four effects match the screen."
+     }
+    ],
+    "glance": 80,
+    "depth": 90
+   },
+   {
+    "key": "swapETHForExactTokens(uint256 amountOut,address[] path,address to,uint256 deadline)",
+    "effects": [
+     "Takes msg.value in ETH and wraps and spends amounts[0] of it, which is at most msg.value.",
+     "Refunds the unused ETH to msg.sender.",
+     "Delivers exactly amountOut of path[-1] to `to`."
+    ],
+    "shown": "Swap at most V ETH for exactly N token, with the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 8,
+      "signerEffects": 3,
+      "shownRight": 3,
+      "reader": [
+       "right",
+       "partial",
+       "right"
+      ],
+      "notes": "About 0.00073 ETH was refunded. 'At most' implies the refund, but the reader was unsure whether unspent ETH comes back."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "swapExactETHForTokens(uint256 amountOutMin,address[] path,address to,uint256 deadline)",
+    "effects": [
+     "Takes msg.value in ETH, wraps it and swaps it along the path.",
+     "Delivers at least amountOutMin of path[-1] to `to`."
+    ],
+    "shown": "Swap V ETH for at least N token, with the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 9,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "Both effects match the screen."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "swapExactETHForTokensSupportingFeeOnTransferTokens(uint256 amountOutMin,address[] path,address to,uint256 deadline)",
+    "effects": [
+     "Takes msg.value in ETH, wraps it and swaps it along the path.",
+     "Delivers path[-1] to `to`. The code checks that `to`'s balance rises by at least amountOutMin."
+    ],
+    "shown": "Swap V ETH for at least N token, with the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 10,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "The minimum of 0 is shown literally and the reader understood it."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "swapExactTokensForETH(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline)",
+    "effects": [
+     "Takes amountIn of path[0] from the signer. This spends the signer's allowance to the router.",
+     "Unwraps at least amountOutMin of WETH and sends it to `to` as native ETH."
+    ],
+    "shown": "Swap X token for at least Y ETH, with the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 11,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "Both effects match the screen."
+     },
+     {
+      "index": 12,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "Both effects match the screen."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "swapExactTokensForETHSupportingFeeOnTransferTokens(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline)",
+    "effects": [
+     "Takes amountIn of path[0] from the signer and spends the signer's allowance to the router.",
+     "Unwraps the router's WETH output (at least amountOutMin) and sends it to `to` as ETH."
+    ],
+    "shown": "Swap X token for at least Y ETH, with the recipient and the deadline.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "swapExactTokensForETHSupportingFeeOnTransferTokens: spending the signer's existing token allowance is not stated.",
+      "evidence": "In case 13 the mined Approval for Gato from the signer to the router (signer 'grant') shows the allowance going down on transferFrom. The screen has no approval line.",
+      "groundTruth": true,
+      "fix": "None needed. Spending the allowance of the named router is the prerequisite of the swap."
+     }
+    ],
+    "cases": [
+     {
+      "index": 13,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "missed"
+      ],
+      "notes": "The ETH went to a third-party recipient, and the screen shows that recipient. The allowance spend is not on screen."
+     }
+    ],
+    "glance": 90,
+    "depth": 85
+   },
+   {
+    "key": "swapExactTokensForTokens(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline)",
+    "effects": [
+     "Takes amountIn of path[0] from the signer and spends the signer's allowance to the router.",
+     "Delivers at least amountOutMin of path[-1] to `to`."
+    ],
+    "shown": "Swap X tokenIn for at least Y tokenOut, with the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 14,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "Both effects match the screen."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline)",
+    "effects": [
+     "Takes amountIn of path[0] from the signer and spends the signer's allowance to the router.",
+     "Delivers path[-1] to `to`. The code checks that `to`'s balance rises by at least amountOutMin."
+    ],
+    "shown": "Swap X tokenIn for at least Y tokenOut, with the recipient and the deadline.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "swapExactTokensForTokensSupportingFeeOnTransferTokens: spending the signer's existing allowance is not stated.",
+      "evidence": "In case 15 the mined Approval for AXIS from the signer to the router (signer 'grant') shows the remaining allowance after transferFrom. The screen has no approval line.",
+      "groundTruth": true,
+      "fix": "None needed. It is the prerequisite of the swap with the named router."
+     }
+    ],
+    "cases": [
+     {
+      "index": 15,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "missed"
+      ],
+      "notes": "The WETH went to a third-party recipient, and the screen shows that recipient."
+     }
+    ],
+    "glance": 90,
+    "depth": 85
+   },
+   {
+    "key": "swapTokensForExactETH(uint256 amountOut,uint256 amountInMax,address[] path,address to,uint256 deadline)",
+    "effects": [
+     "Takes amounts[0] of path[0] from the signer, at most amountInMax, and spends the signer's allowance to the router.",
+     "Unwraps exactly amountOut of WETH and sends it to `to` as ETH."
+    ],
+    "shown": "Swap at most X token for exactly Y ETH, with the recipient and the deadline.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "swapTokensForExactETH: spending the signer's existing token allowance is not stated.",
+      "evidence": "In case 16 the mined Approval for MARVIN from the signer to the router (signer 'grant') shows the allowance decreasing on transferFrom.",
+      "groundTruth": true,
+      "fix": "None needed. It is the prerequisite of the swap."
+     }
+    ],
+    "cases": [
+     {
+      "index": 16,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right",
+       "missed"
+      ],
+      "notes": "186117160.898 MARVIN was spent, below the 186861629.54 maximum shown. 0.05 ETH arrived as shown."
+     }
+    ],
+    "glance": 90,
+    "depth": 85
+   },
+   {
+    "key": "swapTokensForExactTokens(uint256 amountOut,uint256 amountInMax,address[] path,address to,uint256 deadline)",
+    "effects": [
+     "Takes amounts[0] of path[0] from the signer, at most amountInMax.",
+     "Delivers exactly amountOut of path[-1] to `to`."
+    ],
+    "shown": "Swap at most X tokenIn for exactly Y tokenOut, with the recipient and the deadline.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 17,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "Both effects match the screen."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
    }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 1.113,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 179,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "addLiquidity(address tokenA,address tokenB,uint256 amountADesired,uint256 amountBDesired,uint256 amountAMin,uint256 amountBMin,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 83
+  },
+  "addLiquidityETH(address token,uint256 amountTokenDesired,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 83
+  },
+  "removeLiquidity(address tokenA,address tokenB,uint256 liquidity,uint256 amountAMin,uint256 amountBMin,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "removeLiquidityETH(address token,uint256 liquidity,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "removeLiquidityETHSupportingFeeOnTransferTokens(address token,uint256 liquidity,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "removeLiquidityETHWithPermit(address token,uint256 liquidity,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline,bool approveMax,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "removeLiquidityETHWithPermitSupportingFeeOnTransferTokens(address token,uint256 liquidity,uint256 amountTokenMin,uint256 amountETHMin,address to,uint256 deadline,bool approveMax,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "removeLiquidityWithPermit(address tokenA,address tokenB,uint256 liquidity,uint256 amountAMin,uint256 amountBMin,address to,uint256 deadline,bool approveMax,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 94,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "swapETHForExactTokens(uint256 amountOut,address[] path,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 83
+  },
+  "swapExactETHForTokens(uint256 amountOutMin,address[] path,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "swapExactETHForTokensSupportingFeeOnTransferTokens(uint256 amountOutMin,address[] path,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "swapExactTokensForETH(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "swapExactTokensForETHSupportingFeeOnTransferTokens(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "swapExactTokensForTokens(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256 amountIn,uint256 amountOutMin,address[] path,address to,uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "swapTokensForExactETH(uint256 amountOut,uint256 amountInMax,address[] path,address to,uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 67
+  },
+  "swapTokensForExactTokens(uint256 amountOut,uint256 amountInMax,address[] path,address to,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
   }
- ]
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 88,
+  "functions": "14A 3B",
+  "incomplete": false,
+  "worst": null
+ }
 }

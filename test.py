@@ -1,9 +1,9 @@
 #!/usr/bin/env -S uv run -q -p 3.13 --script
 # /// script
-# dependencies = ["cryptography", "clearsig"]
+# dependencies = ["cryptography", "clearsig", "eth-hash[pycryptodome]"]
 # ///
 # Tests with no network and no model: the signed round (a throwaway Secure Enclave key, no Touch ID), and
-# review.py's parsing. ./test.py
+# review.py's checks and grade.py's rubric. ./test.py
 import copy, importlib.util, json, subprocess, tempfile
 from pathlib import Path
 
@@ -17,7 +17,7 @@ def load(name):
     return m
 
 
-sign, review = load("sign"), load("review")
+sign, review, grade = load("sign"), load("review"), load("grade")
 
 
 def test_round():
@@ -61,36 +61,54 @@ def test_round():
     assert one["leaves"][0]["proof"] == [] and one["root"] == sign.leaf(1, "0x" + "00" * 20, "0x%064x" % 1).hex()
 
 
-def test_review_parsing():
-    ans = "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### a is wrong\n\n- x\n\n### b is wrong\n\n## Info\n\nNone.\n"
-    assert review.well_formed(ans) and not review.limited(ans)
-    assert review.counts(ans) == {"critical": [], "warning": ["a is wrong", "b is wrong"], "info": []}
-    assert review.limited(ans + "\n## What could not be reviewed\n\nthe proxy\n")
-    u = lambda **by: {"unverified": [], "by": {k: {"critical": v, "limited": False} for k, v in by.items()}}
-    assert review.verdict([u(claude=[], grok=[])], []) == "pass"
-    assert review.verdict([u(claude=[], grok=["x"])], []) == "fail"
-    assert review.verdict([u(claude=[], grok=[])], [{"why": "model error"}]) == "incomplete"
-    assert review.verdict([{**u(claude=[]), "unverified": ["1:0x"]}], []) == "incomplete"
-    assert review.verdict([], []) == "error"
-    assert review.verdict([{**u(claude=[], grok=[]), "hiddenValue": ["swap()"]}], []) == "fail"
-    assert review.selector("transfer(address to, uint256 amount)") == "0xa9059cbb"
+def test_grade():
+    sel = review.selector
+    assert sel("transfer(address to, uint256 amount)") == "0xa9059cbb"
     assert review.canon("(address a, uint256[] b)[] c, bytes d") == "(address,uint256[])[],bytes"
     assert review.canon("(address a, uint256[] b) c, (uint8 x)[2][] y") == "(address,uint256[]),(uint8)[2][]"
 
+    def fmt(key, findings=(), cases=(), glance=90, depth=90):
+        return {"key": key, "effects": [], "shown": "", "findings": list(findings), "cases": list(cases), "glance": glance, "depth": depth}
+
+    def find(sev, axis="truth", gt=False):
+        return {"severity": sev, "axis": axis, "kind": "other", "title": f"{sev} {axis}", "evidence": "", "groundTruth": gt}
+
+    def g(formats, cannot=(), hidden=()):
+        return grade.grade({"answer": {"formats": formats, "couldNotCheck": list(cannot)}, "hiddenValue": list(hidden)})
+    r = g([fmt("a()"), fmt("b()", [find("warning")])])
+    assert r["result"] == "pass" and r["formats"]["a()"]["grade"] == "A" and r["formats"]["b()"]["truth"] == 90, r
+    r = g([fmt("a()"), fmt("b()", [find("critical", "completeness")])])
+    assert r["result"] == "fail" and r["summary"]["grade"] == "F" and r["formats"]["b()"]["truth"] == 25
+    assert g([fmt("a()")], cannot=["the router source"])["result"] == "incomplete"
+    assert g([fmt("a()")], hidden=["a()"])["result"] == "fail"                   # payable, @.value never shown
+    assert grade.grade({"answer": None})["result"] == "error"
+    # Receipts cap truth only when a fixable finding backs the gap; an info (the pool decides) costs nothing.
+    case = {"index": 0, "signerEffects": 3, "shownRight": 2, "reader": ["right", "right", "partial"]}
+    assert g([fmt("a()", [find("info", "completeness", True)], [case])])["formats"]["a()"]["truth"] == 100
+    assert g([fmt("a()", [find("warning", "completeness", True)], [case])])["formats"]["a()"]["truth"] == 67
+    # Clarity: 60% blind reader, 40% glance and depth.
+    assert g([fmt("a()", cases=[case], glance=50, depth=50)])["formats"]["a()"]["clarity"] == round(0.6 * 100 * 2.5 / 3 + 0.4 * 50)
+
 
 def test_hidden_value():
-    fn = lambda name, pay, ins=(): {"type": "function", "name": name, "stateMutability": "payable" if pay else "nonpayable",
-                                    "inputs": [t if isinstance(t, dict) else {"type": t} for t in ins]}
-    shows = {"fields": [{"path": "@.value", "label": "Send"}]}
-    hides = {"fields": [{"path": "amount", "label": "Amount"}], "excluded": ["@.value"]}
-    viadef = {"fields": [{"$ref": "$.display.definitions.sent"}]}
-    unit = lambda abi, formats: {"contracts": [{"abi": abi}], "head": {"display": {"formats": formats, "definitions": {"sent": {"path": "@.value"}}}}}
-    abi = [fn("buy", True, ["uint256"]), fn("sell", False, ["uint256"]), fn("swap", True, [{"type": "tuple", "components": [{"type": "address"}, {"type": "uint256[]"}]}])]
-    assert review.hidden_value(unit(abi, {"buy(uint256 a)": hides, "sell(uint256 a)": hides})) == ["buy(uint256 a)"]
-    assert review.hidden_value(unit(abi, {"buy(uint256 a)": shows, "swap((address t, uint256[] p) d)": viadef})) == []
-    assert review.hidden_value(unit(abi, {"swap((address t, uint256[] p) d)": hides})) == ["swap((address t, uint256[] p) d)"]
-    other = {"zap(uint256 a)": hides}            # not in the ABI (a proxy we can't see through): left to the models
-    assert review.hidden_value(unit(abi + [{"type": "fallback", "stateMutability": "payable"}], other)) == []
+    w = Path(tempfile.mkdtemp())
+    (w / "contracts/1-0x01").mkdir(parents=True)
+    abi = [{"type": "function", "name": "buy", "stateMutability": "payable", "inputs": [{"type": "uint256", "name": "a"}]},
+           {"type": "function", "name": "sell", "stateMutability": "nonpayable", "inputs": [{"type": "uint256", "name": "a"}]},
+           {"type": "function", "name": "swap", "stateMutability": "payable",
+            "inputs": [{"type": "tuple", "name": "d", "components": [{"type": "address", "name": "t"}, {"type": "uint256[]", "name": "p"}]}]}]
+    (w / "contracts/1-0x01/abi.json").write_text(json.dumps(abi))
+    hides = {"intent": "x", "fields": [{"path": "a", "format": "raw"}]}
+    shows = {"intent": "x", "fields": [{"path": "@.value", "format": "amount"}]}
+    viadef = {"intent": "x", "fields": [{"$ref": "$.display.definitions.eth"}]}
+
+    def run(formats):
+        (w / "descriptor.json").write_text(json.dumps({"display": {"formats": formats, "definitions": {"eth": {"path": "@.value"}}}}))
+        return review.hidden_value(w)
+    assert run({"buy(uint256 a)": hides, "sell(uint256 a)": hides}) == ["buy(uint256 a)"]
+    assert run({"buy(uint256 a)": shows, "swap((address t, uint256[] p) d)": viadef}) == []
+    assert run({"swap((address t, uint256[] p) d)": hides}) == ["swap((address t, uint256[] p) d)"]
+    assert run({"zap(uint256 a)": hides}) == []                # not in the ABI: left to the agent
 
 
 def test_tx_input():
@@ -102,7 +120,7 @@ def test_tx_input():
     to, data = b"\x11" * 20, bytes.fromhex("a9059cbb")    # short: the list stays under RLP's 56-byte short form
     raw = b"\x02" + enc([b"\x0a", b"", b"\x01", b"\x02", b"\x03", to, b"\x05", data, []])
     t = review.tx_input("0x" + raw.hex(), 1)
-    assert (t["chainId"], t["to"], t["value"], t["selector"], t["txType"]) == (10, "0x" + "11" * 20, "5", "0xa9059cbb", "eip1559"), t
+    assert (t["chainId"], t["to"], t["value"], t["selector"]) == (10, "0x" + "11" * 20, "5", "0xa9059cbb"), t
 
 
 if __name__ == "__main__":

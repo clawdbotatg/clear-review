@@ -2,7 +2,7 @@
  "hash": "0x9d842276d3d7ae727cae4e5596599553c47dab7ed59d5704790bcfb5970bd20f",
  "file": "registry/consensus-specs/calldata-DepositContract.json",
  "kind": "calldata",
- "registry": "171b6b5bf137e2433a4bde35cffd64d4d7fe25bd",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
  "deployments": [
   {
    "chainId": 1,
@@ -16,84 +16,92 @@
  "auditedBy": [
   "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
  ],
- "reviewers": {
-  "claude": "claude-sonnet-5-5 (medium)",
-  "grok": "grok-4.6"
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T15:59Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(bytes pubkey, bytes withdrawal_credentials, bytes signature, bytes32 deposit_data_root)",
+    "effects": [
+     "The signer sends msg.value in ETH (at least 1 ETH, a whole number of gwei) to the deposit contract, and the contract has no function that returns it.",
+     "The deposit is credited on the consensus layer to the validator named by pubkey.",
+     "The withdrawal_credentials decide who can withdraw the stake and rewards later; for a 0x01 or 0x02 credential, this is the address in bytes 12-32.",
+     "The signature and deposit_data_root only make the call valid: they are checked against the other inputs and move no assets."
+    ],
+    "shown": "\"Stake ETH\" with the validator public key and the withdrawal credentials as raw hex, and the ETH amount (e.g. \"32 ETH\"); the signature and the deposit data root are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "deposit shows withdrawal credentials as raw bytes32, so the withdrawal address is hard to see.",
+      "evidence": "descriptor.json, deposit format: {\"label\": \"Withdraw credentials\", \"format\": \"raw\", \"path\": \"#.withdrawal_credentials\"}; case 0 shows \"0x0100000000000000000000007e2a2fa2a064f693f0a55c5639476d913ff12d05\". The address that gets the stake is in bytes 12-32. DepositContract.deposit only checks withdrawal_credentials.length == 32. A 0x00 credential is a BLS key hash, so an address slice would be wrong for that type, and no single format fits every credential type.",
+      "fix": "Think about adding a second field \"Withdrawal address\" with path \"#.withdrawal_credentials.[12:32]\" and format addressName, and keep the raw field for the prefix. Label the raw field \"Withdrawal credentials\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit to an existing validator pubkey tops it up, and the withdrawal credentials shown are ignored.",
+      "evidence": "DepositContract.deposit (deposit_contract.sol) emits DepositEvent(pubkey, withdrawal_credentials, amount, ...) and does nothing else. The consensus layer decides the outcome: if the pubkey already exists, it keeps that validator's existing credentials. The descriptor shows \"Withdraw credentials\" as if they always apply.",
+      "fix": "No descriptor change can read consensus-layer state. A label such as \"Withdrawal credentials (new validator only)\" could help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "deposit has one test only: a 32 ETH deposit with 0x01 credentials.",
+      "evidence": "cases/0.json: value 32000000000000000000, withdrawal_credentials prefix 0x01. No case has a 1 ETH top-up or 0x00/0x02 credentials, and the code accepts msg.value >= 1 ether.",
+      "fix": "Add a case with a smaller top-up amount and one with 0x02 compounding credentials.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The 32 ETH out matches \"Amount to deposit: 32 ETH\". The reader also read the withdrawal address correctly from the raw credentials."
+     }
+    ],
+    "glance": 82,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
  },
- "prompt": "sha256:0dd454484df7ee580f00bc97d71b279e82c00c64fe7db4c3c5ddc39689458634",
- "date": "2026-10-24T21:45Z",
+ "cost": 0.239,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 39,
+ "rubric": "v1.1",
  "result": "pass",
- "reasons": [
-  "warning (claude): deposit shows withdrawal credentials as raw hex, so the signer cannot see where the withdrawn stake goes",
-  "warning (claude): deposit hides the signature and deposit_data_root, and withdrawal_credentials shows as raw hex that hides the withdrawal address"
- ],
- "notReviewed": [],
- "cost": 0.5989,
- "units": [
-  {
-   "unit": "consensus-specs__calldata-DepositContract__0.json",
-   "deployments": [
-    {
-     "chainId": 1,
-     "address": "0x00000000219ab540356cbb839cbe05303d7705fa"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": false,
-     "critical": [],
-     "warning": [
-      "deposit shows withdrawal credentials as raw hex, so the signer cannot see where the withdrawn stake goes"
-     ],
-     "info": [
-      "deposit hides signature and deposit_data_root",
-      "Deposit cannot be withdrawn on the deposit contract and the intent does not say so"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### deposit shows withdrawal credentials as raw hex, so the signer cannot see where the withdrawn stake goes\n\n- **Effect:** The deposit locks the ETH in the beacon chain. The `withdrawal_credentials` value decides who can later withdraw it. The first byte sets the type (0x01 or 0x02) and the last 20 bytes hold the withdrawal address.\n- **Shown:** The field \"Withdraw credentials\" with format `raw`. The test case shows `0x0100000000000000000000007e2a2fa2a064f693f0a55c5639476d913ff12d05`.\n- **Gap:** The value is shown but unreadable, because the address sits in a padded bytes32 and cannot be checked by eye or named. This is a warning, not a critical.\n- **Where:** The `deposit` format, field `withdrawal_credentials`; `deposit` in `deposit_contract.sol`.\n- **Evidence:**\n\n```json\n{ \"label\": \"Withdraw credentials\", \"format\": \"raw\", \"path\": \"#.withdrawal_credentials\" }\n```\n\n- **Fix:** Add a field that slices the address and shows it with `addressName`. Keep the raw field. The slice is only correct for 0x01 and 0x02 credentials, so label it \"Withdrawal address (0x01/0x02 credentials)\". Mention it in `interpolatedIntent`.\n\n```json\n{\n  \"label\": \"Withdrawal address\",\n  \"format\": \"addressName\",\n  \"path\": \"#.withdrawal_credentials.[12:32]\",\n  \"params\": { \"types\": [\"eoa\", \"contract\"] }\n}\n```\n\n## Info\n\n### deposit hides signature and deposit_data_root\n\n- **Effect:** The contract checks that `deposit_data_root` matches the hash of the pubkey, credentials, amount and signature. It does not move any asset by itself.\n- **Shown:** Both fields have `visible: never`.\n- **Gap:** These bytes are cryptographic proof data that moves none of the signer's assets, so hiding them is acceptable.\n- **Where:** The `deposit` format, fields `signature` and `deposit_data_root`.\n- **Evidence:**\n\n```solidity\n// DepositContract.deposit\nrequire(node == deposit_data_root, \"DepositContract: reconstructed DepositData does not match supplied deposit_data_root\");\n```\n\n### Deposit cannot be withdrawn on the deposit contract and the intent does not say so\n\n- **Effect:** The ETH sent cannot be taken back from the deposit contract. The beacon chain handles withdrawal later, according to the credentials.\n- **Shown:** The intent \"Stake ETH\" and the amount.\n- **Gap:** The effect is implied by \"Stake\", so this is an info. No `intent` change is needed.\n- **Where:** The `deposit` format, field `intent`.\n- **Evidence:**\n\n```solidity\n// DepositContract.deposit\nrequire(msg.value >= 1 ether, \"DepositContract: deposit value too low\");\n```"
-    },
-    "grok": {
-     "limited": false,
-     "critical": [],
-     "warning": [],
-     "info": [
-      "deposit shows packed withdrawal credentials as raw hex, not as a withdrawal address"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\n### deposit shows packed withdrawal credentials as raw hex, not as a withdrawal address\n\n- **Effect:** The contract locks the signer's ETH and sets who may withdraw from `withdrawal_credentials`.\n- **Shown:** The field Withdraw credentials shows the full 32-byte hex, as in the test case Stake ETH - chain 1.\n- **Gap:** The bytes pack a type prefix and an address or BLS hash. No format can decode every type. Packed bits are info.\n- **Where:** the `deposit` format, field `withdrawal_credentials`; `deposit` in `deposit_contract.sol`; the test case Stake ETH - chain 1\n- **Evidence:**\n\n```solidity\n// DepositContract.deposit\nrequire(withdrawal_credentials.length == 32, \"DepositContract: invalid withdrawal_credentials length\");\nemit DepositEvent(\n    pubkey,\n    withdrawal_credentials,\n    amount,\n    signature,\n    to_little_endian_64(uint64(deposit_count))\n);\n```"
-    }
-   }
-  },
-  {
-   "unit": "consensus-specs__calldata-DepositContract__1.json",
-   "deployments": [
-    {
-     "chainId": 560048,
-     "address": "0x00000000219ab540356cbb839cbe05303d7705fa"
-    }
-   ],
-   "unverified": [],
-   "by": {
-    "claude": {
-     "limited": false,
-     "critical": [],
-     "warning": [
-      "deposit hides the signature and deposit_data_root, and withdrawal_credentials shows as raw hex that hides the withdrawal address"
-     ],
-     "info": [
-      "The signature and deposit_data_root are hidden; they do not move assets"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\n### deposit hides the signature and deposit_data_root, and withdrawal_credentials shows as raw hex that hides the withdrawal address\n\n- **Effect:** The deposit locks `msg.value` as validator stake. The `withdrawal_credentials` value decides who can withdraw it: the `0x01` prefix followed by an address.\n- **Shown:** \"Withdraw credentials\" appears as raw hex, for example `0x0100000000000000000000007e2a2fa2a064f693f0a55c5639476d913ff12d05`.\n- **Gap:** The value is shown but unreadable. The signer cannot easily see the withdrawal address, so this is a warning under rule 1 of the not-critical list.\n- **Where:** The `deposit` format, field `withdrawal_credentials`; the test case `Stake ETH - chain 1`.\n- **Evidence:**\n\n```json\n{\n  \"label\": \"Withdraw credentials\",\n  \"format\": \"raw\",\n  \"path\": \"#.withdrawal_credentials\",\n  \"visible\": \"always\"\n}\n```\n\n- **Fix:** Add a second field that slices the last 20 bytes and formats them as an address. Mention it in `interpolatedIntent` if one is added.\n\n```json\n{\n  \"label\": \"Withdrawal address\",\n  \"format\": \"addressName\",\n  \"path\": \"#.withdrawal_credentials.[12:32]\",\n  \"visible\": \"always\"\n}\n```\n\nThe slice is only meaningful for `0x01` and `0x02` credentials; for `0x00` credentials the last 20 bytes are not an address. Keep the raw field next to it.\n\n## Info\n\n### The signature and deposit_data_root are hidden; they do not move assets\n\n- **Effect:** The contract only checks that these two values match the SHA-256 root it recomputes from the other inputs. They do not change who gets what.\n- **Shown:** Both fields are `visible: never`.\n- **Gap:** Rule 5 of the not-critical list applies: hidden bytes that move none of the signer's assets.\n- **Where:** The `deposit` format, fields `signature` and `deposit_data_root`; `deposit` in `DepositContract.sol`.\n- **Evidence:**\n\n```solidity\n// DepositContract.deposit\nrequire(node == deposit_data_root, \"DepositContract: reconstructed DepositData does not match supplied deposit_data_root\");\n```"
-    },
-    "grok": {
-     "limited": false,
-     "critical": [],
-     "warning": [],
-     "info": [
-      "deposit shows withdrawal credentials as raw bytes and cannot name the withdrawal address"
-     ],
-     "answer": "# Review\n\n## Critical\n\nNone.\n\n## Warning\n\nNone.\n\n## Info\n\n### deposit shows withdrawal credentials as raw bytes and cannot name the withdrawal address\n\n- **Effect:** The 32-byte withdrawal credentials set who can later withdraw the staked ETH.\n- **Shown:** The signer sees 32 raw bytes under Withdraw credentials, as in the test case.\n- **Gap:** The ETH1 address sits in the last 20 bytes. A slice would misread BLS credentials. Packed bits are info.\n- **Where:** the `deposit` format, field `withdrawal_credentials`; `deposit` in `DepositContract.sol`; the test case `Stake ETH - chain 1`\n- **Evidence:**\n\n```solidity\n// DepositContract.deposit\nrequire(withdrawal_credentials.length == 32, \"DepositContract: invalid withdrawal_credentials length\");\nbytes memory amount = to_little_endian_64(uint64(deposit_amount));\nemit DepositEvent(\n    pubkey,\n    withdrawal_credentials,\n    amount,\n    signature,\n    to_little_endian_64(uint64(deposit_count))\n);\n```"
-    }
-   }
+ "formats": {
+  "deposit(bytes pubkey, bytes withdrawal_credentials, bytes signature, bytes32 deposit_data_root)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
   }
- ]
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 92,
+  "functions": "1A",
+  "incomplete": false,
+  "worst": null
+ }
 }
