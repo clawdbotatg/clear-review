@@ -8,10 +8,14 @@ ROOT = Path(__file__).resolve().parent.parent
 VALUE = ("payable", "@.value", "eth sent", "native value")
 
 
-def main():
+def load():
+    return sorted((json.loads(Path(f).read_text()) for f in glob.glob(str(ROOT / "reviews/*.json"))), key=lambda r: r["file"])
+
+
+def confirmed(recs):
+    """Criticals both second agents confirmed: {file: (rec, [(claude, codex, original finding)])}, and the
+    value-only ones {file: [function names]}."""
     sub, val = collections.OrderedDict(), collections.defaultdict(list)
-    recs = sorted((json.loads(Path(f).read_text()) for f in glob.glob(str(ROOT / "reviews/*.json"))), key=lambda r: r["file"])
-    commit = recs[0]["registry"][:7] if recs else "?"
     for r in recs:
         a = (r.get("verified") or {}).get("findings") or []
         b = (r.get("verifiedCodex") or {}).get("findings") or []
@@ -23,6 +27,13 @@ def main():
                 val[r["file"]].append(x["format"].split("(")[0])
             else:
                 sub.setdefault(r["file"], (r, []))[1].append((x, y, orig.get((x["format"], x["title"]), {})))
+    return sub, val
+
+
+def main():
+    recs = load()
+    commit = recs[0]["registry"][:7] if recs else "?"
+    sub, val = confirmed(recs)
     n = sum(len(v[1]) for v in sub.values())
     L = ["# Confirmed findings", "",
          f"Registry `{commit}`. An Opus agent reviewed every descriptor against the verified source and the registry's",
@@ -46,4 +57,5 @@ def main():
     print(f"{n} findings in {len(sub)} descriptors; {sum(len(v) for v in val.values())} value-only in {len(val)}")
 
 
-main()
+if __name__ == "__main__":
+    main()
