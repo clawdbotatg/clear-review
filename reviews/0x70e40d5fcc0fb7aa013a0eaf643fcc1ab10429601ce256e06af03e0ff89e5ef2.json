@@ -1,0 +1,198 @@
+{
+ "hash": "0x70e40d5fcc0fb7aa013a0eaf643fcc1ab10429601ce256e06af03e0ff89e5ef2",
+ "file": "registry/kyberswap/calldata-MetaAggregationRouterV2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 56,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 137,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 10,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 59144,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 146,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 80094,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 2020,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 130,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 999,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 9745,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 42793,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 143,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 4326,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  },
+  {
+   "chainId": 4153,
+   "address": "0x6131b5fae19ea4f9d964eac0408e4408b66337b5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "swap((address callTarget, address approveTarget, bytes targetData, (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes clientData) execution)",
+    "effects": [
+     "The signer sends up to desc.amount of desc.srcToken (ERC-20 via transferFrom to srcReceivers or to the first pools in simple mode, or native ETH via msg.value when srcToken is 0xEeee).",
+     "When feeReceivers is not empty and FEE_ON_DST is not set, part of desc.amount goes from the signer to the fee receivers in calldata, and only the rest is swapped.",
+     "When FEE_ON_DST is set, the router keeps the output first, sends a fee in dstToken to the fee receivers, and forwards the rest to the recipient.",
+     "dstReceiver (or the signer when it is zero) receives desc.dstToken; the code checks that the received balance increase, after fees, is at least minReturnAmount.",
+     "On the mainnet build, with PARTIAL_FILL and ETH as the source, the router refunds unspent ETH to the signer and checks only the rate, so less than minReturnAmount can arrive.",
+     "The signer sends native ETH as msg.value. The value equals the amount (or 0 for ERC-20) only without the REQUIRES_EXTRA_ETH and SIMPLE_SWAP flags. With REQUIRES_EXTRA_ETH it is any larger value. In simple mode nothing checks it.",
+     "When desc.permit is 224 bytes, the router calls permit on srcToken. This can set the signer's allowance for the router to any value, and that allowance stays after the call."
+    ],
+    "shown": "The screen says 'Swap {amount srcToken} for at least {minReturnAmount dstToken} to recipient {dstReceiver}'. The zero recipient shows as Sender. Fees, flags, permit, executor data and the native value are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swap is payable but shows no @.value; hidden flags let msg.value exceed the amount or skip the check",
+      "evidence": "MetaAggregationRouterV2.sol swap: `if (_flagsChecked(desc.flags, _SIMPLE_SWAP)) { return swapSimpleMode(...); }` runs before `_collectExtraETHIfNeeded(desc);`. _collectExtraETHIfNeeded: `if (_flagsChecked(desc.flags, _REQUIRES_EXTRA_ETH)) { require(msg.value > (srcETH ? desc.amount : 0)` . Descriptor: no field with path @.value; `execution.desc.flags` has visible: never.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\",\"visible\":\"always\"}. Keep 'Swap' as the intent; the sentence does not need the value.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swap hides feeReceivers and feeAmounts; part of the amount or output goes to unshown fee receivers",
+      "evidence": "swap: `desc.amount = _takeFee(desc.srcToken, msg.sender, desc.feeReceivers, desc.feeAmounts, ...)`, and on FEE_ON_DST `_takeFee(desc.dstToken, address(this), ...)`. _takeFee: `_doTransferERC20(token, ..., recipients[i], amount)`. Descriptor: 'Fee Receivers' and 'Fee Amounts' have visible: never. The amount sent and the minimum received stay correct bounds, because the fee comes from inside them.",
+      "fix": "Show execution.desc.feeReceivers.[] (addressName) and execution.desc.feeAmounts.[] (tokenAmount) with visible ifNotIn [] or optional, labelled 'Fee recipient' and 'Fee'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "swap shows 'at least minReturnAmount', but on mainnet PARTIAL_FILL with ETH input only checks a rate",
+      "evidence": "Mainnet _checkReturnAmount: `if (_flagsChecked(desc.flags, _PARTIAL_FILL)) { require(returnAmount * desc.amount >= desc.minReturnAmount * spentAmount` . _executeSwap refunds `desc.amount - spentAmount` when `_isETH(desc.srcToken)`. Descriptor: interpolatedIntent 'for at least {execution.desc.minReturnAmount}'; flags have visible: never.",
+      "fix": "No flag-bit format exists. Label the field 'Minimum to receive (pro rata if partially filled)', or note the flag limit in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swap hides desc.permit, which can set a lasting allowance on srcToken larger than the amount",
+      "evidence": "Permitable._permit: `if (permit.length == 32 * 7) { address(token).call(abi.encodePacked(IERC20Permit.permit.selector, permit))`. Descriptor: 'Permit' path execution.desc.permit has visible: never.",
+      "fix": "Show execution.desc.permit when it is not empty, or show its value word with a slice and the tokenAmount format plus a threshold for 'Unlimited'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "swap tests cover only ERC-20 input with no fee, no permit, zero value and no special flags",
+      "evidence": "cases/0.json and cases/1.json: value '0', flags 0x200, feeReceivers empty, permit empty. No case has ETH input (0xEeee), REQUIRES_EXTRA_ETH, SIMPLE_SWAP, FEE_ON_DST or a fee.",
+      "fix": "Add cases for ETH input with nonzero value, for a fee on the source and on the destination, and for simple mode.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap test screens show raw integers such as 1471080000 instead of token-formatted amounts",
+      "evidence": "cases/0.json screen: 'Amount to Send' = '1471080000', 'Minimum to Receive' = '2998482878911860715861'. The descriptor uses tokenAmount with tokenPath execution.desc.srcToken and execution.desc.dstToken, so the renderer did not resolve the token.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "swap hides callTarget, targetData and srcReceivers; the router checks the output only by balance change",
+      "evidence": "swap: `_executeSwap(execution.callTarget, abi.encodeWithSelector(IAggregationExecutor.callBytes.selector, execution.targetData), ...)`. _transferFromOrApproveTarget: `require(total <= desc.amount, 'Exceeded desc.amount')`. The fields are visible: never. The amount, the minimum and the recipient still bound the outcome.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.698,
+ "account": "ethereum_foundation",
+ "hiddenValue": [
+  "swap((address callTarget, address approveTarget, bytes targetData, (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes clientData) execution)"
+ ],
+ "seconds": 117,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "swap((address callTarget, address approveTarget, bytes targetData, (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes clientData) execution)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 4,
+   "worst": "swap is payable but shows no @.value; hidden flags let msg.value exceed the amount or skip the check",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 0,
+  "clarity": 55,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "swap is payable but shows no @.value; hidden flags let msg.value exceed the amount or skip the check"
+ }
+}

@@ -1,0 +1,240 @@
+{
+ "hash": "0xa89b5e27db14fda0f9ce3f3783c41acdfa26d19076e8e2282e7398b180b5b5ba",
+ "file": "registry/morpho/calldata-gauntlet-gteurcc-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x842a84df61dbe701c5dae345f3f8e64af727e48c"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` EURC from the signer into the vault (VaultV2.enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints gteurcc shares, worth previewDeposit(assets), to `onBehalf`. The share price comes from storage."
+    ],
+    "shown": "Deposit 0.1 EURC for 0x…dEaD, with the EURC amount, a constant share ticker 'gteurcc' and the share recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown; it comes from the vault's share price in storage.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets);`. No shares or minShares parameter exists in calldata. The descriptor's 'Share ticker' field shows only the constant 'gteurcc'.",
+      "fix": "Nothing a descriptor can do. You could relabel the ticker field 'Receive shares in' so its meaning is plain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' field is a bare constant, and its role is unclear on its own.",
+      "evidence": "descriptor deposit field `{\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}` renders 'gteurcc'.",
+      "fix": "Use a label such as 'Shares received (token)', or drop the field and add 'into gteurcc vault' to the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.1 EURC out to the vault is shown exactly. The shares went to 0xdead, which is shown. The reader understood that the shares are lost."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) gteurcc shares (rounded up) from `onBehalf`. The amount depends on the share price in storage.",
+     "When the signer is not `onBehalf`, it spends that many shares of onBehalf's share allowance to the signer.",
+     "Sends exactly `assets` EURC from the vault to `receiver`."
+    ],
+    "shown": "Withdraw exactly 900 EURC to the receiver, with the receiver and the share owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the gteurcc shares burned from the owner are not shown; the amount is derived from storage.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets);`, then exit(): `deleteShares(onBehalf, shares)`. In case 2, 898.839033179660570960 gteurcc left the signer, and no field states it.",
+      "fix": "Nothing a descriptor can do. The 'Owner' field already names whose shares are burned.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 900 EURC arriving at the signer is exact. The share burn of 898.84 gteurcc is not stated; the reader inferred that shares worth 900 EURC leave but did not know the amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` gteurcc from `onBehalf`. When the signer is not `onBehalf`, it spends that much of onBehalf's share allowance to the signer.",
+     "Sends previewRedeem(shares) EURC from the vault to `receiver`. The amount depends on the share price in storage, and there is no minimum."
+    ],
+    "shown": "Redeem 134953.8 gteurcc to the receiver, with the share amount, the receiver and the owner as fields; nothing names the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says the signer receives EURC; only the shares are named.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. In case 3 the signer received 135028.028024 EURC. The descriptor's redeem fields are shares, receiver and onBehalf only; the mint format has a constant 'Deposit asset: EURC' field, but redeem has nothing like it. The blind reader wrote: 'the amount and which token are not shown'.",
+      "fix": "Add a field `{\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}` and change the intent to 'Redeem {#.shares} for EURC to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the EURC amount received is not shown and has no minimum; it comes from the share price in storage.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);`. No minAssets parameter. In case 3 the signer received 135028.028024 EURC, which is not on screen.",
+      "fix": "Nothing a descriptor can do for the amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 134953.81 gteurcc out is shown exactly. The 135028.03 EURC arriving at the signer has neither asset nor amount on screen; the reader knew only that 'some underlying asset' comes back."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes previewMint(shares) EURC (rounded up) from the signer into the vault. The amount depends on the share price in storage, and the only limit is the signer's approval.",
+     "Mints exactly `shares` gteurcc to `onBehalf`."
+    ],
+    "shown": "Mint 0.9 gteurcc for 0x…dEaD, with a constant 'Deposit asset: EURC' field and no EURC amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the EURC amount taken from the signer is not shown; it is computed from the share price in storage.",
+      "evidence": "VaultV2.sol mint(): `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`, and enter(): `safeTransferFrom(asset, msg.sender, address(this), assets)`. In case 1, 0.907906 EURC left the signer, and the screen shows only 'Deposit asset: EURC'. There is no maxAssets parameter in calldata.",
+      "fix": "Nothing a descriptor can do for the amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint {shares} for {onBehalf}' does not say the signer pays EURC.",
+      "evidence": "descriptor mint `interpolatedIntent: \"Mint {#.shares} for {#.onBehalf}\"`. Paying EURC appears only as a separate raw field, 'Deposit asset: EURC'.",
+      "fix": "Use 'Deposit EURC to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer paid 0.907906 EURC. The screen names EURC but gives no amount; the reader knew EURC leaves but not how much."
+     }
+    ],
+    "glance": 60,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.38,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 97,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 94,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says the signer receives EURC; only the shares are named.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint {shares} for {onBehalf}' does not say the signer pays EURC.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 73,
+  "functions": "1A 1B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says the signer receives EURC; only the shares are named."
+ }
+}

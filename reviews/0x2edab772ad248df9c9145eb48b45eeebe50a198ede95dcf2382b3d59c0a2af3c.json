@@ -1,0 +1,250 @@
+{
+ "hash": "0x2edab772ad248df9c9145eb48b45eeebe50a198ede95dcf2382b3d59c0a2af3c",
+ "file": "registry/morpho/calldata-sentora-senPYUSDPRIMEv2-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xc21b08c16458202593d4d9b26b9984ee67b38bbd"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer pays exactly `assets` PYUSD to the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "The vault mints senPYUSDPRIMEv2 shares to `onBehalf`. The number of shares is previewDeposit(assets), set by the vault's share price after accrueInterest, with no minimum."
+    ],
+    "shown": "Deposit an exact PYUSD amount into the vault, with senPYUSDPRIMEv2 shares sent to the onBehalf address; the share amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown; the vault computes it and there is no minimum.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The screen has only a 'Share ticker' constant field. Case 0: the signer received 1.001 senPYUSDPRIMEv2, an amount not on the screen.",
+      "fix": "Nothing in the calldata carries it. The 'Share ticker' field could instead read 'Receive: senPYUSDPRIMEv2 shares (amount set by vault price)'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 2 PYUSD out is shown exactly. The 1.001 senPYUSDPRIMEv2 in is named by ticker and recipient, but its amount is not shown and cannot be."
+     }
+    ],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer pays previewMint(shares) PYUSD, rounded up, to the vault. The vault's share price sets this amount and the code has no maximum.",
+     "The vault mints exactly `shares` senPYUSDPRIMEv2 to `onBehalf`."
+    ],
+    "shown": "Mint an exact number of senPYUSDPRIMEv2 shares for onBehalf; PYUSD is named as the deposit asset with no amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the PYUSD amount taken from the signer is not shown; the vault computes it with no maximum.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. The 'Deposit asset' field shows only the constant 'PYUSD'. Case 1: 0.000001 PYUSD left the signer, an amount not on the screen.",
+      "fix": "The calldata does not carry this amount. Relabel the field to 'Pay with (amount set by vault price)' so it is clear an unbounded PYUSD amount will be pulled.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent sentence says 'Mint' and does not say PYUSD is taken from the signer.",
+      "evidence": "interpolatedIntent \"Mint {#.shares} for {#.onBehalf}\" renders 'Mint 0.000000001 senPYUSDPRIMEv2 for 0x...dEaD' (case 1). The PYUSD payment appears only in a separate raw field.",
+      "fix": "Use an interpolatedIntent like 'Deposit PYUSD to mint {#.shares} for {#.onBehalf}' and an intent like 'Deposit PYUSD for shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer paid 1 unit (0.000001) of PYUSD. The asset is named but the amount is not. The shares went to 0xdead, so they are not a signer effect; the screen states this correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns previewWithdraw(assets) senPYUSDPRIMEv2 shares (rounded up) from `onBehalf`, who may be the signer.",
+     "If the signer is not onBehalf, the signer spends onBehalf's share allowance by that number of shares.",
+     "The vault sends exactly `assets` PYUSD to `receiver`."
+    ],
+    "shown": "Withdraw an exact PYUSD amount to the receiver, with the owner address shown; the share burn is not mentioned.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "withdraw: nothing on the screen says the owner's senPYUSDPRIMEv2 shares are burned.",
+      "evidence": "VaultV2.sol exit: `deleteShares(onBehalf, shares);`. The fields are only 'Withdraw exactly', 'To' and 'Owner'. Case 2: the signer burned 359,695.2 senPYUSDPRIMEv2. The reader wrote 'Likely no tokens leave my wallet... shares may be burned, not shown'.",
+      "fix": "Relabel 'Owner' to 'Burn senPYUSDPRIMEv2 shares from', or add a constant field naming the shares that are burned.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is computed by the vault and cannot be shown.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets);`. This amount is not in the calldata. Case 2: 359,695,219,105,124,505,742,268 share wei were burned.",
+      "fix": "None possible from the calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 719,000 PYUSD in is shown exactly, with the right receiver. The reader guessed the share burn only vaguely, because the screen never names the shares."
+     }
+    ],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` senPYUSDPRIMEv2 from `onBehalf`. If the signer is not onBehalf, it also spends the signer's share allowance.",
+     "The vault sends previewRedeem(shares) PYUSD to `receiver`. The vault's share price sets this amount and there is no minimum."
+    ],
+    "shown": "Redeem an exact number of senPYUSDPRIMEv2 shares to the receiver; the asset paid out (PYUSD) and its amount are not stated.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names PYUSD as the asset the receiver gets.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The redeem fields are only shares, 'To' and 'Owner', while mint shows `$.metadata.constants.underlyingTicker`. Case 3: the signer received 100.000003 PYUSD. The reader wrote 'Some underlying asset (likely PYUSD...), amount not shown'.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and say 'for PYUSD' in the interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the PYUSD amount paid out is computed by the vault, with no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. This amount is not in the calldata.",
+      "fix": "None possible from the calldata.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem: 'Redeem {shares} to {receiver}' can read as if the shares are sent to the receiver.",
+      "evidence": "interpolatedIntent \"Redeem {#.shares} to {#.receiver}\" renders 'Redeem 50.03162923140186978 senPYUSDPRIMEv2 to 0x7A9e...' (case 3).",
+      "fix": "Use 'Redeem {#.shares} for PYUSD sent to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The share burn is shown exactly. The PYUSD in is neither named nor quantified, and the reader only guessed the asset."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.378,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 121,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent sentence says 'Mint' and does not say PYUSD is taken from the signer.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: nothing on the screen says the owner's senPYUSDPRIMEv2 shares are burned.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never names PYUSD as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 75,
+  "clarity": 66,
+  "functions": "1B 1C 2D",
+  "incomplete": false,
+  "worst": "withdraw: nothing on the screen says the owner's senPYUSDPRIMEv2 shares are burned."
+ }
+}

@@ -1,0 +1,213 @@
+{
+ "hash": "0xc4a7231d8f858e6523eba17c1ea2c84904da5c043d8741c34dca7abd4a09e674",
+ "file": "registry/morpho/calldata-clearstar-CSRWAUSDC-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x116e1a65717a534b73ecb7d4f6543c65dbcd0e46"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDC (0x8335…2913 on Base) from their wallet to the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "The vault mints previewDeposit(assets) shares to `onBehalf`. The share price comes from storage and is set after fees accrue. The call sets no minimum."
+    ],
+    "shown": "The screen says \"Deposit 10.064804 USDC for <onBehalf>\". It shows the USDC amount, a fixed share ticker \"CSRWAUSDC\" and the share recipient. It does not show the number of shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit shows the share ticker CSRWAUSDC, but the vault token symbol on chain is CSRUSDC.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"CSRWAUSDC\", shown as the 'Share ticker' field. In case 0, the mined effect mints 9.778996992784541279 shares of 0x116e…0e46 with symbol \"CSRUSDC\" to the signer.",
+      "fix": "Set `vaultTicker` to the vault's current on-chain symbol, \"CSRUSDC\", or remove the raw ticker field.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the signer receives; the vault price decides it.",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets);` uses totalAssets and totalSupply from storage. Case 0 mints 9.778996992784541279 shares, and no line on the screen gives that number.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit uses the label 'Deposit asset' for an amount, and a raw constant line for the ticker.",
+      "evidence": "Fields: {\"path\":\"assets\",\"label\":\"Deposit asset\"} and {\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}.",
+      "fix": "Rename the first label to \"Amount to deposit\". Change the ticker line to \"Receive shares\" with the vault name.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states the USDC out right. For the shares in, it shows the party, but the ticker differs from the on-chain symbol (CSRWAUSDC vs CSRUSDC) and the amount is not shown."
+     }
+    ],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns previewWithdraw(assets) shares (rounded up) from `onBehalf`. The share price comes from storage.",
+     "When the signer is not `onBehalf`, the vault spends the signer's share allowance from `onBehalf` by the number of shares burned.",
+     "The vault sends exactly `assets` USDC to `receiver`."
+    ],
+    "shown": "The screen says \"Withdraw 58.436699 USDC to <receiver>\". It shows 'Withdraw exactly' with the USDC amount, 'To' and 'Owner'. It does not show the number of shares burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many vault shares the vault burns from the owner.",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` → `deleteShares(onBehalf, shares)`. In case 1, the signer loses 56.861696097139289559 CSRUSDC, and the screen does not show this.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw intent does not say that the owner's vault shares are burned to pay out USDC.",
+      "evidence": "intent \"Withdraw\" and interpolatedIntent \"Withdraw {#.assets} to {#.receiver}\". VaultV2.exit calls deleteShares(onBehalf, shares).",
+      "fix": "Change interpolatedIntent to \"Withdraw {#.assets} from {#.onBehalf} shares to {#.receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen states the USDC in right, with the exact amount and the recipient. For the shares out, the 'Owner' field implies them, but the asset and amount are not shown."
+     }
+    ],
+    "glance": 70,
+    "depth": 65
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` vault shares from `onBehalf`. When the signer is not `onBehalf`, the vault spends the signer's allowance by `shares`.",
+     "The vault sends previewRedeem(shares) USDC to `receiver`. The share price comes from storage, and the call sets no minimum."
+    ],
+    "shown": "The screen says \"Redeem 9.778996992784541279 CSRWAUSDC to <receiver>\". It shows the shares, 'To' and 'Owner'. It does not name the asset received (USDC) and does not show its amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDC as the asset the receiver gets.",
+      "evidence": "VaultV2.exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` with the immutable asset USDC. The redeem format has no field for the underlying, though metadata.constants.underlyingToken exists. In case 2, the signer receives 10.064864 USDC, and the reader was unsure of the asset.",
+      "fix": "Add a field {\"label\":\"Receive\",\"value\":\"$.metadata.constants.underlyingTicker\",\"format\":\"raw\"}, or put 'for USDC' in the interpolated intent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem shows the shares as CSRWAUSDC, but the token symbol on chain is CSRUSDC.",
+      "evidence": "Case 2 shows the 'Shares to redeem' value as \"9.778996992784541279 CSRWAUSDC\". The mined burn of 0x116e…0e46 has symbol \"CSRUSDC\".",
+      "fix": "Align the vault ticker in the descriptor and the token metadata with the on-chain symbol CSRUSDC.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem cannot show the USDC amount out; it depends on the vault price and has no minimum.",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares);`. The function has no minimum-out parameter. Case 2 pays out 10.064864 USDC, and the screen does not show this amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the shares out with the exact amount and the owner, though the ticker differs from on chain. For the USDC in, it shows the recipient but not the asset or the amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.413,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 66,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit shows the share ticker CSRWAUSDC, but the vault token symbol on chain is CSRUSDC.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent does not say that the owner's vault shares are burned to pay out USDC.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem never names USDC as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 67,
+  "clarity": 67,
+  "functions": "1B 2D",
+  "incomplete": false,
+  "worst": "deposit shows the share ticker CSRWAUSDC, but the vault token symbol on chain is CSRUSDC."
+ }
+}

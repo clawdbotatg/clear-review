@@ -1,0 +1,172 @@
+{
+ "hash": "0x10e111b2fa19b64ae6a7baba9c02b9d9bf1ad3ed0a26e0d2b91b9eac24c3ba13",
+ "file": "registry/flyingtulip/calldata-EpochRewardsVault-dev-bsc.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 56,
+   "address": "0x909573e96dfc3f097b9ee1d007333ca33cf2d4a9"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends `assets` ftUSD (0xFcfacB1A…, 6 decimals) to the vault through transferFrom, spending the signer's ftUSD allowance to the vault.",
+     "The vault puts the ftUSD into the yield wrapper; this does not change what the signer gets.",
+     "The vault mints `assets` sftUSD shares (1:1) to `receiver`, who may be another address than the signer.",
+     "The vault checkpoints the FT reward accrual of `receiver`; the new stake starts to earn FT rewards for `receiver`.",
+     "The function is not payable; no native value leaves."
+    ],
+    "shown": "\"Stake 9.020293 ftUSD\" with the Amount in ftUSD and the Receiver address as a field.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit interpolatedIntent omits the receiver who gets the staked position and its rewards.",
+      "evidence": "Descriptor deposit format: \"interpolatedIntent\": \"Stake {assets}\"; EpochRewardsVault.sol deposit: `_deposit(msg.sender, receiver, assets, shares, msg.sender, 0)` and `_mint(to, shares)`. The receiver is only in a separate field.",
+      "fix": "Change interpolatedIntent to \"Stake {assets} for {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "deposit does not name the sftUSD shares that the receiver gets.",
+      "evidence": "EpochRewardsVault.sol `__ERC20_init(\"Staked Flying Tulip USD\", \"sftUSD\")`, `_convertToShares` returns `assets`; `_mint(to, shares)`. The screen only says \"Stake ftUSD\". Shares are 1:1, so the amount is implied.",
+      "fix": "Optionally add to the intent or a label that the receiver gets sftUSD 1:1.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns `assets` sftUSD shares (1:1) from `owner`; when the signer is not `owner`, it spends the signer's sftUSD allowance from `owner`.",
+     "The vault settles the FT reward accrual of `owner` before the burn; settled FT stays claimable.",
+     "The vault calls yieldWrapper.withdraw(assets, receiver): `receiver` gets `assets` ftUSD now, or a queue entry in the yield wrapper (queue id returned, 0 when immediate).",
+     "The function is not payable; no native value leaves."
+    ],
+    "shown": "\"Unstake 9.020293 ftUSD\" with the Amount in ftUSD, the Receiver and the Owner addresses as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw interpolatedIntent omits the receiver of the ftUSD and the owner whose shares burn.",
+      "evidence": "Descriptor withdraw format: \"interpolatedIntent\": \"Unstake {assets}\"; EpochRewardsVault.sol `_withdrawWithQueueIds`: `_burn(owner, shares)` and `yieldWrapper.withdraw(assets, receiver)`.",
+      "fix": "Change interpolatedIntent to \"Unstake {assets} to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw can create a yield wrapper queue entry instead of sending ftUSD now; screen implies immediate ftUSD.",
+      "evidence": "EpochRewardsVault.sol `_withdrawWithQueueIds`: `queueIdTo = yieldWrapper.withdraw(assets, receiver);` and the natspec of withdrawWithQueueId: \"return the yield wrapper queue ID (0 when immediate)\". The yield wrapper source is not in the directory, so the queue rules cannot be checked.",
+      "fix": "Consider an intent such as \"Unstake ftUSD (may be queued)\" once the yield wrapper behaviour is confirmed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "withdraw test only covers owner equal to receiver; the allowance path for a third-party owner is untested.",
+      "evidence": "cases/1.json: Receiver and Owner are both 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045; EpochRewardsVault.sol `if (spender != owner) { _spendAllowance(owner, spender, shares); }`.",
+      "fix": "Add a case where owner differs from the signer and from the receiver.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "claim(address to)",
+    "effects": [
+     "The vault settles the signer's FT reward accrual over all settled epochs.",
+     "The vault sends FT (0x55Ec65…) to `to`: the signer's whole accrued amount, or the vault's FT balance when that is smaller; the rest stays accrued.",
+     "The open (unsettled) epoch is not included in the payout.",
+     "The function is not payable; no native value leaves."
+    ],
+    "shown": "\"Claim FT to 0xd8dA…6045\" with the Recipient as a field; no amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim amount comes from storage, so the screen cannot show how much FT the recipient gets.",
+      "evidence": "EpochRewardsVault.sol `_claim`: `uint256 claimable = user.ftAccrued;` `uint256 paidGross = claimable <= bal ? claimable : bal;` `FT.safeTransfer(to, paidToUser);`. Descriptor claim format has only the `to` field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "The yield wrapper 0x2e37BAC5b6535ff1A8e6AE07Fbd4005A40928Dc7 (IftYieldWrapperV2) has no source in the directory. withdraw calls yieldWrapper.withdraw(assets, receiver), which decides whether the receiver gets ftUSD now or a queue entry, and how much."
+  ]
+ },
+ "cost": 0.405,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 94,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit interpolatedIntent omits the receiver who gets the staked position and its rewards.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw interpolatedIntent omits the receiver of the ftUSD and the owner whose shares burn.",
+   "comprehension": null
+  },
+  "claim(address to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 76,
+  "functions": "1A 2B",
+  "incomplete": true,
+  "worst": "withdraw interpolatedIntent omits the receiver of the ftUSD and the owner whose shares burn."
+ }
+}

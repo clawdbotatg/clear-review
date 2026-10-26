@@ -1,0 +1,285 @@
+{
+ "hash": "0x996fa768cc39babdfca1cd4475d1c3a97bbd9758ebf1b56e5005df2ea1128646",
+ "file": "registry/celo/calldata-locked_celo.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42220,
+   "address": "0x55e1a0c8f376964bd339167476063bfed7f213d5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "delegateGovernanceVotes(address delegatee, uint256 delegateFraction)",
+    "effects": [
+     "Sets the share of the signer's total locked CELO delegated to `delegatee` for governance voting to `delegateFraction` (1e24 = 100%). This sets a new total. It does not add to the current share.",
+     "Moves governance voting power equal to totalLocked × fraction − currentAmount from the signer's account to the delegatee's account.",
+     "Resolves both the signer and the delegatee through Accounts.voteSignerToAccount. A vote signer therefore delegates the CELO of the account behind it, and the delegation goes to the account behind the delegatee address.",
+     "Adds the delegatee to the signer's delegatee set. The call reverts if the new share is lower than the current share, or if the total delegated share goes over 100%."
+    ],
+    "shown": "\"Delegate\" with the fraction as a percent (1e24 shows as 100%) and the delegatee address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "delegateGovernanceVotes: 'Fraction to Delegate' reads as an added share, but the code sets a new total for the delegatee.",
+      "evidence": "LockedGold.sol delegateGovernanceVotes: `require(FixidityLib.gte(percentageToDelegate, currentDelegateeInfo.percentage), \"Cannot decrease delegated amount - use revokeDelegatedGovernanceVotes.\")` and `currentDelegateeInfo.percentage = percentageToDelegate;`. Descriptor field label: \"Fraction to Delegate\".",
+      "fix": "Change the label to \"New total share of locked CELO\" and the intent to \"Delegate CELO governance votes\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "delegateGovernanceVotes: the intent \"Delegate\" does not name CELO governance votes or the base of the percent.",
+      "evidence": "Descriptor intent \"Delegate\". In LockedGold.sol delegateGovernanceVotes the amount is `FixidityLib.newFixed(totalLockedGold).multiply(percentageToDelegate)`, a share of the signer's total locked CELO.",
+      "fix": "Set the intent to \"Delegate CELO governance votes\". Add an interpolatedIntent such as \"Delegate {delegateFraction} of locked CELO votes to {delegatee}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "delegateGovernanceVotes: the delegator and the delegatee are resolved through vote-signer mapping in storage.",
+      "evidence": "LockedGold.sol delegateGovernanceVotes: `address delegatorAccount = getAccounts().voteSignerToAccount(msg.sender); address delegateeAccount = getAccounts().voteSignerToAccount(delegatee);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   },
+   {
+    "key": "lock()",
+    "effects": [
+     "Takes msg.value CELO from the signer into the LockedGold contract.",
+     "Adds msg.value to the signer's nonvoting locked balance. The CELO is credited to msg.sender only.",
+     "Resyncs every existing delegation of the signer, so the new locked CELO is also delegated at the current shares."
+    ],
+    "shown": "\"Lock CELO\" with the native amount sent and the signer as Beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "All formats: the deployment looks like a LockedGold implementation, not the proxy that signers call.",
+      "evidence": "meta.json: proxyResolution isProxy false, constructorArguments test=true. LockedGold.sol says `initialize` is \"Used in place of the constructor to allow the contract to be upgradable via proxy\". Initializable.sol: `if (!testingDeployment) { initialized = true; }`. On Celo mainnet, signers send LockedGold calls to the registry proxy (0x6cC083Aed9e3ebe302A6336dBC7c921C9f03349E). The descriptor binds 0x55E1A0C8f376964bd339167476063bFED7f213d5.",
+      "fix": "Bind the descriptor to the LockedGold proxy address that the Celo Registry returns, not to the implementation.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "lock: newly locked CELO is added to existing delegations at the current shares, and the screen does not say so.",
+      "evidence": "LockedGold.sol lock: `_incrementNonvotingAccountBalance(msg.sender, msg.value); _updateDelegatedAmount(msg.sender);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "relock(uint256 index, uint256 value)",
+    "effects": [
+     "Moves `value` CELO from the signer's pending withdrawal at `index` back into the signer's nonvoting locked balance. No CELO moves out of the contract.",
+     "Deletes the pending withdrawal entry when `value` equals its full amount, otherwise reduces it.",
+     "Resyncs every existing delegation of the signer so the relocked CELO is delegated at the current shares."
+    ],
+    "shown": "\"Relock\" with the CELO amount, the signer as Beneficiary, and the index hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "relock: the pending withdrawal index is hidden. It picks the source entry but does not change the amount.",
+      "evidence": "Descriptor: `{\"label\": \"Index\", \"path\": \"index\", \"visible\": \"never\"}`. LockedGold.sol relock: `require(value <= pendingWithdrawal.value, ...)`.",
+      "fix": "Show `index` as \"Pending withdrawal index\" with format raw, and set the intent to \"Relock unlocked CELO\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "revokeDelegatedGovernanceVotes(address delegatee, uint256 revokeFraction)",
+    "effects": [
+     "Subtracts `revokeFraction` from the share of the signer's total locked CELO that is delegated to `delegatee`. The fraction is of total locked CELO, not of the delegation.",
+     "Removes governance voting power from the delegatee: min(totalLocked × fraction, currentAmount), or the full amount when the share reaches 0.",
+     "Can remove votes the delegatee already cast in referendums with the signer's delegated power.",
+     "Removes the delegatee from the signer's set when the share reaches zero."
+    ],
+    "shown": "\"Revoke Delegation\" with the delegatee address and the fraction as a percent.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "revokeDelegatedGovernanceVotes: 'Fraction to Revoke' is a share of total locked CELO, not of the delegation.",
+      "evidence": "LockedGold.sol revokeDelegatedGovernanceVotes: `currentDelegateeInfo.percentage = currentDelegateeInfo.percentage.subtract(percentageToRevoke);` and `FixidityLib.newFixed(totalLockedGold).multiply(percentageToRevoke)`. Descriptor label \"Fraction to Revoke\".",
+      "fix": "Change the label to \"Share of locked CELO to revoke\" and the intent to \"Revoke CELO vote delegation\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "revokeDelegatedGovernanceVotes: can remove referendum votes the delegatee cast with the signer's power.",
+      "evidence": "LockedGold.sol _decreaseDelegateeVotingPower: `if (unusedReferendumVotes < amountToRevoke) { getGovernance().removeVotesWhenRevokingDelegatedVotes(...) }`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 65
+   },
+   {
+    "key": "unlock(uint256 value)",
+    "effects": [
+     "Subtracts `value` from the signer's nonvoting locked CELO.",
+     "Creates a pending withdrawal of `value` CELO that is available after `unlockingPeriod`, a value in storage. No CELO reaches the signer in this call.",
+     "Reduces each delegation of the signer by value × share, which can remove referendum votes the delegatees cast.",
+     "Reverts if the CELO is used in referendum votes or is needed for a validator requirement."
+    ],
+    "shown": "\"Unlock\" with the CELO amount and the signer as Beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "unlock: the intent \"Unlock\" does not say the CELO stays in the contract until the unlocking period ends and a withdraw call is made.",
+      "evidence": "LockedGold.sol unlock: `uint256 available = now.add(unlockingPeriod); account.pendingWithdrawals.push(PendingWithdrawal(value, available));`. Descriptor intent \"Unlock\".",
+      "fix": "Change the intent to \"Unlock CELO (withdraw after delay)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "unlock: the signer's delegated CELO drops in proportion, and the screen shows no delegation effect.",
+      "evidence": "LockedGold.sol unlock: `if (FixidityLib.gt(delegatedPercentage, FixidityLib.newFixed(0))) { revokeFromDelegatedWhenUnlocking(msg.sender, value); }`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "withdraw(uint256 index)",
+    "effects": [
+     "Sends the full CELO value of the signer's pending withdrawal at `index` to the signer (msg.sender). The amount is read from storage.",
+     "Deletes that pending withdrawal entry and moves the last entry into its index.",
+     "Reverts if the unlocking period of that entry has not passed."
+    ],
+    "shown": "\"Withdraw CELO\" with the signer as Beneficiary and the raw withdrawal index. No amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the CELO amount received comes from storage, so the screen cannot show it.",
+      "evidence": "LockedGold.sol withdraw: `uint256 value = pendingWithdrawal.value; ... msg.sender.sendValue(value);`. Descriptor fields: only `@.from` and `index`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.479,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 98,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "delegateGovernanceVotes(address delegatee, uint256 delegateFraction)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "delegateGovernanceVotes: 'Fraction to Delegate' reads as an added share, but the code sets a new total for the delegatee.",
+   "comprehension": null
+  },
+  "lock()": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "All formats: the deployment looks like a LockedGold implementation, not the proxy that signers call.",
+   "comprehension": null
+  },
+  "relock(uint256 index, uint256 value)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "revokeDelegatedGovernanceVotes(address delegatee, uint256 revokeFraction)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "revokeDelegatedGovernanceVotes: 'Fraction to Revoke' is a share of total locked CELO, not of the delegation.",
+   "comprehension": null
+  },
+  "unlock(uint256 value)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "unlock: the intent \"Unlock\" does not say the CELO stays in the contract until the unlocking period ends and a withdraw call is made.",
+   "comprehension": null
+  },
+  "withdraw(uint256 index)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 62,
+  "functions": "1A 2B 3C",
+  "incomplete": false,
+  "worst": "delegateGovernanceVotes: 'Fraction to Delegate' reads as an added share, but the code sets a new total for the delegatee."
+ }
+}

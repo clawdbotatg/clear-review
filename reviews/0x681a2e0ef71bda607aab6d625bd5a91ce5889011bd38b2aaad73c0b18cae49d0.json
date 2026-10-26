@@ -1,0 +1,185 @@
+{
+ "hash": "0x681a2e0ef71bda607aab6d625bd5a91ce5889011bd38b2aaad73c0b18cae49d0",
+ "file": "registry/flare/calldata-PollingManagementGroup-Songbird.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 19,
+   "address": "0x46f86fb6c7044f395d47dbac0c201d1ad0baa882"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "castVote(uint256 _proposalId, uint8 _support)",
+    "effects": [
+     "Records one For (1) or Against (0) vote on proposal _proposalId; any other value reverts.",
+     "If the signer is a registered proxy, the vote is counted for the member it acts for, not the signer's own address (_getOperatingAccount).",
+     "Marks the operating account as having voted, so it cannot vote again on this proposal. No assets move."
+    ],
+    "shown": "Intent 'cast vote' with the proposal id and the vote choice mapped to For/Against.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "castVote has no interpolatedIntent, so the intent line leaves out the choice and the proposal.",
+      "evidence": "descriptor.json castVote: intent 'cast vote', no interpolatedIntent; fields #._proposalId and #._support enum voteType {0: Against, 1: For}.",
+      "fix": "Add interpolatedIntent 'Vote {_support} on proposal {_proposalId}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "castVote: when the signer is a proxy, the vote counts for the member it acts for, and the screen does not say so.",
+      "evidence": "PollingManagementGroup.sol castVote: address voterAccount = _getOperatingAccount(msg.sender); _storeVote(_proposalId, voterAccount, _support). proxyToVoter is read from storage.",
+      "fix": "None possible from calldata. A label or a note could say the vote is cast for your member account, or for the member you proxy.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "propose(string _description)",
+    "effects": [
+     "Sends msg.value native SGB, which must equal the stored proposalFeeValueWei, to the burn address 0x...dEaD.",
+     "Creates a new proposal with the given description. The proposer is the signer, or the member the signer proxies for. Default settings come from storage: accept=true, start after votingDelaySeconds, stored period, threshold and majority."
+    ],
+    "shown": "Intent 'create proposal and burn fee' with the description and the native fee amount labelled as burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "propose has no interpolatedIntent, so the intent line leaves out the fee amount.",
+      "evidence": "descriptor.json propose: intent 'create proposal and burn fee', fields #._description and @.value 'Proposal fee (burned)'; case 2 shows '100 SGB'.",
+      "fix": "Add interpolatedIntent 'Create proposal and burn {@.value} fee'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "propose uses voting settings from storage and a proposer that may be the proxied member; neither can be shown.",
+      "evidence": "PollingManagementGroup.sol propose: proposer = _getOperatingAccount(msg.sender); settings use votingDelaySeconds, votingPeriodSeconds, thresholdConditionBIPS, majorityConditionBIPS from storage.",
+      "fix": "None. These values are in storage, not in calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "proposeWithSettings(string _description, (bool accept, uint256 votingStartTs, uint256 votingPeriodSeconds, uint256 thresholdConditionBIPS, uint256 majorityConditionBIPS) _settings)",
+    "effects": [
+     "Only the maintainer can call it. Creates a new proposal with the signer as proposer and the given description. No fee and no assets move.",
+     "Voting starts at max(now, votingStartTs) and ends votingPeriodSeconds later.",
+     "accept=true: the proposal passes only if turnout meets the threshold and For votes exceed the majority share. accept=false: the proposal passes unless turnout meets the threshold and Against votes exceed the majority share.",
+     "Every current group member becomes eligible to vote on this proposal."
+    ],
+    "shown": "Intent 'create proposal' with the description, a raw accept flag labelled 'Accept if vote passes', earliest start date, voting period, and threshold and majority in bps.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "proposeWithSettings: the 'Accept if vote passes' label gets the accept flag's meaning wrong; false means the proposal passes unless rejected.",
+      "evidence": "PollingManagementGroup.sol _proposalSucceeded: if turnout is below the threshold, return !_proposal.accept; it compares (accept ? forVotePower : againstVotePower) with majority. descriptor.json: label 'Accept if vote passes', format raw, path accept; case 3 shows 'true'.",
+      "fix": "Label it 'Proposal type' and map it with an enum: true = 'Acceptance (passes only if approved)', false = 'Rejection (passes unless rejected)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "proposeWithSettings shows threshold and majority as '7500bps', where a percentage would be easier to read.",
+      "evidence": "descriptor.json: thresholdConditionBIPS and majorityConditionBIPS use format unit, base bps; case 3 shows '7500bps' and '5000bps'.",
+      "fix": "Use unit with base '%' and decimals 2 (75%), and drop '(bps)' from the labels.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "proposeWithSettings has no interpolatedIntent and the intent does not say the proposal uses custom voting rules.",
+      "evidence": "descriptor.json proposeWithSettings: intent 'create proposal', no interpolatedIntent.",
+      "fix": "Use intent 'create proposal with custom settings' and an interpolatedIntent naming the start date and the period.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "proposeWithSettings has no test with accept=false, the case whose meaning is reversed.",
+      "evidence": "cases/3.json: accept = 1 is the only case for this selector.",
+      "fix": "Add a case with accept=false.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.305,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 49,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "castVote(uint256 _proposalId, uint8 _support)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "propose(string _description)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "proposeWithSettings(string _description, (bool accept, uint256 votingStartTs, uint256 votingPeriodSeconds, uint256 thresholdConditionBIPS, uint256 majorityConditionBIPS) _settings)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "proposeWithSettings: the 'Accept if vote passes' label gets the accept flag's meaning wrong; false means the proposal passes unless rejected.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 78,
+  "functions": "2A 1B",
+  "incomplete": false,
+  "worst": "proposeWithSettings: the 'Accept if vote passes' label gets the accept flag's meaning wrong; false means the proposal passes unless rejected."
+ }
+}

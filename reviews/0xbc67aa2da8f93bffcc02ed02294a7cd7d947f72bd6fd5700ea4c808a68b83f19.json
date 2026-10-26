@@ -1,0 +1,96 @@
+{
+ "hash": "0xbc67aa2da8f93bffcc02ed02294a7cd7d947f72bd6fd5700ea4c808a68b83f19",
+ "file": "registry/zkstables/calldata-executor.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x83f6aebf9fc929bbea92af571c66436b360e324e"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xc6d302506c59a57fa8d4fc7b8109f7b48168be86"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "exec(address safe, address to, uint256 value, bytes data, bytes32 requestId, uint256 deadline, bytes signatures)",
+    "effects": [
+     "The Safe at `safe` calls `to` with `value` wei of the Safe's ETH and `data`, as a plain CALL (operation fixed to 0), through execTransactionFromModuleReturnData.",
+     "Whatever the inner call does acts on the Safe's assets, allowances and roles, with the Safe as msg.sender.",
+     "The contract marks `requestId` as spent for this Safe, so the same authorization cannot run again.",
+     "The call reverts after `deadline`, when the request id is already spent, when the owner signatures do not meet the Safe's threshold, or when the inner call fails.",
+     "The transaction signer is only a relayer: no ETH leaves the signer (the function is not payable) and none of the signer's own tokens move, apart from gas."
+    ],
+    "shown": "\"Run Safe transaction\", with the Safe, an ETH value, the deadline, the raw request id, the target, and the inner call decoded by the target's descriptor, e.g. \"Set minter: Bob, true\".",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "exec labels the Safe's outgoing ETH only \"Value\", so the signer may think the ETH comes from their own wallet.",
+      "evidence": "UnorderedExecutor.exec is non-payable and forwards the value from the Safe: `ISafe(safe).execTransactionFromModuleReturnData(to, value, data, 0)`. The descriptor field is `{\"path\": \"value\", \"label\": \"Value\", \"format\": \"amount\"}`. Case 0 shows \"Value: 0 ETH\" right under \"From safe\", and nothing says who pays it.",
+      "fix": "Change the label to \"ETH sent by Safe\" so it is clear the Safe pays and not the relaying signer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "The exec intent \"Run Safe transaction\" is generic, so only the nested Action field names the real effect.",
+      "evidence": "Descriptor: `\"intent\": \"Run Safe transaction\"`. The real effect comes from the arbitrary `(to, value, data)` that exec forwards. In case 0 the inner action \"Set minter\" appears only inside the Action field.",
+      "fix": "Add an interpolatedIntent that names the Safe and the target, e.g. \"Run Safe transaction from {safe} on {to}\". The nested intent cannot go into the outer sentence.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "exec shows the request id as a raw 32-byte hex value that changes nothing about who gets what.",
+      "evidence": "Descriptor: `{\"path\": \"requestId\", \"label\": \"Request id\", \"format\": \"raw\"}`. In exec, `used[safe][requestId] = true` only stops a replay. Case 0 shows \"0x0a0a…0a\".",
+      "fix": "Leave it out, or keep it as optional bookkeeping for reviewers who match it against the off-chain proposal.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.234,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 42,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "exec(address safe, address to, uint256 value, bytes data, bytes32 requestId, uint256 deadline, bytes signatures)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "exec labels the Safe's outgoing ETH only \"Value\", so the signer may think the ETH comes from their own wallet.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 63,
+  "functions": "1B",
+  "incomplete": false,
+  "worst": "exec labels the Safe's outgoing ETH only \"Value\", so the signer may think the ETH comes from their own wallet."
+ }
+}

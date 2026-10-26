@@ -1,0 +1,251 @@
+{
+ "hash": "0x05ad776f139a112c7b7b9cb65cdfa0f41277cac379f6d92f48bfdb944ec69f37",
+ "file": "registry/kiln/calldata-Vault-USDT-Morpho-Gauntlet-Prime.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xfb477d921b18c0fe6a4bd031f6f40006831e4c2b"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` USDT from the signer and sends it to the vault (Vault._deposit: safeTransferFrom(asset, caller, this, assets)).",
+     "Mints kmgpUSDT shares to `receiver`. The amount is computed when the tx runs from the vault's total assets, after the deposit fee (the fee rate is stored in the vault and was 0 at init). Shares can't be transferred, so `receiver` must be the signer unless someone holds SPENDER_ROLE.",
+     "The vault then puts the USDT into Morpho Gauntlet USDT Prime through a connector it delegatecalls. The vault holds that position for its share holders."
+    ],
+    "shown": "Intent \"Deposit\", with 1.03226 USDT to deposit, the share ticker kmgpUSDT and the address that gets the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: intent \"Deposit\" names no asset or vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json deposit format: \"intent\": \"Deposit\" and no interpolatedIntent. Case 0: the signer sends 1032260 USDT into the Kiln Morpho Gauntlet USDT Prime vault.",
+      "fix": "Add an interpolatedIntent such as \"Deposit {assets} into Kiln Gauntlet USDT Prime for kmgpUSDT shares\" and make the intent \"Deposit USDT\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown, because the contract computes it.",
+      "evidence": "Vault.deposit: (_shares, _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply()). There is no minShares parameter. Case 0: the signer received 1000001 kmgpUSDT, and the screen shows only the ticker.",
+      "fix": "Nothing in the calldata gives this amount. A label like \"Receive kmgpUSDT shares (amount set by the vault)\" would make that clear.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: a deposit fee read from storage can lower the shares minted, and the screen can't show it.",
+      "evidence": "Vault._previewDeposit: depositFeeAmount = assets.mulDiv($._depositFee, ...). The shares are minted on assets - depositFeeAmount, and FEE_MANAGER can change the fee (setDepositFee).",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The reader got the USDT out right. For the kmgpUSDT in, the reader knew shares were coming but not how many, and the screen does not show a number."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` kmgpUSDT to `receiver`.",
+     "Takes USDT from the signer. The vault computes the amount from the share price plus the deposit fee (_previewMint), and nothing caps it in calldata.",
+     "The vault puts the USDT into the Morpho vault through its connector."
+    ],
+    "shown": "Intent \"Mint\", the word USDT as the deposit asset with no amount, the number of shares minted and the address that gets them.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: how much USDT leaves the signer is not shown, and nothing in calldata caps it.",
+      "evidence": "Vault.mint: (_assets, _depositFeeAmount) = _previewMint(shares, ...), then _deposit(_msgSender(), receiver, _assets, ...). The descriptor field 'Deposit asset' only shows the constant \"USDT\".",
+      "fix": "None possible with ERC-4626 mint. You could relabel to 'Pays in (amount set by vault)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: intent \"Mint\" does not say USDT is taken from the signer to pay for the shares.",
+      "evidence": "descriptor.json mint format: \"intent\": \"Mint\" and no interpolatedIntent. Vault._deposit uses safeTransferFrom(asset, caller, ...).",
+      "fix": "Use the intent \"Deposit USDT for shares\" and an interpolatedIntent like \"Mint {shares} by depositing USDT\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns kmgpUSDT shares from `owner`. The vault computes how many from `assets`, rounding up. Nothing in calldata caps it.",
+     "If the owner is not the signer, it spends the owner's share allowance given to the signer.",
+     "Takes USDT out of Morpho through the connector, then sends the USDT the vault gained to `receiver` (meant to be `assets`)."
+    ],
+    "shown": "Intent \"Withdraw\", the exact USDT amount, the recipient and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown, and nothing in calldata caps them.",
+      "evidence": "Vault.withdraw: _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()), then _burn(owner, shares) in _withdraw.",
+      "fix": "None possible. You could label the screen to say shares are burned at the vault's price.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "withdraw: the amount paid out is the vault's balance change after the connector runs, which may differ from `assets`.",
+      "evidence": "Vault._withdraw: safeTransfer(asset, receiver, balanceOf(this) - _balanceBefore) after delegatecalling the connector's withdraw. The connector source is not in the directory. The label reads 'Withdraw exactly'.",
+      "fix": "You could use the label 'Withdraw', since the code doesn't guarantee an exact amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: intent \"Withdraw\" with no interpolatedIntent names neither the asset nor the vault.",
+      "evidence": "descriptor.json withdraw format: \"intent\": \"Withdraw\".",
+      "fix": "Add the interpolatedIntent \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` kmgpUSDT from `owner`. If the owner is not the signer, this spends the owner's allowance.",
+     "Sends USDT to `receiver`. The vault computes the amount from the share price after the reward fee, and nothing in calldata sets a minimum."
+    ],
+    "shown": "Intent \"Redeem\", the shares to redeem in kmgpUSDT, the recipient and the owner. No field names the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: no field names USDT as the asset the signer receives.",
+      "evidence": "Vault._withdraw: safeTransfer(IERC20(asset()), receiver, ...). The redeem fields are only shares, receiver and owner. Case 1: the signer received 1019432 USDT, and the reader wrote \"Which token is paid out; screen doesn't say\".",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"value\":\"$.metadata.constants.underlyingTicker\",\"format\":\"raw\"} as mint does, and/or an interpolatedIntent \"Redeem {shares} for USDT\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT amount received is computed by the contract, with no minimum in calldata.",
+      "evidence": "Vault.redeem: _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply). Case 1: 1019432 USDT went in to the signer and the screen shows no amount.",
+      "fix": "None possible.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The reader got the shares burned right. For the USDT received, the reader guessed USDT and did not know the amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.533,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 94,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: intent \"Deposit\" names no asset or vault, and there is no interpolatedIntent.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: intent \"Mint\" does not say USDT is taken from the signer to pay for the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: intent \"Withdraw\" with no interpolatedIntent names neither the asset nor the vault.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: no field names USDT as the asset the signer receives.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 58,
+  "functions": "1B 2C 1D",
+  "incomplete": false,
+  "worst": "redeem: no field names USDT as the asset the signer receives."
+ }
+}

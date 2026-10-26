@@ -1,0 +1,243 @@
+{
+ "hash": "0x62bec330a4a5e033c0f7be584b37f930193c2351f04775f3f6b3e473eeaebd53",
+ "file": "registry/morpho/calldata-steakhouse_financial-bbqUSDT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xa0804346780b4c2e3be118ac957d1db82f9d7484"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:26Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDT to the vault, using the signer's USDT allowance to the vault.",
+     "The vault mints bbqUSDT shares to `receiver`; the share count comes from the vault's exchange rate at execution, with no minimum in the calldata."
+    ],
+    "shown": "Intent \"Deposit\", the USDT amount sent, a constant \"Share ticker: bbqUSDT\" and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many bbqUSDT shares the receiver gets; the vault rate decides it.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0: the signer received 279.435734502496147979 bbqUSDT, and the screen shows only 'Share ticker: bbqUSDT'.",
+      "fix": "No calldata value holds the share count, so the descriptor cannot show it. Keep the receiver and ticker fields.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit uses the label \"Share ticker\" for a constant field that does not say shares are received.",
+      "evidence": "descriptor deposit field: {\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}. Case 0 reader: 'bbqUSDT shares, amount not shown'.",
+      "fix": "Rename the label to \"Receive shares\" and change the intent to \"Deposit USDT for bbqUSDT shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the USDT out amount correctly. The bbqUSDT received has the right asset and receiver but no amount, which is a spec limitation."
+     }
+    ],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends USDT to the vault. The amount comes from the vault rate at execution (rounded up), and the calldata has no maximum.",
+     "The vault mints exactly `shares` bbqUSDT to `receiver`."
+    ],
+    "shown": "Intent \"Mint\", a constant \"Deposit asset: USDT\" with no amount, the exact bbqUSDT shares minted and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDT leaves the signer; the vault rate decides it, with no cap.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. Case 1: the signer sent 0.000002 USDT, and the screen shows only 'Deposit asset: USDT'.",
+      "fix": "No calldata value holds the USDT amount. Change the label to \"Pay with (amount set by vault rate)\" so the signer knows the amount is not fixed.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent \"Mint\" does not say the signer pays USDT into the vault.",
+      "evidence": "descriptor mint: \"intent\": \"Mint\". Case 1 reader 'unsure': 'How much USDT will be taken. The screen shows only the share amount'.",
+      "fix": "Change the intent to \"Deposit USDT to mint bbqUSDT shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The USDT out shows its asset but no amount. The shares went to 0xdead, which is not a signer effect, and the screen shows that correctly."
+     }
+    ],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns bbqUSDT shares from `owner`. The count comes from the vault rate at execution (rounded up), and the calldata has no maximum.",
+     "When the signer is not `owner`, the call spends the signer's bbqUSDT allowance from `owner`.",
+     "The vault sends exactly `assets` USDT to `receiver`."
+    ],
+    "shown": "Intent \"Withdraw\", 'Withdraw exactly' with the USDT amount, the receiver and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many bbqUSDT shares are burned; the vault rate decides it.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 2: 0.942138021394557540 bbqUSDT burned from the signer, and no field states it.",
+      "fix": "No calldata value holds the share count. Change the intent to \"Burn bbqUSDT shares to withdraw USDT\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows the USDT in exactly, with its receiver. The reader understood that shares are burned but saw no count."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` bbqUSDT from `owner`. When the signer is not `owner`, the call spends the signer's allowance from `owner`.",
+     "The vault sends USDT to `receiver`. The amount comes from the vault rate at execution (rounded down), and the calldata has no minimum."
+    ],
+    "shown": "Intent \"Redeem\", the exact bbqUSDT shares redeemed, the receiver and the owner. No field names the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem does not name USDT as the asset the receiver gets; mint shows the same constant.",
+      "evidence": "ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);`. The redeem format has only `shares`, `receiver` and `owner`, with no `underlyingTicker` field. Case 3 reader 'unsure': 'Which asset is paid out (assumed USDT from the name)'.",
+      "fix": "Add {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"} and change the intent to \"Redeem bbqUSDT for USDT\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDT the receiver gets; the vault rate decides it, with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 3: the signer received 9.073699 USDT, and no field states it.",
+      "fix": "No calldata value holds the USDT amount. Use the ERC-4626 router with a minimum if a bound is needed.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the shares out exactly. For the USDT in, the reader only inferred the asset and had no amount."
+     }
+    ],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.461,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 80,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit uses the label \"Share ticker\" for a constant field that does not say shares are received.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent \"Mint\" does not say the signer pays USDT into the vault.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem does not name USDT as the asset the receiver gets; mint shows the same constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 63,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem does not name USDT as the asset the receiver gets; mint shows the same constant."
+ }
+}

@@ -1,0 +1,233 @@
+{
+ "hash": "0xc233ddd8e43d1feccc7cee9fa595876c9b2f5b978335b2d39a651f00a301e164",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakEURCV-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef0c075da5d01112ae5cf34d257074fb5ddb2f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` EURCV from the signer into the vault through transferFrom, which uses up the signer's EURCV allowance to the vault.",
+     "Mints steakEURCV shares to `onBehalf`. The number is previewDeposit(assets), set by the vault's share price after accrueInterest. There is no minimum."
+    ],
+    "shown": "Deposit 0.01 EURCV for 0xfeed…3c9a: the amount in EURCV, the share ticker steakEURCV as a constant, and who receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no minimum in calldata.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The share count comes from storage (totalAssets, totalSupply, fees). The descriptor only has a raw constant field 'Share ticker' = steakEURCV. Case 0: the signer received 0.01 steakEURCV, and no screen field gives that amount.",
+      "fix": "No descriptor change can show the computed share amount. The 'Share ticker' field could be relabeled 'You receive: steakEURCV shares' to make the direction clear.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The EURCV out (0.01) is shown right. The steakEURCV in has the right recipient but no amount, which no descriptor can compute. The allowance use comes from the transferFrom the deposit needs, so it is a prerequisite and not counted separately."
+     }
+    ],
+    "glance": 82,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns steakEURCV shares from `onBehalf`. The number is previewWithdraw(assets), rounded up and set by the vault price. There is no maximum.",
+     "If the signer is not `onBehalf`, uses up the signer's share allowance from `onBehalf` by the shares burned.",
+     "Sends exactly `assets` EURCV from the vault to `receiver`."
+    ],
+    "shown": "Withdraw exactly 3699.64 EURCV to the receiver: the EURCV amount, the receiver, and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the steakEURCV shares burned are not shown and have no maximum in calldata.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`, and in exit `deleteShares(onBehalf, shares)`. Case 2: 3688.96 steakEURCV left the signer, and no field shows shares.",
+      "fix": "No descriptor change can show the computed amount. Optionally add the share ticker to the 'Owner' label (e.g. 'steakEURCV shares burned from') so the asset spent is named.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The EURCV in (3699.6396…) to the signer is shown exactly. The shares burned have the right owner but no amount or ticker. The reader inferred the shares correctly."
+     }
+    ],
+    "glance": 82,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` steakEURCV from `onBehalf`. If the signer is not `onBehalf`, the signer's share allowance from `onBehalf` is used up.",
+     "Sends previewRedeem(shares) EURCV from the vault to `receiver`. The amount is set by the vault price. There is no minimum."
+    ],
+    "shown": "Redeem 194941.04 steakEURCV to the receiver: the share amount, the receiver and the owner. Nothing says what asset comes back.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says that EURCV is the asset paid out to the receiver.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. The redeem fields are shares, receiver and onBehalf only. deposit and mint show the constants vaultTicker and underlyingTicker, but redeem has neither. Case 3: the signer received 195550.46 EURCV, and the reader wrote 'Which token is paid out (name suggests EURCV, not confirmed)'.",
+      "fix": "Add a field {label: 'Receive asset', value: '$.metadata.constants.underlyingTicker'}, and use the interpolatedIntent 'Redeem {#.shares} for EURCV to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the EURCV amount received is not shown and has no minimum in calldata.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. The amount comes from storage. Case 3: 195550.46 EURCV in, which no field shows.",
+      "fix": "No descriptor change can show the computed amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The steakEURCV out is exact. For the EURCV in, the reader had the direction and the receiver right but was unsure of both the token and the amount."
+     }
+    ],
+    "glance": 72,
+    "depth": 65
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes previewMint(shares) EURCV from the signer into the vault through transferFrom. The amount is rounded up from the vault price, and there is no maximum besides the signer's allowance.",
+     "Mints exactly `shares` steakEURCV to `onBehalf`."
+    ],
+    "shown": "Mint 3.4533 steakEURCV for the recipient, with a field naming EURCV as the deposit asset but no EURCV amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the EURCV amount taken from the signer is not in calldata and cannot be shown.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. In enter, `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: 3.5088 EURCV left the signer, while the screen shows only 'Deposit asset: EURCV'.",
+      "fix": "No descriptor change can show the computed amount. The label could say 'Pays EURCV (amount set by vault price)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the interpolated intent leaves out that the signer pays EURCV for the shares.",
+      "evidence": "descriptor mint interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. The code pulls EURCV from msg.sender in enter(). Case 1 screen: 'Mint 3.453291618876484608 steakEURCV for 0xd8dd…'.",
+      "fix": "Use 'Mint {#.shares} for {#.onBehalf}, paying EURCV' and the intent 'Deposit EURCV for shares'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The steakEURCV in (3.4533) to the signer is exact. For the EURCV out, the asset is named but the amount is not shown, and no descriptor could compute it."
+     }
+    ],
+    "glance": 70,
+    "depth": 68
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.395,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 101,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says that EURCV is the asset paid out to the receiver.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the interpolated intent leaves out that the signer pays EURCV for the shares.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 73,
+  "functions": "3B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says that EURCV is the asset paid out to the receiver."
+ }
+}

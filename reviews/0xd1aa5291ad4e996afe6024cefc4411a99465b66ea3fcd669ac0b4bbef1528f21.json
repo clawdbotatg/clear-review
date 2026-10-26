@@ -1,0 +1,243 @@
+{
+ "hash": "0xd1aa5291ad4e996afe6024cefc4411a99465b66ea3fcd669ac0b4bbef1528f21",
+ "file": "registry/morpho/calldata-gauntlet-gtwethb-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xfefec33668e22677c4762d0853d56245a800ff08"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` WETH from the signer and sends it to the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "Mints gtwethb shares to `onBehalf`. The number is previewDeposit(assets), worked out from the vault's state at execution, with no minimum enforced.",
+     "The vault may move the deposited WETH on into its liquidity adapter. That is internal and does not change what the signer pays or gets."
+    ],
+    "shown": "Deposit <assets> WETH for <onBehalf>, with the share ticker gtwethb and the share recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown because it is computed on-chain.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` comes from storage (totalAssets, totalSupply, fees). The calldata has no shares or min-shares parameter. Case 0: the signer received 22394951944676555 gtwethb, and the screen gives no share amount.",
+      "fix": "Nothing in the descriptor can show this. The ticker field already names the share token.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the amount field is labelled 'Deposit asset', and a separate constant field only repeats the share ticker.",
+      "evidence": "descriptor deposit fields: `\"label\": \"Deposit asset\"` on the tokenAmount `assets`, and `{\"label\": \"Share ticker\", \"value\": \"$.metadata.constants.vaultTicker\"}`.",
+      "fix": "Rename the first label to 'Deposit amount'. Fold the ticker into the recipient label, e.g. 'Send gtwethb shares to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The WETH out (0.0228) matches the screen exactly. The gtwethb arrival is shown as a ticker and recipient with no amount, because the amount is computed on-chain. The reader correctly flagged the amount as unknown."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) gtwethb shares from `onBehalf`. The number is computed on-chain, with no maximum.",
+     "If the signer is not `onBehalf`, uses up the signer's share allowance from `onBehalf` by the shares burned.",
+     "Sends exactly `assets` WETH from the vault to `receiver`."
+    ],
+    "shown": "Withdraw exactly <assets> WETH to <receiver>, with the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the vault shares burned from the owner are not shown, because their number is computed on-chain.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets);` then `deleteShares(onBehalf, shares)` in exit. Case 2: the signer lost 7.934438994201799275 gtwethb, and the screen never mentions gtwethb.",
+      "fix": "The amount cannot be shown. Optionally label the owner field 'Burn gtwethb shares of' so the share token being spent is named.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 8.077240040357272241 WETH arriving at the signer matches the screen. The shares burned are implied by 'Owner' but neither their amount nor the gtwethb token is shown. The reader inferred the shares were burned but had no amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` gtwethb from `onBehalf`. If the signer is not the owner, this uses up the signer's allowance.",
+     "Sends previewRedeem(shares) WETH from the vault to `receiver`. The amount is computed on-chain, with no minimum enforced."
+    ],
+    "shown": "Redeem <shares> gtwethb to <receiver>, with the owner. The asset received is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names WETH as the asset the receiver gets back.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` with asset = WETH (0x4200...0006). The descriptor redeem fields are only shares, receiver and onBehalf. Unlike mint, it has no constant field for underlyingTicker. Case 3: the signer received 0.02630529643465425 WETH, and the reader wrote 'Which asset you get and how much; the screen doesn't say'.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}. Or change the interpolatedIntent to 'Redeem {#.shares} for WETH to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WETH amount received is computed on-chain and is not bounded by any parameter.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. The calldata has no minAssets parameter. Case 3: 26305296434654250 WETH was received, and no amount is shown.",
+      "fix": "Nothing in the descriptor can show this.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.025822147199556394 gtwethb burned is shown exactly. The WETH arriving is not named or quantified. The reader only guessed 'likely WETH'."
+     }
+    ],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes previewMint(shares) WETH from the signer. The amount is computed on-chain, with no maximum enforced.",
+     "Mints exactly `shares` gtwethb to `onBehalf`.",
+     "The vault may move the WETH on into its liquidity adapter, which is internal."
+    ],
+    "shown": "Mint <shares> gtwethb for <onBehalf>, with 'Deposit asset: WETH' as a constant field and no WETH amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint X gtwethb for <addr>' does not say the signer pays WETH for it.",
+      "evidence": "descriptor mint: `\"intent\": \"Mint\"`, `\"interpolatedIntent\": \"Mint {#.shares} for {#.onBehalf}\"`. VaultV2.sol enter: `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: the signer paid 1000426776 wei WETH. Only the separate 'Deposit asset: WETH' field hints at this.",
+      "fix": "Use the intent 'Deposit WETH to mint shares' and the interpolatedIntent 'Pay WETH to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the WETH amount taken from the signer is computed on-chain and has no maximum.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares);`. The calldata has no maxAssets parameter. Case 1: 1000426776 wei WETH left the signer, and the screen shows no amount.",
+      "fix": "Nothing in the descriptor can show this.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer's only effect is the WETH out. The screen names the asset but not the amount, which is computed. The shares went to 0xdEaD (signer null), and both the screen and the reader stated this correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.487,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 112,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names WETH as the asset the receiver gets back.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint X gtwethb for <addr>' does not say the signer pays WETH for it.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 66,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the intent 'Mint X gtwethb for <addr>' does not say the signer pays WETH for it."
+ }
+}

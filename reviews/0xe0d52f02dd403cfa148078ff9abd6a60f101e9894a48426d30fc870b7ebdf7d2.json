@@ -1,0 +1,420 @@
+{
+ "hash": "0xe0d52f02dd403cfa148078ff9abd6a60f101e9894a48426d30fc870b7ebdf7d2",
+ "file": "registry/morpho/calldata-Midnight.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x471686c42792f93528b000bef54bc10e3aa2045f"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xadedd8ab6de832766fedf0fac4992e5c4d3ea18a"
+  },
+  {
+   "chainId": 5042,
+   "address": "0x208786922be56fde2d1fa60e6b9ec5d723e8d7b0"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x6120765ba5336150bbdddd0cd9108b5bfd369632"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "take(((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,bool buy,address maker,uint256 start,uint256 expiry,uint256 tick,bytes32 group,address callback,bytes callbackData,address receiverIfMakerIsSeller,address ratifier,bool reduceOnly,uint128 maxUnits,uint128 maxAssets,uint256 continuousFeeCap) offer,bytes ratifierData,uint256 units,address taker,address receiverIfTakerIsSeller,address takerCallback,bytes takerCallbackData)",
+    "effects": [
+     "When the taker sells (offer.buy = true), the taker's credit in the market falls by `units`, or the taker's debt rises by `units` (a borrow at face value due at maturity).",
+     "When the taker sells, receiverIfTakerIsSeller gets sellerAssets = units × (tick price − settlement fee) of the loan token, paid by the maker or the maker's callback.",
+     "When the taker buys (offer.buy = false), msg.sender (or takerCallback if set) pays buyerAssets = units × (tick price + settlement fee) of the loan token: sellerAssets go to offer.receiverIfMakerIsSeller and the fee stays in Midnight.",
+     "When the taker buys, the taker's debt falls by `units`, or the taker's credit (a lending position) rises by `units`, with a pending continuous fee charged on new credit.",
+     "The taker callback, if set, runs during the take as the buyer's payer or as the seller's onSell hook, with takerCallbackData.",
+     "A taker who sells must stay healthy against their posted collateral, or the take reverts."
+    ],
+    "shown": "\"Take offer\" with the face value at maturity, maker, taker, taker side (Sell borrow/exit or Buy lend/repay), the market's loan and collateral tokens, a raw tick, offer limits and the receivers; the loan-token amount paid or received now is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "take: the loan-token amount paid or received now is not shown, only face value and a raw tick.",
+      "evidence": "Midnight.sol take: offerPrice = TickLib.tickToPrice(offer.tick); _settlementFee = settlementFee(id, timeToMaturity) (storage); buyerAssets/sellerAssets = units.mulDiv(price). Descriptor shows only '#.units' 'Amount at maturity (face value)' and '#.offer.tick' raw. Case 0: signer received 0.95 USDC (screen 0.952344 USDC at maturity); case 1: received 0.201992 USDC (screen 0.202369); case 16: signer paid 4.968699 USDC to the maker (screen 5 USDC).",
+      "fix": "No ERC-7730 format can turn a tick into a price or read the stored fee. Say in the label or intent that the amount paid or received now is set by the offer price and is below the face value.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "take: neither intent line says whether the signer pays now (lend) or receives now and owes (borrow).",
+      "evidence": "intent 'Take offer (amount at maturity)'; interpolatedIntent 'Fill {#.units} at maturity of offer by {#.offer.maker} for {#.taker}'. The direction is only in the field '#.offer.buy' 'Taker side' (enum takerSide). In cases 0 and 1 the taker borrows and receives USDC; in case 16 the taker lends and pays USDC.",
+      "fix": "Put the side in the sentence, e.g. 'Take offer as {#.offer.buy}: {#.units} due at maturity, offer by {#.offer.maker} for {#.taker}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "take: the continuous fee cap shows as a per-second percentage too small to read.",
+      "evidence": "field '#.offer.continuousFeeCap' format unit base % decimals 16; ConstantsLib MAX_CONTINUOUS_FEE = 0.01e18 / 365 days (per second, WAD).",
+      "fix": "No annualising format exists; keep the label, or state the cap in plain words when it is 0 or max.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "Signer received 0.95 USDC; the screen shows only the 0.952344 USDC face value and tick 4576. The reader knew USDC arrives at their own address but not how much."
+     },
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "Signer received 0.201992 USDC; the screen shows the 0.202369 USDC face value only."
+     },
+     {
+      "index": 16,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "Signer paid 4.968699 USDC to the maker receiver, which is shown; the amount paid is not. The reader guessed 'less than 5 USDC'."
+     }
+    ],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 units,address onBehalf,address receiver)",
+    "effects": [
+     "onBehalf's lending credit falls by `units`, after slashing for bad debt and accruing fees.",
+     "`units` of the loan token go from Midnight to `receiver`."
+    ],
+    "shown": "Withdraw the amount of the loan token from onBehalf's position to the receiver, with the market shown.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.299802 USDC to the signer, as shown."
+     },
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.00002 WETH to the signer, as shown."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "repay((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 units,address onBehalf,address callback,bytes data)",
+    "effects": [
+     "onBehalf's debt falls by `units`.",
+     "msg.sender pays `units` of the loan token to Midnight, or the callback pays if one is set.",
+     "The callback, if set, runs onRepay with the hidden data before the payment."
+    ],
+    "shown": "Repay the amount of the loan token for onBehalf, with the callback address shown.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.952344 USDC out of the signer's wallet, as shown."
+     },
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1.96 USDC out of the signer's wallet, as shown."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "supplyCollateral((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 collateralIndex,uint256 assets,address onBehalf)",
+    "effects": [
+     "msg.sender sends `assets` of collateralParams[collateralIndex].token to Midnight.",
+     "onBehalf's collateral of that token rises by `assets`, and the collateral is switched on for the position."
+    ],
+    "shown": "Supply a raw amount of the collateral at the given index for onBehalf, with the market's collateral list shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "supplyCollateral: amount is raw base units and the token is named only by index.",
+      "evidence": "Midnight.sol supplyCollateral: collateralToken = market.collateralParams[collateralIndex].token. Descriptor: '#.assets' format raw, label 'Collateral amount (base units of the token at the index)'; interpolatedIntent 'Supply {#.assets} of collateral {#.collateralIndex}'. Case 6 shows '18709' for 0.00018709 cbBTC.",
+      "fix": "The spec has no array index taken from another parameter (tokenPath '#.market.collateralParams.[#.collateralIndex].token'), so this waits on the spec. The current label and collateral list are the best workaround.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "18709 cbBTC base units out; the token can be worked out from index 0 and the list, but the amount is raw."
+     },
+     {
+      "index": 7,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "5000000000000 WETH base units out; raw amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "withdrawCollateral((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 collateralIndex,uint256 assets,address onBehalf,address receiver)",
+    "effects": [
+     "onBehalf's collateral of collateralParams[collateralIndex].token falls by `assets`; the position must stay healthy.",
+     "`assets` of that collateral token go from Midnight to `receiver`."
+    ],
+    "shown": "Withdraw a raw amount of the collateral at the given index from onBehalf to the receiver, with the collateral list shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "withdrawCollateral: amount is raw base units and the token is named only by index.",
+      "evidence": "Midnight.sol withdrawCollateral: collateralToken = market.collateralParams[collateralIndex].token. Descriptor: '#.assets' format raw; interpolatedIntent 'Withdraw {#.assets} of collateral {#.collateralIndex} to {#.receiver}'. Case 8 uses index 1 (cbBTC) in a two-collateral market, so a fixed [0] tokenPath would be wrong.",
+      "fix": "This waits on spec support for an array index taken from another parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 8,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "12573 cbBTC base units in; the reader mapped index 1 to cbBTC."
+     },
+     {
+      "index": 9,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "5000000000000 WETH base units in."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "setConsumed(bytes32 group,uint128 amount,address onBehalf)",
+    "effects": [
+     "Sets consumed[onBehalf][group] to `amount` (it can only go up), which lowers what is left to fill on onBehalf's offers in that group; type(uint128).max cancels them all."
+    ],
+    "shown": "Cancel or reduce offers in the group for onBehalf, with the new used amount, or 'Cancel all offers' for the max value.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "setConsumed: the amount has no unit, since offers count it in units or assets.",
+      "evidence": "Midnight.sol take: newConsumed counts buyer/seller assets when maxAssets > 0, else units. setConsumed has no token parameter. Case 14 shows 'Amount marked as used: 500'.",
+      "fix": "No token is in the calldata; the label could say it is in the offers' loan-token base units.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 10,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token effects; the screen states the cancel correctly."
+     },
+     {
+      "index": 11,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token effects."
+     },
+     {
+      "index": 14,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token effects; partial amount 500."
+     }
+    ],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "setIsAuthorized(address authorized,bool newIsAuthorized,address onBehalf)",
+    "effects": [
+     "Sets isAuthorized[onBehalf][authorized]: the authorized address can then take, withdraw, repay, move collateral, set consumed and authorize others for onBehalf, or loses those rights when revoked."
+    ],
+    "shown": "Grant or Revoke full account access for the authorized address on onBehalf.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 12,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token effects; the grant is stated plainly."
+     },
+     {
+      "index": 13,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token effects; grant."
+     },
+     {
+      "index": 15,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token effects; revoke."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 1.394,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 285,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "take(((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,bool buy,address maker,uint256 start,uint256 expiry,uint256 tick,bytes32 group,address callback,bytes callbackData,address receiverIfMakerIsSeller,address ratifier,bool reduceOnly,uint128 maxUnits,uint128 maxAssets,uint256 continuousFeeCap) offer,bytes ratifierData,uint256 units,address taker,address receiverIfTakerIsSeller,address takerCallback,bytes takerCallbackData)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "take: neither intent line says whether the signer pays now (lend) or receives now and owes (borrow).",
+   "comprehension": 50
+  },
+  "withdraw((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 units,address onBehalf,address receiver)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "repay((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 units,address onBehalf,address callback,bytes data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "supplyCollateral((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 collateralIndex,uint256 assets,address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdrawCollateral((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 collateralIndex,uint256 assets,address onBehalf,address receiver)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "setConsumed(bytes32 group,uint128 amount,address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setIsAuthorized(address authorized,bool newIsAuthorized,address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 81,
+  "functions": "5A 1B 1C",
+  "incomplete": false,
+  "worst": "take: neither intent line says whether the signer pays now (lend) or receives now and owes (borrow)."
+ }
+}

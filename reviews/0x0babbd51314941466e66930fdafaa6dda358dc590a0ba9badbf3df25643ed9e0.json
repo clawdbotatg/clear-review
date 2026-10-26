@@ -1,0 +1,148 @@
+{
+ "hash": "0x0babbd51314941466e66930fdafaa6dda358dc590a0ba9badbf3df25643ed9e0",
+ "file": "registry/flare/calldata-PollingManagementGroup-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0x1e91a59aac440d7eca5ebf58d85903cdb0021812"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "castVote(uint256 _proposalId, uint8 _support)",
+    "effects": [
+     "Records one vote, For (1) or Against (0), on the given proposal. The vote is stored under the signer's operating account: the signer itself if it is a member or the maintainer, or the member it is a proxy for.",
+     "Marks that account as having voted on this proposal; it cannot vote on it again. No assets move and no native value is accepted (the function is not payable)."
+    ],
+    "shown": "\"cast vote\" with the proposal id and the vote choice, For or Against, decoded from an enum that matches the contract's VoteType order (Against=0, For=1).",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "castVote: a proxy signer's vote counts for the member it proxies, and the screen does not say so.",
+      "evidence": "PollingManagementGroup.sol castVote: `address voterAccount = _getOperatingAccount(msg.sender);` then `_storeVote(_proposalId, voterAccount, _support)`. The proxy mapping is in storage (proxyToVoter), so the descriptor cannot show which member is voting.",
+      "fix": "None possible from calldata. The intent could say \"cast vote (as yourself or for the member you proxy)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "propose(string _description)",
+    "effects": [
+     "Sends msg.value, which must equal the stored proposalFeeValueWei, and the contract forwards it to the burn address 0x...dEaD.",
+     "Creates a new proposal with the given description. Its proposer is the signer's operating account (the member, if the signer is that member's proxy).",
+     "The proposal uses the default settings from storage: accept=true, voting starts at now + votingDelaySeconds, and the stored voting period, threshold and majority apply. All current members become eligible to vote."
+    ],
+    "shown": "\"create proposal and burn fee\" with the description text and the burned fee taken from @.value, shown in FLR (for example 100 FLR).",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "propose: the voting delay, period, threshold and majority come from storage, so the screen cannot show them.",
+      "evidence": "PollingManagementGroup.sol propose: `votingStartTs: block.timestamp + votingDelaySeconds, votingPeriodSeconds: votingPeriodSeconds, thresholdConditionBIPS: thresholdConditionBIPS, majorityConditionBIPS: majorityConditionBIPS`. All of these are storage values, not calldata.",
+      "fix": "None possible; the descriptor can only show calldata and value.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 88
+   },
+   {
+    "key": "proposeWithSettings(string _description, (bool accept, uint256 votingStartTs, uint256 votingPeriodSeconds, uint256 thresholdConditionBIPS, uint256 majorityConditionBIPS) _settings)",
+    "effects": [
+     "Only the maintainer can call it. It creates a new proposal under the signer's address with the description and the custom settings given.",
+     "Voting starts at the later of now and votingStartTs, and ends votingPeriodSeconds after that start.",
+     "The threshold is the quorum share of eligible members (in BIPS) and the majority is the share of votes needed (in BIPS, at least 5000). The accept flag decides whether the proposal passes only if accepted (true) or passes unless rejected (false). No assets move and the function is not payable."
+    ],
+    "shown": "\"create proposal\" with the description, the accept flag shown raw as true or false, the earliest voting start date, the voting period as a duration, and the threshold and majority in bps.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "proposeWithSettings: the label 'Accept if vote passes' plus a raw true/false misstates what the accept flag does.",
+      "evidence": "PollingManagementGroup.sol _proposalSucceeded: if quorum is not met it does `return !_proposal.accept;`, and the majority is checked on `_proposal.accept ? voting.forVotePower : voting.againstVotePower`. With accept=false, the proposal passes by default unless it is rejected. In descriptor.json, `\"label\": \"Accept if vote passes\", \"format\": \"raw\", \"path\": \"accept\"` renders as \"true\" in case 3.",
+      "fix": "Rename the field to 'Proposal type' and map the bool to text, e.g. true -> 'Passes only if accepted by vote', false -> 'Passes unless rejected by vote'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "proposeWithSettings: 'Threshold (bps)' does not say it is a quorum of eligible members.",
+      "evidence": "PollingManagementGroup.sol _quorum: `forVotes + againstVotes >= _proposal.thresholdConditionBIPS.mulDivRoundUp(_proposal.noOfEligibleMembers, MAX_BIPS)`. In descriptor.json the label is \"Threshold (bps)\", and case 3 shows \"7500bps\".",
+      "fix": "Label it 'Quorum (share of members)'. It could also be shown as a percentage, e.g. unit with decimals 2 and base '%'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 78
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.304,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 54,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "castVote(uint256 _proposalId, uint8 _support)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "propose(string _description)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "proposeWithSettings(string _description, (bool accept, uint256 votingStartTs, uint256 votingPeriodSeconds, uint256 thresholdConditionBIPS, uint256 majorityConditionBIPS) _settings)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "proposeWithSettings: the label 'Accept if vote passes' plus a raw true/false misstates what the accept flag does.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 83,
+  "functions": "2A 1B",
+  "incomplete": false,
+  "worst": "proposeWithSettings: the label 'Accept if vote passes' plus a raw true/false misstates what the accept flag does."
+ }
+}

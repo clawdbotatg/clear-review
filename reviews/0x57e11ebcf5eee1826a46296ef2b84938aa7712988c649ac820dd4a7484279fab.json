@@ -1,0 +1,221 @@
+{
+ "hash": "0x57e11ebcf5eee1826a46296ef2b84938aa7712988c649ac820dd4a7484279fab",
+ "file": "registry/symbiotic/calldata-VaultV1-sfrxUSD.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x6463bc3b882c18558eaa0571147e2a0e8053d3c2"
+  },
+  {
+   "chainId": 1,
+   "address": "0xb726fc1535459f2e94486677ead5564238bf063b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` sfrxUSD (the vault's collateral) from the signer to the vault with transferFrom, using the signer's existing allowance.",
+     "Credits the newly minted vault active shares (computed from the vault's stake and share totals) to `onBehalfOf`, not necessarily the signer.",
+     "Reverts if the vault has a deposit whitelist and the signer is not on it, or if the deposit limit would be exceeded."
+    ],
+    "shown": "Deposit 123.25 sfrxUSD into the named vault, with the shares going to the beneficiary address shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of vault shares minted to onBehalfOf is not shown, because the contract computes it from storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` The descriptor shows only #.amount and #.onBehalfOf.",
+      "fix": "None needed. The value is not in calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active vault shares worth `amount` sfrxUSD (rounded up), and reverts if the signer does not hold enough.",
+     "Moves `amount` sfrxUSD of stake into the next epoch's withdrawal queue and mints withdrawal shares for that epoch to `claimer`, who alone can claim the collateral once the epoch ends.",
+     "No tokens move in this call. The queued amount can still be slashed before it is claimed."
+    ],
+    "shown": "Request a 2.5 sfrxUSD withdrawal from the vault, with the claim owned by the address shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of active shares burned from the signer is computed on chain and not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` The screen shows only the asset amount and the claimer.",
+      "fix": "None needed. The asset amount shown is the exact amount queued.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares, and reverts if the signer holds fewer.",
+     "Converts them to an sfrxUSD amount at the current share price, queues that amount for the next epoch, and mints withdrawal shares for it to `claimer`, who can claim once the epoch ends.",
+     "No tokens move in this call."
+    ],
+    "shown": "Queue 987654321123456789 raw vault shares for withdrawal, with the claim owned by the address shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is shown as a raw 18-decimal integer in the intent and the field.",
+      "evidence": "descriptor redeem: `\"path\": \"#.shares\", \"format\": \"raw\"`, so case 3 shows 'Queue 987654321123456789 raw shares'. ERC4626Math.sol `_decimalsOffset()` returns 0, so shares use the collateral's 18 decimals.",
+      "fix": "Use format `unit` with `decimals: 18` and `base: \"shares\"` so the screen reads about 0.9877 shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the sfrxUSD amount queued for the claimer is computed from storage and not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed. This uses up the signer's claim right for that epoch.",
+     "Transfers the signer's full claimable sfrxUSD for that epoch (read from storage) from the vault to `recipient`, who may differ from the signer."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 and send it to the recipient shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the sfrxUSD amount sent to the recipient comes from storage, so it and its token are not shown.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);` then claim: `IERC20(collateral).safeTransfer(recipient, amount);`. The screen reads 'Claim epoch 42 to 0x2222…' and never names sfrxUSD.",
+      "fix": "Optionally name the asset in the intent, e.g. 'Claim sfrxUSD withdrawal'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawal as claimed for every epoch listed. This uses up those claim rights.",
+     "Transfers the total of the signer's claimable sfrxUSD across those epochs (read from storage) from the vault to `recipient` in one transfer."
+    ],
+    "shown": "Claim the withdrawals for epochs 42, 44 and 128 and send them to the recipient shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total sfrxUSD sent to the recipient comes from storage, so it and its token are not shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` then `IERC20(collateral).safeTransfer(recipient, amount);`. The screen reads 'Claim epochs 42 and 44 and 128 to 0x2222…'.",
+      "fix": "Optionally name the asset in the intent, e.g. 'Claim sfrxUSD withdrawals'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "Deployment 1:0xb726fc1535459f2e94486677ead5564238bf063b has no source or meta in contracts/. I could not confirm that its collateral is sfrxUSD (0xcf62F905…), the token every amount field on it uses through the shared constant `underlyingToken`."
+  ]
+ },
+ "cost": 0.391,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 70,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is shown as a raw 18-decimal integer in the intent and the field.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 74,
+  "functions": "2A 2B 1C",
+  "incomplete": true,
+  "worst": "redeem: the share amount is shown as a raw 18-decimal integer in the intent and the field."
+ }
+}

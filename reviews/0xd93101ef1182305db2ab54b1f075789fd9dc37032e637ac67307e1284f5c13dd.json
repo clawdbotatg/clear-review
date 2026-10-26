@@ -1,0 +1,211 @@
+{
+ "hash": "0xd93101ef1182305db2ab54b1f075789fd9dc37032e637ac67307e1284f5c13dd",
+ "file": "registry/morpho/calldata-kpk-KPK_ETH_Prime-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbb50a5341368751024ddf33385ba8cf61fe65ff9"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` WETH from the signer by transferFrom (uses the signer's WETH allowance to the vault).",
+     "Mints vault shares to `onBehalf`; the number is previewDeposit(assets), computed at execution, with no minimum.",
+     "Accrues interest first and may mint fee shares to the fee recipients, which dilutes the share price slightly."
+    ],
+    "shown": "Deposit 0.001 WETH for the onBehalf address, plus a constant 'Share ticker' line reading KPK_ETH_Prime.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: constant vaultTicker 'KPK_ETH_Prime' differs from the vault's on-chain symbol 'kpk_WETH_v2'.",
+      "evidence": "descriptor.json metadata.constants.vaultTicker = \"KPK_ETH_Prime\"; cases 0/1/2 mined effects give the share token 0xbb50…5ff9 the symbol \"kpk_WETH_v2\".",
+      "fix": "Set vaultTicker to the on-chain symbol kpk_WETH_v2, or remove the constant field.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: a 'Share ticker' field shows a constant, not a value from the transaction.",
+      "evidence": "descriptor.json deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'}; case 0 screen shows 'Share ticker: KPK_ETH_Prime'.",
+      "fix": "Remove the field. Put the share name in the label, for example 'Send kpk_WETH_v2 shares to'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown; it comes from vault state at execution.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);` has no minimum shares parameter.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Signer sent 0.001 WETH. The shares went to 0xdEaD (signer null), and the screen shows that address."
+     }
+    ],
+    "glance": 82,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) vault shares from `onBehalf`, rounded up, with no maximum.",
+     "When the signer is not `onBehalf`, spends the signer's share allowance from `onBehalf` by that number of shares.",
+     "Sends exactly `assets` WETH to `receiver`.",
+     "May deallocate WETH from the liquidity adapter (Morpho) to cover the payout; this is internal to the vault.",
+     "Accrues interest first and may mint fee shares to the fee recipients."
+    ],
+    "shown": "Withdraw an exact WETH amount to the receiver, with the shares taken from the Owner address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is not shown; it comes from the share price at execution.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`; case 1 burned 4.032203169688178205 kpk_WETH_v2 from the signer, and no field states it.",
+      "fix": "None possible: there is no maxShares parameter. A label such as 'Owner (shares burned from)' could help.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "WETH in (4.0422) to the signer's address is shown exactly. The burn of 4.0322 shares is implied by 'Owner', but its amount is missing."
+     }
+    ],
+    "glance": 78,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf`.",
+     "When the signer is not `onBehalf`, spends the signer's share allowance from `onBehalf` by `shares`.",
+     "Sends previewRedeem(shares) WETH to `receiver`, rounded down, with no minimum.",
+     "May deallocate from the liquidity adapter; accrues interest and may mint fee shares first."
+    ],
+    "shown": "Redeem an exact number of KPK_ETH_Prime shares to the receiver, from the Owner address; nothing says what comes back.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: nothing on the screen says the receiver gets WETH; the asset that arrives is never named.",
+      "evidence": "descriptor.json redeem intent 'Redeem', interpolatedIntent 'Redeem {#.shares} to {#.receiver}'. Case 2 mined: 3.183482039813396270 WETH in to the signer. Reader: 'Unknown asset and amount of underlying value'.",
+      "fix": "Use intent 'Redeem shares for WETH' and interpolatedIntent 'Redeem {#.shares} for WETH to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WETH amount received is not shown; it comes from the share price at execution.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);` has no minimum assets parameter.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem: the shares show the ticker KPK_ETH_Prime, but the token's on-chain symbol is kpk_WETH_v2.",
+      "evidence": "Case 2 screen 'Shares to redeem: 3.175027354226082767 KPK_ETH_Prime'; mined effect symbol 'kpk_WETH_v2' for 0xbb50…5ff9.",
+      "fix": "Make the ticker match the on-chain symbol.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The share burn is shown exactly. For the WETH received, the reader knew only that something arrives at their address."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.404,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 85,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 86,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit: constant vaultTicker 'KPK_ETH_Prime' differs from the vault's on-chain symbol 'kpk_WETH_v2'.",
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the shares show the ticker KPK_ETH_Prime, but the token's on-chain symbol is kpk_WETH_v2.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 80,
+  "clarity": 74,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem: the shares show the ticker KPK_ETH_Prime, but the token's on-chain symbol is kpk_WETH_v2."
+ }
+}

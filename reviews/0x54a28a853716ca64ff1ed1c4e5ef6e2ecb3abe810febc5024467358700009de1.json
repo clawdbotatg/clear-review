@@ -1,0 +1,441 @@
+{
+ "hash": "0x54a28a853716ca64ff1ed1c4e5ef6e2ecb3abe810febc5024467358700009de1",
+ "file": "registry/safe/calldata-SafeL2-1.3.0.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 10,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 56,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 137,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 1,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 10,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 56,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 137,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 7777777,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)",
+    "effects": [
+     "Sets the owner list of the new Safe to _owners and the confirmation threshold to _threshold.",
+     "Sets the fallback handler to fallbackHandler when it is not the zero address.",
+     "Runs a delegate call to `to` with `data` in the Safe's own context (setupModules), so any code at `to` can change Safe storage, enable modules or move Safe funds.",
+     "When payment > 0, pays `payment` of paymentToken (ETH when zero) from the Safe to paymentReceiver, or to tx.origin when paymentReceiver is zero.",
+     "On the singleton itself the call always reverts (threshold = 1 set in the constructor, GS200)."
+    ],
+    "shown": "Intent 'Setup Safe' with the owners, threshold, fallback handler, payment with its token, payment receiver, and the data under the label 'Module', decoded as a call to `to`.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "setup decodes `data` as a normal call to `to`, but the Safe delegate-calls it.",
+      "evidence": "ModuleManager.setupModules: `require(execute(to, 0, data, Enum.Operation.DelegateCall, gasleft()), \"GS000\");`. Descriptor setup field: {\"path\":\"data\",\"label\":\"Module\",\"format\":\"calldata\",\"params\":{\"calleePath\":\"to\"}}.",
+      "fix": "State the delegate call in the field: label 'Delegate call (runs as the Safe)', and show `to` as its own addressName field labeled 'Delegate call target'. Do not present the nested call as a call to `to`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "setup never shows the delegate-call target `to`; the screen shows only the 'Module' bytes.",
+      "evidence": "GnosisSafe.setup passes `to` to setupModules, which executes code at `to` in the Safe. The descriptor setup fields have no entry for path `to` (case 0 screen shows only 'Module: 0x').",
+      "fix": "Add {\"path\":\"to\",\"label\":\"Delegate call target\",\"format\":\"addressName\",\"params\":{\"types\":[\"contract\"]},\"visible\":\"always\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setup labels arbitrary delegate-call data 'Module', which suggests only a module is enabled.",
+      "evidence": "Descriptor: \"label\": \"Module\" on path data. Code: setupModules runs any code at `to` via DelegateCall, not only enableModule.",
+      "fix": "Change the label to 'Setup call (delegate call)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setup shows a zero payment receiver as 0x000…, but the code pays tx.origin then.",
+      "evidence": "GnosisSafe.handlePayment: `address payable receiver = refundReceiver == address(0) ? payable(tx.origin) : refundReceiver;`. Case 0 screen: 'Payment receiver: 0x0000000000000000000000000000000000000000'.",
+      "fix": "Use senderAddress / a zero-address label so the field reads 'Transaction sender' when paymentReceiver is zero.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "setup test case targets the singleton directly and reverts, so no real setup effect is checked.",
+      "evidence": "Case 0: mined.status 0, effects []. GnosisSafe constructor sets `threshold = 1`, so setupOwners reverts with GS200 on the singleton.",
+      "fix": "Use a case where setup runs through the proxy factory initializer, with a non-empty `to`/`data` and a non-zero payment.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined tx reverted (status 0) on the singleton; no effects on the signer. Reader understood the screen as shown."
+     }
+    ],
+    "glance": 45,
+    "depth": 50
+   },
+   {
+    "key": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "effects": [
+     "The Safe runs a call (operation 0) or a delegate call (operation 1) to `to` with `data`, sending `value` ETH from the Safe balance.",
+     "With operation 1, the code at `to` runs in the Safe's context and can change owners, modules or move any Safe asset.",
+     "When gasPrice > 0, the Safe pays (gasUsed + baseGas) * gasPrice of gasToken (ETH when zero, capped at tx.gasprice) to refundReceiver, or to tx.origin when it is zero; this fee is paid even if the inner call fails.",
+     "The function is payable: any msg.value sent by the submitter moves from the signer's wallet to the Safe.",
+     "The Safe nonce increases by one and the guard, if set, checks the transaction."
+    ],
+    "shown": "Intent 'sign multisig operation' with the operation type, the Safe, the submitter, the nested call decoded against `to`, baseGas raw as 'Gas amount', gasPrice as a token amount, and the refund receiver.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "execTransaction is payable but shows no @.value; ETH sent by the signer is never displayed.",
+      "evidence": "GnosisSafeL2.execTransaction is `public payable override`; no check forces msg.value to zero. The descriptor execTransaction fields have no '@.value' path.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"ETH sent to the Safe\",\"format\":\"amount\",\"visible\":{\"ifNotIn\":[\"0\"]}}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "execTransaction never shows the target `to` or the ETH `value` as fields; raw nested data hides them.",
+      "evidence": "Executor.execute sends `value` to `to`. Descriptor only references them through calldata params {\"calleePath\":\"to\",\"amountPath\":\"value\"}. Case 1 screen shows 'Transaction: 0xa9059cbb…' with no USDC address and no value; a plain ETH send (data 0x) would show neither recipient nor amount.",
+      "fix": "Add {\"path\":\"to\",\"label\":\"To\",\"format\":\"addressName\",\"params\":{\"types\":[\"eoa\",\"wallet\",\"contract\",\"token\"]},\"visible\":\"always\"} and {\"path\":\"value\",\"label\":\"ETH from the Safe\",\"format\":\"amount\",\"visible\":\"always\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "execTransaction decodes `data` as a call to `to` even when operation makes it a delegate call.",
+      "evidence": "Executor.execute: `if (operation == Enum.Operation.DelegateCall) { success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0) }`. Descriptor: field 'Transaction' {\"format\":\"calldata\",\"params\":{\"calleePath\":\"to\",\"amountPath\":\"value\",\"spenderPath\":\"@.to\"}} with no condition on operation.",
+      "fix": "Show the nested call only when operation is 0; for operation 1 show `to` and the raw data with a label 'Delegate call: code runs as the Safe'. Add a delegate-call test case.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "execTransaction intent 'sign multisig operation' names no action and says sign, not execute.",
+      "evidence": "Descriptor: \"intent\": \"sign multisig operation\". The function executes the Safe transaction on chain. Case 1 reader: 'Nothing leaves my own wallet by signing; the Safe would send out tokens only if the transaction is executed'.",
+      "fix": "Change the intent to 'Execute Safe transaction' and add an interpolatedIntent such as 'Execute Safe call to {to}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "execTransaction shows gasPrice as a token amount and baseGas as 'Gas amount'; the refund total is not stated.",
+      "evidence": "GnosisSafe.handlePayment: `payment = gasUsed.add(baseGas).mul(gasPrice)`. Descriptor: 'Gas amount' (baseGas, raw), 'Gas price' (gasPrice, tokenAmount with tokenPath gasToken). Case 1: 'Gas price: 0 ETH'.",
+      "fix": "Label gasPrice 'Refund price per gas', baseGas 'Base gas added to refund', and add a 'Refund token' field for gasToken; say in the label that the Safe pays this refund.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "execTransaction shows a zero refund receiver as 0x000…, but the code pays tx.origin then.",
+      "evidence": "GnosisSafe.handlePayment: `refundReceiver == address(0) ? payable(tx.origin) : refundReceiver`. Case 1 screen: 'Gas receiver: 0x0000000000000000000000000000000000000000'.",
+      "fix": "Use senderAddress with the zero address so the field reads as the transaction sender.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "execTransaction test covers only a reverted Call with zero gas; delegate call and refund paths are untested.",
+      "evidence": "Case 1: operation 'Call', gasPrice 0, mined.status 0, effects []. No case with operation 1 or gasPrice > 0.",
+      "fix": "Add cases with operation 1, with gasPrice > 0 and a gasToken, and with non-zero value, sent to a Safe proxy.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "execTransaction hides safeTxGas, which lets the inner call fail while the refund is still paid.",
+      "evidence": "GnosisSafe.execTransaction: `require(success || safeTxGas != 0 || gasPrice != 0, \"GS013\");`. Descriptor: safeTxGas 'visible: never'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined tx reverted (status 0) on the singleton; no effects. Reader could not tell the token (USDC) because `to` is not shown, and thought signing moves nothing."
+     }
+    ],
+    "glance": 20,
+    "depth": 40
+   },
+   {
+    "key": "addOwnerWithThreshold(address owner, uint256 _threshold)",
+    "effects": [
+     "Adds `owner` as a new owner of the Safe (only callable by the Safe itself).",
+     "Changes the Safe threshold to _threshold when it differs from the current one."
+    ],
+    "shown": "Intent 'Add signer' with the new owner address and the new threshold.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "addOwnerWithThreshold restricts the new owner to type 'eoa', but contracts can be owners.",
+      "evidence": "OwnerManager.addOwnerWithThreshold only rejects 0, SENTINEL and the Safe itself. Descriptor: owner field \"types\": [\"eoa\"].",
+      "fix": "Use \"types\": [\"eoa\",\"wallet\",\"contract\"].",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "addOwnerWithThreshold test calls the singleton directly and reverts, so no owner change is checked.",
+      "evidence": "Case 2: mined.status 0, effects []. The function is `authorized` (only the Safe itself), so a direct call always reverts.",
+      "fix": "Test it as nested calldata inside execTransaction to a Safe proxy.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined tx reverted (status 0); no effects. Reader understood the owner and threshold change."
+     }
+    ],
+    "glance": 75,
+    "depth": 88
+   },
+   {
+    "key": "removeOwner(address prevOwner, address owner, uint256 _threshold)",
+    "effects": [
+     "Removes `owner` from the Safe owners (only callable by the Safe itself).",
+     "Changes the threshold to _threshold when it differs from the current one."
+    ],
+    "shown": "Intent 'Remove signer' with the owner removed and the new threshold; prevOwner (list pointer) hidden.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "swapOwner(address prevOwner, address oldOwner, address newOwner)",
+    "effects": [
+     "Replaces owner oldOwner with newOwner in the Safe (only callable by the Safe itself); threshold unchanged."
+    ],
+    "shown": "Intent 'Swap signer' with the old and new owner; prevOwner hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "swapOwner restricts the new owner to type 'eoa', but contracts can be owners.",
+      "evidence": "OwnerManager.swapOwner only rejects 0, SENTINEL and the Safe itself for newOwner. Descriptor: newOwner field \"types\": [\"eoa\"].",
+      "fix": "Use \"types\": [\"eoa\",\"wallet\",\"contract\"] for oldOwner and newOwner.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 90
+   },
+   {
+    "key": "changeThreshold(uint256 _threshold)",
+    "effects": [
+     "Sets the number of owner confirmations the Safe requires to _threshold (only callable by the Safe itself)."
+    ],
+    "shown": "Intent 'Modify threshold' with the new threshold.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 88
+   },
+   {
+    "key": "approveHash(bytes32 hashToApprove)",
+    "effects": [
+     "Records the caller's (an owner's) approval of hashToApprove; it counts as that owner's signature for the Safe transaction or message with that hash."
+    ],
+    "shown": "Intent 'Approve Safe hash' with the hash as raw bytes32.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "approveHash shows only a raw hash; the Safe transaction it approves cannot be decoded.",
+      "evidence": "GnosisSafe.approveHash: `approvedHashes[msg.sender][hashToApprove] = 1;` and checkNSignatures accepts v == 1 with `approvedHashes[currentOwner][dataHash] != 0`. Descriptor: 'Hash to approve' (raw).",
+      "fix": "Change the intent to 'Pre-sign a Safe transaction by hash' so the signer knows it counts as their signature.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 30
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.712,
+ "account": "ethereum_foundation",
+ "hiddenValue": [
+  "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)"
+ ],
+ "seconds": 137,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 38,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "setup decodes `data` as a normal call to `to`, but the Safe delegate-calls it.",
+   "comprehension": null
+  },
+  "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 15,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 4,
+   "warnings": 4,
+   "worst": "execTransaction is payable but shows no @.value; ETH sent by the signer is never displayed.",
+   "comprehension": null
+  },
+  "addOwnerWithThreshold(address owner, uint256 _threshold)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "addOwnerWithThreshold restricts the new owner to type 'eoa', but contracts can be owners.",
+   "comprehension": null
+  },
+  "removeOwner(address prevOwner, address owner, uint256 _threshold)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "swapOwner(address prevOwner, address oldOwner, address newOwner)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapOwner restricts the new owner to type 'eoa', but contracts can be owners.",
+   "comprehension": null
+  },
+  "changeThreshold(uint256 _threshold)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "approveHash(bytes32 hashToApprove)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 71,
+  "clarity": 58,
+  "functions": "3A 1B 1C 2F",
+  "incomplete": false,
+  "worst": "setup decodes `data` as a normal call to `to`, but the Safe delegate-calls it."
+ }
+}

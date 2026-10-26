@@ -1,0 +1,251 @@
+{
+ "hash": "0x56cd1b32292bf64a0ced25c8ec941c62c1e695e81ddaa1f22272e894b6ed013d",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakPYUSD.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef02e5e13584ab96848af90261f0c8ee04722a"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Exactly `assets` PYUSD leave the signer for the vault, using the signer's existing PYUSD allowance to the vault (ERC4626._deposit safeTransferFrom(_asset, caller, address(this), assets)).",
+     "The vault mints steakPYUSD shares to `receiver`. The number of shares comes from the vault's exchange rate after fees accrue, and there is no minimum.",
+     "The vault supplies the PYUSD to Morpho markets. This changes nothing else for the signer."
+    ],
+    "shown": "Intent 'Deposit', with the PYUSD amount, the share ticker steakPYUSD and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown; the vault's exchange rate sets it.",
+      "evidence": "MetaMorpho.sol deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Floor). The value is not in the calldata. Case 0: 91.976 steakPYUSD came in, and the screen shows only the ticker.",
+      "fix": "None possible from calldata. A 'Share ticker' label like 'Receive shares (amount set by vault rate)' could say so.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit: the bare intent 'Deposit' names neither the asset, the amount nor the vault.",
+      "evidence": "descriptor.json deposit intent \"Deposit\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into steakPYUSD for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "100 PYUSD out is shown right. steakPYUSD in is shown with its ticker and recipient but no amount, which cannot come from calldata."
+     }
+    ],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "PYUSD leaves the signer for the vault, using the signer's allowance. The amount is computed from `shares` at the vault rate, rounded up, and has no maximum.",
+     "Exactly `shares` steakPYUSD are minted to `receiver`, which may be an address other than the signer."
+    ],
+    "shown": "Intent 'Mint', with the ticker 'PYUSD' as the deposit asset (no amount), the number of steakPYUSD shares minted and the address that receives them.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the PYUSD amount the signer pays is not shown and has no bound.",
+      "evidence": "MetaMorpho.sol mint: assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Ceil). The value comes from storage. Case 1: 2 PYUSD units left the signer, and the screen shows only 'Deposit asset: PYUSD'.",
+      "fix": "None possible from calldata. Relabel to 'Pay with (amount set by vault rate)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint' does not say that the signer pays PYUSD into the vault.",
+      "evidence": "descriptor.json mint intent \"Mint\", no interpolatedIntent. The code pulls PYUSD from the caller (ERC4626._deposit safeTransferFrom).",
+      "fix": "Use intent 'Deposit PYUSD for shares' and interpolatedIntent \"Mint {shares} for {receiver}, paying PYUSD\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "PYUSD out: the asset and the vault are understood, but no amount is shown. The shares went to 0xdead, not to the signer, and the screen shows that correctly."
+     }
+    ],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns steakPYUSD shares from `owner`. The number is computed from `assets` at the vault rate, rounded up, and has no maximum.",
+     "When the signer is not `owner`, the owner's share allowance to the signer is spent.",
+     "Exactly `assets` PYUSD are sent to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', with the exact PYUSD amount, the recipient and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown; the vault's rate sets it.",
+      "evidence": "MetaMorpho.sol withdraw: shares = _convertToSharesWithTotals(assets, ..., Ceil); ERC4626._withdraw _burn(owner, shares).",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw: the bare intent 'Withdraw' does not say that steakPYUSD shares are burned for PYUSD.",
+      "evidence": "descriptor.json withdraw intent \"Withdraw\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from steakPYUSD to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Exactly `shares` steakPYUSD are burned from `owner`. When the signer is not the owner, the owner's allowance to the signer is spent.",
+     "PYUSD is sent to `receiver`. The amount is computed from `shares` at the vault rate, rounded down, and has no minimum."
+    ],
+    "shown": "Intent 'Redeem', with the number of steakPYUSD shares, the recipient and the owner. Neither the asset received nor its amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names PYUSD as the token received, though mint shows it as a constant.",
+      "evidence": "descriptor.json redeem fields: only shares, receiver, owner. Case 2: 10019.854410 PYUSD came in to the signer, and no field mentions PYUSD. The reader wrote 'presumably PYUSD'.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the PYUSD amount received is not shown and has no minimum.",
+      "evidence": "MetaMorpho.sol redeem: assets = _convertToAssetsWithTotals(shares, ..., Floor). The value comes from storage. Case 2: 10019.85 PYUSD in.",
+      "fix": "None possible from calldata.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the bare intent 'Redeem' names neither the shares nor what comes back.",
+      "evidence": "descriptor.json redeem intent \"Redeem\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent \"Redeem {shares} for PYUSD to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out are shown exactly. The PYUSD in is shown neither by asset nor by amount; the reader guessed the asset."
+     }
+    ],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.36,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 88,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the bare intent 'Deposit' names neither the asset, the amount nor the vault.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that the signer pays PYUSD into the vault.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the bare intent 'Withdraw' does not say that steakPYUSD shares are burned for PYUSD.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never names PYUSD as the token received, though mint shows it as a constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 59,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names PYUSD as the token received, though mint shows it as a constant."
+ }
+}

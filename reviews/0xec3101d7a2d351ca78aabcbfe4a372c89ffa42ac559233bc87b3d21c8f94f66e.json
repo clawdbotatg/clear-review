@@ -1,0 +1,618 @@
+{
+ "hash": "0xec3101d7a2d351ca78aabcbfe4a372c89ffa42ac559233bc87b3d21c8f94f66e",
+ "file": "registry/gondi/calldata-MultiSourceLoan-v3_1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf41b389e0c1950dc0b16c9498eae77131cc08a56"
+  },
+  {
+   "chainId": 999,
+   "address": "0x6ad675624ec8320e5806858cd5db101a0b927fd9"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x0e79e08e9e35388382b7febb26bc73f80465e2fb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "emitLoan(((((uint256 offerId, address lender, uint256 fee, uint256 capacity, address nftCollateralAddress, uint256 nftCollateralTokenId, address principalAddress, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration, uint256 maxSeniorRepayment, (address validator, bytes arguments)[] validators) offer, uint256 amount, bytes lenderOfferSignature)[] offerExecution, uint256 loanId, address nftCollateralAddress, uint256 tokenId, uint256 duration, uint256 expirationTime, address principalReceiver, bytes callbackData) executionData, address borrower, bytes borrowerOfferSignature) _loanExecutionData)",
+    "effects": [
+     "The borrower's NFT (executionData.nftCollateralAddress, tokenId) moves from the borrower to the loan contract as escrow.",
+     "Each lender sends amount minus a prorated fee (offer.fee * amount / offer.principalAmount) of the principal token to principalReceiver.",
+     "The borrower takes on a debt equal to the sum of the offer amounts, with interest at each offer's APR, due after `duration`.",
+     "The lender, not the borrower, pays the protocol cut of the fee to the protocol fee recipient.",
+     "A non-empty callbackData calls a whitelisted callback contract; for an EOA signer it reverts."
+    ],
+    "shown": "Borrow against NFT: the collateral NFT, the lender(s), the gross amount(s), APR, the maximum lender fee, duration, principal receiver, expiry, callback data and borrower.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "emitLoan shows the gross 'Amount' and does not say the lender fee is taken from it.",
+      "evidence": "MultiSourceLoan.sol _processOffersFromExecutionData: `fee = offer.fee.mulDivUp(amount, offer.principalAmount); ... safeTransferFrom(lender, _principalReceiver, amount - fee);`. Descriptor shows 'Amount' and 'Lender fee (max)' as separate fields. Case 0: screen 'Amount 1 WETH', signer received 0.977556109725685785 WETH. Case 11: screen '10000 USDC', signer received 9919.137466 USDC.",
+      "fix": "Rename 'Amount' to 'Loan amount (fee deducted)' and 'Lender fee (max)' to 'Fee deducted from amount (max)'. Add interpolatedIntent \"Borrow {amount} against {tokenId}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "emitLoan shows lenders, amounts, APRs and fees as separate lists the signer cannot pair per offer.",
+      "evidence": "Descriptor fields `offerExecution.[].offer.lender`, `offerExecution.[].amount`, `offerExecution.[].offer.aprBps`, `offerExecution.[].offer.fee` are four independent array fields; the contract builds one tranche per offer (`tranche[i] = Tranche(loanId, totalAmount, amount, lender, 0, block.timestamp, offer.aprBps)`).",
+      "fix": "Group the per-offer fields under one field group on `offerExecution.[]` so each offer renders lender, amount, APR and fee together, and add a multi-offer test case.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "emitLoan shows callback data as raw bytes, which only a whitelisted callback contract can use.",
+      "evidence": "CallbackHandler.handleAfterPrincipalTransferCallback: `if (!_isWhitelistedCallbackContract[_callbackAddress] || ...) revert`; descriptor field 'Callback data' format raw.",
+      "fix": "Hide 'Callback data' or label it 'Callback data (contracts only)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "WETH in 0.9776 shown as 'Amount 1 WETH' plus a separate max fee; NFT out shown as Collateral."
+     },
+     {
+      "index": 11,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDC in 9919.137466 shown as 10000 USDC plus a separate 80.86 USDC max fee; the reader guessed the fee may be deducted."
+     }
+    ],
+    "glance": 60,
+    "depth": 72
+   },
+   {
+    "key": "repayLoan(((uint256 loanId, bytes callbackData, bool shouldDelegate) data, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) loan, bytes borrowerSignature) _repaymentData)",
+    "effects": [
+     "For each tranche, the borrower pays principal + carried accruedInterest + new interest (minus the protocol cut) to the tranche lender.",
+     "The borrower pays the protocol cut of the interest to the protocol fee recipient.",
+     "The collateral NFT moves from the loan contract back to the borrower.",
+     "If shouldDelegate is true, the loan contract registers a delegate.xyz delegation of the NFT to the borrower.",
+     "A non-empty callbackData runs a whitelisted callback after the NFT transfer; for an EOA signer it reverts."
+    ],
+    "shown": "Repay loan: the loan ID, the collateral NFT, the loan principal, the borrower, the lender(s), the delegate flag and the callback data.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "repayLoan shows only the principal; it hides the tranche APR and the carried interest the borrower also pays.",
+      "evidence": "MultiSourceLoan._processRepayments: `repayment = tranche.principalAmount + tranche.accruedInterest + newInterest - thisProtocolFee; asset.safeTransferFrom(loan.borrower, tranche.lender, repayment);` and `safeTransferFrom(loan.borrower, _protocolFee.recipient, totalProtocolFee)`. Descriptor hides `tranche.[].aprBps`, `tranche.[].accruedInterest` and `tranche.[].startTime`. Case 1: screen 'Loan principal 3 WETH', signer paid 3.000985753424657535 WETH. Case 12: screen '10000 USDC', signer paid 10016.788877 USDC.",
+      "fix": "Make `tranche.[].aprBps` visible as 'Tranche APR' (unit, %, 2 decimals) and `tranche.[].accruedInterest` as 'Carried interest' (tokenAmount), and relabel 'Loan principal' to 'Principal (interest added at repayment)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "repayLoan total depends on block time, so no field can show the exact amount paid.",
+      "evidence": "MultiSourceLoan._processRepayments: `newInterest = tranche.principalAmount.getInterest(tranche.aprBps, block.timestamp - tranche.startTime)`.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "NFT in is implied by intent and Collateral; WETH out 3.000986 shown only as 3 WETH principal."
+     },
+     {
+      "index": 12,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "NFT in implied; USDC out 10016.79 shown only as 10000 USDC principal."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "refinanceFull((uint256 renegotiationId, uint256 loanId, address lender, uint256 fee, uint256[] trancheIndex, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration) _renegotiationOffer, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan, bytes _renegotiationOfferSignature)",
+    "effects": [
+     "Lender-initiated: the new lender pays every other current lender their principal plus accrued interest (minus the protocol cut).",
+     "Lender-initiated: the new lender pays all protocol fees (the cut of the renegotiation fee and of accrued interest) to the protocol fee recipient.",
+     "Lender-initiated: if the new principal is larger, the new lender sends the difference to the borrower.",
+     "Lender-initiated: the new lender gets one tranche with the new principal, APR and duration, carrying the accrued interest it paid.",
+     "Borrower-initiated: the new lender funds up to principal minus fee; the borrower pays any shortfall of old debt and protocol fees, and receives the remainder.",
+     "The old loan is deleted and replaced by a new loan ID with the new terms."
+    ],
+    "shown": "Refinance loan: loan ID, new lender, new principal, new APR, new duration, lender fee, offer expiry, tranche index, collateral, current principal, borrower and current lenders.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "refinanceFull never says the signer pays current lenders principal plus interest and pays protocol fees.",
+      "evidence": "MultiSourceLoan._processOldTranche: `oldLenderDebt = _tranche.principalAmount + accruedInterest - thisProtocolFee; ... asset.safeTransferFrom(_lender, _tranche.lender, oldLenderDebt);` and _processOldTranchesFull: `_handleProtocolFeeForFee(_loan.principalAddress, _renegotiationOffer.lender, lenderFee, _protocolFee.recipient)`. Descriptor: intent 'Refinance loan', field 'New principal'; tranche APR, startTime, accruedInterest and `_loan.protocolFee` are visible: never. Case 2: signer sent 20.292289 WETH to the current lender and 0.011063 WETH to 0x4169…5562; screen shows only 'New principal 20 WETH'.",
+      "fix": "Change the intent to 'Refinance loan: pay current lenders'. Make `_loan.tranche.[].aprBps`, `_loan.tranche.[].accruedInterest` and `_loan.protocolFee` visible, and relabel 'New principal' to 'Principal you fund (plus accrued interest)'. Add interpolatedIntent \"Pay off {_loan.tranche.[].lender} and lend {principalAmount}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "refinanceFull shows 'Tranche index' as raw integers that have no meaning to a signer.",
+      "evidence": "MultiSourceLoan.refinanceFull: `if (_renegotiationOffer.trancheIndex.length != _loan.tranche.length) revert`; descriptor field 'Tranche index' format raw.",
+      "fix": "Hide `trancheIndex.[]` in refinanceFull, where it must cover every tranche.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "Signer paid 20.3034 WETH (principal, accrued interest, protocol fee); the screen shows only a 20 WETH new principal and no outflow."
+     }
+    ],
+    "glance": 40,
+    "depth": 45
+   },
+   {
+    "key": "refinancePartial((uint256 renegotiationId, uint256 loanId, address lender, uint256 fee, uint256[] trancheIndex, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration) _renegotiationOffer, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan)",
+    "effects": [
+     "The signer must be the new lender, set by the offer.",
+     "For each selected tranche held by another lender, the signer pays that lender principal plus accrued interest minus the protocol cut.",
+     "The signer pays the protocol cut of the accrued interest of all selected tranches to the protocol fee recipient.",
+     "The signer takes over the selected tranches at the new APR, carrying their accrued interest; the loan gets a new ID."
+    ],
+    "shown": "Refinance loan tranches: loan ID, new lender, new principal, new APR, offer expiry, tranche indexes, collateral, loan principal, borrower and current lenders.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "refinancePartial does not show the signer's payment to current lenders and the protocol fee.",
+      "evidence": "MultiSourceLoan.refinancePartial calls `_processOldTranche(_renegotiationOffer.lender, ..., type(uint256).max)`, which runs `asset.safeTransferFrom(_lender, _tranche.lender, oldLenderDebt)`, then `_handleProtocolFeeForFee(_loan.principalAddress, _renegotiationOffer.lender, totalProtocolFee, _protocolFee.recipient)`. `_loan.protocolFee` and tranche APR/accruedInterest are visible: never. Case 3: signer paid 0.00000064794520548 WETH to 0x4169…5562; nothing on screen states it.",
+      "fix": "Change the intent to 'Buy loan tranches from current lenders'. Show `_loan.tranche.[].aprBps`, `_loan.tranche.[].accruedInterest` and `_loan.protocolFee`, and relabel 'New principal' to 'Principal you pay (plus accrued interest)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "refinancePartial 'Loan principal' and 'Current lender' list every tranche, not the selected ones.",
+      "evidence": "Descriptor shows `_loan.principalAmount` and `_loan.tranche.[].lender` for all tranches, while the code only processes `_loan.tranche[_renegotiationOffer.trancheIndex[i]]`; 'Tranche index' is raw.",
+      "fix": "Label the tranche lender field 'Lenders (all tranches)', and add a test with a multi-tranche loan.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "missed"
+      ],
+      "notes": "Signer was already the lender, so only the protocol fee left; the screen does not mention it."
+     }
+    ],
+    "glance": 40,
+    "depth": 45
+   },
+   {
+    "key": "addNewTranche((uint256 renegotiationId, uint256 loanId, address lender, uint256 fee, uint256[] trancheIndex, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration) _renegotiationOffer, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan, bytes _renegotiationOfferSignature)",
+    "effects": [
+     "The signer must be the borrower.",
+     "The new lender sends principalAmount minus fee of the principal token to the borrower.",
+     "The borrower's debt grows by principalAmount in a new junior tranche at the new APR; the loan end date does not change.",
+     "The new lender pays the protocol cut of the fee to the protocol fee recipient.",
+     "The loan gets a new loan ID."
+    ],
+    "shown": "Add loan tranche: loan ID, new lender, new principal, new APR, lender fee, offer expiry, tranche index, collateral, current loan principal, borrower and current lenders.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "addNewTranche 'New principal' does not say the borrower receives it minus the fee and owes it.",
+      "evidence": "MultiSourceLoan.addNewTranche: `safeTransferFrom(_renegotiationOffer.lender, _loan.borrower, _renegotiationOffer.principalAmount - _renegotiationOffer.fee)` and _addNewTranche: `_loan.principalAmount += _renegotiationOffer.principalAmount`. Descriptor labels 'New principal' next to 'Loan principal 29 WETH'. Case 4: signer received 7 WETH; reader unsure whether 7 WETH arrives or the total becomes 36 WETH.",
+      "fix": "Change the intent to 'Borrow more against loan' and relabel 'New principal' to 'Extra amount borrowed (fee deducted)'. Add interpolatedIntent \"Borrow {principalAmount} more from {lender}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "partial"
+      ],
+      "notes": "7 WETH in is shown as 'New principal 7 WETH' with fee 0; the reader was unsure it arrives in the wallet."
+     }
+    ],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "refinanceFromLoanExecutionData(uint256 _loanId, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan, ((((uint256 offerId, address lender, uint256 fee, uint256 capacity, address nftCollateralAddress, uint256 nftCollateralTokenId, address principalAddress, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration, uint256 maxSeniorRepayment, (address validator, bytes arguments)[] validators) offer, uint256 amount, bytes lenderOfferSignature)[] offerExecution, uint256 loanId, address nftCollateralAddress, uint256 tokenId, uint256 duration, uint256 expirationTime, address principalReceiver, bytes callbackData) executionData, address borrower, bytes borrowerOfferSignature) _loanExecutionData)",
+    "effects": [
+     "Each new lender sends amount minus the prorated fee to principalReceiver.",
+     "The borrower (_loan.borrower) repays every old tranche lender principal + carried and new interest (minus the protocol cut).",
+     "The borrower pays the protocol cut of the interest to the protocol fee recipient.",
+     "The NFT stays in escrow; the old loan is replaced by a new loan with the new offers, APRs and duration.",
+     "_loanExecutionData.borrower is ignored; the contract uses _loan.borrower."
+    ],
+    "shown": "Refinance loan with offers: old loan ID, collateral, old principal, borrower, current lenders, new lenders, new amounts, APRs, max fees, duration, principal receiver, expiry, callback data and a second 'Borrower'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "refinanceFromLoanExecutionData hides the old tranches' APR and interest that the borrower repays.",
+      "evidence": "MultiSourceLoan.refinanceFromLoanExecutionData calls `_processRepayments(_loan)`: `repayment = tranche.principalAmount + tranche.accruedInterest + newInterest - thisProtocolFee; asset.safeTransferFrom(loan.borrower, tranche.lender, repayment)`. `_loan.tranche.[].aprBps` and `accruedInterest` are visible: never. Case 5: screen 'Loan principal 0.67 WETH'; signer paid 0.672280795 WETH to the lender and 0.000402493 WETH to 0x4169…5562.",
+      "fix": "Show `_loan.tranche.[].aprBps` and `_loan.tranche.[].accruedInterest`, and relabel 'Loan principal' to 'Old principal you repay (plus interest)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "refinanceFromLoanExecutionData shows the gross new 'Amount' and does not say the fee is taken from it.",
+      "evidence": "MultiSourceLoan._processOffersFromExecutionData: `safeTransferFrom(lender, _principalReceiver, amount - fee)`. Case 5: screen 'Amount 0.64 WETH', signer received 0.635313262815296989 WETH.",
+      "fix": "Relabel 'Amount' to 'New loan amount (fee deducted)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "refinanceFromLoanExecutionData shows a second 'Borrower' from execution data, which the contract ignores.",
+      "evidence": "MultiSourceLoan.refinanceFromLoanExecutionData: `/// @dev We ignore the borrower in executionData, and used existing one. address borrower = _loan.borrower;`. Descriptor shows `_loanExecutionData.borrower` labeled 'Borrower' as well as `_loan.borrower` labeled 'Borrower'.",
+      "fix": "Set `_loanExecutionData.borrower` to visible: never.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 2,
+      "shownRight": 0,
+      "reader": [
+       "partial",
+       "partial"
+      ],
+      "notes": "WETH in 0.6353 shown as 0.64 gross; WETH out 0.6727 shown as 0.67 principal; net -0.0374 never stated."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "cancelOffer(uint256 _offerId)",
+    "effects": [
+     "Marks the signer's own loan offer _offerId as cancelled, so it can no longer be executed."
+    ],
+    "shown": "Cancel loan offer with the offer ID.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No asset movement; the screen matches the code."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "cancelRenegotiationOffer(uint256 _renegotiationId)",
+    "effects": [
+     "Marks the signer's own renegotiation offer _renegotiationId as cancelled."
+    ],
+    "shown": "Cancel renegotiation offer with the renegotiation ID.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No asset movement; the screen matches the code."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "liquidateLoan(uint256 _loanId, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan)",
+    "effects": [
+     "Anyone can call it after the loan has expired.",
+     "With one tranche whose lender is not a loan-manager pool, the collateral NFT moves to that lender.",
+     "Otherwise, the NFT moves to the loan liquidator, which starts an auction and records the caller as originator.",
+     "The loan is deleted when the NFT is foreclosed to the lender."
+    ],
+    "shown": "Liquidate loan: loan ID, collateral NFT, loan principal, borrower and lender(s).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "liquidateLoan does not say whether the collateral NFT goes to the lender or to an auction.",
+      "evidence": "LiquidationHandler._liquidateLoan: `if (_canClaim) { ERC721(...).transferFrom(address(this), _loan.tranche[0].lender, ...) } else { ... transferFrom(address(this), liquidator, ...); ILoanLiquidator(liquidator).liquidateLoan(...) }`. Descriptor intent 'Liquidate loan', no destination field. Case 8: signer received Good Vibes Club #3021; reader said 'Likely' and was unsure whether it goes to an auction.",
+      "fix": "Change the intent to 'Claim or auction defaulted collateral' and add interpolatedIntent \"Liquidate loan {_loanId}: {nftCollateralTokenId} to lender or auction\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 8,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "NFT in to the signer-lender; the screen names the collateral and the lender but not the transfer."
+     }
+    ],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "delegate(uint256 _loanId, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) loan, address _delegate, bytes32 _rights, bool _value)",
+    "effects": [
+     "The signer must be the loan's borrower.",
+     "The loan contract sets or clears a delegate.xyz ERC-721 delegation of the escrowed collateral to _delegate, for _rights, enabled when _value is true."
+    ],
+    "shown": "Set collateral delegation: loan ID, delegate, enable flag, raw rights, collateral, borrower, lender.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "delegate shows Rights as a raw bytes32; zero means full rights in the delegate registry.",
+      "evidence": "MultiSourceLoan.delegate: `IDelegateRegistry(getDelegateRegistry).delegateERC721(_delegate, loan.nftCollateralAddress, loan.nftCollateralTokenId, _rights, _value)`. Case 9 screen 'Rights 0x000…000'; reader read it as 'none granted' and was unsure what zeros mean.",
+      "fix": "Relabel 'Rights' to 'Rights (0x0 = all rights)' and add a test with _value true.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 9,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No asset movement; delegation disabled."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "revokeDelegate(address _delegate, address _collection, uint256 _tokenId, bytes32 _rights)",
+    "effects": [
+     "When the loan contract no longer holds the NFT, it clears its delegate.xyz delegation of _collection/_tokenId to _delegate for _rights. No assets move."
+    ],
+    "shown": "Revoke NFT delegation: delegate, NFT and raw rights.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "revokeDelegate shows Rights as a raw bytes32 without saying zero means full rights.",
+      "evidence": "MultiSourceLoan.revokeDelegate: `delegateERC721(_delegate, _collection, _tokenId, _rights, false)`. Case 15 screen 'Rights 0x000…000'.",
+      "fix": "Relabel 'Rights' to 'Rights (0x0 = all rights)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "multicall(bytes[] data)",
+    "effects": [
+     "Delegatecalls the loan contract itself with each entry, with the signer as msg.sender, so each inner call has its own effects.",
+     "Any native value sent stays in the contract; no inner function uses msg.value."
+    ],
+    "shown": "Batch loan actions: each inner action decoded with this descriptor, plus the native value sent.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 10,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Three cancelOffer calls; no asset movement; the screen matches."
+     }
+    ],
+    "glance": 70,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": [
+   "liquidateLoan: when the NFT goes to the loan liquidator (multi-tranche or loan-manager lender), ILoanLiquidator.liquidateLoan receives msg.sender as originator; the liquidator contract source is not in the directory, so any reward or effect on the caller could not be checked."
+  ]
+ },
+ "cost": 1.64,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 296,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "emitLoan(((((uint256 offerId, address lender, uint256 fee, uint256 capacity, address nftCollateralAddress, uint256 nftCollateralTokenId, address principalAddress, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration, uint256 maxSeniorRepayment, (address validator, bytes arguments)[] validators) offer, uint256 amount, bytes lenderOfferSignature)[] offerExecution, uint256 loanId, address nftCollateralAddress, uint256 tokenId, uint256 duration, uint256 expirationTime, address principalReceiver, bytes callbackData) executionData, address borrower, bytes borrowerOfferSignature) _loanExecutionData)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "emitLoan shows the gross 'Amount' and does not say the lender fee is taken from it.",
+   "comprehension": 75
+  },
+  "repayLoan(((uint256 loanId, bytes callbackData, bool shouldDelegate) data, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) loan, bytes borrowerSignature) _repaymentData)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "repayLoan shows only the principal; it hides the tranche APR and the carried interest the borrower also pays.",
+   "comprehension": 75
+  },
+  "refinanceFull((uint256 renegotiationId, uint256 loanId, address lender, uint256 fee, uint256[] trancheIndex, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration) _renegotiationOffer, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan, bytes _renegotiationOfferSignature)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 42,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "refinanceFull never says the signer pays current lenders principal plus interest and pays protocol fees.",
+   "comprehension": 50
+  },
+  "refinancePartial((uint256 renegotiationId, uint256 loanId, address lender, uint256 fee, uint256[] trancheIndex, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration) _renegotiationOffer, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 12,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "refinancePartial does not show the signer's payment to current lenders and the protocol fee.",
+   "comprehension": 0
+  },
+  "addNewTranche((uint256 renegotiationId, uint256 loanId, address lender, uint256 fee, uint256[] trancheIndex, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration) _renegotiationOffer, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan, bytes _renegotiationOfferSignature)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 49,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "addNewTranche 'New principal' does not say the borrower receives it minus the fee and owes it.",
+   "comprehension": 50
+  },
+  "refinanceFromLoanExecutionData(uint256 _loanId, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan, ((((uint256 offerId, address lender, uint256 fee, uint256 capacity, address nftCollateralAddress, uint256 nftCollateralTokenId, address principalAddress, uint256 principalAmount, uint256 aprBps, uint256 expirationTime, uint256 duration, uint256 maxSeniorRepayment, (address validator, bytes arguments)[] validators) offer, uint256 amount, bytes lenderOfferSignature)[] offerExecution, uint256 loanId, address nftCollateralAddress, uint256 tokenId, uint256 duration, uint256 expirationTime, address principalReceiver, bytes callbackData) executionData, address borrower, bytes borrowerOfferSignature) _loanExecutionData)": {
+   "grade": "D",
+   "truth": 0,
+   "clarity": 45,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "refinanceFromLoanExecutionData hides the old tranches' APR and interest that the borrower repays.",
+   "comprehension": 50
+  },
+  "cancelOffer(uint256 _offerId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "cancelRenegotiationOffer(uint256 _renegotiationId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "liquidateLoan(uint256 _loanId, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) _loan)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "liquidateLoan does not say whether the collateral NFT goes to the lender or to an auction.",
+   "comprehension": 50
+  },
+  "delegate(uint256 _loanId, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee) loan, address _delegate, bytes32 _rights, bool _value)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "delegate shows Rights as a raw bytes32; zero means full rights in the delegate registry.",
+   "comprehension": null
+  },
+  "revokeDelegate(address _delegate, address _collection, uint256 _tokenId, bytes32 _rights)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "revokeDelegate shows Rights as a raw bytes32 without saying zero means full rights.",
+   "comprehension": null
+  },
+  "multicall(bytes[] data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 71,
+  "clarity": 58,
+  "functions": "2A 3B 3C 2D 2F",
+  "incomplete": true,
+  "worst": "refinanceFull never says the signer pays current lenders principal plus interest and pays protocol fees."
+ }
+}

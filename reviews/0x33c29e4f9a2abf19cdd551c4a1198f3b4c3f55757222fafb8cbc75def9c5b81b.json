@@ -1,0 +1,211 @@
+{
+ "hash": "0x33c29e4f9a2abf19cdd551c4a1198f3b4c3f55757222fafb8cbc75def9c5b81b",
+ "file": "registry/morpho/calldata-sharpbyte-sbUSDT-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x65a6334c0e2b5f7640c2a6b9ce615e162b1e909b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` USDT moves from the signer to the vault (safeTransferFrom in enter), using an earlier USDT approval.",
+     "New vault shares are minted to `onBehalf`. The amount is previewDeposit(assets) at the current share price, and the call has no minimum.",
+     "Interest and fee accrual runs first and sets the share price. The deposited USDT may go on to the liquidity adapter. Neither touches the signer's balances directly."
+    ],
+    "shown": "Deposit 10 USDT for the onBehalf address. Fields show the USDT amount, a constant share ticker 'sbUSDT' and who gets the shares. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: constant share ticker 'sbUSDT' does not match the vault's on-chain symbol 'sbUSDTx'.",
+      "evidence": "descriptor.json metadata.constants.vaultTicker = \"sbUSDT\", shown as field 'Share ticker' = sbUSDT; case 0 mined effect: minted share token 0x65a6…909b has symbol \"sbUSDTx\".",
+      "fix": "Set vaultTicker to the on-chain symbol \"sbUSDTx\", or drop the constant field and name the share token another way.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is set by the vault price and is never shown.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);` has no minShares parameter. Case 0: 10 sbUSDTx minted to the signer, and the screen shows no amount.",
+      "fix": "None in the descriptor. The amount is not in calldata.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the label 'Deposit asset' sits on an amount, and 'Share ticker' is a static raw line.",
+      "evidence": "descriptor.json deposit fields: label \"Deposit asset\" on path assets (tokenAmount); label \"Share ticker\" format raw value $.metadata.constants.vaultTicker.",
+      "fix": "Use the label 'Amount to deposit'. Put the ticker in a label such as 'Send sbUSDTx shares to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 10 USDT out is shown right. The shares in show the right recipient and roughly the right ticker (sbUSDT vs on-chain sbUSDTx), but no amount, so the reader did not know how many."
+     }
+    ],
+    "glance": 85,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Vault shares are burned from `onBehalf`. The amount is previewWithdraw(assets), rounded up, and the call has no maximum.",
+     "If the signer is not `onBehalf`, the burn spends the signer's share allowance from `onBehalf`.",
+     "Exactly `assets` USDT goes from the vault to `receiver`.",
+     "If idle USDT is short, the vault pulls liquidity back from the liquidity adapter. This is not the signer's balance."
+    ],
+    "shown": "Withdraw exactly N USDT to the receiver. Fields show the amount, the receiver and the owner whose shares are used. The shares burned are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is set by the vault price and is not shown.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`, with no maxShares parameter. Case 0x136c… (case 1): 0.995592703044362984 sbUSDTx burned from the signer, and no field shows it.",
+      "fix": "None in the descriptor. Labelling the owner 'Shares taken from' would hint at the burn.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 1.000196 USDT in is shown right. The reader guessed their position falls by about the same value but did not know shares are burned or how many."
+     }
+    ],
+    "glance": 82,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` vault shares are burned from `onBehalf`.",
+     "If the signer is not `onBehalf`, the burn spends the signer's share allowance from `onBehalf`.",
+     "USDT worth previewRedeem(shares) goes from the vault to `receiver`. The call has no minimum.",
+     "If idle USDT is short, the vault pulls liquidity back from the liquidity adapter (Morpho)."
+    ],
+    "shown": "Redeem 10 sbUSDT to the receiver. Fields show the shares, the receiver and the owner. Nothing says USDT is paid out or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: neither the intent nor any field says USDT is what the receiver gets.",
+      "evidence": "descriptor.json redeem interpolatedIntent \"Redeem {#.shares} to {#.receiver}\". VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. Case 2: the reader was 'unsure which token is paid out (USDT assumed)'.",
+      "fix": "Use the intent 'Redeem for USDT' and the interpolatedIntent 'Redeem {#.shares} for USDT to {#.receiver}', or label the receiver 'Send USDT to'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT received is set by the vault price, has no minimum, and is not shown.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);` has no minAssets parameter. Case 2: 10.064433 USDT reached the signer, and no amount was shown.",
+      "fix": "None in the descriptor. The amount is not in calldata.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem: the shares render as 'sbUSDT' while the vault's on-chain symbol is 'sbUSDTx'.",
+      "evidence": "Case 2 screen 'Shares to redeem' = \"10 sbUSDT\" (tokenPath @.to). Mined effect: the burned token 0x65a6…909b has symbol \"sbUSDTx\".",
+      "fix": "Make sure the wallet's token list matches the on-chain symbol. The descriptor's tokenPath itself is correct.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 10-share burn is shown right. The USDT in shows the recipient but not the asset or the amount. The reader guessed USDT."
+     }
+    ],
+    "glance": 65,
+    "depth": 66
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.375,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 129,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: constant share ticker 'sbUSDT' does not match the vault's on-chain symbol 'sbUSDTx'.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: neither the intent nor any field says USDT is what the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 74,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "deposit: constant share ticker 'sbUSDT' does not match the vault's on-chain symbol 'sbUSDTx'."
+ }
+}

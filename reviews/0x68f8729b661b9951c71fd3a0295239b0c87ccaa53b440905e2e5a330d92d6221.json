@@ -1,0 +1,189 @@
+{
+ "hash": "0x68f8729b661b9951c71fd3a0295239b0c87ccaa53b440905e2e5a330d92d6221",
+ "file": "registry/porto/eip712-Orchestrator-0.5.5.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x36a7cd5b1f475122a2b52580fc8e170a2cd312ef"
+  },
+  {
+   "chainId": 10,
+   "address": "0x36a7cd5b1f475122a2b52580fc8e170a2cd312ef"
+  },
+  {
+   "chainId": 56,
+   "address": "0x36a7cd5b1f475122a2b52580fc8e170a2cd312ef"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x36a7cd5b1f475122a2b52580fc8e170a2cd312ef"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x36a7cd5b1f475122a2b52580fc8e170a2cd312ef"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x36a7cd5b1f475122a2b52580fc8e170a2cd312ef"
+  },
+  {
+   "chainId": 84532,
+   "address": "0x36a7cd5b1f475122a2b52580fc8e170a2cd312ef"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x36a7cd5b1f475122a2b52580fc8e170a2cd312ef"
+  },
+  {
+   "chainId": 11155420,
+   "address": "0x36a7cd5b1f475122a2b52580fc8e170a2cd312ef"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Intent(bool multichain,address eoa,Call[] calls,uint256 nonce,address payer,address paymentToken,uint256 paymentMaxAmount,uint256 combinedGas,bytes[] encodedPreCalls,bytes[] encodedFundTransfers,address settler,uint256 expiry)Call(address to,uint256 value,bytes data)",
+    "effects": [
+     "The signer's account runs each entry of `calls` as itself: it calls `to` with `data` and sends `value` native currency from the account's balance.",
+     "The payer pays up to `paymentMaxAmount` of `paymentToken` (native currency when the token is the zero address) to a payment recipient that the relayer chooses. When `payer` is the zero address, the payer is the signer's account.",
+     "Before the main calls run, each signed pre-call in `encodedPreCalls` runs a batch in the signer's account (or in the payer's account). Each pre-call has its own signature and uses its own nonce.",
+     "In a multichain output intent, a funder sends the tokens and amounts in `encodedFundTransfers` to the signer's account. The `settler` then receives the intent digest so that funds are released on the input chains.",
+     "The call uses the account's `nonce`, so the same intent cannot run again.",
+     "The intent reverts after `expiry`. An `expiry` of 0 means the intent never expires."
+    ],
+    "shown": "\"Execute account actions\", then the account, each call's target, its native value in raw wei and its calldata, the maximum payment with its token, then the raw payer, gas limit, pre-call bytes, fund-transfer bytes, settler, expiry and nonce.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Intent calls show the native value each call sends as raw wei, not as an amount.",
+      "evidence": "Descriptor, field `calls.[].value`: {\"label\":\"Native value\",\"format\":\"raw\"}. Case 1 shows \"Native value: 500000000000000000\", which is 0.5 ETH. Orchestrator._executionDataHash hashes (target, value, data) for each call, and the account sends `value` from its balance.",
+      "fix": "Change the format of `calls.[].value` to \"amount\" so that the wallet shows \"0.5 ETH\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Intent shows a zero `payer` as the zero address, but the code then makes the signer's account pay.",
+      "evidence": "Orchestrator._pay: `address payer = Math.coalesce(i.payer, i.eoa);`. Descriptor field `payer` uses format \"raw\". Cases 0 and 1 show \"Payer: 0x0000000000000000000000000000000000000000\".",
+      "fix": "Change `payer` to format \"addressName\" with params {\"senderAddress\": \"0x0000000000000000000000000000000000000000\"}, or add a label such as \"Payer (account if empty)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Intent shows `expiry` as a raw integer, and 0, which means no expiry, has no explanation.",
+      "evidence": "Orchestrator.selfCallPayVerifyCall537021665: `if (i.expiry != 0 && block.timestamp > i.expiry) revert IntentExpired();`. Descriptor field `expiry` uses format \"raw\". Case 2 shows \"Expiry: 1893456000\" and case 0 shows \"Expiry: 0\".",
+      "fix": "Change `expiry` to format \"date\" with params {\"encoding\": \"timestamp\"}, and use a label that says 0 means no expiry.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Intent shows fund transfers as raw bytes, so the signer cannot read the tokens and amounts received.",
+      "evidence": "Orchestrator._fund: `transfers[i] = abi.decode(encodedFundTransfers[i], (Transfer));` followed by `SafeTransferLib.safeTransferFrom(transfers[j].token, funder, eoa, transfers[j].amount);`. Descriptor field `encodedFundTransfers.[]` uses format \"raw\". Case 2 shows \"Fund transfer: 0x040506\".",
+      "fix": "Show each fund transfer by its slices: the token at bytes [12:32] and a tokenAmount for the amount at bytes [32:64], with tokenPath pointing to the token slice.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Intent text \"Execute account actions\" leaves out the fee paid from the account and the calls made.",
+      "evidence": "Descriptor: \"intent\": \"Execute account actions\", with no interpolatedIntent. Orchestrator.selfCallPayVerifyCall537021665 calls `_pay(keyHash, digest, i)`, which makes the payer send up to `paymentMaxAmount` of `paymentToken`.",
+      "fix": "Change the intent to \"Run account calls and pay relayer fee\". Add an interpolatedIntent that mentions `paymentMaxAmount`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Intent shows the payment token twice: as a ticker in Maximum payment and again as a raw address.",
+      "evidence": "Descriptor: `paymentMaxAmount` is a tokenAmount with tokenPath `paymentToken`, and there is also a field `paymentToken` with format \"raw\". Case 1 shows \"Maximum payment: 0.003 USDC\" and \"Payment token: 0xA0b8…eB48\".",
+      "fix": "Remove the `paymentToken` field, or change it to format \"addressName\" with types [\"token\"].",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "Intent tests never decode a real nested call, a self-call, or a multichain intent.",
+      "evidence": "Case 1 has `data` \"0x12345678\", which renders as \"Call: 0x12345678\". Cases 0 and 2 have empty `calls`. No case has `multichain: true` or a zero `to`. Case 2 uses placeholder bytes \"0x010203\" and \"0x040506\".",
+      "fix": "Add a case where a call is an ERC-20 transfer or approve, so that the nested descriptor and spenderPath `#.eoa` are tested. Add a multichain case with a real encoded Transfer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Intent does not sign the payment recipient or the final payment amount, so no screen can show them.",
+      "evidence": "Orchestrator._pay reads `i.paymentRecipient` and `i.paymentAmount`. Orchestrator._computeDigest(Intent) hashes only `paymentMaxAmount`, `paymentToken` and `payer`, not the recipient or the amount.",
+      "fix": "Use a label such as \"Maximum relayer fee\" so that the signer knows that the relayer chooses the recipient.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "Intent shows pre-calls as raw ABI-encoded SignedCall bytes, which ERC-7730 cannot decode.",
+      "evidence": "Orchestrator._handlePreCalls: `SignedCall calldata p = _extractPreCall(encodedPreCalls[j]);` followed by a call to `eoa` with `p.executionData`. Descriptor field `encodedPreCalls.[]` uses format \"raw\". Case 2 shows \"Pre-call: 0x010203\".",
+      "fix": "Change the label to \"Pre-call (signed separately)\". Each pre-call carries its own signature, which the account checks.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "For a multichain Intent, the signer signs a Merkle root, not this typed message, so the format does not apply.",
+      "evidence": "Orchestrator._verifyMerkleSig: `IIthacaAccount(eoa).unwrapAndValidateSignature(root, rootSig)`. Orchestrator._computeDigest uses `_hashTypedDataSansChainId` when the nonce prefix is 0xc1d0.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "The signer's account implementation (IthacaAccount / ERC-7821 `execute`, `pay`, `unwrapAndValidateSignature`, `checkAndIncrementNonce`) is not in the directory. The Orchestrator calls into it to run `calls`, move the payment and validate the signature. So I could not check how the payment is moved, or whether a call with `to` = 0 is redirected to the account itself."
+  ]
+ },
+ "cost": 0.533,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 181,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "Intent(bool multichain,address eoa,Call[] calls,uint256 nonce,address payer,address paymentToken,uint256 paymentMaxAmount,uint256 combinedGas,bytes[] encodedPreCalls,bytes[] encodedFundTransfers,address settler,uint256 expiry)Call(address to,uint256 value,bytes data)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 15,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 7,
+   "worst": "Intent tests never decode a real nested call, a self-call, or a multichain intent.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 15,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": "Intent tests never decode a real nested call, a self-call, or a multichain intent."
+ }
+}

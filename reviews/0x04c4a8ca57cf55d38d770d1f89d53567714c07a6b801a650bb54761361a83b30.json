@@ -1,0 +1,130 @@
+{
+ "hash": "0x04c4a8ca57cf55d38d770d1f89d53567714c07a6b801a650bb54761361a83b30",
+ "file": "registry/p2p/calldata-P2pOrgUnlimitedEthDepositor.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x23be839a14cec3d6d716d904f09368bbf9c750eb"
+  },
+  {
+   "chainId": 560048,
+   "address": "0x933acc6f337489d78188cbef2141cd9d6466d07d"
+  },
+  {
+   "chainId": 560048,
+   "address": "0xf8dc5f11dc81c4f57286fa4849a15345d51a838b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addEth(bytes32 _eth2WithdrawalCredentials, uint96 _ethAmountPerValidatorInWei, address _referenceFeeDistributor, (uint96 basisPoints, address recipient) _clientConfig, (uint96 basisPoints, address recipient) _referrerConfig, bytes _extraData)",
+    "effects": [
+     "The signer sends msg.value in native ETH (at least MIN_DEPOSIT) to the depositor contract. The contract holds it until a P2P operator forwards it to the Beacon deposit contract.",
+     "The deposit is recorded under depositId = keccak(withdrawal credentials, ETH per validator, fee distributor instance). It is added to any earlier amount under that id, and the refund timer restarts for the whole amount.",
+     "Validators funded later send their principal to the withdrawal credentials address (last 20 bytes, type 0x01 or 0x02).",
+     "If no fee distributor clone exists for (reference, client config, referrer config), the factory deploys one. It splits execution-layer rewards: the client recipient gets clientConfig.basisPoints, the referrer gets referrerConfig.basisPoints and P2P keeps the rest.",
+     "The client recipient of that fee distributor (client()) gets the right to call refund after the timeout or after a rejection, and the refund goes to the client recipient."
+    ],
+    "shown": "\"Stake ETH\" with the withdrawal address, the credential type byte, the ETH per validator, the ETH sent, the reference fee distributor, the client share in bps and the client recipient; the referrer share and recipient are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "addEth hides the referrer share and recipient that the new fee distributor writes into the reward split.",
+      "evidence": "descriptor.json: '#._referrerConfig.basisPoints' and '#._referrerConfig.recipient' are visible: never. P2pOrgUnlimitedEthDepositor.sol addEth: i_feeDistributorFactory.createFeeDistributor(_referenceFeeDistributor, _clientConfig, _referrerConfig). The referrer config is also part of the fee distributor address, so it is part of depositId.",
+      "fix": "Show 'Referrer share' (unit bps or %) and 'Referrer recipient' (addressName), or at least show them when the share is non-zero.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "addEth's intent 'Stake ETH' omits the amount and that ETH waits in escrow for P2P, refundable after a timeout.",
+      "evidence": "descriptor.json: intent 'Stake ETH', interpolatedIntent null. P2pOrgUnlimitedEthDepositor.sol: the comment says ETH is 'temporarily held in this contract until P2P picks it up'. addEth only stores s_deposits[depositId] with expiration = block.timestamp + TIMEOUT. makeBeaconDeposit is a separate call by the operator.",
+      "fix": "Add interpolatedIntent such as 'Deposit {@.value} for P2P staking, withdrawals to {withdrawal address}', and consider the intent 'Deposit ETH for staking'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "addEth labels the reference template 'Fee Distributor', but rewards go to a new clone made from it.",
+      "evidence": "P2pOrgUnlimitedEthDepositor.sol addEth: feeDistributorInstance = predictFeeDistributorAddress(_referenceFeeDistributor, ...); createFeeDistributor(...) when no code exists. descriptor.json: '#._referenceFeeDistributor' labelled 'Fee Distributor'. In case 0 the reader believed 'A Fee Distributor (0x3Fcd...e9D9) is set up for rewards'.",
+      "fix": "Rename the field 'Fee distributor template' or 'Reference fee distributor'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "addEth shows the credential type as a raw byte '0x01' with no meaning attached.",
+      "evidence": "descriptor.json: '#._eth2WithdrawalCredentials.[:1]' format raw. Case 0 renders 'Credential type: 0x01'. The code accepts only 0x01 or 0x02 (addEth prefix check).",
+      "fix": "Map the byte to a label, if a format allows it ('0x01 standard', '0x02 compounding'), or explain it in the label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addEth adds the new ETH to an existing deposit under the same id and restarts the refund timer for the whole amount.",
+      "evidence": "P2pOrgUnlimitedEthDepositor.sol addEth: amount = s_deposits[depositId].amount + msg.value; expiration = block.timestamp + TIMEOUT. The earlier amount is in storage, not in calldata.",
+      "fix": "None in the descriptor; a label note could say that the refund timeout restarts.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "160 ETH left the signer to the depositor contract. 'Amount to deposit: 160 ETH' shows it, and the reader understood it right. No other signer movements in the receipt."
+     }
+    ],
+    "glance": 60,
+    "depth": 78
+   }
+  ],
+  "couldNotCheck": [
+   "FeeDistributorFactory (i_feeDistributorFactory) and the reference FeeDistributor are not in the directory. addEth calls predictFeeDistributorAddress and createFeeDistributor, which decide the reward split between client, referrer and P2P, and the client() address that holds the refund right. That code cannot be checked here."
+  ]
+ },
+ "cost": 0.276,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 113,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "addEth(bytes32 _eth2WithdrawalCredentials, uint96 _ethAmountPerValidatorInWei, address _referenceFeeDistributor, (uint96 basisPoints, address recipient) _clientConfig, (uint96 basisPoints, address recipient) _referrerConfig, bytes _extraData)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "addEth hides the referrer share and recipient that the new fee distributor writes into the reward split.",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 90,
+  "clarity": 78,
+  "functions": "1B",
+  "incomplete": true,
+  "worst": "addEth hides the referrer share and recipient that the new fee distributor writes into the reward split."
+ }
+}

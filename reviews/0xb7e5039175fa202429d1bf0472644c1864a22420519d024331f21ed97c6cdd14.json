@@ -1,0 +1,228 @@
+{
+ "hash": "0xb7e5039175fa202429d1bf0472644c1864a22420519d024331f21ed97c6cdd14",
+ "file": "registry/symbiotic/calldata-VaultV1-rstFRAX-OFT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x13aebe2c8c903493b7dc575a683992752de6b4bc"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` of rstFRAX-OFT (collateral 0xf85932…, set in the proxy init data) to the vault via safeTransferFrom, spending the signer's allowance.",
+     "The vault credits active shares for the deposited amount to `onBehalfOf`, not to the signer, when the two differ.",
+     "The deposit is slashable stake from then on, with no native value (function not payable)."
+    ],
+    "shown": "Deposit 123.25 rstFRAX-OFT for a named beneficiary into the named vault, with amount and beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the number of vault shares minted to the beneficiary.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` The value comes from storage, not calldata. Descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 92
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The vault burns the signer's active shares worth `amount` of rstFRAX-OFT, rounded up.",
+     "The vault queues `amount` of rstFRAX-OFT for the next epoch and credits the withdrawal shares to `claimer`, who may differ from the signer.",
+     "No tokens move now: `claimer` can claim only after the next epoch ends, and slashing can reduce the queued amount before then."
+    ],
+    "shown": "Request 2.5 rstFRAX-OFT withdrawal for a named claim owner from the named vault.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw shows the requested amount, but slashing can cut the amount the claimer later receives.",
+      "evidence": "Vault.sol onSlash reduces `withdrawals[currentEpoch_ + 1]`; withdrawalsOf uses `withdrawals[epoch]`. Descriptor label 'Requested assets'. The amount depends on future storage state.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 82,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The vault burns `shares` of the signer's active vault shares.",
+     "The vault queues the asset value of those shares (rstFRAX-OFT, from storage) for the next epoch and credits it to `claimer`, who may differ from the signer.",
+     "No tokens move now. The claimer claims after the next epoch, and slashing can reduce the amount."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for a named claim owner from the named vault; the shares are shown as a raw integer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem shows the vault shares as a raw 18-decimal integer in the field and the intent.",
+      "evidence": "descriptor redeem: `\"path\": \"#.shares\", \"label\": \"Vault shares (raw)\", \"format\": \"raw\"`; case 2 renders '987654321123456789'. ERC4626Math `_decimalsOffset()` returns 0, so shares use the collateral's 18 decimals.",
+      "fix": "Use `\"format\": \"unit\", \"params\": {\"base\": \"shares\", \"decimals\": 18}` for `#.shares` and keep it in interpolatedIntent as 'Queue {shares} for {claimer}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how many rstFRAX-OFT the shares are worth.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());` The value comes from storage, not calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 62
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault marks the signer's withdrawal for `epoch` as claimed.",
+     "The vault sends the signer's full withdrawal for `epoch` (rstFRAX-OFT, amount from storage) to `recipient`, who may differ from the signer."
+    ],
+    "shown": "Claim epoch 42 to a named recipient from the named vault; no asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim never names the asset sent to the recipient, which is rstFRAX-OFT.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);` descriptor intent 'Claim withdrawal', interpolatedIntent 'Claim epoch {epoch} to {recipient}'.",
+      "fix": "Change the intent to 'Claim rstFRAX-OFT withdrawal' and the interpolatedIntent to 'Claim rstFRAX-OFT of epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim does not show the amount sent, because it comes from storage.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The vault marks the signer's withdrawals for every listed epoch as claimed.",
+     "The vault sends the sum of those withdrawals (rstFRAX-OFT, amount from storage) to `recipient` in one transfer. The recipient may differ from the signer."
+    ],
+    "shown": "Claim epochs 42 and 44 and 128 to a named recipient, with each epoch listed; no asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch never names the asset sent to the recipient, which is rstFRAX-OFT.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);` descriptor intent 'Claim withdrawals', interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}'.",
+      "fix": "Change the intent to 'Claim rstFRAX-OFT withdrawals' and the interpolatedIntent to 'Claim rstFRAX-OFT of epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch does not show the total amount sent, because it comes from storage.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` with `_claim` reading `withdrawalsOf(epoch, msg.sender)`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.412,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 61,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 91,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem shows the vault shares as a raw 18-decimal integer in the field and the intent.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim never names the asset sent to the recipient, which is rstFRAX-OFT.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch never names the asset sent to the recipient, which is rstFRAX-OFT.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem shows the vault shares as a raw 18-decimal integer in the field and the intent."
+ }
+}

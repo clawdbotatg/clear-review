@@ -1,0 +1,237 @@
+{
+ "hash": "0x7f6d188851a898a4f6d20a351378be467ec4a0f59e307348577424d72303d4ab",
+ "file": "registry/morpho/calldata-unified_labs-urRWA-v2-143.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 143,
+   "address": "0x0ed3615ff949c8a34d15441970900e849a3409fc"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` USDC (the vault's asset) from the signer into the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints urRWA shares to `onBehalf`. The number is previewDeposit(assets), which comes from the vault's share price after fees accrue.",
+     "Accrues interest first, which may mint fee shares to the fee recipients and so dilute the share price used."
+    ],
+    "shown": "Deposit 1 USDC, with urRWA shares sent to the onBehalf address. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of urRWA shares minted is not shown; it comes from the on-chain share price.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` reads totalSupply/totalAssets from storage. The descriptor only shows the constant 'Share ticker' urRWA. Case 0 minted 1e18 urRWA to 0x…dEaD (signer null).",
+      "fix": "None possible from calldata. The ticker field already names the share token.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1 USDC out to the vault is shown exactly. The shares went to 0x…dEaD, not to the signer, and the screen shows that recipient."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns urRWA shares from `onBehalf`. The number is previewWithdraw(assets), rounded up from the share price.",
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "If the signer is not `onBehalf`, the signer's share allowance from `onBehalf` drops by the shares burned.",
+     "Accrues interest first, and may pull liquidity from the liquidity adapter."
+    ],
+    "shown": "Withdraw exactly 1 USDC to the receiver, from the Owner. Nothing says urRWA shares are burned.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-effect",
+      "title": "withdraw: the screen never says urRWA shares are burned from the Owner to pay for the withdrawal.",
+      "evidence": "VaultV2.sol exit: `deleteShares(onBehalf, shares);`. Case 2: 1e18 urRWA left the signer (signer out), but the screen fields are only 'Withdraw exactly 1 USDC', 'To', 'Owner'. The reader was unsure 'whether any receipt/share token is burned and how much'. The share count comes from the price (info), but the share token can be named, as the deposit format does with $.metadata.constants.vaultTicker.",
+      "fix": "Add a field 'Shares burned from' with value $.metadata.constants.vaultTicker, or relabel 'Owner' as 'Burn urRWA shares of'. The intent could read 'Withdraw {#.assets} from urRWA to {#.receiver}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDC in (1 USDC to the signer) is shown right. The urRWA burn (1e18) is not on screen. The reader guessed some claim token might leave but did not know its asset or amount."
+     }
+    ],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` urRWA from `onBehalf`.",
+     "Sends USDC to `receiver`. The amount is previewRedeem(shares), from the share price, rounded down, with no minimum.",
+     "If the signer is not `onBehalf`, the signer's share allowance from `onBehalf` drops by `shares`.",
+     "Accrues interest first, and may pull liquidity from the liquidity adapter."
+    ],
+    "shown": "Redeem N urRWA shares from the Owner to the receiver. The screen never says the payout is in USDC or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the asset received (USDC) is never named on the screen.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. Case 3: USDC in to the signer (signer in), but the fields are only 'Shares to redeem', 'To', 'Owner'. The reader was unsure 'which asset would be paid out'. The mint format already shows $.metadata.constants.underlyingTicker.",
+      "fix": "Add a field 'Receive asset' with value $.metadata.constants.underlyingTicker, and say 'for USDC' in interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received comes from the share price and has no minimum in calldata.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. No minAssets parameter exists.",
+      "fix": "None possible from the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0 urRWA burn is shown right. The USDC in (0) is not on screen. The reader expected 'likely nothing' to come back but did not know the asset."
+     }
+    ],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Pulls USDC from the signer. The amount is previewMint(shares), from the share price, rounded up. It is bounded only by the signer's allowance; there is no maximum in calldata.",
+     "Mints exactly `shares` urRWA to `onBehalf`.",
+     "Accrues interest first, which may mint fee shares; any liquidity adapter allocation follows."
+    ],
+    "shown": "Mint N urRWA for the onBehalf address, with USDC as the deposit asset. No USDC amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent sentence does not say USDC is taken from the signer to pay for the shares.",
+      "evidence": "descriptor mint: interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. The payment shows only as a raw constant field 'Deposit asset: USDC'. VaultV2.sol enter: `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets);`. Case 1: the reader was unsure 'how much USDC would be taken'.",
+      "fix": "Use an interpolatedIntent such as 'Pay USDC to mint {#.shares} for {#.onBehalf}' and an intent such as 'Deposit USDC for shares'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount pulled comes from the share price and has no cap in calldata.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares);` (mulDivUp from storage). Case 1: a USDC transfer out of the signer (amount 0) has no amount on screen.",
+      "fix": "None possible from the descriptor. A label like 'Deposit asset (amount set by share price)' would help.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 0 urRWA in to the signer is shown right. USDC out is shown by asset only, with no amount, so the reader got it partly."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.369,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 106,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 94,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the screen never says urRWA shares are burned from the Owner to pay for the withdrawal.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the asset received (USDC) is never named on the screen.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent sentence does not say USDC is taken from the signer to pay for the shares.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 73,
+  "functions": "1A 2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the asset received (USDC) is never named on the screen."
+ }
+}

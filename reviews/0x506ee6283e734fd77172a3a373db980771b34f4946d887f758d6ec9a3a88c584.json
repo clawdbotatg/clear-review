@@ -1,0 +1,202 @@
+{
+ "hash": "0x506ee6283e734fd77172a3a373db980771b34f4946d887f758d6ec9a3a88c584",
+ "file": "registry/morpho/calldata-gauntlet-gtUSDCc-42161.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42161,
+   "address": "0x7e97fa6893871a2751b5fe961978dccb2c201e65"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC (0xaf88…5831, the vault asset) from their wallet to the vault, which supplies it to Morpho markets.",
+     "The vault mints gtUSDCc shares to `receiver`. The share amount comes from the vault's exchange rate after interest accrues (floor rounding). No minimum is enforced.",
+     "The function is not payable, so no native value moves."
+    ],
+    "shown": "Intent \"Deposit\" with the USDC amount, a constant line 'Share ticker: gtUSDCc' and the share recipient. The share amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many gtUSDCc shares the receiver gets; the vault rate decides it",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0: the signer received 1e18 gtUSDCc, and no screen field states this amount.",
+      "fix": "None in the descriptor. The output comes from storage and the code enforces no minimum.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent \"Deposit\" names neither the asset nor the vault shares received",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`. A separate raw field `\"label\": \"Share ticker\", \"value\": \"$.metadata.constants.vaultTicker\"` carries the share name. The blind reader for case 0 was unsure which contract receives the USDC.",
+      "fix": "Change the intent to \"Deposit USDC for gtUSDCc shares\". Replace the 'Share ticker' field with an interpolatedIntent such as \"Deposit {assets} for gtUSDCc shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 1 USDC out correctly. The gtUSDCc shares in show the asset and the recipient but not the amount (1e18). The amount comes from the rate and has no bound."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns gtUSDCc shares from `owner`. The amount is computed with ceiling rounding from the current rate, and it is not in the calldata.",
+     "If the signer is not `owner`, the call spends the signer's gtUSDCc allowance from `owner` by that share amount.",
+     "Exactly `assets` USDC goes from the vault (withdrawn from Morpho) to `receiver`.",
+     "The function is not payable."
+    ],
+    "shown": "Intent \"Withdraw\" with 'Withdraw exactly' as the USDC amount, the recipient 'To' and 'Owner'. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many gtUSDCc shares it burns from the owner; the vault rate decides it",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 1: the vault burned 1.998944827986857042 gtUSDCc from the signer, and no screen field states this amount.",
+      "fix": "None in the descriptor. The code enforces no maximum on the shares burned.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent \"Withdraw\" does not say USDC leaves the gtUSDCc vault by burning shares",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`. The blind reader for case 1 noted that the vault and contract are not shown.",
+      "fix": "Change the intent to \"Withdraw USDC from gtUSDCc vault\". Add an interpolatedIntent such as \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows the 2 USDC received by the signer with the right asset, amount and party. The 1.9989 gtUSDCc burned is not stated anywhere. The reader inferred the direction from the intent."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtUSDCc from `owner`.",
+     "If the signer is not `owner`, the call spends the signer's gtUSDCc allowance from `owner` by `shares`.",
+     "USDC goes from the vault (withdrawn from Morpho) to `receiver`. The amount comes from the current rate with floor rounding, and no minimum is enforced.",
+     "The function is not payable."
+    ],
+    "shown": "Intent \"Redeem\" with the shares to redeem in gtUSDCc, the recipient 'To' and 'Owner'. The asset paid out (USDC) and its amount are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem never names USDC as the asset the receiver gets; the intent says only \"Redeem\"",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"`. No field references `$.metadata.constants.underlyingTicker`. Case 2: the blind reader wrote 'Which token is paid out. I'm only guessing USDC from the name.'",
+      "fix": "Change the intent to \"Redeem gtUSDCc shares for USDC\". Add an interpolatedIntent such as \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount received; the vault rate decides it and no minimum exists",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 2: the signer received 11472.767428 USDC, and no screen field states this amount.",
+      "fix": "None in the descriptor. The output comes from storage.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 11455.46 gtUSDCc out correctly. For the 11472.77 USDC in, the screen states the recipient but neither the asset nor the amount. The reader guessed USDC."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.367,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 57,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent \"Deposit\" names neither the asset nor the vault shares received",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent \"Withdraw\" does not say USDC leaves the gtUSDCc vault by burning shares",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset the receiver gets; the intent says only \"Redeem\"",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 64,
+  "functions": "3B",
+  "incomplete": false,
+  "worst": "deposit intent \"Deposit\" names neither the asset nor the vault shares received"
+ }
+}

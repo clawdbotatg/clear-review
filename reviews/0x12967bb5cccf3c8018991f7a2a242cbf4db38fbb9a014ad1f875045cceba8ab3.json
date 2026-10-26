@@ -1,0 +1,222 @@
+{
+ "hash": "0x12967bb5cccf3c8018991f7a2a242cbf4db38fbb9a014ad1f875045cceba8ab3",
+ "file": "registry/morpho/calldata-re7_labs-Re7USDA.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x89d80f5e9bc88d8021b352064ae73f0eaf79ebd8"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDA (0x0000206329…) to the vault through safeTransferFrom. This uses up the signer's earlier allowance to the vault.",
+     "The vault mints shares (Re7USDA) to `receiver`. The number of shares is floor(assets × (totalSupply+1)/(newTotalAssets+1)) after fees accrue. It comes from vault storage and has no minimum bound.",
+     "The vault supplies the USDA to Morpho Blue markets. This is internal and does not move any more of the signer's assets."
+    ],
+    "shown": "Intent 'Deposit', with the exact USDA amount, a constant 'Share ticker: Re7USDA' and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many Re7USDA shares the receiver gets; the vault rate decides it.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. Case 0: the signer received 100 Re7USDA, but the screen only shows 'Share ticker: Re7USDA'.",
+      "fix": "No descriptor change can show the amount. Relabel the constant field to 'Receive shares' so it is clear Re7USDA arrives.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit uses the label 'Share ticker' for a raw constant, which does not say that shares are received.",
+      "evidence": "descriptor deposit field: {\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}. The case 0 reader was unsure how many shares arrive.",
+      "fix": "Change the label to 'Shares received (Re7USDA)' or add an interpolatedIntent such as 'Deposit {assets} for Re7USDA shares'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "The deposit asset renders as USDA, but the mined trace names the same token agUSD.",
+      "evidence": "Case 0: the mined effect for asset 0x0000206329b97db379d5e1bf586bbdb969c63274 has symbol 'agUSD'. The screen shows '100 USDA', and the constant underlyingTicker is 'USDA'. The address is the same, so the asset is the same.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "The 100 agUSD/USDA out is shown correctly. The 100 Re7USDA in is shown only as a ticker, without an amount. The allowance spent (approval to 0) is not shown. It is a prerequisite of the deposit."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault takes USDA from the signer through safeTransferFrom. The amount is assets = ceil(shares × (newTotalAssets+1)/(totalSupply+1)). It comes from vault storage, and no maximum is in the calldata.",
+     "The vault mints exactly `shares` Re7USDA to `receiver`.",
+     "The transfer uses up the signer's allowance to the vault."
+    ],
+    "shown": "Intent 'Mint', with 'Deposit asset: USDA' (a ticker only), the exact share amount and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDA leaves the signer; the vault rate decides it and there is no maximum.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. The descriptor field 'Deposit asset' only shows the constant 'USDA'.",
+      "fix": "No calldata value carries the amount. Relabel to 'Pays USDA (amount set by vault rate)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "The mint intent 'Mint' does not say that USDA leaves the signer's wallet to pay for the shares.",
+      "evidence": "descriptor mint: \"intent\": \"Mint\". ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);`.",
+      "fix": "Change the intent to 'Deposit USDA to mint Re7USDA shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault sends exactly `assets` USDA to `receiver`.",
+     "The vault burns shares from `owner`. The number is ceil(assets × (totalSupply+1)/(newTotalAssets+1)) and comes from vault storage.",
+     "If the signer is not `owner`, the call spends that many shares of owner's share allowance to the signer."
+    ],
+    "shown": "Intent 'Withdraw', with 'Withdraw exactly' showing the USDA amount, plus 'To' (receiver) and 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many Re7USDA shares the call burns from the owner.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` and ERC4626._withdraw: `_burn(owner, shares);`.",
+      "fix": "No descriptor change can show it. Add an interpolatedIntent such as 'Withdraw {assets} to {receiver} by burning shares of {owner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` Re7USDA from `owner`. If the signer is not owner, this spends owner's share allowance to the signer.",
+     "The vault sends USDA to `receiver`. The amount is floor(shares × (newTotalAssets+1)/(totalSupply+1)). It comes from vault storage and has no minimum bound."
+    ],
+    "shown": "Intent 'Redeem', with 'Shares to redeem' (the share amount in Re7USDA), 'To' and 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDA amount the receiver gets; the vault rate decides it and there is no minimum.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` and ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);`.",
+      "fix": "Add a constant field 'Receive asset: USDA' as in mint, or change the intent to 'Redeem Re7USDA shares for USDA'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "The redeem screen does not name USDA as the asset that arrives.",
+      "evidence": "descriptor redeem: \"intent\": \"Redeem\". Its fields are only shares, receiver and owner. No field or constant names the underlying token.",
+      "fix": "Change the intent to 'Redeem Re7USDA shares for USDA'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.369,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 77,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 56,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The mint intent 'Mint' does not say that USDA leaves the signer's wallet to pay for the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The redeem screen does not name USDA as the asset that arrives.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 49,
+  "functions": "4C",
+  "incomplete": false,
+  "worst": null
+ }
+}

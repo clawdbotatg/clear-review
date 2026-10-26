@@ -1,0 +1,229 @@
+{
+ "hash": "0xa9d4c697cc280e2906f1a50455e9fb8f165570371a9ded38d392539a7005e18e",
+ "file": "registry/symbiotic/calldata-VaultV1Tokenized-wBETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x81bb35c4152b605574babd320f8eabe2871ce8c6"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` wBETH (collateral 0xa2E3…e2e1) to the vault through transferFrom, which uses the signer's wBETH allowance to the vault.",
+     "The vault mints vault shares (gtrwBETH) to `onBehalfOf`, not to the signer. The share count comes from the vault's stake and share totals."
+    ],
+    "shown": "Deposit 123.25 wBETH for the beneficiary address, with the vault, the wBETH amount and the beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many gtrwBETH shares the beneficiary receives; the vault's totals decide the count.",
+      "evidence": "Vault.deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...)`. The descriptor has no field for the shares minted.",
+      "fix": "No fix in the descriptor. You can change the label of `onBehalfOf` to 'Shares receiver' so the signer knows who gets the shares.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The vault burns the signer's gtrwBETH shares. The count is previewWithdraw(amount), rounded up, and the vault's totals decide it.",
+     "The vault queues `amount` wBETH for withdrawal in the next epoch. `claimer` owns the claim, not the signer.",
+     "A slash before the epoch ends can reduce the queued wBETH, so the claimer can receive less than `amount`."
+    ],
+    "shown": "Request 2.5 wBETH withdrawal for the claim owner, with the vault, the requested wBETH and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares it burns, and slashing can cut the requested wBETH.",
+      "evidence": "Vault.withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());`. Vault.onSlash reduces `withdrawals[currentEpoch_ + 1]`. The descriptor shows only 'Requested assets'.",
+      "fix": "Change the label of `amount` to 'Requested assets (before slashing)' or similar. The burned share count cannot be shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 78
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The vault burns `shares` gtrwBETH from the signer's balance.",
+     "The vault queues previewRedeem(shares) wBETH for withdrawal in the next epoch. `claimer` owns the claim.",
+     "A slash before the epoch ends can reduce the queued wBETH."
+    ],
+    "shown": "Queue 0.98 gtrwBETH for the claim owner, with the vault, the vault shares (as gtrwBETH) and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the wBETH amount queued for the claimer; the vault price decides it.",
+      "evidence": "Vault.redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`. The descriptor shows only `#.shares`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem intent 'Queue share withdrawal' does not say it burns the signer's shares for wBETH.",
+      "evidence": "descriptor redeem: intent \"Queue share withdrawal\", interpolatedIntent \"Queue {shares} for {claimer}\". Vault._withdraw burns `burnedShares` of msg.sender.",
+      "fix": "Set intent to \"Redeem shares for wBETH\" and interpolatedIntent to \"Redeem {shares} for wBETH, claimable by {claimer}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 78
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault sends the signer's whole withdrawal for `epoch` in wBETH to `recipient`. The amount is withdrawalsOf(epoch, signer), read from storage.",
+     "The vault marks the signer's claim for `epoch` as used."
+    ],
+    "shown": "Claim epoch 42 to the recipient. Fields show the vault, the raw epoch and the recipient, but no asset and no amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim never names the asset; the signer does not see that the recipient receives wBETH.",
+      "evidence": "Vault.claim: `IERC20(collateral).safeTransfer(recipient, amount);`. The descriptor claim intent is \"Claim withdrawal\" and has no field with a token.",
+      "fix": "Set intent to \"Claim wBETH withdrawal\" and interpolatedIntent to \"Claim wBETH of epoch {epoch} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim amount comes from storage, so the screen cannot show how much wBETH leaves.",
+      "evidence": "Vault._claim: `amount = withdrawalsOf(epoch, msg.sender);`. The calldata has no amount.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The vault sends the sum of the signer's withdrawals for every listed epoch in wBETH to `recipient`. The amount comes from storage.",
+     "The vault marks the signer's claim for each listed epoch as used."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient. Fields show the vault, each raw epoch and the recipient, but no asset and no amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimBatch never names the asset; the signer does not see that the recipient receives wBETH.",
+      "evidence": "Vault.claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);`. The descriptor intent is \"Claim withdrawals\" and has no field with a token.",
+      "fix": "Set intent to \"Claim wBETH withdrawals\" and interpolatedIntent to \"Claim wBETH of epochs {epochs.[]} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch total comes from storage, so the screen cannot show how much wBETH leaves.",
+      "evidence": "Vault.claimBatch: `amount += _claim(epochs[i]);`, and _claim reads `withdrawalsOf(epoch, msg.sender)`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.451,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 67,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem intent 'Queue share withdrawal' does not say it burns the signer's shares for wBETH.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim never names the asset; the signer does not see that the recipient receives wBETH.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch never names the asset; the signer does not see that the recipient receives wBETH.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 70,
+  "functions": "1A 2B 2C",
+  "incomplete": false,
+  "worst": "claim never names the asset; the signer does not see that the recipient receives wBETH."
+ }
+}

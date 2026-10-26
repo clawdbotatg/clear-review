@@ -1,0 +1,199 @@
+{
+ "hash": "0x49a6a52253fba683b7314a2238ae29e7b293b36b0b2a9bc814fc4fcdaa4ccabd",
+ "file": "registry/morpho/calldata-gauntlet-compUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 137,
+   "address": "0x781fb7f6d845e3be129289833b04d43aa8558c42"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC (0x3c499c…3359) to the vault through safeTransferFrom, which spends the signer's USDC allowance to the vault.",
+     "The vault mints compUSDC shares to `receiver`. The number of shares comes from the exchange rate after interest accrual, rounded down, and has no minimum.",
+     "The vault supplies the USDC to Morpho Blue markets. This changes nothing else for the signer."
+    ],
+    "shown": "Intent 'Deposit', the USDC amount, a constant 'Share ticker: compUSDC' line, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many compUSDC shares the receiver gets, and no minimum exists.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. No calldata parameter holds the share amount. In case 0 the signer received 3 compUSDC (3e18), and no field shows this amount.",
+      "fix": "No descriptor change can show the minted amount. Add 'shares at the current vault rate' to the label or intent so the signer knows the amount is set by the vault.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit labels the amount 'Deposit asset' and shows a constant 'Share ticker' line instead of saying what the signer receives.",
+      "evidence": "descriptor deposit format: field `assets` label \"Deposit asset\" (an amount, not an asset), plus field {\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}. The intent \"Deposit\" does not name the vault or the shares. The case 0 reader was unsure how many shares they would get and which contract received the USDC.",
+      "fix": "Rename the `assets` label to \"Amount to deposit\". Replace the 'Share ticker' line with intent \"Deposit USDC for compUSDC shares\". Add interpolatedIntent \"Deposit {assets} for compUSDC shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows 3 USDC out correctly. The screen shows compUSDC shares going to the signer, but not the amount (3e18 minted). The reader got the direction and the asset right but not the amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 72
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns compUSDC shares from `owner`. The number comes from the exchange rate, rounded up, and has no maximum in the calldata.",
+     "When the signer is not `owner`, the call spends the signer's compUSDC allowance from `owner` by the number of shares burned.",
+     "The vault sends exactly `assets` USDC to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', 'Withdraw exactly' with the USDC amount, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many compUSDC shares the call burns from the owner, and no maximum exists.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` then ERC4626._withdraw `_burn(owner, shares);`. In case 1, 0.999191938068945793 compUSDC left the signer, and no field shows this amount.",
+      "fix": "No descriptor change can show the burned amount. Change the owner label so that it says shares are burned from this address.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw labels `owner` as 'Owner' without saying that the call burns compUSDC shares from that address.",
+      "evidence": "descriptor withdraw format: field `owner` label \"Owner\". ERC4626._withdraw: `if (caller != owner) { _spendAllowance(owner, caller, shares); } _burn(owner, shares);`. The intent \"Withdraw\" names neither the vault nor the shares.",
+      "fix": "Change the `owner` label to \"Burn compUSDC shares from\". Change the intent to \"Withdraw USDC from compUSDC vault\". Add interpolatedIntent \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows 1 USDC in to the signer correctly. It does not show the 0.999 compUSDC burned. The reader inferred that vault shares leave but did not know how many."
+     }
+    ],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` compUSDC from `owner`. When the signer is not `owner`, this spends the signer's allowance from `owner`.",
+     "The vault sends USDC to `receiver`. The amount comes from the exchange rate, rounded down, and has no minimum."
+    ],
+    "shown": "Intent 'Redeem', the compUSDC share amount (token from @.to), the receiver and the owner. No output token or amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount the receiver gets, and no minimum exists.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` then `SafeERC20.safeTransfer(_asset, receiver, assets)`. In case 2 the signer received 18.989183 USDC, and no field shows this amount.",
+      "fix": "No descriptor change can show the output amount. Name USDC as the output in the intent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem intent 'Redeem' never says that USDC is paid out, so the reader guesses the output token.",
+      "evidence": "descriptor redeem format: intent \"Redeem\", fields `shares`, `receiver`, `owner` only. The case 2 reader was unsure which token is paid out and said 'I assume USDC from the name'. The `owner` label \"Owner\" also does not say that shares are burned from it.",
+      "fix": "Change the intent to \"Redeem compUSDC shares for USDC\". Change the `owner` label to \"Burn shares from\". Add interpolatedIntent \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows 18.976 compUSDC out correctly. It names neither the USDC output nor its amount (18.989183). The reader guessed the asset and did not know the amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.404,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit labels the amount 'Deposit asset' and shows a constant 'Share ticker' line instead of saying what the signer receives.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw labels `owner` as 'Owner' without saying that the call burns compUSDC shares from that address.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem intent 'Redeem' never says that USDC is paid out, so the reader guesses the output token.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 64,
+  "functions": "3B",
+  "incomplete": false,
+  "worst": "deposit labels the amount 'Deposit asset' and shows a constant 'Share ticker' line instead of saying what the signer receives."
+ }
+}

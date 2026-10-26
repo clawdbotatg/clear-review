@@ -1,0 +1,135 @@
+{
+ "hash": "0x0f7b3b148e4d71926a25fd4b470c67c1d7ee336c3502fd4131fbc35580f08754",
+ "file": "registry/symbiotic/eip712-Reactor.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xc323b898d7e4105e3980082b74cc5d4602996b10"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Request(address tokenIn,uint256 amountIn,Output[] outputs,uint256 deadline,uint256 nonce,address protocol)Output(address token,uint256 amount,address recipient)",
+    "effects": [
+     "When an order built on this request is filled, exactly amountIn of tokenIn is pulled from the signer (swapper) by Reactor through an existing ERC-20 allowance and sent to the LiquidLane adapter(s) the filler picks.",
+     "Each output recipient gets at least outputs[i].amount of outputs[i].token (zero address = native ETH), paid by the filler. The amount is whatever the protocol-signed Order says, as long as it is at least the request minimum.",
+     "The signer's request nonce is marked used, so this request can be filled only once.",
+     "The request is only valid until the deadline and only through an Order signed by the named protocol signer, which also picks the filler."
+    ],
+    "shown": "\"Swap {amountIn} for at least {outputs}\", plus fields for input token, exact input, each minimum output paired with its recipient, deadline, nonce and protocol signer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Request: the intent sentence leaves out the output recipients, who may not be the signer.",
+      "evidence": "descriptor interpolatedIntent \"Swap {amountIn} for at least {outputs.[].amount}\". Reactor.sol _fill sends each output to order.outputs[i].recipient (safeTransferFrom(msg.sender, order.outputs[i].recipient, ...) / sendValue). Cases 1 and 3 send outputs to two different recipients (e.g. 0.05 ETH to 0x8594…41E9). The recipients only appear as 'Output recipient' fields.",
+      "fix": "Add the recipient to the sentence, e.g. \"Swap {amountIn} for at least {outputs.[].amount} to {outputs.[].recipient}\", or say \"sent to the listed recipients\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Request: the adapters that receive the signer's input are picked at fill time and are not in the message.",
+      "evidence": "Reactor.sol _fill: IERC20(order.request.tokenIn).safeTransferFrom(order.swapper, swapInputs[i].adapter, swapInputs[i].swap.amountIn). The adapter comes from the filler's calldata and is only checked against IRegistry(LIQUID_LANE_ADAPTER_FACTORY).isEntity.",
+      "fix": "None possible in the descriptor. A short note that the input goes to registered LiquidLane adapters would help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Request: the 'Input token' field shows a raw address that 'Exact input' already names by symbol.",
+      "evidence": "Field #.tokenIn uses addressName with sources local/ens, and case 0 renders it as 0xC26A6Fa2C37b38E549a4a1807543801Db684f99C, while 'Exact input' shows '1 AA_FalconXUSDC'.",
+      "fix": "Fine to keep it for verification. Otherwise drop it, or rely on the tokenAmount rendering.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 85
+   },
+   {
+    "key": "Order(Request request,bytes swapperSignature,address swapper,address filler,Output[] outputs)Output(address token,uint256 amount,address recipient)Request(address tokenIn,uint256 amountIn,Output[] outputs,uint256 deadline,uint256 nonce,address protocol)",
+    "effects": [
+     "The signer is the protocol signer. Signing lets exactly one filler address call Reactor.fill to settle the swapper's signed request. None of the signer's own assets move.",
+     "The fill pulls exactly request.amountIn of request.tokenIn from the swapper and sends it to adapters.",
+     "The filler must deliver exactly order.outputs[i].amount of each output token to each recipient. Token, recipient and order must match the request, and each amount must be at least the request minimum.",
+     "Any ETH left in Reactor after the fill goes back to the filler. Signing also binds the hash of the swapper's signature and uses up the swapper's nonce."
+    ],
+    "shown": "\"Authorize {filler} to swap {request.amountIn} for {outputs} (minimum {request outputs})\", plus fields for swapper, filler, input token and amount, request minimums with recipients, deadline, nonce, protocol signer, and authorized outputs with recipients. The swapper signature is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Order: the intent sentence does not say whose tokens the filler swaps or who receives the outputs.",
+      "evidence": "interpolatedIntent \"Authorize {filler} to swap {request.amountIn} for {outputs.[].amount} (minimum ...)\". Reactor.sol _fill pulls the input from order.swapper and pays outputs to order.outputs[i].recipient. In case 4 the swapper is 0x2ED2…384C and the recipients are 0xd560…Ab5b and 0x8594…41E9. These appear only as fields.",
+      "fix": "Use e.g. \"Authorize {filler} to swap {request.amountIn} from {swapper} for {outputs.[].amount} to {outputs.[].recipient} (minimum ...)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Order: the adapters that receive the swapper's input are not in the signed message.",
+      "evidence": "Reactor.sol _fill: safeTransferFrom(order.swapper, swapInputs[i].adapter, ...). The adapter comes from fill calldata and is checked only by IRegistry.isEntity.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 88
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.361,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 60,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "Request(address tokenIn,uint256 amountIn,Output[] outputs,uint256 deadline,uint256 nonce,address protocol)Output(address token,uint256 amount,address recipient)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "Request: the intent sentence leaves out the output recipients, who may not be the signer.",
+   "comprehension": null
+  },
+  "Order(Request request,bytes swapperSignature,address swapper,address filler,Output[] outputs)Output(address token,uint256 amount,address recipient)Request(address tokenIn,uint256 amountIn,Output[] outputs,uint256 deadline,uint256 nonce,address protocol)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "Order: the intent sentence does not say whose tokens the filler swaps or who receives the outputs.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 76,
+  "functions": "2B",
+  "incomplete": false,
+  "worst": "Request: the intent sentence leaves out the output recipients, who may not be the signer."
+ }
+}

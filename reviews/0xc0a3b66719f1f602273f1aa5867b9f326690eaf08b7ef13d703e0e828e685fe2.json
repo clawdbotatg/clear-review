@@ -1,0 +1,97 @@
+{
+ "hash": "0xc0a3b66719f1f602273f1aa5867b9f326690eaf08b7ef13d703e0e828e685fe2",
+ "file": "registry/threshold/calldata-L2BitcoinRedeemer.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xe931f1ac6b00400e1dad153e184afee164d2d88b"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xd7cd996a47b3293d4fec2dbcf49692370334d9b7"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "requestRedemption(uint256 amount, uint16 recipientChain, bytes redeemerOutputScript, uint32 nonce)",
+    "effects": [
+     "The signer sends `amount` of L2 tBTC to the redeemer contract, rounded down to a multiple of 1e10 wei (8 decimals); the dust stays in the signer's wallet.",
+     "The call spends the signer's tBTC allowance to the redeemer contract by the rounded amount.",
+     "The signer sends all native ETH (msg.value) to the L2 Wormhole gateway as the Wormhole message fee.",
+     "The gateway burns the tBTC and sends a Wormhole transfer with the BTC output script as payload to the L1 BTC redeemer stored in the contract; BTC goes later to the given Bitcoin output script, after L1 redemption fees."
+    ],
+    "shown": "The screen says 'Redeem L2 tBTC to Bitcoin' and shows the tBTC amount, the recipient chain (Ethereum), the Bitcoin output script as raw hex, the nonce, and the ETH message fee.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "requestRedemption shows the Bitcoin recipient only as a raw output script in hex.",
+      "evidence": "Descriptor field `redeemerOutputScript` 'BTC output script' format raw; case 0 renders '0x1600143bde42dcca7a1b985b7d2272ddce5b66d113feab' (length prefix + P2WPKH script). L2BTCRedeemerWormhole.requestRedemption only checks the script with `extractHashAt`.",
+      "fix": "No ERC-7730 format decodes a Bitcoin script into an address today. Keep the field and consider a label such as 'BTC recipient (output script)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "requestRedemption takes the amount rounded down to 8 decimals, so up to 1e-8 tBTC less than shown.",
+      "evidence": "L2BTCRedeemerWormhole.requestRedemption: `amount = WormholeUtils.normalize(amount);` then `tbtc.safeTransferFrom(msg.sender, address(this), amount);`; Wormhole.normalize: `amount /= 10**10; amount *= 10**10;`. Descriptor shows `amount` with decimals 18.",
+      "fix": "Optionally label the field 'Amount (rounded down to 8 decimals)'. The signer never sends more than shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "requestRedemption intent names the final BTC payout, but BTC arrives later, after L1 fees.",
+      "evidence": "Intent 'Redeem L2 tBTC to Bitcoin'. Code only burns tBTC through `gateway.sendTbtcWithPayloadToNativeChain{value: msg.value}(amount, recipientChain, l1BtcRedeemerWormholeAddress, nonce, redeemerOutputScript)`; the L1 redeemer (storage value) finishes the redemption.",
+      "fix": "Optionally change the intent to 'Request tBTC redemption to Bitcoin'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 72
+   }
+  ],
+  "couldNotCheck": [
+   "L2WormholeGateway.sendTbtcWithPayloadToNativeChain (gateway 0x09959798b95d00a3183d20fac298e4594e599eab on Base) is not in the directory. It burns the signer's tBTC and routes the Wormhole transfer by `recipientChain`, so I could not check how a recipientChain other than 2 is handled or how msg.value is used."
+  ]
+ },
+ "cost": 0.311,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 59,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "requestRedemption(uint256 amount, uint16 recipientChain, bytes redeemerOutputScript, uint32 nonce)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 74,
+  "functions": "1B",
+  "incomplete": true,
+  "worst": null
+ }
+}

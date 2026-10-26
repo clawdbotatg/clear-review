@@ -1,0 +1,1053 @@
+{
+ "hash": "0x81360493cd41b89f72494f4d6b17e921f4e976032fe2c2e56f1552a313293ffa",
+ "file": "registry/1inch/calldata-AggregationRouterV6.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 10,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 56,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 100,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 137,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 146,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 250,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 8217,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 59144,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 1313161554,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "permitAndCall(bytes permit, bytes action)",
+    "effects": [
+     "Calls permit on the token in the first 20 bytes of `permit`, which sets an allowance from the signer to the router; the amount comes from the permit data and can be unlimited.",
+     "Delegatecalls the router itself with `action`, so the inner swap or fill runs with the signer as msg.sender and with the same msg.value.",
+     "Any native value sent with the call is spent by the inner action (for example ethUnoswap or a swap from ETH)."
+    ],
+    "shown": "\"Execute with permit\" and the inner action decoded as a nested screen; the permit (token, spender, amount, deadline) and the native value are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "permitAndCall is payable and the inner delegatecall spends msg.value, but no field shows the native value.",
+      "evidence": "PermitAndCall.permitAndCall: `function permitAndCall(bytes calldata permit, bytes calldata action) external payable` ... `delegatecall(gas(), address(), ptr, action.length, 0, 0)` keeps msg.value. Descriptor permitAndCall fields: only `action` (calldata, calleePath @.to, no amountPath) and `permit` (visible never). No `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Amount to Send\",\"format\":\"amount\"} and set \"amountPath\": \"@.value\" in the calldata params so the nested screen gets the value.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "permitAndCall hides the permit, which can give the router an unlimited allowance that lasts after the swap.",
+      "evidence": "tryPermit(token, msg.sender, address(this), permit) in AggregationRouterV6.mainnet.sol; descriptor `{\"label\":\"Permit\",\"path\":\"permit\",\"visible\":\"never\"}`. In case 10 the permit value is 0xffff…ffff for cbBTC, which is an unlimited allowance.",
+      "fix": "Show the permit token (the first 20 bytes of `permit`) as a token field. Change the intent to \"Approve router and swap\" so the allowance is stated.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "permitAndCall intent \"Execute with permit\" does not say that a swap or an order fill runs.",
+      "evidence": "descriptor permitAndCall `\"intent\": \"Execute with permit\"`; the field label says \"Swap\" even when `action` is a fill or a cancel.",
+      "fix": "Use the intent \"Approve and execute\" and label the nested field \"Action\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 45
+   },
+   {
+    "key": "swap(address executor, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags) desc, bytes data)",
+    "effects": [
+     "Takes desc.amount of desc.srcToken from the signer and sends it to desc.srcReceiver; when srcToken is ETH, msg.value must equal desc.amount.",
+     "When the _REQUIRES_EXTRA_ETH flag is set, msg.value can be more than desc.amount (or non-zero for a token source); the executor receives all of it.",
+     "Sends at least desc.minReturnAmount of desc.dstToken to desc.dstReceiver, or to the signer when dstReceiver is zero.",
+     "With the _PARTIAL_FILL flag, it refunds the unspent source tokens and scales the minimum down in proportion to the amount spent."
+    ],
+    "shown": "\"Swap\" with the amount to send in srcToken, the minimum to receive in dstToken, and the beneficiary; the executor, srcReceiver, flags, data and msg.value are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swap is payable, and with the extra-ETH flag the native value is more than the amount shown; no field shows it.",
+      "evidence": "GenericRouter.swap: `if (desc.flags & _REQUIRES_EXTRA_ETH != 0) { if (msg.value <= (srcETH ? desc.amount : 0)) revert ...}`; _execute forwards `callvalue()` to the executor. Descriptor swap has no `@.value` field and `desc.flags` is visible never.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap shows the zero dstReceiver as 0x000…0, but the code then pays the signer.",
+      "evidence": "GenericRouter.swap: `address payable dstReceiver = (desc.dstReceiver == address(0)) ? payable(msg.sender) : desc.dstReceiver;` Descriptor field desc.dstReceiver uses the beneficiary definition (addressName) and has no senderAddress.",
+      "fix": "Add \"params\": {\"senderAddress\": \"$.metadata.constants.addressAsNull\"} to the desc.dstReceiver field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "swap hides the partial-fill flag, which lowers the minimum received in proportion to the amount spent.",
+      "evidence": "GenericRouter.swap: `if (desc.flags & _PARTIAL_FILL != 0) { ... spentAmount -= unspentAmount; srcToken.uniTransfer(payable(msg.sender), unspentAmount); }`; `desc.flags` is visible never.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swap intent \"Swap\" names no tokens; there is no interpolatedIntent.",
+      "evidence": "descriptor swap `\"intent\": \"Swap\"`.",
+      "fix": "Add an interpolatedIntent: \"Swap {desc.amount} for at least {desc.minReturnAmount}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 70
+   },
+   {
+    "key": "unoswap(uint256 token, uint256 amount, uint256 minReturn, uint256 dex)",
+    "effects": [
+     "Takes `amount` of `token` from the signer and sends it to the pool or the router.",
+     "Sends at least `minReturn` of the pool's output token to the signer; when the unwrap flag in `dex` is set, the output is ETH."
+    ],
+    "shown": "\"Swap\" with the amount to send in the input token, a raw minimum to receive with no token, the signer as beneficiary, and the pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unoswap shows the minimum to receive as a raw integer; the pool decides the output token.",
+      "evidence": "descriptor unoswap field `minReturn` uses minReceiveAmount with no tokenPath; case 6 shows \"Minimum to Receive: 1099406466248680\". The output token comes from the pool in `dex` (ProtocolLib flags, _unoswapV2/V3), not from calldata.",
+      "fix": "Change the label to \"Minimum to receive (raw units)\" so nobody reads it as whole tokens.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "unoswap intent \"Swap\" names no assets; there is no interpolatedIntent.",
+      "evidence": "descriptor unoswap `\"intent\": \"Swap\"`.",
+      "fix": "Add an interpolatedIntent: \"Swap {amount}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   },
+   {
+    "key": "unoswap2(uint256 token, uint256 amount, uint256 minReturn, uint256 dex, uint256 dex2)",
+    "effects": [
+     "Takes `amount` of `token` from the signer.",
+     "Routes through two pools and sends at least `minReturn` of the last pool's output token (ETH when the unwrap flag is set) to the signer."
+    ],
+    "shown": "\"Swap\" with the input amount and token, a raw minimum to receive, the signer as beneficiary and the last pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unoswap2 shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor unoswap2 field `minReturn` has no tokenPath; case 5 shows \"Minimum to Receive: 13582295361458354312958\". The output token comes from pool dex2.",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   },
+   {
+    "key": "unoswap3(uint256 token, uint256 amount, uint256 minReturn, uint256 dex, uint256 dex2, uint256 dex3)",
+    "effects": [
+     "Takes `amount` of `token` from the signer.",
+     "Routes through three pools and sends at least `minReturn` of the last pool's output token (ETH when the unwrap flag is set) to the signer."
+    ],
+    "shown": "\"Swap\" with the input amount and token, a raw minimum to receive, the signer as beneficiary and the last pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unoswap3 shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor unoswap3 field `minReturn` has no tokenPath; _unoswapTo3 takes the output token from pool dex3.",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   },
+   {
+    "key": "unoswapTo(uint256 to, uint256 token, uint256 amount, uint256 minReturn, uint256 dex)",
+    "effects": [
+     "Takes `amount` of `token` from the signer.",
+     "Sends at least `minReturn` of the pool's output token to `to`."
+    ],
+    "shown": "\"Swap\" with the input amount and token, a raw minimum to receive, the beneficiary `to`, and the pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unoswapTo shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor unoswapTo field `minReturn` has no tokenPath; case 0 shows \"Minimum to Receive: 2105045649\".",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "unoswapTo intent \"Swap\" does not say that the output goes to another address.",
+      "evidence": "descriptor unoswapTo `\"intent\": \"Swap\"`; the code sends the output to `to.get()`.",
+      "fix": "Add an interpolatedIntent: \"Swap {amount} and send to {to}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "unoswapTo2(uint256 to, uint256 token, uint256 amount, uint256 minReturn, uint256 dex, uint256 dex2)",
+    "effects": [
+     "Takes `amount` of `token` from the signer.",
+     "Sends at least `minReturn` of the output token of the second pool to `to`."
+    ],
+    "shown": "\"Swap\" with the input amount, a raw minimum to receive, the beneficiary `to`, and the last pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unoswapTo2 shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor unoswapTo2 field `minReturn` has no tokenPath.",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "unoswapTo3(uint256 to, uint256 token, uint256 amount, uint256 minReturn, uint256 dex, uint256 dex2, uint256 dex3)",
+    "effects": [
+     "Takes `amount` of `token` from the signer.",
+     "Sends at least `minReturn` of the output token of the third pool to `to`."
+    ],
+    "shown": "\"Swap\" with the input amount, a raw minimum to receive, the beneficiary `to`, and the last pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unoswapTo3 shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor unoswapTo3 field `minReturn` has no tokenPath; case 9 shows \"Minimum to Receive: 2044931029\".",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "ethUnoswap(uint256 minReturn, uint256 dex)",
+    "effects": [
+     "Takes msg.value in ETH from the signer and wraps it to WETH for the pool.",
+     "Sends at least `minReturn` of the pool's output token to the signer."
+    ],
+    "shown": "\"Swap\" with the ETH sent, a raw minimum to receive, the signer as beneficiary and the pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "ethUnoswap shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor ethUnoswap field `minReturn` has no tokenPath; case 2 shows \"Minimum to Receive: 1845685323878608\".",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "ethUnoswap2(uint256 minReturn, uint256 dex, uint256 dex2)",
+    "effects": [
+     "Takes msg.value in ETH from the signer.",
+     "Sends at least `minReturn` of the output token of the second pool to the signer."
+    ],
+    "shown": "\"Swap\" with the ETH sent, a raw minimum to receive, the signer as beneficiary and the last pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "ethUnoswap2 shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor ethUnoswap2 field `minReturn` has no tokenPath; case 4 shows \"Minimum to Receive: 100985178551934453632\".",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "ethUnoswap3(uint256 minReturn, uint256 dex, uint256 dex2, uint256 dex3)",
+    "effects": [
+     "Takes msg.value in ETH from the signer.",
+     "Sends at least `minReturn` of the output token of the third pool to the signer."
+    ],
+    "shown": "\"Swap\" with the ETH sent, a raw minimum to receive, the signer as beneficiary and the last pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "ethUnoswap3 shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor ethUnoswap3 field `minReturn` has no tokenPath.",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "ethUnoswapTo(uint256 to, uint256 minReturn, uint256 dex)",
+    "effects": [
+     "Takes msg.value in ETH from the signer.",
+     "Sends at least `minReturn` of the pool's output token to `to`."
+    ],
+    "shown": "\"Swap\" with the ETH sent, a raw minimum to receive, the beneficiary `to` and the pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "ethUnoswapTo shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor ethUnoswapTo field `minReturn` has no tokenPath.",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "ethUnoswapTo2(uint256 to, uint256 minReturn, uint256 dex, uint256 dex2)",
+    "effects": [
+     "Takes msg.value in ETH from the signer.",
+     "Sends at least `minReturn` of the output token of the second pool to `to`."
+    ],
+    "shown": "\"Swap\" with the ETH sent, a raw minimum to receive, the beneficiary `to` and the last pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "ethUnoswapTo2 shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor ethUnoswapTo2 field `minReturn` has no tokenPath.",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "ethUnoswapTo3(uint256 to, uint256 minReturn, uint256 dex, uint256 dex2, uint256 dex3)",
+    "effects": [
+     "Takes msg.value in ETH from the signer.",
+     "Sends at least `minReturn` of the output token of the third pool to `to`."
+    ],
+    "shown": "\"Swap\" with the ETH sent, a raw minimum to receive, the beneficiary `to` and the last pool.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "ethUnoswapTo3 shows the minimum to receive as a raw integer with no output token.",
+      "evidence": "descriptor ethUnoswapTo3 field `minReturn` has no tokenPath.",
+      "fix": "Label the field \"Minimum to receive (raw units)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "cancelOrder(uint256 makerTraits, bytes32 orderHash)",
+    "effects": [
+     "When makerTraits uses the bit invalidator, it invalidates the signer's nonce from makerTraits; this cancels every order that uses that nonce, and orderHash is ignored.",
+     "Otherwise it marks orderHash as fully filled for the signer, which cancels that one order."
+    ],
+    "shown": "\"Cancel limit orders\" with the order hash in raw form; makerTraits is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "hidden-value",
+      "title": "cancelOrder shows the order hash, but in bit-invalidator mode the hidden nonce in makerTraits decides what is cancelled.",
+      "evidence": "cancelOrder: `if (makerTraits.useBitInvalidator()) { _bitInvalidator[msg.sender].massInvalidate(makerTraits.nonceOrEpoch(), 0); } else { _remainingInvalidator[msg.sender][orderHash] = ...fullyFilled(); }`; descriptor `makerTraits` is visible never.",
+      "fix": "Show the nonce from makerTraits (a byte slice of the nonce/epoch bits) with the label \"Nonce (bit-invalidated orders)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "cancelOrder shows only the order hash, so the order's assets and amounts are not visible.",
+      "evidence": "descriptor cancelOrder field `orderHash` format raw.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 45
+   },
+   {
+    "key": "cancelOrders(uint256[] makerTraits, bytes32[] orderHashes)",
+    "effects": [
+     "For each pair, it either invalidates the signer's nonce from makerTraits (bit-invalidator mode) or marks the order hash as fully filled."
+    ],
+    "shown": "\"Cancel limit orders\" with the list of order hashes in raw form; makerTraits is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "hidden-value",
+      "title": "cancelOrders shows order hashes, but for bit-invalidator orders the hidden makerTraits nonces decide what is cancelled.",
+      "evidence": "cancelOrders loops `cancelOrder(makerTraits[i], orderHashes[i])`; cancelOrder ignores orderHash when useBitInvalidator(). Descriptor `makerTraits` is visible never.",
+      "fix": "Show the nonce slice of `makerTraits.[]` next to `orderHashes.[]`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "cancelOrders shows only order hashes, so the terms of each order are not visible.",
+      "evidence": "descriptor cancelOrders field `orderHashes.[]` format raw.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 40
+   },
+   {
+    "key": "increaseEpoch(uint96 series)",
+    "effects": [
+     "Increases the signer's epoch for one `series` by 1. This cancels only the signer's epoch-checked orders in that series; bit-invalidator orders and orders in other series stay fillable."
+    ],
+    "shown": "\"Cancel all limit orders\" with the signer's address as \"Orders maker\"; the series is hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "increaseEpoch says \"Cancel all limit orders\" but cancels only epoch-checked orders of one hidden series.",
+      "evidence": "advanceEpoch: `uint256 key = uint160(msg.sender) | (uint256(series) << 160); _epochs[key] = _epochs[key] + amount;` _fill checks the epoch only when `order.makerTraits.needCheckEpochManager()`. Descriptor `\"intent\": \"Cancel all limit orders\"`, `series` visible never.",
+      "fix": "Change the intent to \"Cancel orders of one series\" and show `series` with the label \"Order series\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "increaseEpoch shows the signer's own address in raw form, which tells the signer nothing.",
+      "evidence": "descriptor increaseEpoch field `@.from` label \"Orders maker\" format raw.",
+      "fix": "Replace the field with `series`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 25
+   },
+   {
+    "key": "fillContractOrder((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes signature, uint256 amount, uint256 takerTraits)",
+    "effects": [
+     "When the maker-amount flag (takerTraits bit 255) is not set, the signer sends `amount` (or less) of takerAsset to the order receiver and receives makerAsset in proportion.",
+     "When the maker-amount flag is set, `amount` is the makerAsset amount the signer receives, and the signer sends the computed takingAmount of takerAsset, limited only by the hidden threshold.",
+     "With the unwrap flag and a WETH maker asset, the signer receives ETH instead of WETH."
+    ],
+    "shown": "\"Fill order\" with the order's total taking and making amounts, \"Amount to sell\" always in takerAsset, and an enum for the first byte of takerTraits.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "fillContractOrder shows `amount` as takerAsset to sell, but with the maker-amount flag it is makerAsset to receive.",
+      "evidence": "_fill: `if (takerTraits.isMakingAmount()) { makingAmount = Math.min(amount, remainingMakingAmount); takingAmount = order.calculateTakingAmount(...)`; descriptor field `amount` uses fillAmount (\"Amount to sell\") with `\"tokenPath\": \"order.takerAsset\"`; the takerTraits enum has no key for 128 or higher.",
+      "fix": "Add enum keys for values with bit 0x80 (\"Exact amount to receive\") and add a second amount field with tokenPath order.makerAsset, or a label that names both modes.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fillContractOrder hides the threshold that limits what the signer pays or receives.",
+      "evidence": "_fill: `uint256 threshold = takerTraits.threshold(); if (takingAmount > threshold) revert TakingAmountTooHigh();` / `if (makingAmount < threshold) revert MakingAmountTooLow();`; descriptor shows only `takerTraits.[:1]`.",
+      "fix": "Add a field for the threshold slice `takerTraits.[9:]` with the label \"Max to pay / min to receive\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "fillContractOrder labels \"Order selling amount\" and \"Order purchasing amt\" read backward from the maker's side.",
+      "evidence": "definitions takingAmount label \"Order selling amount\" (order.takerAsset), makingAmount label \"Order purchasing amt\" (order.makerAsset); case 7 shows \"Order selling amount 0.1 WETH\", which the order buys.",
+      "fix": "Use \"You pay (order total)\" for takingAmount and \"You receive (order total)\" for makingAmount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "fillContractOrder intent \"Fill order\" names neither asset nor direction.",
+      "evidence": "descriptor `\"intent\": \"Fill order\"`.",
+      "fix": "Add an interpolatedIntent: \"Pay {amount} to fill order for {order.makingAmount}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 40
+   },
+   {
+    "key": "fillContractOrderArgs((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes signature, uint256 amount, uint256 takerTraits, bytes args)",
+    "effects": [
+     "Sends takerAsset from the signer to the order receiver and sends makerAsset to `target`; target is the signer, or the first 20 bytes of `args` when the takerTraits target flag is set.",
+     "Amounts come from the order extension in `args` (dynamic getters) and are limited only by the hidden threshold.",
+     "Calls the taker interaction contract given in `args`.",
+     "`amount` is the takerAsset amount or, with the maker-amount flag, the makerAsset amount."
+    ],
+    "shown": "\"Fill order\" with the order totals, \"Amount to sell\" in takerAsset and an enum for the first byte of takerTraits; args, which hold the receiver, extension and interaction, are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "wrong-party",
+      "title": "fillContractOrderArgs hides the target from `args` that receives the signer's purchased makerAsset.",
+      "evidence": "_parseArgs: `if (takerTraits.argsHasTarget()) { target = address(bytes20(args)); ...}`; _fill sends makerAsset to `receiver = needUnwrap ? address(this) : target`. Descriptor `args` is visible never; the enum has no key for flag 0x08.",
+      "fix": "Add a field for the target (the first 20 bytes of args, when bit 0x08 of takerTraits is set) labelled \"Recipient\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "fillContractOrderArgs shows `amount` in takerAsset even when the maker-amount flag makes it makerAsset.",
+      "evidence": "_fill `takerTraits.isMakingAmount()` branch; descriptor `amount` tokenPath `order.takerAsset`, label \"Amount to sell\".",
+      "fix": "Add enum keys for bit 0x80 and show the amount in the right token for each mode.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fillContractOrderArgs hides the threshold, the only limit on dynamic extension pricing.",
+      "evidence": "_fill threshold checks (TakingAmountTooHigh / MakingAmountTooLow); the extension from args sets calculateTakingAmount/calculateMakingAmount. Descriptor shows only `takerTraits.[:1]`.",
+      "fix": "Show `takerTraits.[9:]` as \"Max to pay / min to receive\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "fillContractOrderArgs uses the same backward \"Order selling/purchasing\" labels.",
+      "evidence": "definitions takingAmount \"Order selling amount\", makingAmount \"Order purchasing amt\".",
+      "fix": "Use \"You pay (order total)\" and \"You receive (order total)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 25
+   },
+   {
+    "key": "fillOrder((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes32 r, bytes32 vs, uint256 amount, uint256 takerTraits)",
+    "effects": [
+     "Sends takerAsset from the signer to the order receiver; when takerAsset is WETH and msg.value > 0, the signer pays ETH instead and gets any excess back.",
+     "Sends makerAsset to the signer, or ETH when the unwrap flag is set and makerAsset is WETH.",
+     "`amount` is the takerAsset amount, or the makerAsset amount when the maker-amount flag is set."
+    ],
+    "shown": "\"Fill order\" with the order totals, \"Amount to sell\" in takerAsset and an \"Additional action\" enum; msg.value is not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fillOrder is payable and spends ETH in place of WETH, but no field shows the native value.",
+      "evidence": "_fill: `if (order.takerAsset.get() == address(_WETH) && msg.value > 0) { if (msg.value < takingAmount) revert ...; _WETH.safeDeposit(takingAmount); ...}`; fillOrder is `external payable`. Descriptor fillOrder has no `@.value` field.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"ETH sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "fillOrder shows `amount` as takerAsset to sell, but with the maker-amount flag it is makerAsset to receive.",
+      "evidence": "_fill `if (takerTraits.isMakingAmount()) { makingAmount = Math.min(amount, remainingMakingAmount); ...}`; descriptor `amount` tokenPath `order.takerAsset`; the enum has keys only 0,16,32,64,80,96.",
+      "fix": "Add enum keys for values with bit 0x80 and show the amount in makerAsset for that mode.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fillOrder hides the threshold that limits the takingAmount the signer pays in maker-amount mode.",
+      "evidence": "_fill: `if (takingAmount > threshold) revert TakingAmountTooHigh();`; descriptor shows only `takerTraits.[:1]`.",
+      "fix": "Show `takerTraits.[9:]` as \"Max to pay / min to receive\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "fillOrder labels the WETH the signer receives as \"Order purchasing amt\" while Unwrap sends ETH.",
+      "evidence": "case 11: \"Order purchasing amt 0.001450069633901244 WETH\", \"Additional action: Unwrap\"; _fill `_WETH.safeWithdrawTo(makingAmount, target)`.",
+      "fix": "Use \"You receive (order total)\" and the enum label \"Receive as ETH\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 35
+   },
+   {
+    "key": "fillOrderArgs((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes32 r, bytes32 vs, uint256 amount, uint256 takerTraits, bytes args)",
+    "effects": [
+     "Sends takerAsset (or ETH in place of WETH via msg.value) from the signer to the order receiver.",
+     "Sends makerAsset to `target`, which is the signer or the address in args when the target flag is set.",
+     "The amounts can come from the extension in args and are limited only by the hidden threshold; a taker interaction contract from args is called."
+    ],
+    "shown": "\"Fill order\" with the order totals, \"Amount to sell\" in takerAsset and an enum; args and msg.value are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "wrong-party",
+      "title": "fillOrderArgs hides the target from `args` that receives the signer's purchased makerAsset.",
+      "evidence": "_parseArgs `target = address(bytes20(args))` when argsHasTarget(); descriptor `args` visible never.",
+      "fix": "Show the first 20 bytes of args as \"Recipient\" when bit 0x08 of takerTraits is set.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fillOrderArgs is payable and spends ETH in place of WETH, but no field shows the native value.",
+      "evidence": "fillOrderArgs `external payable`; _fill `msg.value > 0` branch wraps ETH for a WETH takerAsset. No `@.value` field.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"ETH sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "fillOrderArgs shows `amount` in takerAsset even when the maker-amount flag makes it makerAsset.",
+      "evidence": "_fill isMakingAmount branch; descriptor `amount` tokenPath `order.takerAsset`.",
+      "fix": "Add enum keys for bit 0x80 and use the right token per mode.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fillOrderArgs hides the threshold, the only limit on dynamic extension pricing.",
+      "evidence": "_fill threshold checks; descriptor shows only `takerTraits.[:1]`.",
+      "fix": "Show `takerTraits.[9:]` as \"Max to pay / min to receive\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 20
+   },
+   {
+    "key": "clipperSwap(address clipperExchange, uint256 srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)",
+    "effects": [
+     "Takes inputAmount of srcToken from the signer and sends it to the Clipper exchange; when srcToken is ETH (zero address), msg.value must equal inputAmount, otherwise it must be zero.",
+     "The signer receives outputAmount of dstToken (ETH when dstToken is zero) from Clipper at the signed quote."
+    ],
+    "shown": "\"Swap\" with the amount to send in srcToken, outputAmount in dstToken labelled \"Minimum to Receive\", the signer as beneficiary and the expiry.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "clipperSwap intent \"Swap\" names no tokens; there is no interpolatedIntent.",
+      "evidence": "descriptor clipperSwap `\"intent\": \"Swap\"`.",
+      "fix": "Add an interpolatedIntent: \"Swap {inputAmount} for {outputAmount}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 80
+   },
+   {
+    "key": "clipperSwapTo(address clipperExchange, address recipient, uint256 srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)",
+    "effects": [
+     "Takes inputAmount of srcToken (or the same amount of ETH as msg.value) from the signer.",
+     "Clipper sends outputAmount of dstToken to `recipient`."
+    ],
+    "shown": "\"Swap\" with the amount to send, the output amount in dstToken, the beneficiary `recipient`, and the expiry.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "clipperSwapTo intent \"Swap\" does not say that the output goes to another address.",
+      "evidence": "descriptor clipperSwapTo `\"intent\": \"Swap\"`; the code passes `recipient` to Clipper.",
+      "fix": "Add an interpolatedIntent: \"Swap {inputAmount} and send to {recipient}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 1.348,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [
+  "permitAndCall(bytes permit, bytes action)",
+  "swap(address executor, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags) desc, bytes data)",
+  "fillOrder((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes32 r, bytes32 vs, uint256 amount, uint256 takerTraits)",
+  "fillOrderArgs((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes32 r, bytes32 vs, uint256 amount, uint256 takerTraits, bytes args)",
+  "clipperSwap(address clipperExchange, uint256 srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)",
+  "clipperSwapTo(address clipperExchange, address recipient, uint256 srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)"
+ ],
+ "seconds": 332,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "permitAndCall(bytes permit, bytes action)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "permitAndCall is payable and the inner delegatecall spends msg.value, but no field shows the native value.",
+   "comprehension": null
+  },
+  "swap(address executor, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags) desc, bytes data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "swap is payable, and with the extra-ETH flag the native value is more than the amount shown; no field shows it.",
+   "comprehension": null
+  },
+  "unoswap(uint256 token, uint256 amount, uint256 minReturn, uint256 dex)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "unoswap intent \"Swap\" names no assets; there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "unoswap2(uint256 token, uint256 amount, uint256 minReturn, uint256 dex, uint256 dex2)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unoswap3(uint256 token, uint256 amount, uint256 minReturn, uint256 dex, uint256 dex2, uint256 dex3)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unoswapTo(uint256 to, uint256 token, uint256 amount, uint256 minReturn, uint256 dex)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "unoswapTo intent \"Swap\" does not say that the output goes to another address.",
+   "comprehension": null
+  },
+  "unoswapTo2(uint256 to, uint256 token, uint256 amount, uint256 minReturn, uint256 dex, uint256 dex2)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unoswapTo3(uint256 to, uint256 token, uint256 amount, uint256 minReturn, uint256 dex, uint256 dex2, uint256 dex3)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "ethUnoswap(uint256 minReturn, uint256 dex)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "ethUnoswap2(uint256 minReturn, uint256 dex, uint256 dex2)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "ethUnoswap3(uint256 minReturn, uint256 dex, uint256 dex2, uint256 dex3)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "ethUnoswapTo(uint256 to, uint256 minReturn, uint256 dex)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "ethUnoswapTo2(uint256 to, uint256 minReturn, uint256 dex, uint256 dex2)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "ethUnoswapTo3(uint256 to, uint256 minReturn, uint256 dex, uint256 dex2, uint256 dex3)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "cancelOrder(uint256 makerTraits, bytes32 orderHash)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "cancelOrder shows the order hash, but in bit-invalidator mode the hidden nonce in makerTraits decides what is cancelled.",
+   "comprehension": null
+  },
+  "cancelOrders(uint256[] makerTraits, bytes32[] orderHashes)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "cancelOrders shows order hashes, but for bit-invalidator orders the hidden makerTraits nonces decide what is cancelled.",
+   "comprehension": null
+  },
+  "increaseEpoch(uint96 series)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 23,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "increaseEpoch says \"Cancel all limit orders\" but cancels only epoch-checked orders of one hidden series.",
+   "comprehension": null
+  },
+  "fillContractOrder((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes signature, uint256 amount, uint256 takerTraits)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 25,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "fillContractOrder shows `amount` as takerAsset to sell, but with the maker-amount flag it is makerAsset to receive.",
+   "comprehension": null
+  },
+  "fillContractOrderArgs((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes signature, uint256 amount, uint256 takerTraits, bytes args)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 23,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "fillContractOrderArgs hides the target from `args` that receives the signer's purchased makerAsset.",
+   "comprehension": null
+  },
+  "fillOrder((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes32 r, bytes32 vs, uint256 amount, uint256 takerTraits)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 27,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 4,
+   "warnings": 1,
+   "worst": "fillOrder is payable and spends ETH in place of WETH, but no field shows the native value.",
+   "comprehension": null
+  },
+  "fillOrderArgs((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes32 r, bytes32 vs, uint256 amount, uint256 takerTraits, bytes args)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 25,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 5,
+   "warnings": 0,
+   "worst": "fillOrderArgs hides the target from `args` that receives the signer's purchased makerAsset.",
+   "comprehension": null
+  },
+  "clipperSwap(address clipperExchange, uint256 srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "clipperSwap takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "clipperSwapTo(address clipperExchange, address recipient, uint256 srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "clipperSwapTo takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 63,
+  "clarity": 41,
+  "functions": "14C 9F",
+  "incomplete": false,
+  "worst": "permitAndCall is payable and the inner delegatecall spends msg.value, but no field shows the native value."
+ }
+}

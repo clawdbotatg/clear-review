@@ -1,0 +1,202 @@
+{
+ "hash": "0x73eac176987698698498c2230cfb58526c62ec024c7468aa5a1689d4bcea43bb",
+ "file": "registry/morpho/calldata-gauntlet-uniUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5b453493d2328e7f747eb2e66446efe707728be7"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer's wallet into the vault (safeTransferFrom(asset, msg.sender, this, assets) in enter).",
+     "Mints vault shares to `onBehalf`. The number is previewDeposit(assets), set by the share price at execution.",
+     "Accrues interest first and may mint fee shares to the fee recipients. That dilutes the share price used for the signer's mint.",
+     "May send the deposited USDC on to the liquidity adapter. This only moves vault funds."
+    ],
+    "shown": "Deposit 0.1 USDC for <onBehalf>, with the USDC amount, a constant share ticker 'uniUSDC' and the share recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the constant 'Share ticker' uniUSDC differs from the vault's on-chain share symbol usdcpv.",
+      "evidence": "descriptor.json metadata.constants.vaultTicker = \"uniUSDC\", shown as field 'Share ticker'. In case 0, the mined share mint from 0x0 to the signer has asset 0x5b45…be7 with symbol \"usdcpv\". VaultV2.sol: `string public symbol;` can be changed with setSymbol().",
+      "fix": "Stop hardcoding the ticker as a raw constant. Name the share token by the vault address, for example in a label like 'Vault shares (0x5b45…be7)', or keep the constant in line with the on-chain symbol.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown, because the contract computes it from the vault's share price.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. In case 0 the signer received 0.1 usdcpv, and the screen shows no share amount.",
+      "fix": "None in calldata. The intent could add 'receive vault shares'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out 0.1 is shown exactly. Shares arrive at the signer, and the party is shown, but the amount is not. The ticker shown, uniUSDC, differs from the on-chain symbol usdcpv."
+     }
+    ],
+    "glance": 85,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "Burns previewWithdraw(assets) shares from `onBehalf`. The number is set by the share price, rounded up.",
+     "When the caller is not onBehalf, spends onBehalf's share allowance to the caller by the burned shares.",
+     "Accrues interest first, and may deallocate from the liquidity adapter to cover the withdrawal. Both are vault-internal."
+    ],
+    "shown": "Withdraw exactly 2 USDC to <receiver>, with the USDC amount, the receiver and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown, because the contract computes it from the share price.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`, and exit calls `deleteShares(onBehalf, shares)`. In case 1, 1.989852204535382307 usdcpv left the signer, and the screen shows no share amount.",
+      "fix": "None in calldata. The intent could say 'burns vault shares of {onBehalf}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the interpolated intent does not say that the owner's vault shares are burned to pay for the withdrawal.",
+      "evidence": "interpolatedIntent \"Withdraw {#.assets} to {#.receiver}\". The owner appears only as the field 'Owner'. exit() burns onBehalf's shares and spends onBehalf's allowance to msg.sender.",
+      "fix": "Use 'Withdraw {#.assets} to {#.receiver} from {#.onBehalf}'s vault shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDC in, 2 to the signer, is exact. Shares out are understood, but the amount is not shown and comes from the share price."
+     }
+    ],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf`, spending onBehalf's allowance to the caller when the caller is not onBehalf.",
+     "Sends previewRedeem(shares) USDC from the vault to `receiver`. The amount is set by the share price, rounded down.",
+     "Accrues interest first, and may deallocate from the liquidity adapter. Both are vault-internal."
+    ],
+    "shown": "Redeem 24.897101366134628646 uniUSDC to <receiver>, with the share amount, the receiver and the owner. The asset received is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says that USDC is the asset sent to the receiver.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)`, and the asset immutable is USDC. The fields are 'Shares to redeem', 'To' and 'Owner'. In case 2, 25.000001 USDC arrived at the signer, and the reader wrote 'probably USDC… exact amount not shown'.",
+      "fix": "Use the interpolated intent 'Redeem {#.shares} for USDC to {#.receiver}', or add a field for the underlying asset ($.metadata.constants.underlyingTicker).",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown, because the contract computes it from the share price.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. Case 2 received 25.000001 USDC. The value is not in calldata, and there is no minimum.",
+      "fix": "None in calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out are shown exactly. USDC in goes to the shown receiver, but neither the asset nor the amount is stated, so the reader guessed USDC."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.399,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 73,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the constant 'Share ticker' uniUSDC differs from the vault's on-chain share symbol usdcpv.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the interpolated intent does not say that the owner's vault shares are burned to pay for the withdrawal.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says that USDC is the asset sent to the receiver.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 67,
+  "clarity": 74,
+  "functions": "1B 2D",
+  "incomplete": false,
+  "worst": "deposit: the constant 'Share ticker' uniUSDC differs from the vault's on-chain share symbol usdcpv."
+ }
+}

@@ -1,0 +1,198 @@
+{
+ "hash": "0x286986d9cceb4720d6762996e8a42becd61df4c3851a5cae597ca8b9bcc7a7e8",
+ "file": "registry/lido/calldata-stETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "approve(address _spender, uint256 _amount)",
+    "effects": [
+     "Sets the signer's stETH allowance for _spender to exactly _amount, replacing any earlier allowance (StETH._approve: allowances[_owner][_spender] = _amount).",
+     "An allowance of type(uint256).max is never used up when the spender spends from it (StETH._spendAllowance)."
+    ],
+    "shown": "Approve stETH: 'Allow to spend 0.24 stETH', with the Spender address and the Amount shown as stETH, or 'Unlimited' at or above 2^255.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "approve: interpolatedIntent leaves out the spender, so 'Allow to spend' has no subject.",
+      "evidence": "descriptor.json approve interpolatedIntent \"Allow to spend {_amount}\"; #._spender is an always-visible field. Case 0 screen: 'Allow to spend 0.24 stETH'.",
+      "fix": "Use \"Allow {_spender} to spend {_amount}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approve: Spender addressName types allow only 'contract', but the code accepts any address.",
+      "evidence": "descriptor.json approve field Spender params.types [\"contract\"]; StETH._approve only requires _spender != address(0).",
+      "fix": "Set types to [\"contract\",\"eoa\",\"wallet\"] and add \"ens\" to sources.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The approval of 0.24 stETH to 0x40aa…cd7f appears in the fields, and the reader understood it. The reader was unsure who the spender is."
+     }
+    ],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "submit(address _referral)",
+    "effects": [
+     "Sends msg.value ETH from the signer to the Lido contract. The call reverts if the value is zero or above the stake limit.",
+     "Mints stETH shares to the signer, getSharesByPooledEth(msg.value), worth about msg.value stETH (1 wei less in case 1 from rounding).",
+     "The _referral address is only emitted in the Submitted event and moves none of the signer's assets."
+    ],
+    "shown": "Stake ETH: 'Stake 1.078608424000534547 ETH', with the ETH amount shown and the referral hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "under-simplified",
+      "title": "submit: the screen never says the signer receives stETH in return for the ETH.",
+      "evidence": "Lido._submit: _mintShares(msg.sender, sharesAmount); _emitTransferAfterMintingShares(msg.sender, sharesAmount). Case 1 mined: stETH transfer in of 1078608424000534546 to the signer. Screen intent 'Stake ETH' / 'Stake {@.value}' says nothing about stETH. The reader wrote 'Screen doesn't say; normally stETH would arrive'.",
+      "fix": "Use the intent \"Stake ETH for stETH\" and the interpolatedIntent \"Stake {@.value} and receive stETH\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "submit: stETH minted comes from the share rate in storage and can be 1 wei below the ETH sent.",
+      "evidence": "Lido._submit: sharesAmount = getSharesByPooledEth(msg.value). Case 1: 1078608424000534547 ETH out, 1078608424000534546 stETH in.",
+      "fix": "None needed. The rate is read from storage and no descriptor field can show it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The ETH sent is shown exactly. The stETH received is not on the screen; the reader only guessed it from the word 'Stake'."
+     }
+    ],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "transfer(address _recipient, uint256 _amount)",
+    "effects": [
+     "Moves the shares worth _amount stETH, getSharesByPooledEth(_amount), from the signer to _recipient. The recipient's balance can be 1-2 wei below _amount from share rounding.",
+     "The call reverts if _recipient is the zero address or the stETH contract, or if the signer's shares are too few."
+    ],
+    "shown": "Transfer stETH: 'Send 1.012662265408189746 stETH to 0x6242…dc9f', with the Recipient and the Amount in stETH.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transfer: Recipient types exclude 'contract', but any address except stETH itself can receive.",
+      "evidence": "descriptor.json transfer field Recipient params.types [\"eoa\",\"wallet\"]; StETH._transferShares only rejects address(0) and address(this).",
+      "fix": "Add \"contract\" to the Recipient types.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "transfer: stETH moves shares, so the recipient may get 1-2 wei less than the amount shown.",
+      "evidence": "StETH._transfer: _sharesToTransfer = getSharesByPooledEth(_amount); _transferShares(...). The Transfer event emits _amount.",
+      "fix": "None. The rounding depends on the share rate in storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The stETH out matches the screen in amount and recipient."
+     }
+    ],
+    "glance": 95,
+    "depth": 95
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.299,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 60,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "approve(address _spender, uint256 _amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "approve: interpolatedIntent leaves out the spender, so 'Allow to spend' has no subject.",
+   "comprehension": 100
+  },
+  "submit(address _referral)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "submit: the screen never says the signer receives stETH in return for the ETH.",
+   "comprehension": 75
+  },
+  "transfer(address _recipient, uint256 _amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transfer: Recipient types exclude 'contract', but any address except stETH itself can receive.",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 83,
+  "functions": "2A 1D",
+  "incomplete": false,
+  "worst": "submit: the screen never says the signer receives stETH in return for the ETH."
+ }
+}

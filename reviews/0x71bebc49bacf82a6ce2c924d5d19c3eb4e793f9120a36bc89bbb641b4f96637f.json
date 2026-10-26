@@ -1,0 +1,197 @@
+{
+ "hash": "0x71bebc49bacf82a6ce2c924d5d19c3eb4e793f9120a36bc89bbb641b4f96637f",
+ "file": "registry/morpho/calldata-gauntlet-compUSDT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 137,
+   "address": "0xfd06859a671c21497a2eb8c5e3fea48de924d6c8"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDT0 (0xc2132D…8e8F) from their wallet to the vault, spending that much of their USDT0 allowance to the vault.",
+     "The vault mints compUSDT shares to `receiver`; the share count is computed from the vault's stored total assets and supply (floor rounding).",
+     "The vault supplies the USDT0 to Morpho Blue markets; no other asset of the signer moves."
+    ],
+    "shown": "Intent 'Deposit', the USDT0 amount deposited, the share ticker compUSDT as a constant, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many compUSDT shares the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0 mints 3 compUSDT to the signer; the screen shows only 'Share ticker: compUSDT'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "deposit spends the signer's USDT0 allowance to the vault; the screen does not mention it.",
+      "evidence": "Case 0: Approval effect USDT0 signer→vault, amount 99997000000 (allowance reduced by 3 USDT0 by transferFrom in ERC4626._deposit). It is the prerequisite of the stated deposit.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "3 USDT0 out to vault is shown right. 3 compUSDT in: asset and receiver shown, amount not. The allowance spend (99997000000 left) is not shown; it is a prerequisite of the deposit."
+     }
+    ],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns compUSDT shares from `owner`; the count is computed from storage with ceil rounding. When the signer is not the owner, it spends the signer's share allowance from the owner.",
+     "The vault pulls exactly `assets` USDT0 from Morpho Blue and sends it to `receiver`.",
+     "Interest accrual mints fee shares to the fee recipient first; this does not change the USDT0 amount the receiver gets."
+    ],
+    "shown": "Intent 'Withdraw', 'Withdraw exactly' the USDT0 amount, the receiver ('To') and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many compUSDT shares it burns; the count comes from the vault's storage.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 1 burns 99.915387006090948522 compUSDT from the signer; no field states the shares.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw does not name the compUSDT shares that leave the owner; only the USDT0 amount is shown.",
+      "evidence": "Descriptor withdraw format: fields `assets` 'Withdraw exactly', `receiver` 'To', `owner` 'Owner'; no share ticker, unlike deposit's 'Share ticker' constant field.",
+      "fix": "Add a constant field labeled 'Shares burned from' with value `$.metadata.constants.vaultTicker`, or an interpolatedIntent 'Withdraw {assets} from compUSDT to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "100 USDT0 in to the signer is shown right. The 99.915 compUSDT burned is not stated; the reader understood vault shares leave, amount unknown."
+     }
+    ],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` compUSDT from `owner`; when the signer is not the owner, it spends the signer's share allowance from the owner.",
+     "The vault sends USDT0 to `receiver`; the amount is computed from storage with floor rounding, and there is no minimum.",
+     "Interest accrual mints fee shares to the fee recipient first, which sets the share price used."
+    ],
+    "shown": "Intent 'Redeem', 'Shares to redeem' as a compUSDT amount, the receiver ('To') and the owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem never names USDT0 as the asset the receiver gets; the reader had to guess it.",
+      "evidence": "Descriptor redeem format: intent 'Redeem'; fields `shares`, `receiver`, `owner` only. Case 2: signer receives 15.000834 USDT0; reader 'unsure': 'Which token is paid out; USDT is only inferred from the name'.",
+      "fix": "Add a constant field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}, or interpolatedIntent 'Redeem {shares} for USDT0 to {receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDT0 amount received; the vault computes it and enforces no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 2 pays 15.000834 USDT0; no field states it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "14.991189615730169247 compUSDT out is shown right. 15.000834 USDT0 in to the signer: receiver shown, asset and amount not stated."
+     }
+    ],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.364,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 67,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDT0 as the asset the receiver gets; the reader had to guess it.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 64,
+  "functions": "2B 1C",
+  "incomplete": false,
+  "worst": null
+ }
+}

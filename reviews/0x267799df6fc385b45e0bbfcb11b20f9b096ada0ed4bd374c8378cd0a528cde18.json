@@ -1,0 +1,187 @@
+{
+ "hash": "0x267799df6fc385b45e0bbfcb11b20f9b096ada0ed4bd374c8378cd0a528cde18",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakEURA.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xbeefa28d5e56d41d35df760ab53b94d9ffd7051f"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` EURA (0xA61B…25B4 on Base) to the vault, which supplies it to Morpho markets.",
+     "The vault mints steakEURA shares to `receiver`; the share count comes from the vault's total assets and supply at execution, rounded down, with no minimum."
+    ],
+    "shown": "Intent 'Deposit', the EURA amount sent, the share ticker steakEURA, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the receiver gets; the count comes from vault storage.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` The descriptor shows only `Share ticker` = $.metadata.constants.vaultTicker.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault takes EURA from the signer. The amount is computed from the vault's total assets and supply and rounded up. Calldata sets no maximum.",
+     "The vault mints exactly `shares` steakEURA to `receiver`."
+    ],
+    "shown": "Intent 'Mint', the deposit asset ticker EURA with no amount, the exact steakEURA shares minted, and the address that receives them.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much EURA leaves the signer; the amount comes from vault storage, with no cap.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` The descriptor field 'Deposit asset' shows only the constant 'EURA'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint intent 'Mint' does not say that the signer pays EURA for the shares.",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\". In MetaMorpho.mint, _deposit pulls EURA from _msgSender().",
+      "fix": "Change the intent to \"Deposit EURA for exact steakEURA shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns steakEURA shares from `owner`. The count comes from vault storage, rounded up.",
+     "When `owner` is not the signer, the burn uses the signer's share allowance from `owner`.",
+     "The vault sends exactly `assets` EURA to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', the exact EURA amount, the receiver, and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares the vault burns from the owner; the count comes from vault storage.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _withdraw(_msgSender(), receiver, owner, assets, shares);` The descriptor has no field for the shares.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` steakEURA from `owner`. When `owner` is not the signer, this uses the signer's share allowance.",
+     "The vault sends EURA to `receiver`. The amount comes from vault storage, rounded down, with no minimum."
+    ],
+    "shown": "Intent 'Redeem', the exact steakEURA shares, the receiver, and the share owner. The screen does not name the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names EURA as the asset the receiver gets; mint shows the underlying ticker, but redeem does not.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(...); _withdraw(_msgSender(), receiver, owner, assets, shares);`. The descriptor redeem fields are only 'Shares to redeem', 'To' and 'Owner'.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much EURA the receiver gets; the amount comes from vault storage, with no minimum.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.294,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 63,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names EURA as the asset the receiver gets; mint shows the underlying ticker, but redeem does not.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 60,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem never names EURA as the asset the receiver gets; mint shows the underlying ticker, but redeem does not."
+ }
+}

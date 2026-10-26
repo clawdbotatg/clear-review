@@ -1,0 +1,251 @@
+{
+ "hash": "0x89ac871cc848bfad0d62b7a3966e48463d24a9ca76de09c8a45503eeba355d2b",
+ "file": "registry/morpho/calldata-bitwise-BPRIME-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x5e03f8965e2957291b3c6990c6cb9023c36d3d30"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer into the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints vault shares to `onBehalf`. The number is previewDeposit(assets), set by the vault's share price after fees accrue; the call has no minimum.",
+     "The vault then passes the USDC to its liquidity adapter. This does not move any of the signer's assets."
+    ],
+    "shown": "Deposit 191.175214 USDC for <onBehalf>, with share ticker BPRIME and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the hard-coded share ticker 'BPRIME' differs from the vault token's on-chain symbol 'jvhhUSDC'.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"BPRIME\", shown as 'Share ticker'. Case 0 mined effect: shares minted to the signer from asset 0x5e03…3d30 with symbol \"jvhhUSDC\". VaultV2.setSymbol lets the owner change the symbol.",
+      "fix": "Use the token's on-chain symbol, or ask the vault owner to set the symbol to BPRIME, so the screen matches the token the wallet will list.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown; it comes from the stored share price.",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets);` uses totalAssets and totalSupply from storage. Case 0: the signer received 186.298621015402285744 shares and the screen gives no amount.",
+      "fix": "None possible from calldata. A label such as 'Shares at current price' could set expectations.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The USDC out is exact and right. Shares in: the asset (by ticker) and the recipient are shown, but no amount, because the price is in storage. The reader expected BPRIME, but the token on chain is named jvhhUSDC."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) shares (rounded up) from `onBehalf`. When that is the signer, the signer loses shares in an amount set by the stored price.",
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "When msg.sender != onBehalf, spends the share allowance that onBehalf gave the signer."
+    ],
+    "shown": "Withdraw exactly 3813.675145 USDC to <receiver>, from owner <onBehalf>.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown; the amount comes from the stored price.",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`, and exit calls deleteShares(onBehalf, shares). Case 2: 3715.615897506308773206 shares left the signer, and the reader was unsure whether any shares are burned.",
+      "fix": "None for the amount. The intent could say 'Withdraw {assets} to {receiver} by burning vault shares' to name the share burn.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The USDC in is exact and right. The share burn is implied by 'Owner' and 'Withdraw', but neither the asset nor the amount is stated. The reader only guessed that the position shrinks."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf` (spending the signer's allowance when the signer is not onBehalf).",
+     "Sends previewRedeem(shares) USDC to `receiver`. The amount is set by the stored price, and the call has no minimum."
+    ],
+    "shown": "Redeem 601.02 BPRIME to <receiver>, from owner <onBehalf>. Nothing says what is received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says the proceeds are USDC; only the shares are named.",
+      "evidence": "VaultV2.exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` where asset is USDC (immutable 0x8335…2913). The descriptor's redeem fields are shares, receiver and onBehalf only, while mint uses the constant underlyingTicker. Case 3: the signer received 613.827471 USDC; the reader was 'unsure which asset I receive and how much'.",
+      "fix": "Add a field {label:'Receive asset', value:'$.metadata.constants.underlyingTicker'}, or write the intent as 'Redeem {shares} for USDC to {receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is set by the stored price and has no minimum.",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares);`. No slippage parameter exists.",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem: the share token renders as 'BPRIME' while its on-chain symbol is 'jvhhUSDC'.",
+      "evidence": "Case 3 screen shows '601.02305972873093703 BPRIME'. The mined effect has asset 0x5e03…3d30 with symbol 'jvhhUSDC'.",
+      "fix": "Align the token's on-chain symbol with the ticker the descriptor uses.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out are exact and right. The USDC in goes to the shown receiver, but neither the asset nor the amount is shown."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes previewMint(shares) USDC (rounded up) from the signer. The amount is set by the stored price, and the call has no maximum.",
+     "Mints exactly `shares` vault shares to `onBehalf`, which can be an address other than the signer."
+    ],
+    "shown": "Mint 0.999998999 BPRIME for <onBehalf>, with a 'Deposit asset: USDC' field and no USDC amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC taken from the signer has no amount and no maximum; it comes from the stored price.",
+      "evidence": "VaultV2.mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`, and enter calls safeTransferFrom(asset, msg.sender, ...). Case 1: 1.010085 USDC left the signer and the screen shows no amount.",
+      "fix": "None from calldata. A label such as 'Pay with USDC (amount at current price)' would set expectations.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint {shares} for {onBehalf}' does not say that the signer pays USDC.",
+      "evidence": "interpolatedIntent \"Mint {#.shares} for {#.onBehalf}\". Paying USDC appears only in the 'Deposit asset: USDC' field. Case 1 reader: 'How much USDC will be taken; the screen does not say.'",
+      "fix": "Use 'Mint {#.shares} by depositing USDC, shares to {#.onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer's only effect is USDC out. The asset is shown but not the amount, because it comes from the stored price. The shares went to 0xdead; the screen showed this plainly and the reader understood it."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.469,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 110,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the hard-coded share ticker 'BPRIME' differs from the vault token's on-chain symbol 'jvhhUSDC'.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says the proceeds are USDC; only the shares are named.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint {shares} for {onBehalf}' does not say that the signer pays USDC.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 75,
+  "clarity": 67,
+  "functions": "1B 1C 2D",
+  "incomplete": false,
+  "worst": "deposit: the hard-coded share ticker 'BPRIME' differs from the vault token's on-chain symbol 'jvhhUSDC'."
+ }
+}

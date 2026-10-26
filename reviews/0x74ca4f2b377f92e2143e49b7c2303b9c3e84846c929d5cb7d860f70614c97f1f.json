@@ -1,0 +1,158 @@
+{
+ "hash": "0x74ca4f2b377f92e2143e49b7c2303b9c3e84846c929d5cb7d860f70614c97f1f",
+ "file": "registry/gondi/eip712-LoanOffer-v3_2.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe365ff3cad44d19cb7aba81df8ffd6818a66ac0a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "LoanOffer(uint256 offerId,address lender,uint256 fee,uint256 capacity,address nftCollateralAddress,uint256 nftCollateralTokenId,address principalAddress,uint256 principalAmount,uint256 aprBps,uint256 expirationTime,uint256 duration,uint256 maxSeniorRepayment,OfferValidator[] validators,bool lenderRefinanceDisabled,address borrower)OfferValidator(address validator,bytes arguments)",
+    "effects": [
+     "The signature lets any borrower (or only `borrower` when it is non-zero) pull up to principalAmount of principalAddress from the lender, through emitLoan or refinanceFromLoanExecutionData, before expirationTime.",
+     "The lender sends (amount - fee scaled by amount/principalAmount) to the borrower's principalReceiver, so the origination fee stays with the lender.",
+     "The lender also pays the protocol fee fraction (a storage value) of that fee to the protocol fee recipient.",
+     "When capacity is non-zero, the offer can be filled again and again, each fill up to principalAmount, until the total reaches capacity. When capacity is 0, one fill cancels the offer.",
+     "The lender gets a loan tranche with aprBps interest for a duration the borrower picks, at most `duration`, backed by an NFT.",
+     "The collateral must be nftCollateralAddress and nftCollateralTokenId when there are no validators. With one zero-address validator, any token of the collection is accepted. With a non-zero validator, the validator contract and its arguments decide the collateral, and the collection address does not have to match.",
+     "The tranche is only accepted when the senior debt ahead of it, interest included, is at most maxSeniorRepayment.",
+     "When lenderRefinanceDisabled is true, the loan has a single tranche and no refinance or renegotiation can replace the lender."
+    ],
+    "shown": "The screen says 'Make loan offer / Lend <principal>' and shows the collection, token, loan amount, APR, duration, fee, capacity (when not 0), max senior debt, lender, expiry, a raw refinance flag, the borrower and the validator addresses.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "LoanOffer shows 'Collection' as the collateral, but a non-zero validator decides the collateral instead.",
+      "evidence": "MultiSourceLoan._checkValidators: `if ((totalValidators == 0 && !(matchAddress && matchTokenId)) || (isFullContractOffer && !matchAddress)) revert` — matchAddress is only enforced without validators or for the zero-address validator. Case 1 shows 'Collection: 0x0000000000000000000000000000000000000000' and 'Token: 5016', with validator 0xff43…6d65 whose `arguments` are `visible: never`.",
+      "fix": "Use a label such as 'Collection (if no validator)', or put a notice in the intent that a validator sets the accepted collateral. Add a threshold-style label for the zero address, such as 'Set by validator'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "LoanOffer interpolated intent shows one principal, but a non-zero capacity lets the offer fund many loans.",
+      "evidence": "MultiSourceLoan._validateOfferExecution: `if ((offer.capacity != 0) && (_used[_lender][offer.offerId] + _offerExecution.amount > offer.capacity))`; _processOffersFromExecutionData: `if (offer.capacity != 0) { _used[lender][offer.offerId] += amount; } else { isOfferCancelled[lender][offer.offerId] = true; }`. Descriptor: interpolatedIntent 'Lend {principalAmount}', capacity field `ifNotIn: ['0']` labelled 'Total capacity'.",
+      "fix": "Label principalAmount 'Max per loan' and capacity 'Total you may lend (reusable offer)'. Keep capacity visible and label 0 as 'Single use' if a message is possible.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "LoanOffer shows the zero-address borrower raw, but the code reads it as 'any borrower can accept'.",
+      "evidence": "MultiSourceLoan._processOffersFromExecutionData: `if (offerBorrower != address(0) && offerBorrower != _borrower) revert InvalidBorrowerError();`. Cases 0 and 1 show 'Borrower: 0x0000000000000000000000000000000000000000'.",
+      "fix": "Hide the borrower field when it is the zero address (`ifNotIn` the zero address) and show it as 'Only borrower' otherwise. Or label it 'Borrower (0x0 = anyone)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "LoanOffer shows lenderRefinanceDisabled as a raw 'true' under a double-negative label.",
+      "evidence": "Descriptor field `lenderRefinanceDisabled` format 'raw', label 'No lender refinance'; cases 0 and 1 render 'true'. MultiSourceLoan._baseRenegotiationChecks reverts every renegotiation when the flag is set, and _processOffersFromExecutionData forces a single-tranche loan.",
+      "fix": "Use an enum or map on the bool, such as true → 'Loan cannot be refinanced away from you', false → 'Other lenders may refinance'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "LoanOffer hides token id 0, so a full-collection offer does not say that it accepts any token.",
+      "evidence": "MultiSourceLoan._checkValidators: `bool isFullContractOffer = totalValidators == 1 && _loanOffer.validators[0].validator == address(0);` and `if (_loanOffer.nftCollateralTokenId != 0) {...}`. Descriptor: Token field `visible: {ifNotIn: ['0']}`; the zero validator shows as a raw 'Validator: 0x000…'.",
+      "fix": "Show the zero-address validator as 'Any token in collection' and keep Token hidden only in that case. Otherwise show token 0 explicitly.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "LoanOffer labels the duration as fixed, but it is the longest term the borrower may pick.",
+      "evidence": "MultiSourceLoan._validateOfferExecution: `if (offer.duration == 0 || _duration > offer.duration) revert InvalidDurationError();`. Descriptor label 'Duration'; case 0 renders '720:00:00'.",
+      "fix": "Change the label to 'Max duration'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "LoanOffer tests never use a non-zero capacity, a named borrower or a full-collection offer.",
+      "evidence": "cases/0.json and cases/1.json both have capacity '0' and borrower 0x000…; neither has nftCollateralTokenId 0 with a zero-address validator.",
+      "fix": "Add cases with capacity > principalAmount, a non-zero borrower, and tokenId 0 with validator address(0).",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "LoanOffer hides validator arguments, which decide which collateral backs the signer's loan.",
+      "evidence": "Descriptor `validators.[].arguments` `visible: never`; MultiSourceLoan._checkValidators calls `IOfferValidator(validator.validator).validateOffer(_loanOffer, _nftCollateralAddress, _tokenId, validator.arguments)`. Case 1 arguments are ABI-encoded bytes for an unknown validator.",
+      "fix": "No ERC-7730 format decodes validator-specific bytes. Name the known validators in local address names so the signer sees which rule applies.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "LoanOffer: the lender also pays a protocol cut of the origination fee, set in storage.",
+      "evidence": "MultiSourceLoan._processOffersFromExecutionData: `_handleProtocolFeeForFee(offer.principalAddress, lender, fee.mulDivUp(protocolFee.fraction, _PRECISION), protocolFee.recipient);`",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "LoanOffer duration renders in hours, such as '720:00:00' for 30 days.",
+      "evidence": "Case 0 'Duration: 720:00:00', case 1 '1440:00:00'; the `duration` format renders HH:MM:SS.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": [
+   "Validator contract 0xff4313861B89E8de771CfF06466864d8CfC26d65 (case 1) has no source in the directory. Its validateOffer and arguments decide which NFT collateral the offer accepts."
+  ]
+ },
+ "cost": 0.618,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 104,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "LoanOffer(uint256 offerId,address lender,uint256 fee,uint256 capacity,address nftCollateralAddress,uint256 nftCollateralTokenId,address principalAddress,uint256 principalAmount,uint256 aprBps,uint256 expirationTime,uint256 duration,uint256 maxSeniorRepayment,OfferValidator[] validators,bool lenderRefinanceDisabled,address borrower)OfferValidator(address validator,bytes arguments)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 39,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 7,
+   "worst": "LoanOffer shows 'Collection' as the collateral, but a non-zero validator decides the collateral instead.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 80,
+  "clarity": 39,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": "LoanOffer shows 'Collection' as the collateral, but a non-zero validator decides the collateral instead."
+ }
+}

@@ -1,0 +1,183 @@
+{
+ "hash": "0x67d7fcf271035bd8413bfb701ceacb5329ecd0211b9cd0da9bb28bf237960a4d",
+ "file": "registry/flyingtulip/calldata-EpochRewardsVault.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xeb48218a4c35c814c7678cbcae88c6ee037f7625"
+  },
+  {
+   "chainId": 146,
+   "address": "0xd1e5a86f1005f6356bd022c587de0f430cd2aeb1"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls `assets` ftUSD (ASSET, 0xF7D8…9C9C) from the signer into the vault (safeTransferFrom in _deposit).",
+     "Mints the same number of sftUSD shares (1:1) to `receiver`, which then earns FT rewards by stake-time.",
+     "The vault moves the ftUSD into the yield wrapper (yieldWrapper.deposit). This is the vault's own asset; the signer's balances do not change from it.",
+     "Checkpoints reward accrual for `receiver` (_settleUser / _accrueOpenStakeTime). Nothing is paid out."
+    ],
+    "shown": "\"Stake <amount> ftUSD\", with the amount and the receiver of the stake as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: interpolatedIntent leaves out the receiver, who gets the sftUSD stake position.",
+      "evidence": "EpochRewardsVault.sol deposit → _deposit(msg.sender, receiver, …) → _mint(to, shares). descriptor interpolatedIntent \"Stake {assets}\". Receiver is only a separate field.",
+      "fix": "Use \"Stake {assets} for {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "deposit: the ftUSD token constant is the mainnet address but is also used for the Sonic (146) deployment.",
+      "evidence": "descriptor params.token 0xF7D85EC4E7710f71992752eac2111312e73E9C9C is the same for deployments 1 and 146. Mainnet impl meta immutables show ASSET = 0xf7d85ec4…. No chain-146 source is here to confirm that ftUSD has the same address there.",
+      "fix": "Confirm that ftUSD on chain 146 is at 0xF7D8…9C9C. If it is not, split the descriptor per chain with the correct token address.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "deposit: test amount is 1e18 for a 6-decimal token, so the screen shows 1,000,000,000,000 ftUSD.",
+      "evidence": "cases/0.json data assets=0x0de0b6b3a7640000, screen \"1000000000000 ftUSD\". EpochRewardsVault.sol decimals comment: ftUSD uses 6 decimals.",
+      "fix": "Use a realistic 6-decimal amount, such as 1000000 for 1 ftUSD.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns `assets` sftUSD shares (1:1) from `owner`. If owner is not the signer, it spends owner's sftUSD allowance to the signer.",
+     "Calls yieldWrapper.withdraw(assets, receiver): ftUSD goes to `receiver`, either now or through a withdrawal queue entry (a queueId is returned).",
+     "Settles `owner`'s FT reward accrual up to now. Accrued FT stays claimable and is not paid."
+    ],
+    "shown": "\"Unstake <amount> ftUSD\", with the amount, the receiver and the owner as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: the payout can be queued in the yield wrapper, but \"Unstake\" suggests ftUSD arrives now.",
+      "evidence": "EpochRewardsVault.sol _withdrawWithQueueIds: queueIdTo = yieldWrapper.withdraw(assets, receiver). withdrawWithQueueId doc: \"return the yield wrapper queue ID (0 when immediate)\". The descriptor intent is \"Unstake ftUSD\".",
+      "fix": "If the wrapper can queue, say so in the intent or add a notice, such as \"Unstake ftUSD (may be queued)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: interpolatedIntent leaves out the receiver of the ftUSD.",
+      "evidence": "descriptor interpolatedIntent \"Unstake {assets}\". Code: yieldWrapper.withdraw(assets, receiver).",
+      "fix": "Use \"Unstake {assets} to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "withdraw: the ftUSD token constant is hardcoded from mainnet and reused for the chain 146 deployment.",
+      "evidence": "descriptor params.token 0xF7D85EC4… is used for deployments 1 and 146. It cannot be confirmed for 146 from the sources here.",
+      "fix": "Confirm the address per chain, or split the descriptor per chain.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 78
+   },
+   {
+    "key": "claim(address to)",
+    "effects": [
+     "Settles the signer's FT reward accrual for epochs that are already settled.",
+     "Sends min(accrued FT, the vault's FT balance) to `to`. The amount comes from storage, not calldata.",
+     "Any part it cannot pay stays recorded as accrued for the signer."
+    ],
+    "shown": "\"Claim FT to <to>\", with the recipient as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the FT amount paid comes from storage and is capped by the vault's balance, so it cannot be shown.",
+      "evidence": "EpochRewardsVault.sol _claim: claimable = user.ftAccrued; paidGross = claimable <= bal ? claimable : bal; FT.safeTransfer(to, paidToUser).",
+      "fix": "None possible in the descriptor. The intent could say \"Claim all settled FT rewards\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": [
+   "The yield wrapper at 0xB44a9C40EFc05Eb014EfFEac3CBed6A31F8cB87f (constructor arg _yieldWrapper) is not in the directory. It runs yieldWrapper.withdraw(assets, receiver) in withdraw, which decides whether, when and how much ftUSD the receiver gets, or whether the withdrawal is queued."
+  ]
+ },
+ "cost": 0.405,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 62,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit: the ftUSD token constant is the mainnet address but is also used for the Sonic (146) deployment.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 66,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "withdraw: the ftUSD token constant is hardcoded from mainnet and reused for the chain 146 deployment.",
+   "comprehension": null
+  },
+  "claim(address to)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 93,
+  "clarity": 75,
+  "functions": "2A 1B",
+  "incomplete": true,
+  "worst": "withdraw: the ftUSD token constant is hardcoded from mainnet and reused for the chain 146 deployment."
+ }
+}

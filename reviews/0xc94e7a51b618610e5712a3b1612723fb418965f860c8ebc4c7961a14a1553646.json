@@ -1,0 +1,392 @@
+{
+ "hash": "0xc94e7a51b618610e5712a3b1612723fb418965f860c8ebc4c7961a14a1553646",
+ "file": "registry/zkstables/calldata-parswappool-base-sepolia.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 84532,
+   "address": "0x9d02f341c2aefccf0a562f4db4111391dac2bd76"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addLiquidity(uint256 amount0, uint256 amount1, address to)",
+    "effects": [
+     "The pool takes amount0 of zkUSD (token0) from the signer through its allowance.",
+     "The pool takes amount1 of USDC (token1) from the signer through its allowance.",
+     "The pool mints LP shares (PAR-LP) to `to`. The number comes from the reserves and the total supply, with no minimum bound.",
+     "On the first deposit, the pool keeps 1000 shares locked in itself, so `to` receives the value minus 1000."
+    ],
+    "shown": "Add liquidity: \"Add 21.37 zkUSD and 21.37 USDC, shares to Bob\", with two 'Amount' fields that carry the token and a 'To' field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addLiquidity does not show how many PAR-LP shares `to` receives; the pool computes it from storage.",
+      "evidence": "ParSwapPool.addLiquidity: `shares = Math.mulDiv(value, supply, reserve0 + reserve1);` and `_mint(to, shares);`. The descriptor has no share field, and the calldata has no minShares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "addLiquidity uses the same label 'Amount' for the zkUSD deposit and the USDC deposit.",
+      "evidence": "descriptor addLiquidity fields: `amount0` label \"Amount\" (token0) and `amount1` label \"Amount\" (token1). Case 0 shows 'Amount 21.37 zkUSD' and 'Amount 21.37 USDC'.",
+      "fix": "Change the labels to \"Deposit zkUSD\" and \"Deposit USDC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "approve(address spender, uint256 value)",
+    "effects": [
+     "The signer sets the allowance of `spender` over the signer's PAR-LP shares to `value`. type(uint256).max is an infinite allowance."
+    ],
+    "shown": "Approve LP shares: \"Approve {value} PAR-LP for {spender}\". At 2^255 or more the amount shows as 'Unlimited'.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "removeLiquidity(uint256 shares, uint256 minAmount0, uint256 minAmount1, address to)",
+    "effects": [
+     "The pool burns `shares` PAR-LP from the signer.",
+     "`to` receives a pro-rata part of the zkUSD reserve, at least minAmount0.",
+     "`to` receives a pro-rata part of the USDC reserve, at least minAmount1."
+    ],
+    "shown": "Remove liquidity: \"Redeem 21.37 PAR-LP to Bob\", with the shares, two 'Minimum amount' fields in zkUSD and USDC, and the recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The removeLiquidity sentence 'Redeem X PAR-LP to Bob' omits the tokens received and can read like a share transfer.",
+      "evidence": "descriptor removeLiquidity interpolatedIntent \"Redeem {shares} to {to}\". The code burns the shares and sends zkUSD and USDC to `to` (`_burn(msg.sender, shares); token0.safeTransfer(to, amount0); token1.safeTransfer(to, amount1);` in _settleWithdrawal).",
+      "fix": "Change interpolatedIntent to \"Burn {shares}, send at least {minAmount0} and {minAmount1} to {to}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "removeLiquidity labels both minimum fields 'Minimum amount'.",
+      "evidence": "descriptor removeLiquidity: `minAmount0` label \"Minimum amount\" and `minAmount1` label \"Minimum amount\".",
+      "fix": "Change the labels to \"Minimum zkUSD received\" and \"Minimum USDC received\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "removeLiquidity shows only lower bounds. The exact amounts out depend on the reserves in storage.",
+      "evidence": "ParSwapPool.removeLiquidity: `amount0 = Math.mulDiv(r0, shares, supply); amount1 = Math.mulDiv(r1, shares, supply);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 80
+   },
+   {
+    "key": "removeLiquidityExact(uint256 amount0, uint256 amount1, uint256 maxShares, address to)",
+    "effects": [
+     "The pool burns PAR-LP shares from the signer, rounded up from the reserve ratio, at most maxShares.",
+     "`to` receives exactly amount0 of zkUSD.",
+     "`to` receives exactly amount1 of USDC."
+    ],
+    "shown": "Remove liquidity (exact): \"Withdraw {amount0} zkUSD and {amount1} USDC to {to}\", with a 'Maximum shares' field ('No limit' at 2^255 or more) and the recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The removeLiquidityExact sentence omits that it burns up to maxShares of the signer's PAR-LP.",
+      "evidence": "descriptor removeLiquidityExact interpolatedIntent \"Withdraw {amount0} and {amount1} to {to}\"; code `_burn(msg.sender, shares)` with `require(shares <= maxShares)`.",
+      "fix": "Change interpolatedIntent to \"Withdraw {amount0} and {amount1} to {to}, burn up to {maxShares}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "removeLiquidityExact labels both withdrawal fields 'Amount', and the no-cap case renders 'No limit PAR-LP'.",
+      "evidence": "descriptor: `amount0` and `amount1` both have label \"Amount\". Case 12 shows 'Maximum shares: No limit PAR-LP'.",
+      "fix": "Change the labels to \"Withdraw zkUSD\" and \"Withdraw USDC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "skim(address to)",
+    "effects": [
+     "Nothing leaves the signer.",
+     "`to` receives the pool's balance of zkUSD and USDC above the tracked reserves. Anyone can call this."
+    ],
+    "shown": "Skim excess: \"Send excess to {to}\", with the recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "skim does not show the amounts swept; the pool computes them from its balances and reserves.",
+      "evidence": "ParSwapPool.skim: `amount0 = token0.balanceOf(address(this)) - reserve0; amount1 = token1.balanceOf(address(this)) - reserve1;`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "swap(address tokenIn, uint256 amount, address to)",
+    "effects": [
+     "The pool takes `amount` of tokenIn (zkUSD or USDC) from the signer through its allowance.",
+     "`to` receives exactly `amount` of the other pool token (USDC for zkUSD, zkUSD for USDC)."
+    ],
+    "shown": "Swap: \"Swap 21.37 zkUSD, send to Bob\", with 'Pay 21.37 zkUSD' and 'To Bob'. No field or sentence names the token or amount received.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swap never shows the asset or amount the recipient receives; 'send to Bob' can read as sending zkUSD.",
+      "evidence": "ParSwapPool._settleSwap: `token1.safeTransfer(to, amount);` (or token0 when tokenIn is token1). descriptor swap: interpolatedIntent \"Swap {amount}, send to {to}\", fields only `amount` 'Pay' and `to`. Case 5 shows 'Swap 21.37 zkUSD, send to Bob', but Bob receives 21.37 USDC.",
+      "fix": "Add a map `otherToken` keyed by tokenIn (token0→token1, token1→token0). Add a field {\"path\":\"amount\",\"label\":\"Receive\",\"format\":\"tokenAmount\",\"params\":{\"token\":{\"map\":\"$.metadata.maps.otherToken\",\"keyPath\":\"tokenIn\"}}}. Change interpolatedIntent to say {to} receives the same amount of the other token.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "swapPushed(address tokenIn, uint256 amount, address to)",
+    "effects": [
+     "Nothing leaves the signer in this call. The pool uses `amount` of tokenIn that someone already sent to it, above its reserve.",
+     "`to` receives exactly `amount` of the other pool token.",
+     "Any tokenIn surplus above `amount` stays in the pool, and anyone can skim it."
+    ],
+    "shown": "Swap (pre-funded): \"Swap 21.37 zkUSD, send to Bob\", with 'Pay 21.37 zkUSD' and 'To Bob'.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swapPushed never shows the asset or amount the recipient receives.",
+      "evidence": "ParSwapPool._settleSwap: `token1.safeTransfer(to, amount);` / `token0.safeTransfer(to, amount);`. descriptor swapPushed fields: only `amount` 'Pay' (tokenIn) and `to`. Case 6 shows 'Swap 21.37 zkUSD, send to Bob'.",
+      "fix": "Add a 'Receive' field on `amount` with token {\"map\":\"$.metadata.maps.otherToken\",\"keyPath\":\"tokenIn\"}, and name the received token in interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapPushed labels the input 'Pay', but this call takes nothing from the signer's wallet.",
+      "evidence": "ParSwapPool.swapPushed: `received = token.balanceOf(address(this)) - reserveIn; require(received >= amount)`, with no transferFrom. descriptor: `amount` label \"Pay\".",
+      "fix": "Change the label to \"Already sent to pool\" and the intent to \"Swap tokens already sent to pool\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 50
+   },
+   {
+    "key": "swapWithAuthorization(address tokenIn, uint256 amount, address from, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)",
+    "effects": [
+     "The token pulls `amount` of tokenIn from `from` to the pool with `from`'s EIP-3009 receiveWithAuthorization signature. When the signer is `from`, the signer's tokens leave.",
+     "`from` receives exactly `amount` of the other pool token.",
+     "The authorization nonce is consumed in the token. A relayer submitter pays nothing."
+    ],
+    "shown": "Swap with authorization: \"Swap 21.37 zkUSD from Alice\", with 'Pay', 'From' and 'Valid before'.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swapWithAuthorization does not show what token arrives, how much, or that `from` receives it.",
+      "evidence": "ParSwapPool.swapWithAuthorization: `_settleSwap(zeroForOne, amount, tokenIn, from);` which sends the other token to `from`. descriptor: interpolatedIntent \"Swap {amount} from {from}\"; fields Pay, From, Valid before. Case 7 shows no received asset.",
+      "fix": "Add a 'Receive' field on `amount` with token {\"map\":\"$.metadata.maps.otherToken\",\"keyPath\":\"tokenIn\"}. Change interpolatedIntent to \"Swap {amount} from {from}; {from} receives the other token\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "swapWithAuthorization hides validAfter, which is the start of the authorization window.",
+      "evidence": "descriptor shows only `validBefore`; ParSwapPool passes `validAfter` to `receiveWithAuthorization`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "transfer(address to, uint256 value)",
+    "effects": [
+     "`value` PAR-LP shares leave the signer and go to `to`."
+    ],
+    "shown": "Transfer LP shares: \"Send {value} PAR-LP to {to}\".",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "transferFrom(address from, address to, uint256 value)",
+    "effects": [
+     "`value` PAR-LP shares move from `from` to `to`.",
+     "The transfer spends `value` of the signer's allowance from `from`, unless that allowance is infinite."
+    ],
+    "shown": "Transfer LP shares from: \"Send {value} PAR-LP from {from} to {to}\".",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.595,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 127,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "addLiquidity(uint256 amount0, uint256 amount1, address to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "addLiquidity uses the same label 'Amount' for the zkUSD deposit and the USDC deposit.",
+   "comprehension": null
+  },
+  "approve(address spender, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "removeLiquidity(uint256 shares, uint256 minAmount0, uint256 minAmount1, address to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "The removeLiquidity sentence 'Redeem X PAR-LP to Bob' omits the tokens received and can read like a share transfer.",
+   "comprehension": null
+  },
+  "removeLiquidityExact(uint256 amount0, uint256 amount1, uint256 maxShares, address to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "The removeLiquidityExact sentence omits that it burns up to maxShares of the signer's PAR-LP.",
+   "comprehension": null
+  },
+  "skim(address to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "swap(address tokenIn, uint256 amount, address to)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "swap never shows the asset or amount the recipient receives; 'send to Bob' can read as sending zkUSD.",
+   "comprehension": null
+  },
+  "swapPushed(address tokenIn, uint256 amount, address to)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "swapPushed never shows the asset or amount the recipient receives.",
+   "comprehension": null
+  },
+  "swapWithAuthorization(address tokenIn, uint256 amount, address from, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "swapWithAuthorization does not show what token arrives, how much, or that `from` receives it.",
+   "comprehension": null
+  },
+  "transfer(address to, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferFrom(address from, address to, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 78,
+  "clarity": 72,
+  "functions": "3A 4B 3F",
+  "incomplete": false,
+  "worst": "swap never shows the asset or amount the recipient receives; 'send to Bob' can read as sending zkUSD."
+ }
+}

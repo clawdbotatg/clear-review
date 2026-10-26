@@ -1,0 +1,221 @@
+{
+ "hash": "0xbe332f92de741381cf95ba81084aa09c52596f0244a5ee412ef15a3b41621b51",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakPAXG.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef7959ae71d4e45e1863dae0b94c35244af816"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` PAXG from the signer and sends it to the vault (ERC4626._deposit safeTransferFrom(_asset, caller, this, assets)).",
+     "Mints steakPAXG shares to `receiver`; the share count is computed from vault totals in storage (convertToSharesWithTotals, rounded down).",
+     "The vault supplies the PAXG to Morpho Blue markets (no further effect on the signer)."
+    ],
+    "shown": "Deposit: the PAXG amount, a constant 'steakPAXG' share ticker, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is computed in the contract and is not shown.",
+      "evidence": "MetaMorphoV1_1.sol deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Floor); the descriptor shows only `assets` and the vaultTicker constant.",
+      "fix": "None possible; the screen shows only the ticker, which is enough.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' names neither the asset nor the vault.",
+      "evidence": "descriptor deposit intent \"Deposit\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into steakPAXG for {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "deposit/withdraw: PAXG's transfer fee could change the amounts that arrive; I could not check fee exemptions.",
+      "evidence": "ERC4626._deposit/_withdraw call SafeERC20 on _asset 0x4580…af78 (PAXG); the PAXG source is not in the directory.",
+      "fix": "Confirm that the vault and Morpho are fee-free on PAXG. If they are not, label the amounts as gross amounts.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Takes PAXG from the signer, in an amount the contract computes from `shares` (rounded up). It is capped only by the signer's allowance.",
+     "Mints exactly `shares` steakPAXG to `receiver`."
+    ],
+    "shown": "Mint: the deposit asset 'PAXG' as a ticker with no amount, the steakPAXG share amount, and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the PAXG amount taken is computed on chain, and the screen gives no amount or bound.",
+      "evidence": "MetaMorphoV1_1.sol mint: assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Ceil); the descriptor field 'Deposit asset' is the raw constant \"PAXG\" with no amount.",
+      "fix": "None in calldata. The field could be labeled 'Pays in (amount set by the vault)' to make this clear.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say that PAXG is deposited for steakPAXG shares.",
+      "evidence": "descriptor mint intent \"Mint\", no interpolatedIntent.",
+      "fix": "Use intent 'Deposit PAXG for shares' and interpolatedIntent \"Mint {shares} for {receiver} paying PAXG\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns `owner`'s steakPAXG shares, in an amount computed from `assets` (rounded up).",
+     "If the signer is not the owner, spends the owner's share allowance to the signer.",
+     "Sends exactly `assets` PAXG to `receiver`."
+    ],
+    "shown": "Withdraw: the exact PAXG amount, the recipient, and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is computed in the contract and is not shown.",
+      "evidence": "MetaMorphoV1_1.sol withdraw: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Ceil); _burn(owner, shares).",
+      "fix": "None possible.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' does not say that steakPAXG shares are burned.",
+      "evidence": "descriptor withdraw intent \"Withdraw\", no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from steakPAXG to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` steakPAXG from `owner`; if the signer is not the owner, this spends the owner's share allowance to the signer.",
+     "Sends PAXG to `receiver`, in an amount the contract computes from `shares` (rounded down), with no minimum."
+    ],
+    "shown": "Redeem: the steakPAXG share amount, the recipient, and the owner. Nothing says PAXG is what comes out.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: no field names PAXG as the asset paid out, unlike mint's 'Deposit asset' field.",
+      "evidence": "ERC4626._withdraw: SafeERC20.safeTransfer(_asset, receiver, assets); the descriptor redeem fields are only shares, receiver and owner, and $.metadata.constants.underlyingTicker is not used.",
+      "fix": "Add a field {label:'Receive asset', format:'raw', value:'$.metadata.constants.underlyingTicker'} or put PAXG in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the PAXG amount received is computed on chain, with no minimum.",
+      "evidence": "MetaMorphoV1_1.sol redeem: assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Floor).",
+      "fix": "None possible in calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "The PAXG token 0x45804880De22913dAFE09f4980848ECE6EcbAf78 has no source in the directory. PAXG charges a transfer fee, so I could not check whether the vault and Morpho are fee-free, which decides whether the receiver gets the full PAXG amount shown on withdraw."
+  ]
+ },
+ "cost": 0.311,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 87,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: no field names PAXG as the asset paid out, unlike mint's 'Deposit asset' field.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 61,
+  "functions": "2B 2C",
+  "incomplete": true,
+  "worst": "redeem: no field names PAXG as the asset paid out, unlike mint's 'Deposit asset' field."
+ }
+}

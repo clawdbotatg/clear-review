@@ -1,0 +1,225 @@
+{
+ "hash": "0xbebdbb4b2a66e8bc275de0ad49daa9b47b07b7e52c8839d1da808d686012c3bc",
+ "file": "registry/kiln/calldata-Vault-USDT-Compound-v3.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xcf34b24f5b1d7a4718f40d757a9a0dc0d7936f3e"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The vault pulls exactly `assets` USDT from the signer (safeTransferFrom in Vault._deposit).",
+     "The vault mints kCompoundUSDT shares to `receiver`. The count is (assets - depositFee) converted at the current price and rounded down. It comes from storage, and there is no minimum in calldata.",
+     "A deposit fee read from storage (0 at init, up to 35%) is kept from the deposited USDT. It lowers the shares minted.",
+     "The vault deposits the USDT into Compound v3 through a connector delegatecall. This moves the vault's funds, not the signer's."
+    ],
+    "shown": "Intent \"Deposit\", with the USDT amount, the share ticker kCompoundUSDT as a constant, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many kCompoundUSDT shares the signer receives; no minimum exists in calldata",
+      "evidence": "Vault.deposit: `(uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply());` and _previewDeposit takes `depositFeeAmount = assets.mulDiv($._depositFee, ...)` from storage. Case 0 mined: signer in 1000001 kCompoundUSDT. The screen shows only 'Share ticker: kCompoundUSDT', with no amount.",
+      "fix": "No descriptor change can show the share count. You can add a label note such as 'Shares at current vault price'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit intent 'Deposit' does not name the asset or that vault shares come back",
+      "evidence": "descriptor deposit format: \"intent\": \"Deposit\", and interpolatedIntent is absent.",
+      "fix": "Change the intent to \"Deposit USDT for kCompoundUSDT shares\". Add an interpolatedIntent: \"Deposit {assets} for shares sent to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states the 1.000001 USDT out right. The kCompoundUSDT in (1.000001) is shown only by its ticker and recipient. No amount is shown, because the code has no bound to display."
+     }
+    ],
+    "glance": 45,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` kCompoundUSDT to `receiver`.",
+     "The vault pulls USDT from the signer. The amount is previewMint(shares): the current price plus the deposit fee from storage. Calldata has no maximum.",
+     "The vault deposits the USDT into Compound v3 through a connector delegatecall. This moves the vault's funds."
+    ],
+    "shown": "Intent \"Mint\", with 'Deposit asset: USDT' as a raw constant, the share amount, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDT leaves the signer; ERC-4626 mint has no maximum-assets bound",
+      "evidence": "Vault.mint: `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); ... _deposit(_msgSender(), receiver, _assets, shares, _depositFeeAmount);`. The descriptor shows only `\"value\": \"$.metadata.constants.underlyingTicker\"` labelled 'Deposit asset'.",
+      "fix": "No descriptor change can show the USDT amount. Change the label to 'Pays with (amount at vault price)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent 'Mint' does not say the signer pays USDT for the shares",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\". The payment shows only as the field 'Deposit asset' with the raw value 'USDT'.",
+      "fix": "Change the intent to \"Pay USDT to mint kCompoundUSDT shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns kCompoundUSDT shares from `owner`. The count is computed from `assets` (ceil, then partial shares rounded down), and calldata has no maximum.",
+     "When the signer is not `owner`, the vault spends the signer's share allowance from `owner`.",
+     "A connector delegatecall withdraws `assets` USDT from Compound v3. The vault sends the USDT balance increase to `receiver`."
+    ],
+    "shown": "Intent \"Withdraw\", with 'Withdraw exactly' X USDT, the receiver 'To' and the 'Owner' of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many kCompoundUSDT shares are burned from the owner",
+      "evidence": "Vault.withdraw: `uint256 _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); ... _withdraw(_msgSender(), receiver, owner, assets, _shares);`. No field shows shares.",
+      "fix": "Add a constant field that names the share token burned, for example 'Burns shares: kCompoundUSDT'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw 'Owner' field does not say the signer's share allowance from the owner is spent",
+      "evidence": "Vault._withdraw: `if (caller != owner) { _spendAllowance(owner, caller, shares); } _burn(owner, shares);`. The descriptor label is \"Owner\".",
+      "fix": "Change the label to 'Burn shares of'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` kCompoundUSDT from `owner`.",
+     "When the signer is not `owner`, the vault spends the signer's share allowance from `owner`.",
+     "The vault sends USDT to `receiver`. The amount is convertToAssets(shares) at the current price, and calldata has no minimum."
+    ],
+    "shown": "Intent \"Redeem\", with the share amount, the receiver 'To' and the 'Owner'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDT as the asset the receiver gets",
+      "evidence": "Vault._withdraw: `SafeERC20.safeTransfer(IERC20(asset()), receiver, ...)`. The descriptor redeem fields are only 'Shares to redeem', 'To' and 'Owner', and the intent is \"Redeem\".",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}. Change the intent to \"Redeem shares for USDT\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDT the receiver gets; no minimum exists in calldata",
+      "evidence": "Vault.redeem: `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "The connector that Vault._withdraw delegatecalls (connectorRegistry 0xde63817c82e93499357ae198518f90ac1be93a72, connector 'COMPOUND_V3') is not in the directory. For withdraw and redeem, the receiver gets the vault's USDT balance increase after that call. So I could not confirm that 'Withdraw exactly' matches the amount received."
+  ]
+ },
+ "cost": 0.53,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 97,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' does not name the asset or that vault shares come back",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say the signer pays USDT for the shares",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw 'Owner' field does not say the signer's share allowance from the owner is spent",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDT as the asset the receiver gets",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 51,
+  "functions": "1B 3C",
+  "incomplete": true,
+  "worst": "redeem never names USDT as the asset the receiver gets"
+ }
+}

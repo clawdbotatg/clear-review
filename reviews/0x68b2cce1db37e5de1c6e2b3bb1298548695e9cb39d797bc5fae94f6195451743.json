@@ -1,0 +1,213 @@
+{
+ "hash": "0x68b2cce1db37e5de1c6e2b3bb1298548695e9cb39d797bc5fae94f6195451743",
+ "file": "registry/symbiotic/calldata-VaultV1Tokenized-GROVE.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf3ddcaa3bd5d04ba08bec69cf34d9d9c9c112d14"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` GROVE (collateral 0xB30F…9406) from the signer into the vault via safeTransferFrom.",
+     "Mints vault shares (stGROVE) to `onBehalfOf`, which can be another address than the signer. The share count is computed from the vault's active stake and shares."
+    ],
+    "shown": "Deposit 123.25 GROVE into the vault, with the shares credited to the beneficiary address shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of stGROVE shares minted to onBehalfOf is not shown.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)`. The count comes from storage and is not in the calldata. The descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "fix": "None possible. The beneficiary and amount are already shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active stGROVE shares, the amount needed to cover `amount` GROVE (rounded up).",
+     "Queues `amount` GROVE for the next epoch. The right to claim it goes to `claimer`, who can be another address than the signer.",
+     "The queued assets can still be slashed until the epoch ends. Nothing is paid out in this call."
+    ],
+    "shown": "Request a 2.5 GROVE withdrawal from the vault, claimable by the 'Claim owner' address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the stGROVE burned from the signer is computed on-chain and not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`. _withdraw then pushes `activeSharesOf(msg.sender) - burnedShares`. The share count comes from storage.",
+      "fix": "None needed. The asset amount shown sets the burn.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "withdraw: the intent does not say the funds arrive only after the epoch ends and are slashable until then.",
+      "evidence": "Vault.sol _withdraw: `uint256 epoch = currentEpoch() + 1; withdrawals[epoch] = ...`. onSlash reduces `withdrawals[currentEpoch_ + 1]`. The intent reads 'Request withdrawal'.",
+      "fix": "Optionally say 'Request withdrawal (claimable after the current epoch)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` stGROVE from the signer's active balance.",
+     "Queues the GROVE equivalent of those shares for the next epoch, claimable by `claimer`, which can be another address than the signer. The queued GROVE can be slashed until the epoch ends."
+    ],
+    "shown": "Queue 0.987654321123456789 stGROVE for withdrawal, with the 'Claim owner' address shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the GROVE amount queued for the claimer is computed on-chain and not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())`. The rate comes from storage and is not in the calldata.",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed.",
+     "Transfers the GROVE the signer is owed for that epoch from the vault to `recipient`, which can be another address than the signer."
+    ],
+    "shown": "Claim the withdrawal of epoch 42 to the recipient address. No amount and no token are named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the GROVE amount sent to the recipient comes from storage and is not shown.",
+      "evidence": "Vault.sol claim: `amount = _claim(epoch); IERC20(collateral).safeTransfer(recipient, amount);`. _claim uses `withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None possible. The intent could name the token, e.g. 'Claim GROVE withdrawal'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawals for every listed epoch as claimed.",
+     "Transfers the sum of the GROVE owed for those epochs from the vault to `recipient`, which can be another address than the signer."
+    ],
+    "shown": "Claim the withdrawals of the listed epochs to the recipient address. Every epoch is shown; no amount and no token are named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total GROVE sent to the recipient comes from storage and is not shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]); ... IERC20(collateral).safeTransfer(recipient, amount);`",
+      "fix": "None possible. The intent could name the token, e.g. 'Claim GROVE withdrawals'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.339,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 54,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 78,
+  "functions": "2A 3B",
+  "incomplete": false,
+  "worst": null
+ }
+}

@@ -1,0 +1,205 @@
+{
+ "hash": "0x781c28afd37ee19f2c2126657bb84d57d4af7d4c8474f24a5cf81e30ffadfe24",
+ "file": "registry/flare/calldata-PollingFoundation-Songbird.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 19,
+   "address": "0x79df47237292dbd1477502cff3f61cd535b0face"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "castVote(uint256 _proposalId, uint8 _support)",
+    "effects": [
+     "Records one final vote (For or Against) from the signer on the proposal; the signer cannot vote again on it (GovernorVotes._storeVote sets hasVoted).",
+     "The vote's weight is all of the signer's governance vote power at the proposal's snapshot block, read from storage (Governor._castVote: governanceVotePower.votePowerOfAt).",
+     "No tokens or native value move. The function is not payable."
+    ],
+    "shown": "\"cast vote\", with the proposal id as a raw number and Support shown as For/Against through an enum that matches the contract's VoteType.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "castVote: the vote weight and the fact that the vote is final are not shown",
+      "evidence": "Governor._castVote: votePower = governanceVotePower.votePowerOfAt(_voter, proposal.votePowerBlock); GovernorVotes._storeVote: require(!_voting.hasVoted[_voter]). Neither value is in the calldata.",
+      "fix": "None in the descriptor. A label or intent such as 'Cast final vote' could mention that the vote cannot be changed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "castVote: the proposal id is a keccak hash that the signer cannot match to a proposal",
+      "evidence": "GovernorProposals._getProposalId returns uint256(keccak256(abi.encode(chainId, address(this), ...))). The descriptor shows '#._proposalId' as raw, so the signer sees a 77-digit number. Cases 0 and 1 use id 7, which no real proposal has.",
+      "fix": "None in the descriptor. Use a realistic hash-sized proposal id in the tests.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "castVote has no interpolatedIntent naming the side and the proposal",
+      "evidence": "descriptor castVote: intent 'cast vote', no interpolatedIntent.",
+      "fix": "Add interpolatedIntent 'Vote {_support} on proposal {_proposalId}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "propose(address[] _targets, uint256[] _values, bytes[] _calldatas, string _description, (bool accept, uint256 votingStartTs, uint256 votingPeriodSeconds, uint256 vpBlockPeriodSeconds, uint256 thresholdConditionBIPS, uint256 majorityConditionBIPS, uint256 executionDelaySeconds, uint256 executionPeriodSeconds) _settings)",
+    "effects": [
+     "Creates an executable proposal with the signer as proposer. Only the signer can later cancel it before voting or execute it (Governor.cancel and Governor._execute check proposal.proposer == msg.sender).",
+     "Commits the on-chain actions: calls to _targets with _calldatas and native _values, run from the PollingFoundation contract. When the signer later executes, they must send msg.value equal to the sum of _values (GovernorProposals._executeProposal).",
+     "Sets the voting rules: accept/reject type, voting start = max(now, votingStartTs), voting period, threshold and majority in BIPS. The vote-power snapshot block is chosen at random within a lookback of vpBlockPeriodSeconds.",
+     "Sets an execution window that starts at voteEnd + executionDelaySeconds, or later if an earlier proposal's window pushes it back (nextExecutionStartTime). Moves the global nextExecutionStartTime forward.",
+     "No tokens or native value move in this call. The function is not payable."
+    ],
+    "shown": "\"create proposal\", then target, native value and raw calldata for each action, the description, and the settings (accept flag, start date, durations, bps thresholds).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "propose (executable): the proposal's action calldata is shown as raw hex",
+      "evidence": "descriptor field 'Calldatas' format 'raw' path '#._calldatas.[]'. Case 2 shows '0x12345678'. GovernorProposals._executeProposal later runs _targets[i].call{value: _values[i]}(_calldatas[i]).",
+      "fix": "Use format 'calldata' with calleePath '#._targets.[]' and amountPath '#._values.[]' so wallets can decode each action. Otherwise state in the label that these are the encoded calls the proposal will run.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "propose (executable): 'Values' does not say the proposer must pay this native value at execution",
+      "evidence": "GovernorProposals._executeProposal: require(msg.value == sum, ...). Only the proposer can execute (Governor._execute). The descriptor labels it 'Values' (case 2: '1 SGB').",
+      "fix": "Relabel it, e.g. 'Native value sent with call (paid by you at execution)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "propose: the 'Accept if vote passes' raw boolean hides the reject-type semantics",
+      "evidence": "Governor._proposalSucceeded: with accept=false, the proposal succeeds when quorum is not met or Against is not a majority. The descriptor shows 'Accept if vote passes' in format raw (case 2: 'true').",
+      "fix": "Use an enum or label such as 'Proposal type': true = 'Accept (needs FOR majority)', false = 'Reject (passes unless voted down)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "propose: the execution delay is a minimum and the 'Vp Block Period' label is jargon",
+      "evidence": "GovernorProposals._storeProposal: if (proposal.execStartTime < nextExecutionStartTime) proposal.execStartTime = nextExecutionStartTime. Governor._calculateVotePowerBlock picks a random block within the lookback. Labels 'Execution Delay' and 'Vp Block Period'.",
+      "fix": "Relabel to 'Minimum execution delay' and 'Vote-power snapshot lookback'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "propose (executable): the intent does not say the signer becomes the proposer who must execute it",
+      "evidence": "intent 'create proposal', no interpolatedIntent. Governor._execute: require(proposal.proposer == msg.sender).",
+      "fix": "Add an interpolatedIntent such as 'Create executable proposal: {_description}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "propose(string _description, (bool accept, uint256 votingStartTs, uint256 votingPeriodSeconds, uint256 vpBlockPeriodSeconds, uint256 thresholdConditionBIPS, uint256 majorityConditionBIPS) _settings)",
+    "effects": [
+     "Creates a non-executable (signalling) proposal with the signer as proposer. Only the signer can cancel it before voting starts.",
+     "Sets the voting rules: accept/reject type, voting start = max(now, votingStartTs), voting period, vote-power snapshot lookback, threshold and majority in BIPS. Execution parameters are fixed at delay 0 and period 1, and there are no targets.",
+     "No tokens or native value move. The function is not payable."
+    ],
+    "shown": "\"create proposal\", with the description and the settings (accept flag, start date, durations, bps thresholds).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "propose (signal): the 'Accept if vote passes' raw boolean hides the reject-type semantics",
+      "evidence": "Governor._proposalSucceeded: with accept=false, the proposal succeeds unless quorum is met and Against has the majority. The descriptor shows 'Accept if vote passes' in format raw (case 3: 'true').",
+      "fix": "Use an enum or label such as 'Proposal type': Accept (needs FOR majority) / Reject (passes unless voted down).",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "propose (signal): 'Vp Block Period' is jargon and the intent does not say it is a non-executable poll",
+      "evidence": "PollingFoundation.propose(string,...) calls _propose with empty targets. The descriptor has intent 'create proposal' and label 'Vp Block Period'.",
+      "fix": "Use intent 'Create poll (no on-chain actions)' and relabel to 'Vote-power snapshot lookback'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.387,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 70,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "castVote(uint256 _proposalId, uint8 _support)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "propose(address[] _targets, uint256[] _values, bytes[] _calldatas, string _description, (bool accept, uint256 votingStartTs, uint256 votingPeriodSeconds, uint256 vpBlockPeriodSeconds, uint256 thresholdConditionBIPS, uint256 majorityConditionBIPS, uint256 executionDelaySeconds, uint256 executionPeriodSeconds) _settings)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "propose (executable): the proposal's action calldata is shown as raw hex",
+   "comprehension": null
+  },
+  "propose(string _description, (bool accept, uint256 votingStartTs, uint256 votingPeriodSeconds, uint256 vpBlockPeriodSeconds, uint256 thresholdConditionBIPS, uint256 majorityConditionBIPS) _settings)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "propose (signal): the 'Accept if vote passes' raw boolean hides the reject-type semantics",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 61,
+  "functions": "2B 1C",
+  "incomplete": false,
+  "worst": "propose (executable): the proposal's action calldata is shown as raw hex"
+ }
+}

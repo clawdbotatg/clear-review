@@ -1,0 +1,172 @@
+{
+ "hash": "0x09a809a1037be128024b080bfafdf9ecb0c592a85402687ddaeabba4ec003411",
+ "file": "registry/circle/calldata-TokenMessengerV2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 137,
+   "address": "0x28b5a0e9c621a5badaa536219b3a228c8168cf5d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "depositForBurn(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold)",
+    "effects": [
+     "`amount` of burnToken (USDC) moves from the signer to the local TokenMinter through transferFrom, using the signer's allowance to TokenMessengerV2, and is burned on Polygon.",
+     "On destinationDomain, mintRecipient (bytes32) is minted `amount` minus the fee charged. The fee is capped by maxFee and must be less than amount.",
+     "Only destinationCaller can relay the message on the destination chain. bytes32(0) means anyone can.",
+     "minFinalityThreshold sets fast or standard attestation. This changes the speed and the fee charged, which stays within maxFee."
+    ],
+    "shown": "Bridge <amount USDC> to domain <number>, with the amount, the raw domain number, the raw bytes32 mint recipient, the max fee in USDC and the raw bytes32 destination caller.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "depositForBurn: destination domain shown as a bare CCTP number (0, 3, 6) instead of a chain name.",
+      "evidence": "descriptor definitions.destination {\"label\":\"CCTP dest. domain\",\"format\":\"raw\"}; interpolatedIntent \"Bridge {amount} to domain {destinationDomain}\". Case 2 screen: \"Bridge 100 USDC to domain 6\" (Base). Case 3: \"domain 0\" (Ethereum).",
+      "fix": "Add $.metadata.enums.cctpDomain (0 Ethereum, 1 Avalanche, 2 OP Mainnet, 3 Arbitrum, 5 Solana, 6 Base, 7 Polygon PoS, …) and use format enum, so the sentence reads \"Bridge 100 USDC to Base\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "depositForBurn: the intent says the full amount is bridged, but the recipient gets amount minus a fee up to maxFee.",
+      "evidence": "TokenMessengerV2._handleReceiveMessage: _mintAndWithdraw(..., _amount - _fee, _fee); _validatedReceivedMessage requires _fee <= maxFee. Case 3 screen: \"Bridge 42 USDC to domain 0\" with a separate field \"Max fee 0.0042 USDC\".",
+      "fix": "Relabel maxFee as \"Max fee (deducted from amount)\", or add to the intent: \"Bridge {amount} to {destinationDomain}, fee up to {maxFee}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "depositForBurn: mint recipient and destination caller shown as raw bytes32, which are hard to compare with an address.",
+      "evidence": "definitions.mintRecipient and definitions.destinationCaller use format raw. Case 2 screen: \"0x000000000000000000000000dad77910dbdfde764fc21fcd4e74d71bbaca6d8d\". A [-20:] slice with addressName would cut non-EVM recipients (Solana, Stellar), so no single format fits every domain.",
+      "fix": "Keep raw, or add a hint in the label such as \"Mint recipient (last 20 bytes = EVM address)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "depositForBurn: minFinalityThreshold is hidden, so the signer can't see whether this is a fast or standard transfer.",
+      "evidence": "descriptor field {\"path\":\"minFinalityThreshold\",\"visible\":\"never\"}. Cases 2 and 3 use 0x7d0 (2000, standard). The fee stays within the maxFee that is shown.",
+      "fix": "Optionally show it with an enum {1000: Fast, 2000: Standard}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 68
+   },
+   {
+    "key": "depositForBurnWithHook(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold, bytes hookData)",
+    "effects": [
+     "`amount` of burnToken (USDC) moves from the signer to the local TokenMinter through transferFrom, using the signer's allowance to TokenMessengerV2, and is burned on Polygon.",
+     "On destinationDomain, mintRecipient is minted `amount` minus the fee charged (at most maxFee).",
+     "hookData goes into the burn message, and the destination recipient or forwarder interprets it. In case 0 it names the final Stellar account that the forwarder pays.",
+     "Only destinationCaller can relay the message on the destination chain. bytes32(0) means anyone can.",
+     "minFinalityThreshold sets fast or standard attestation and the fee charged, which stays within maxFee."
+    ],
+    "shown": "Bridge <amount USDC> to domain <number>, with the amount, the raw domain, the raw bytes32 recipient, the max fee, the raw destination caller and the raw hook data hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "depositForBurnWithHook: destination domain shown as a bare CCTP number (27, 3) instead of a chain name.",
+      "evidence": "definitions.destination format raw. Case 0 screen: \"Bridge 25 USDC to domain 27\". Case 1: \"Bridge 1250.5 USDC to domain 3\" (Arbitrum).",
+      "fix": "Use an enum of CCTP domains (3 Arbitrum, 6 Base, 27 Stellar, …) with format enum, and put it in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "depositForBurnWithHook: the intent implies the full amount arrives, but the recipient is minted amount minus a fee up to maxFee.",
+      "evidence": "TokenMessengerV2._handleReceiveMessage mints _amount - _fee, with _fee <= maxFee. Case 1 screen: \"Bridge 1250.5 USDC to domain 3\" with a separate \"Max fee 0.125 USDC\".",
+      "fix": "Label maxFee \"Max fee (deducted from amount)\" or mention it in the interpolated intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "depositForBurnWithHook: the final beneficiary in the hook data is only visible as raw hex.",
+      "evidence": "Case 0: mintRecipient = destinationCaller = 0x72bd20ff… (a forwarder). Hook data hex is ASCII for \"GCNHC2KY3QLJYXJCTY64TWDFHZWMOUYRD6AGMWUZOSK2VHK7D5MYUYZA\", the Stellar account that finally gets the funds. Field {\"path\":\"hookData\",\"format\":\"raw\"}.",
+      "fix": "No ERC-7730 format decodes the hook payload. Mention in the description or intent of forwarder-specific descriptors that the hook carries the final recipient.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "depositForBurnWithHook: mint recipient and destination caller shown as raw bytes32.",
+      "evidence": "definitions.mintRecipient and definitions.destinationCaller use format raw. Case 1: \"0x000000000000000000000000dad77910dbdfde764fc21fcd4e74d71bbaca6d8d\". Case 0 uses a non-EVM 32-byte recipient, so a [-20:] address slice would be wrong.",
+      "fix": "Keep raw, or add a label hint for EVM domains.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "depositForBurnWithHook: minFinalityThreshold hidden, so fast or standard transfer isn't stated.",
+      "evidence": "field {\"path\":\"minFinalityThreshold\",\"visible\":\"never\"}. Cases 0 and 1 use 2000. The fee is bounded by the maxFee shown.",
+      "fix": "Optionally show it with an enum {1000: Fast, 2000: Standard}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.372,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 72,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "depositForBurn(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 54,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "depositForBurn: destination domain shown as a bare CCTP number (0, 3, 6) instead of a chain name.",
+   "comprehension": null
+  },
+  "depositForBurnWithHook(uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, address burnToken, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold, bytes hookData)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "depositForBurnWithHook: destination domain shown as a bare CCTP number (27, 3) instead of a chain name.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 51,
+  "functions": "2C",
+  "incomplete": false,
+  "worst": "depositForBurn: destination domain shown as a bare CCTP number (0, 3, 6) instead of a chain name."
+ }
+}

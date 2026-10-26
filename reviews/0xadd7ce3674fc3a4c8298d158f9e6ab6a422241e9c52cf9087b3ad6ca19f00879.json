@@ -1,0 +1,232 @@
+{
+ "hash": "0xadd7ce3674fc3a4c8298d158f9e6ab6a422241e9c52cf9087b3ad6ca19f00879",
+ "file": "registry/morpho/calldata-gauntlet-gtWETHe.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x1e6ffa4e9f63d10b8820a3ab52566af881dab53c"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The vault pulls exactly `assets` WETH from the signer (safeTransferFrom of caller in ERC4626._deposit) and spends the signer's WETH allowance to the vault.",
+     "The vault mints gtWETHe shares to `receiver`. The share amount comes from the vault's stored totals (_convertToSharesWithTotals, rounded down), and there is no minimum."
+    ],
+    "shown": "Intent 'Deposit', with the WETH amount deposited, a fixed 'Share ticker gtWETHe' line, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many gtWETHe shares the receiver gets; the vault price decides it.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0: the signer receives 1965716408396327 gtWETHe, but the screen only shows 'Share ticker: gtWETHe'.",
+      "fix": "No calldata value holds the share amount. Nothing to change beyond the label.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit shows the share token as a separate raw 'Share ticker' line with no amount and no intent sentence.",
+      "evidence": "descriptor deposit field {\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}. There is no interpolatedIntent, and the intent is only 'Deposit'.",
+      "fix": "Rename the label to 'Receive shares in', and add an interpolatedIntent such as 'Deposit {assets} for gtWETHe shares to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.002 WETH sent is shown exactly. The 1965716408396327 gtWETHe received has no amount on screen. The reader knew shares arrive in their own wallet but not how many."
+     }
+    ],
+    "glance": 45,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault pulls WETH from the signer. The amount is computed from storage (_convertToAssetsWithTotals, rounded up), with no maximum in the calldata, and it spends the signer's WETH allowance.",
+     "The vault mints exactly `shares` gtWETHe to `receiver`."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: WETH' with no amount, the exact gtWETHe shares minted, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much WETH leaves the signer; the vault computes it from storage with no cap.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. Case 1: the signer sends 1017920351 wei WETH, but the screen shows only 'Deposit asset: WETH'.",
+      "fix": "No calldata value bounds the WETH paid. Only the signer's WETH allowance limits it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent 'Mint' does not say the signer pays WETH, and 'Deposit asset' shows a ticker where an amount is expected.",
+      "evidence": "descriptor mint: \"intent\": \"Mint\". Field {\"label\":\"Deposit asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} renders as 'WETH'. Case 1 reader: 'Exact WETH amount deducted is not displayed'.",
+      "fix": "Change the intent to 'Deposit WETH to mint vault shares'. Rename the field to 'Pay with (amount set by vault)'. Add an interpolatedIntent 'Mint {shares} to {receiver}, paid in WETH'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer paid 1017920351 wei WETH. The screen names WETH but not the amount. The shares went to 0xdead, which is shown correctly, and are not a signer effect."
+     }
+    ],
+    "glance": 30,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns gtWETHe shares from `owner`. The amount is computed from storage, rounded up, with no maximum in the calldata.",
+     "If the signer is not `owner`, the call spends the share allowance that `owner` gave the signer.",
+     "The vault sends exactly `assets` WETH to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', the exact WETH amount, the recipient, and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many gtWETHe shares the vault burns from the owner; the vault price decides it.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`, then ERC4626._withdraw calls `_burn(owner, shares)`.",
+      "fix": "No calldata value holds the share amount. Consider an interpolatedIntent 'Withdraw {assets} to {receiver} using shares of {owner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtWETHe from `owner`. If the signer is not `owner`, this spends the share allowance that `owner` gave the signer.",
+     "The vault sends WETH to `receiver`. The amount is computed from storage, rounded down, with no minimum."
+    ],
+    "shown": "Intent 'Redeem', the exact gtWETHe shares, the recipient, and the owner. Nothing names the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names WETH as the asset the receiver gets, unlike deposit and mint.",
+      "evidence": "The descriptor redeem fields are only `shares`, `receiver` and `owner`, with no underlyingTicker field. Case 2: the signer receives 2000834977737563 WETH. Reader: 'Which token you receive (WETH is only implied by the name)'.",
+      "fix": "Add the field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}, and an interpolatedIntent 'Redeem {shares} for WETH to {receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much WETH arrives; the vault price decides it, with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 2: 2000834977737563 WETH arrives, and no amount is shown.",
+      "fix": "No calldata value holds the WETH amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.001965716408396327 gtWETHe out is shown exactly. The WETH in has neither asset nor amount on screen. The reader guessed WETH."
+     }
+    ],
+    "glance": 40,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.431,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 67,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit shows the share token as a separate raw 'Share ticker' line with no amount and no intent sentence.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say the signer pays WETH, and 'Deposit asset' shows a ticker where an amount is expected.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names WETH as the asset the receiver gets, unlike deposit and mint.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 58,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never names WETH as the asset the receiver gets, unlike deposit and mint."
+ }
+}

@@ -1,0 +1,211 @@
+{
+ "hash": "0xc423b987ed38f93c138d14c5d2d38738b255dc26541adcb71741be655697602b",
+ "file": "registry/morpho/calldata-block_analitica-mwcbBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x543257ef2161176d7c8cd90ba65c2d4caef5a796"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` cbBTC from the signer into the vault (OZ ERC4626 _deposit uses safeTransferFrom and spends the signer's cbBTC allowance to the vault).",
+     "Mints vault shares (mwcbBTC, 18 decimals) to `receiver`. The amount is assets*(totalSupply+10^10)/(totalAssets+1), rounded down, after fees accrue. No minimum is enforced.",
+     "The vault supplies the cbBTC to Morpho Blue markets through its supply queue. The signer's position is the vault shares."
+    ],
+    "shown": "Deposit: the exact cbBTC amount, a constant 'mwcbBTC' share ticker, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no minimum.",
+      "evidence": "MetaMorpho.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` is computed from storage. The descriptor shows only the 'Share ticker' constant mwcbBTC.",
+      "fix": "Nothing to fix in the descriptor. The share count depends on vault state and is not in the calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' names neither the asset nor the vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\", interpolatedIntent absent",
+      "fix": "Add an interpolatedIntent such as 'Deposit {assets} into Moonwell Frontier cbBTC vault for {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` vault shares (mwcbBTC) to `receiver`.",
+     "Pulls cbBTC from the signer. The amount is shares*(totalAssets+1)/(totalSupply+10^10), rounded up, after fees accrue. It is spent from the signer's cbBTC allowance to the vault, and no maximum is enforced.",
+     "The vault supplies the pulled cbBTC to Morpho Blue markets."
+    ],
+    "shown": "Mint: the deposit asset as the text 'cbBTC', the exact share amount minted, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the amount of cbBTC taken from the signer is not shown and has no maximum.",
+      "evidence": "MetaMorpho.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then `_deposit(_msgSender(), receiver, assets, shares)`. The descriptor shows only 'Deposit asset' = $.metadata.constants.underlyingTicker (raw).",
+      "fix": "Nothing to fix in the descriptor. The asset cost is computed from vault state. The signer's cbBTC allowance to the vault is the only cap.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say that cbBTC is paid in for vault shares.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", interpolatedIntent absent",
+      "fix": "Use an intent like 'Deposit cbBTC for vault shares' with an interpolatedIntent 'Mint {shares} for {receiver}, paid in cbBTC'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Sends exactly `assets` cbBTC from the vault to `receiver`, after the vault withdraws that amount from Morpho Blue markets.",
+     "Burns vault shares from `owner`. The amount is assets*(totalSupply+10^10)/(totalAssets+1), rounded up. No maximum is enforced.",
+     "If `owner` is not the signer, the burned shares are spent from owner's share allowance to the signer (OZ _spendAllowance)."
+    ],
+    "shown": "Withdraw: the exact cbBTC amount, the receiver, and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown and has no maximum.",
+      "evidence": "MetaMorpho.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then `_withdraw(_msgSender(), receiver, owner, assets, shares)`",
+      "fix": "Nothing to fix in the descriptor. The share burn is computed from vault state.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' does not name the asset or say that vault shares are burned.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", interpolatedIntent absent",
+      "fix": "Add an interpolatedIntent such as 'Withdraw {assets} to {receiver}, burning shares of {owner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `owner`. If owner is not the signer, they are spent from owner's share allowance to the signer.",
+     "Sends cbBTC to `receiver`. The amount is shares*(totalAssets+1)/(totalSupply+10^10), rounded down, after fees accrue. No minimum is enforced. The vault first withdraws it from Morpho Blue markets."
+    ],
+    "shown": "Redeem: the exact share amount, the receiver, and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the cbBTC amount received is not shown and has no minimum.",
+      "evidence": "MetaMorpho.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` is computed from storage. The descriptor has no field naming cbBTC as the asset received.",
+      "fix": "The amount cannot be shown. A constant field 'Receive asset: cbBTC' (as mint does with underlyingTicker) would at least name the asset.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent 'Redeem' does not say that cbBTC is received.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", interpolatedIntent absent",
+      "fix": "Add an interpolatedIntent such as 'Redeem {shares} for cbBTC to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.255,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 53,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 69,
+  "functions": "4B",
+  "incomplete": false,
+  "worst": null
+ }
+}

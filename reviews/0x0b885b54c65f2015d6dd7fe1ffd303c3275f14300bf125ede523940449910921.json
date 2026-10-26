@@ -1,0 +1,190 @@
+{
+ "hash": "0x0b885b54c65f2015d6dd7fe1ffd303c3275f14300bf125ede523940449910921",
+ "file": "registry/morpho/calldata-clearstar-CSBUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf3cc5c9a25508d8d959618fd48f6abc18ca4db49"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` USDC moves from the signer to the vault (safeTransferFrom in enter), using an approval the signer already gave.",
+     "New CSBUSDC vault shares are minted to `onBehalf`. The number is previewDeposit(assets), worked out from the vault's stored share price after interest is accrued.",
+     "No native value is taken (not payable). The vault may move the deposit on to its liquidity adapter, but that is the vault's own money, not the signer's."
+    ],
+    "shown": "Deposit an exact USDC amount into the Clearstar CSBUSDC vault, with the shares sent to the named onBehalf address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of CSBUSDC shares minted is not shown; it comes from the stored share price.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets);` comes after accrueInterest(). The calldata has only assets and onBehalf. The screen shows 'Deposit asset' and a constant 'Share ticker', with no share amount.",
+      "fix": "None possible in calldata. The share amount is derived on chain.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The signer sent exactly 1 USDC, as shown. The 1e18 CSBUSDC shares went to 0xdEaD (signer null), and the screen says so in 'Send shares to'."
+     }
+    ],
+    "glance": 88,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "CSBUSDC shares are burned from `onBehalf`. The number is previewWithdraw(assets), rounded up from the stored share price.",
+     "If the signer is not `onBehalf`, the owner's share allowance to the signer goes down by that number of shares.",
+     "Exactly `assets` USDC goes from the vault to `receiver`."
+    ],
+    "shown": "Withdraw an exact USDC amount to the receiver, taken from the shares of the named Owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of CSBUSDC shares burned from the owner is not shown; it comes from the stored share price.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 1: 4894407793142420 CSBUSDC went out from the signer, and the screen shows only 'Withdraw exactly 0.0049 USDC' and 'Owner'.",
+      "fix": "None possible in calldata. A label like 'Owner (shares burned)' could make it clear the shares come from that address.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "withdraw: neither the intent nor any field names the CSBUSDC share token being burned.",
+      "evidence": "interpolatedIntent 'Withdraw {#.assets} to {#.receiver}' has no field for $.metadata.constants.vaultTicker, while deposit has a 'Share ticker' field. The case 1 reader wrote 'the screen doesn't name them'.",
+      "fix": "Add a constant field such as 'Shares burned from: CSBUSDC' using $.metadata.constants.vaultTicker, as deposit does.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The USDC coming in (0.0049, to the signer) matches the screen exactly. The 4894407793142420 CSBUSDC going out is not on screen as an amount or a token; only 'Owner' implies the signer's shares are used."
+     }
+    ],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` CSBUSDC are burned from `onBehalf`.",
+     "If the signer is not `onBehalf`, the owner's share allowance to the signer goes down by `shares`.",
+     "USDC worth previewRedeem(shares), worked out from the stored share price with no minimum bound, goes from the vault to `receiver`."
+    ],
+    "shown": "Redeem an exact number of CSBUSDC shares, with the proceeds sent to the receiver, from the named Owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the asset received (USDC) is not named anywhere on the screen.",
+      "evidence": "The descriptor redeem fields are only shares (tokenPath @.to), receiver and onBehalf. VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. In case 2, 501062.190870 USDC came in, and the reader had to assume USDC.",
+      "fix": "Add a constant field, e.g. label 'Receive asset' with value $.metadata.constants.underlyingTicker, or put 'for USDC' in the interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is decided by the share price, and the call has no minimum-out.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);`. There is no min-assets parameter. Case 2: 501062190870 USDC came in, not shown on screen.",
+      "fix": "None possible in calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 499960.495331160640468254 CSBUSDC going out is shown exactly. The 501062.19 USDC coming in has no amount and no asset name; the reader guessed USDC."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.306,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 63,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the asset received (USDC) is not named anywhere on the screen.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 80,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem: the asset received (USDC) is not named anywhere on the screen."
+ }
+}

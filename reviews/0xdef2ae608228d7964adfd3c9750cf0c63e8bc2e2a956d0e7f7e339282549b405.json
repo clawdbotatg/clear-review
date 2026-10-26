@@ -1,0 +1,224 @@
+{
+ "hash": "0xdef2ae608228d7964adfd3c9750cf0c63e8bc2e2a956d0e7f7e339282549b405",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakUSDT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef047a543e45807105e51a8bbefcc5950fcfba"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDT to the vault (safeTransferFrom from the caller); this spends the signer's USDT allowance to the vault.",
+     "The vault mints steakUSDT shares to `receiver`; the share amount comes from the vault price (`_convertToSharesWithTotals`, floor) and has no minimum.",
+     "The vault supplies the USDT to Morpho Blue markets on its own account; this does not touch the signer's assets beyond the deposit."
+    ],
+    "shown": "Intent \"Deposit\", the USDT amount, a constant \"Share ticker: steakUSDT\" and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many steakUSDT shares the signer receives; the vault price sets it.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` Case 0: signer receives 6981.124342392283465208 steakUSDT; screen shows only 'Share ticker: steakUSDT'.",
+      "fix": "None in the descriptor: the share amount is not in calldata and the function has no minimum-shares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDT out 7768.373358 shown exactly. steakUSDT in: ticker and recipient shown, amount (6981.12) not shown and not computable from calldata."
+     }
+    ],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends USDT to the vault; the amount comes from the vault price (`_convertToAssetsWithTotals`, ceil) and has no maximum in calldata. Only the signer's USDT allowance to the vault limits it.",
+     "The vault mints exactly `shares` steakUSDT to `receiver`."
+    ],
+    "shown": "Intent \"Mint\", a constant \"Deposit asset: USDT\" without an amount, the exact share amount in steakUSDT and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDT leaves the signer; the vault price sets it with no cap.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` Descriptor field: {\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}.",
+      "fix": "None for the amount: it is not in calldata. Consider the label \"Pay with (amount set by share price)\" so the signer knows the USDT amount is not fixed.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns steakUSDT shares from `owner`; the amount comes from the vault price (ceil) and is not in calldata. When `owner` is not the caller, this spends the owner's share allowance to the caller.",
+     "The vault sends exactly `assets` USDT to `receiver`, after it withdraws that USDT from Morpho Blue markets."
+    ],
+    "shown": "Intent \"Withdraw\", \"Withdraw exactly\" USDT amount, the recipient \"To\" and \"Owner\".",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw never says steakUSDT shares are burned from the owner; the label is only \"Owner\".",
+      "evidence": "ERC4626._withdraw: `_burn(owner, shares);` Descriptor withdraw field `owner` label \"Owner\". Case 1: signer burns 506764.733871460997796087 steakUSDT; the screen does not name steakUSDT.",
+      "fix": "Change the `owner` label to \"Burn steakUSDT shares from\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the number of shares burned; the vault price sets it.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` Case 1: 506764.73 steakUSDT leave the signer, no amount on screen.",
+      "fix": "None: the share amount is not in calldata and there is no max-shares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDT in 561617.234664 to signer shown exactly. steakUSDT out: owner shown, but the asset and amount (506764.73) are not shown."
+     }
+    ],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` steakUSDT from `owner`; when `owner` is not the caller, this spends the owner's share allowance to the caller.",
+     "The vault sends USDT to `receiver`; the amount comes from the vault price (floor) and has no minimum."
+    ],
+    "shown": "Intent \"Redeem\", the share amount in steakUSDT, the recipient \"To\" and \"Owner\"; the asset received is not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem does not name USDT as the asset the recipient receives, though it is a fixed constant.",
+      "evidence": "ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);` Descriptor redeem fields: only `shares`, `receiver`, `owner`. Case 2: signer receives 111.353758 USDT; reader: 'Which token is paid out; I assume USDT from the name'.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}, as the mint format does.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDT the signer receives; the vault price sets it, with no minimum.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` Case 2: 111.353758 USDT arrive, no amount on screen.",
+      "fix": "None: the amount is not in calldata and the function has no minimum-assets parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "steakUSDT out 100.107981805511742051 shown exactly. USDT in: the screen names neither the asset nor the amount (111.353758); the reader guessed USDT."
+     }
+    ],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.37,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 76,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw never says steakUSDT shares are burned from the owner; the label is only \"Owner\".",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem does not name USDT as the asset the recipient receives, though it is a fixed constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 64,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem does not name USDT as the asset the recipient receives, though it is a fixed constant."
+ }
+}

@@ -1,0 +1,242 @@
+{
+ "hash": "0x2cc2beb312c3a5b0383a078b1ce621c2972f258274b2fe773db349852c9ed5b8",
+ "file": "registry/symbiotic/calldata-VaultV1-SOLV-OFT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe5b076eca94b542b45e3a082f72ba214aa5eb61e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` SOLV OFT (the vault collateral 0x7670…f91D) from the signer into the vault via safeTransferFrom; requires a prior approval.",
+     "Credits newly minted vault active shares (count derived from vault totals) to `onBehalfOf`, not necessarily the signer.",
+     "Reverts if the signer is not whitelisted while the whitelist is on, or if the deposit limit is exceeded."
+    ],
+    "shown": "Deposit 123.25 SOLV OFT into the vault, credited to the shown beneficiary address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: number of vault shares minted to onBehalfOf is not shown; it is derived from storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` `_activeSharesOf[onBehalfOf].push(...)`; descriptor shows only amount and beneficiary.",
+      "fix": "None possible from calldata; the beneficiary field already states who gets the position.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active vault shares worth `amount` collateral (rounded up), reducing the signer's staked position.",
+     "Queues `amount` SOLV OFT into the next epoch's withdrawals and credits the withdrawal claim to `claimer`, who can claim it after that epoch ends.",
+     "The queued amount stays slashable until claimed, so the claimer may later receive less."
+    ],
+    "shown": "Request a withdrawal of 2.5 SOLV OFT from the vault, claimable by the shown claim owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: shares burned from the signer's position are derived from storage and not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` then `_withdraw` reduces `_activeSharesOf[msg.sender]`.",
+      "fix": "None from calldata; the requested asset amount is the meaningful bound.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "withdraw: requested amount can be cut by slashing before claim; label does not say 'up to'.",
+      "evidence": "Vault.sol onSlash reduces `withdrawals[currentEpoch_ + 1]`; claim pays `withdrawalsOf(epoch, msg.sender)` pro rata. Descriptor label 'Requested assets'.",
+      "fix": "Optionally label 'Requested assets (before any slashing)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Queues the collateral those shares are worth (derived from vault totals) into next epoch's withdrawals, credited to `claimer`.",
+     "The queued amount stays slashable until claimed."
+    ],
+    "shown": "Queue a raw integer number of vault shares for withdrawal, claimable by the shown claim owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: share amount shown as raw 18-decimal integer though shares have collateral decimals.",
+      "evidence": "ERC4626Math.sol `_decimalsOffset()` returns 0, so shares use the collateral's 18 decimals; descriptor `#.shares` format 'raw'; case 2 shows '987654321123456789'.",
+      "fix": "Use format 'unit' with params {\"base\":\"shares\",\"decimals\":18} and drop 'raw' from the label and intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: collateral amount queued for the shares is derived from storage and not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "fix": "None from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed (consumes the signer's claim right).",
+     "Sends the signer's full claimable SOLV OFT for that epoch (amount from storage) to `recipient`."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 and send it to the shown recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim: screen never names the asset paid out (SOLV OFT) to the recipient.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);` descriptor intent 'Claim withdrawal', interpolatedIntent 'Claim epoch {epoch} to {recipient}'.",
+      "fix": "Intent 'Claim SOLV OFT withdrawal' and interpolatedIntent 'Claim SOLV OFT for epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: amount paid out is read from storage and cannot be shown.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);`",
+      "fix": "None from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawals for every listed epoch as claimed.",
+     "Sends the summed claimable SOLV OFT for those epochs (amounts from storage) to `recipient`."
+    ],
+    "shown": "Claim withdrawals for the listed epochs and send them to the shown recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch: screen never names the asset paid out (SOLV OFT) to the recipient.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);` descriptor intent 'Claim withdrawals', interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}'.",
+      "fix": "Intent 'Claim SOLV OFT withdrawals' and interpolatedIntent 'Claim SOLV OFT for epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: total amount paid out is read from storage and cannot be shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` with `_claim` returning `withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.376,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 85,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: share amount shown as raw 18-decimal integer though shares have collateral decimals.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: screen never names the asset paid out (SOLV OFT) to the recipient.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: screen never names the asset paid out (SOLV OFT) to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 69,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: share amount shown as raw 18-decimal integer though shares have collateral decimals."
+ }
+}

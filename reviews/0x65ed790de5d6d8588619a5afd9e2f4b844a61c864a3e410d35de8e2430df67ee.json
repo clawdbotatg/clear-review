@@ -1,0 +1,254 @@
+{
+ "hash": "0x65ed790de5d6d8588619a5afd9e2f4b844a61c864a3e410d35de8e2430df67ee",
+ "file": "registry/kiln/calldata-Vault-RLUSD-Euler-Yield.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x11aee91ed1e5a40443dd0ed21f7cf4d3fd4e0826"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` RLUSD from the signer into the vault (safeTransferFrom caller -> vault).",
+     "Mints vault shares (on-chain symbol keeyRLUSD) to `receiver`. The count is `assets` minus the deposit fee from storage, converted at the current share price, rounded down. There is no minimum.",
+     "Records a deposit fee in RLUSD (rate from storage) for the fee dispatcher. The fee is cut from the value behind the shares.",
+     "Before pricing, mints reward-fee shares to the vault itself, which dilutes the share price."
+    ],
+    "shown": "Intent \"Deposit\", with \"Deposit asset 1 RLUSD\", \"Share ticker kEulerRLUSD\" and \"Send shares to <receiver>\".",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit shows share ticker kEulerRLUSD, but the vault share symbol on chain is keeyRLUSD.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"kEulerRLUSD\", shown as field 'Share ticker'. Constructor init data in meta.json encodes symbol \"keeyRLUSD\" (name \"Kiln EULER Euler Yield RLUSD\"). Case 0: the signer receives 998835265245731073 of asset 0x11ae… with symbol keeyRLUSD.",
+      "fix": "Set vaultTicker to \"keeyRLUSD\", or remove the raw ticker field and use tokenPath \"@.to\" where a share amount is shown.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the signer receives; the count depends on the price and fee in storage.",
+      "evidence": "Vault.deposit: `(uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply());` No minimum-shares parameter exists. Case 0: 0.998835265245731073 shares in, and no field states this amount.",
+      "fix": "Nothing in calldata bounds the share amount. The 'Share ticker' field could become a label such as 'Receive vault shares (keeyRLUSD)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit takes a deposit fee from storage that reduces the value of shares received, and the screen does not say so.",
+      "evidence": "Vault._previewDeposit: `depositFeeAmount = assets.mulDiv($._depositFee, _MAX_PERCENT * 10 ** _underlyingDecimals());` then `shares = ... _convertToShares(assets - depositFeeAmount, ...)`. The rate is set by FEE_MANAGER and can be up to 35%.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "1 RLUSD out is shown exactly. Shares in: the receiver is shown, but no amount, and the ticker kEulerRLUSD differs from the on-chain keeyRLUSD. The reader correctly noted the share amount is not shown."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` vault shares (keeyRLUSD) to `receiver`.",
+     "Takes RLUSD from the signer. The amount is computed from the share price and the deposit fee in storage (previewMint, rounded up). There is no maximum-assets bound.",
+     "Records a deposit fee in RLUSD for the fee dispatcher.",
+     "Before pricing, mints reward-fee shares to the vault, which dilutes the share price."
+    ],
+    "shown": "Intent \"Mint\", with \"Deposit asset RLUSD\" (ticker only, no amount), \"Minted shares <shares> <vault token>\" and \"Mint shares to <receiver>\".",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much RLUSD leaves the signer; the vault computes it, with no maximum.",
+      "evidence": "Vault.mint: `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); ... _deposit(_msgSender(), receiver, _assets, shares, _depositFeeAmount);` The descriptor field 'Deposit asset' shows only the constant \"RLUSD\".",
+      "fix": "No calldata value bounds the cost. Relabel the field as 'Pays with (amount set by vault)' so the signer knows the amount is not shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent \"Mint\" and a ticker-only 'Deposit asset' field do not say that RLUSD is spent.",
+      "evidence": "descriptor mint: intent \"Mint\"; field {label 'Deposit asset', format raw, value $.metadata.constants.underlyingTicker}. Vault._deposit pulls RLUSD: `SafeERC20.safeTransferFrom(IERC20(asset()), caller, address(this), assets);`",
+      "fix": "Change the intent to \"Deposit RLUSD for vault shares\" and the label to \"Pays with\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns vault shares from `owner`. The count is computed from `assets` at the current price, rounded up. If the signer is not the owner, it spends the signer's share allowance from `owner`.",
+     "Withdraws `assets` RLUSD from the underlying protocol through a connector (delegatecall) and sends the RLUSD balance delta to `receiver`.",
+     "Before pricing, mints reward-fee shares to the vault, which dilutes the share price."
+    ],
+    "shown": "Intent \"Withdraw\", with \"Withdraw exactly <assets> RLUSD\", \"To <receiver>\" and \"Owner <owner>\".",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares are burned from the owner; the count depends on the price in storage.",
+      "evidence": "Vault.withdraw: `uint256 _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); ... _withdraw(_msgSender(), receiver, owner, assets, _shares);` No maximum-shares parameter exists.",
+      "fix": "Add a fixed notice or label such as 'Burns vault shares from' on the Owner field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw labels the share source only 'Owner', which hides that the owner's shares are burned.",
+      "evidence": "descriptor withdraw field {path owner, label 'Owner'}. Vault._withdraw: `if (caller != owner) { _spendAllowance(owner, caller, shares); } _burn(owner, shares);`",
+      "fix": "Change the label to \"Burn shares from\" and the intent to \"Withdraw RLUSD from vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares (keeyRLUSD) from `owner`. If the signer is not the owner, it spends the signer's share allowance from `owner`.",
+     "Sends RLUSD to `receiver`. The amount is the shares converted at the current price (rounded down), withdrawn through the connector. There is no minimum.",
+     "Before pricing, mints reward-fee shares to the vault, which dilutes the share price."
+    ],
+    "shown": "Intent \"Redeem\", with \"Shares to redeem <shares> kEulerRLUSD\", \"To <receiver>\" and \"Owner <owner>\". Nothing names the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names RLUSD as the asset the receiver gets back.",
+      "evidence": "Vault._withdraw: `SafeERC20.safeTransfer(IERC20(asset()), receiver, IERC20(asset()).balanceOf(address(this)) - _balanceBefore);` Case 1: the signer receives 1.024034904089280661 RLUSD. The screen has only 'Shares to redeem', 'To' and 'Owner', and the reader wrote 'probably RLUSD'.",
+      "fix": "Add a field {label 'Receive asset', format raw, value $.metadata.constants.underlyingTicker}, as the mint format does, and change the intent to \"Redeem shares for RLUSD\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much RLUSD arrives; the price in storage sets it, with no minimum.",
+      "evidence": "Vault.redeem: `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply);` Case 1: 1.024034904089280661 RLUSD in, with no amount on screen.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem shows shares as kEulerRLUSD, but the vault share symbol on chain is keeyRLUSD.",
+      "evidence": "Case 1 screen: 'Shares to redeem 0.998835265245731073 kEulerRLUSD'. Mined effect: signer out 998835265245731073 of 0x11ae… with symbol keeyRLUSD. meta.json init data encodes symbol \"keeyRLUSD\".",
+      "fix": "Fix the token metadata or the vaultTicker constant to \"keeyRLUSD\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out amount and owner are shown and the reader got them right. RLUSD in has no asset and no amount on screen. The reader guessed the direction and the likely asset."
+     }
+    ],
+    "glance": 30,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "The connector contract is not in the directory. The Vault finds it through connectorRegistry.getOrRevert(_connectorName) and delegatecalls it in deposit, withdraw, redeem and mint. Its source and the connector registry source are missing. In withdraw and redeem, the RLUSD sent to the receiver is the vault's balance change after the connector's withdraw, so I could not confirm from code that the receiver gets exactly `assets` ('Withdraw exactly')."
+  ]
+ },
+ "cost": 0.555,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 85,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit shows share ticker kEulerRLUSD, but the vault share symbol on chain is keeyRLUSD.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent \"Mint\" and a ticker-only 'Deposit asset' field do not say that RLUSD is spent.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw labels the share source only 'Owner', which hides that the owner's shares are burned.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem never names RLUSD as the asset the receiver gets back.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 75,
+  "clarity": 54,
+  "functions": "2C 2D",
+  "incomplete": true,
+  "worst": "deposit shows share ticker kEulerRLUSD, but the vault share symbol on chain is keeyRLUSD."
+ }
+}

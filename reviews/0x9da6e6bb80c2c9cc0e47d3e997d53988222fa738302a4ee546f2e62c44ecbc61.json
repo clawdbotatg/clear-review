@@ -1,0 +1,198 @@
+{
+ "hash": "0x9da6e6bb80c2c9cc0e47d3e997d53988222fa738302a4ee546f2e62c44ecbc61",
+ "file": "registry/morpho/calldata-galaxy_curation-gWETHq-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x1878805799273d10ae96a58201a6f5254cf9824f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends `assets` WETH to the vault (safeTransferFrom(asset, msg.sender, address(this), assets)) and spends the same amount of their WETH allowance to the vault.",
+     "The vault mints previewDeposit(assets) gWETHq shares to `onBehalf`; the share count comes from the share price in storage, and there is no minimum."
+    ],
+    "shown": "Deposit 0.05 WETH for the onBehalf address, with a constant 'Share ticker gWETHq' line and 'Send shares to' naming the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many gWETHq shares are minted; the vault's share price sets the number.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The calldata has no shares or minimum-shares parameter. The descriptor field 'Share ticker' is the raw constant `$.metadata.constants.vaultTicker` and has no amount.",
+      "fix": "None in the descriptor. ERC-4626 deposit has no minimum-shares input.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit shows a constant 'Share ticker' line with no amount, which adds a line but no fact.",
+      "evidence": "descriptor deposit field: {\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}; case 0 screen shows 'Share ticker: gWETHq'.",
+      "fix": "Remove the field, or fold the ticker into the label of `onBehalf`, e.g. \"Send gWETHq shares to\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Signer sends 0.05 WETH (shown). Shares go to 0xdEaD, not the signer (signer null); the screen shows this in 'Send shares to' and the reader saw it."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns previewWithdraw(assets) gWETHq shares from `onBehalf` (the signer in the test); the share count comes from the share price in storage, and there is no maximum.",
+     "When msg.sender != onBehalf, the call spends the signer's share allowance from onBehalf by the burned share count.",
+     "The vault sends exactly `assets` WETH to `receiver`."
+    ],
+    "shown": "Withdraw exactly 100 WETH to the receiver, with the Owner of the shares shown; the burned share count is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many gWETHq shares the owner burns; the share price sets the number.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);` and exit: `deleteShares(onBehalf, shares);`. Case 1: signer sends 99.851482821259799306 gWETHq to 0x0 (signer out); the screen shows only 'Withdraw exactly 100 WETH'.",
+      "fix": "None for the amount: the calldata has no maximum-shares parameter. Optionally change the intent to \"Withdraw WETH from gWETHq vault\" so the signer knows shares are burned.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw labels onBehalf 'Owner' without saying the owner's gWETHq shares are burned.",
+      "evidence": "descriptor withdraw field: {\"path\": \"onBehalf\", \"label\": \"Owner\"}; VaultV2.sol exit: `deleteShares(onBehalf, shares);`. The case 1 reader wrote 'screen doesn't show shares'.",
+      "fix": "Change the label to \"Burn gWETHq shares from\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "WETH in: exactly 100 WETH to the signer (shown right). gWETHq out: 99.85 shares burned from the signer; no amount or share asset on the screen. The reader guessed shares were burned but did not know how many."
+     }
+    ],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` gWETHq from `onBehalf` (the signer in the test).",
+     "When msg.sender != onBehalf, the call spends the signer's share allowance from onBehalf by `shares`.",
+     "The vault sends previewRedeem(shares) WETH to `receiver`; the amount comes from the share price in storage, and there is no minimum."
+    ],
+    "shown": "Redeem 0.005092552216080191 gWETHq to the receiver, with the Owner shown; nothing names WETH as the asset received or its amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names WETH as the asset the receiver gets, although the descriptor has the constant.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` with asset = WETH (immutable 0xc02a…6cc2). The descriptor defines `underlyingToken` and `underlyingTicker` but the redeem format uses neither. Case 2: signer receives 0.005101229077275041 WETH (signer in); the screen fields are 'Shares to redeem', 'To', 'Owner'. The reader wrote 'Which token is paid out; screen doesn't say'.",
+      "fix": "Change the intent to \"Redeem gWETHq for WETH\" and the interpolatedIntent to \"Redeem {#.shares} for WETH to {#.receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem cannot show how much WETH the receiver gets; the share price sets the amount.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. The calldata has no minimum-assets parameter.",
+      "fix": "None in the descriptor for the amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "gWETHq out: 0.005092552216080191 shares (shown right). WETH in: 0.005101229077275041 WETH to the signer; neither the asset nor the amount is on the screen. The reader guessed 'probably WETH' with an unknown amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.384,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 65,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names WETH as the asset the receiver gets, although the descriptor has the constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 78,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem never names WETH as the asset the receiver gets, although the descriptor has the constant."
+ }
+}

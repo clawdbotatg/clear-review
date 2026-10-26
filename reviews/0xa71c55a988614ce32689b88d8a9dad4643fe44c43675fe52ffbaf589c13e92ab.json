@@ -1,0 +1,133 @@
+{
+ "hash": "0xa71c55a988614ce32689b88d8a9dad4643fe44c43675fe52ffbaf589c13e92ab",
+ "file": "registry/gondi/eip712-LoanOffer-v3_1.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf41b389e0c1950dc0b16c9498eae77131cc08a56"
+  },
+  {
+   "chainId": 999,
+   "address": "0x6ad675624ec8320e5806858cd5db101a0b927fd9"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x0e79e08e9e35388382b7febb26bc73f80465e2fb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "LoanOffer(uint256 offerId,address lender,uint256 fee,uint256 capacity,address nftCollateralAddress,uint256 nftCollateralTokenId,address principalAddress,uint256 principalAmount,uint256 aprBps,uint256 expirationTime,uint256 duration,uint256 maxSeniorRepayment,OfferValidator[] validators)OfferValidator(address validator,bytes arguments)",
+    "effects": [
+     "Until expirationTime or cancelOffer, any borrower with matching collateral can use the signature to pull the lender's principalAddress tokens through the lender's existing allowance (emitLoan or refinanceFromLoanExecutionData).",
+     "Each fill takes an amount up to principalAmount, chosen by the borrower. The lender sends amount minus a prorated fee (fee * amount / principalAmount) to the borrower's principalReceiver.",
+     "On each fill the lender also sends fee * protocolFee.fraction / 10000 to the protocol fee recipient. The fraction comes from storage.",
+     "When capacity is non-zero, the offer can be filled many times, up to capacity in total under the same offerId. When capacity is 0, one fill marks the offer as used.",
+     "The lender receives a loan tranche: the principal at aprBps, for a duration up to the offer duration, with the NFT held in escrow. The tranche is accepted only if senior principal plus interest ahead is at most maxSeniorRepayment.",
+     "Accepted collateral: the exact nftCollateralTokenId when non-zero. With one zero-address validator, any token of the collection. With other validators, the validator contracts decide from their arguments. With no validators and token id 0, only token #0."
+    ],
+    "shown": "\"Make loan offer\" / \"Lend <principalAmount>\", plus the collection, the token id (hidden when 0), the loan amount, APR, duration, origination fee, total capacity (hidden when 0), max senior debt, lender, expiry and the raw validator addresses. The validator arguments are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "LoanOffer interpolated intent says \"Lend {principalAmount}\", but with a capacity the lender can lend up to capacity in total.",
+      "evidence": "MultiSourceLoan._validateOfferExecution: `if ((offer.capacity != 0) && (_used[_lender][offer.offerId] + _offerExecution.amount > offer.capacity)) revert`. _processOffersFromExecutionData: `_used[lender][offer.offerId] += amount` (the offer stays open). Descriptor: \"interpolatedIntent\": \"Lend {principalAmount}\". Case 1 shows \"Lend 7000 USDC\" with \"Total capacity 40000 USDC\" only as a field.",
+      "fix": "Keep the capacity field. Change interpolatedIntent to \"Offer loans of up to {principalAmount} against {nftCollateralAddress}\" and change the capacity label to \"Total you can lend\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "LoanOffer labels \"Loan amount\" and \"Duration\" read as exact terms, but the code treats both as maxima.",
+      "evidence": "MultiSourceLoan._validateOfferExecution: `if (totalAmountAfterExecution > offer.principalAmount) revert` and `if (offer.duration == 0 || _duration > offer.duration) revert`. The borrower picks `thisOfferExecution.amount`, and the fee is prorated: `fee = offer.fee.mulDivUp(amount, offer.principalAmount)`. Descriptor labels: \"Loan amount\", \"Duration\", \"Origination fee\".",
+      "fix": "Change the labels to \"Max loan amount\", \"Max duration\" and \"Max origination fee\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "LoanOffer validator field shows the zero address raw, but zero means any token of the collection.",
+      "evidence": "MultiSourceLoan._checkValidators: `bool isFullContractOffer = totalValidators == 1 && _loanOffer.validators[0].validator == address(0);` and `if(validator.validator == address(0)) continue;`. Case 2 shows \"Validator: 0x0000000000000000000000000000000000000000\".",
+      "fix": "Change the validator label to \"Collateral rule (0x0 = any token)\", or give the known validator contracts local names.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "LoanOffer hides validator arguments, which decide which NFTs the lender accepts as collateral.",
+      "evidence": "MultiSourceLoan._checkValidators: `IOfferValidator(validator.validator).validateOffer(_loanOffer, _nftCollateralAddress, _tokenId, validator.arguments)`. Descriptor: `validators.[].arguments` has \"visible\": \"never\". Case 1 uses a range validator with hidden arguments. Each validator encodes its own bytes layout, so a generic descriptor cannot decode them.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "LoanOffer hides token id 0, so a token #0 offer and a collection offer look the same.",
+      "evidence": "MultiSourceLoan._checkValidators: `if ((totalValidators == 0 && !(matchAddress && matchTokenId)) || ...) revert InvalidCollateralError();` With token id 0 and no validators, only token #0 qualifies. Descriptor: `nftCollateralTokenId` has \"visible\": {\"ifNotIn\": [\"0\"]}. A condition cannot depend on the validators array.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "LoanOffer does not show the protocol fee that the contract takes from the lender on each fill.",
+      "evidence": "MultiSourceLoan._processOffersFromExecutionData: `_handleProtocolFeeForFee(offer.principalAddress, lender, fee.mulDivUp(protocolFee.fraction, _PRECISION), protocolFee.recipient);`. The fraction comes from storage (`_protocolFee`). The total the lender sends stays at or below the loan amount shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "LoanOffer duration shows as hours, for example \"2160:00:00\" for 90 days, which is hard to read.",
+      "evidence": "Descriptor: `duration` uses \"format\": \"duration\". Case 0 shows \"Duration: 2160:00:00\" for 7776000 seconds. ERC-7730 has no day-based duration format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.714,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 138,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "LoanOffer(uint256 offerId,address lender,uint256 fee,uint256 capacity,address nftCollateralAddress,uint256 nftCollateralTokenId,address principalAddress,uint256 principalAmount,uint256 aprBps,uint256 expirationTime,uint256 duration,uint256 maxSeniorRepayment,OfferValidator[] validators)OfferValidator(address validator,bytes arguments)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "LoanOffer interpolated intent says \"Lend {principalAmount}\", but with a capacity the lender can lend up to capacity in total.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 55,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "LoanOffer interpolated intent says \"Lend {principalAmount}\", but with a capacity the lender can lend up to capacity in total."
+ }
+}

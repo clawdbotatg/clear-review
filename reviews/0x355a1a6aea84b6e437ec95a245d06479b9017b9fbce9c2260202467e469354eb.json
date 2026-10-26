@@ -1,0 +1,243 @@
+{
+ "hash": "0x355a1a6aea84b6e437ec95a245d06479b9017b9fbce9c2260202467e469354eb",
+ "file": "registry/kiln/calldata-Vault-USDC-Morpho-Steakhouse-USDC-multisig.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x3dc3b74698cd3e5e8c3a952342f6dd5696ad633d"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer and sends it to the vault (safeTransferFrom(asset, caller, this, assets) in Vault._deposit).",
+     "Mints vault shares (lmMsthUSDC) to `receiver`. The number is worked out from the vault's share price after a deposit fee set in storage is taken off and partial shares are rounded down (_previewDeposit).",
+     "The vault then puts the USDC, minus the deposit fee, into the underlying Morpho Steakhouse vault through a connector run by delegatecall. None of the signer's funds move in that step."
+    ],
+    "shown": "Intent \"Deposit\". Fields: 1.000001 USDC, share ticker lmMsthUSDC, and the address that gets the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit: the intent \"Deposit\" has no interpolatedIntent, so the amount, asset and share recipient are missing from the sentence.",
+      "evidence": "descriptor.json deposit format: \"intent\": \"Deposit\", no interpolatedIntent. Case 0 screen intent is just \"Deposit\". The amount and receiver are only in the fields.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into lmMsthUSDC vault, shares to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received, after the deposit fee and rounding, is not in calldata and cannot be shown.",
+      "evidence": "Vault.sol deposit(): (_shares, _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply()). The fee comes from $._depositFee in storage. Case 0: signer received 1000001 lmMsthUSDC, and the screen shows no share amount. The blind reader said \"amount not shown\".",
+      "fix": "None possible: the function has no minShares parameter. A wallet would need a preview call.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The USDC out (1.000001) is shown correctly. The lmMsthUSDC in is shown by ticker and receiver but with no amount, because it is not in calldata. The deposit fee was 0 here: shares equal assets."
+     }
+    ],
+    "glance": 45,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` vault shares to `receiver`.",
+     "Takes from the signer the amount of USDC that previewMint gives for those shares, deposit fee included. The amount comes from the share price and fee rate in storage, and there is no maximum parameter (Vault.mint -> _previewMint -> _deposit safeTransferFrom).",
+     "The vault puts the USDC, minus the fee, into the underlying protocol through the connector."
+    ],
+    "shown": "Intent \"Mint\". Fields: the deposit asset ticker USDC (no amount), the number of shares minted, and the address that gets the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC taken from the signer is not shown because the code works it out from storage, with no cap.",
+      "evidence": "Vault.sol mint(): (uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); _deposit(_msgSender(), receiver, _assets, ...). Descriptor field 'Deposit asset' only shows the constant \"USDC\".",
+      "fix": "None in calldata. Only the signer's USDC allowance limits the amount. A label such as 'Pay with: USDC (amount set by vault price + deposit fee)' would make that clear.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent \"Mint\" does not say that USDC is paid or who gets the shares.",
+      "evidence": "descriptor.json mint format: \"intent\": \"Mint\", no interpolatedIntent. The field 'Deposit asset' is the raw constant underlyingTicker.",
+      "fix": "Add interpolatedIntent \"Pay USDC to mint {shares} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns vault shares from `owner`. The number is worked out from `assets` at the current share price, rounded up (_convertToShares Ceil).",
+     "If the signer is not `owner`, it uses up the signer's allowance on the owner's shares (_spendAllowance(owner, caller, shares)).",
+     "The connector withdraws `assets` USDC from the underlying protocol. The USDC the vault's balance rose by is sent to `receiver` (safeTransfer(asset, receiver, balanceAfter - balanceBefore))."
+    ],
+    "shown": "Intent \"Withdraw\". Fields: the exact USDC amount, the receiver, and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw: the intent \"Withdraw\" has no interpolatedIntent, so the sentence names no amount or recipient.",
+      "evidence": "descriptor.json withdraw format: \"intent\": \"Withdraw\", no interpolatedIntent. The amount, receiver and owner are only in the fields.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver} from {owner}'s shares\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner comes from the price in storage and is not shown.",
+      "evidence": "Vault.sol withdraw(): _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); _withdraw(..., owner, assets, _shares) burns them.",
+      "fix": "None: the function has no maxShares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "withdraw: the label 'Withdraw exactly' depends on connector code that is not in the directory.",
+      "evidence": "Vault._withdraw: _connector.functionDelegateCall(IConnector.withdraw(asset, assets)); safeTransfer(asset, receiver, balanceOf(this) - _balanceBefore). The connector address comes from the registry in storage.",
+      "fix": "If the connector can return a different amount, consider 'Withdraw' as the label instead of 'Withdraw exactly'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `owner`.",
+     "If the signer is not `owner`, it uses up the signer's allowance on the owner's shares.",
+     "Sends the USDC those shares are worth at the current price, rounded down, to `receiver`. There is no minimum-received parameter (Vault.redeem -> _convertToAssets Floor -> _withdraw)."
+    ],
+    "shown": "Intent \"Redeem\". Fields: the number of shares to redeem, the receiver, and the owner. The asset received is not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names USDC as the asset the receiver gets.",
+      "evidence": "Vault._withdraw: SafeERC20.safeTransfer(IERC20(asset()), receiver, ...). The redeem fields in descriptor.json are only shares, receiver and owner. The mint format shows $.metadata.constants.underlyingTicker, but redeem does not.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and interpolatedIntent \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received comes from the price in storage, with no minimum bound.",
+      "evidence": "Vault.sol redeem(): _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply). There is no minAssets parameter.",
+      "fix": "None in calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the intent \"Redeem\" has no interpolatedIntent with the shares and recipient.",
+      "evidence": "descriptor.json redeem format: \"intent\": \"Redeem\", no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": [
+   "The IConnector implementation that Vault._deposit and Vault._withdraw delegatecall. Its address comes from $._connectorRegistry.getOrRevert($._connectorName) in storage, and its source is not in the directory. It decides how much USDC the vault's balance rises by, and that is the amount sent to the receiver in withdraw/redeem."
+  ]
+ },
+ "cost": 0.453,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 106,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent \"Deposit\" has no interpolatedIntent, so the amount, asset and share recipient are missing from the sentence.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent \"Mint\" does not say that USDC is paid or who gets the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent \"Withdraw\" has no interpolatedIntent, so the sentence names no amount or recipient.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never names USDC as the asset the receiver gets.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 52,
+  "functions": "1B 3C",
+  "incomplete": true,
+  "worst": "redeem: the screen never names USDC as the asset the receiver gets."
+ }
+}

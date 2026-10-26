@@ -1,0 +1,258 @@
+{
+ "hash": "0x0efcc568b1619e5a4896f92763d2330a8d148b3de4d4dbdd1574e7fcd94c6af7",
+ "file": "registry/flare/calldata-RNat-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0x26d460c3cf931fb2014fa436a49e3af08619810e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "claimRewards(uint256[] _projectIds, uint256 _month)",
+    "effects": [
+     "Creates an RNat account clone for the signer if none exists, and registers the signer as its own claim executor in ClaimSetupManager when the signer is not a registered executor.",
+     "For each listed project, marks all of the signer's unclaimed assigned rewards up to and including _month as claimed.",
+     "Sends the claimed amount as FLR to the signer's RNat account, which wraps it to WFLR and holds it locked/vesting (receiveRewards).",
+     "Increases the signer's rFLR balance by the claimed amount (Transfer from 0x0 to signer). The amount comes from storage."
+    ],
+    "shown": "Intent 'Claim RNat rewards' with the project ids and the 'Up to month' index as raw numbers; the claimed amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "claimRewards: the claimed amount comes from storage, and the month is an internal index the screen cannot convert.",
+      "evidence": "RNat.sol _claimRewards: `uint128 amount = rewards.assignedRewards - rewards.claimedRewards;`; _getCurrentMonth: `(block.timestamp - firstMonthStartTs) / MONTH`. Descriptor: 'Up to month' format raw, 'Project Ids' format raw.",
+      "fix": "No descriptor change shows the amount. You can add a label hint such as 'Up to month (index)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimRewards: rewards go to the signer's RNat account as locked WFLR, not to the wallet; the intent does not say so.",
+      "evidence": "RNat.sol _claimRewards: `_getOrCreateRNatAccount().receiveRewards{value: _totalAmount}(wNat, months, amounts);` Intent: 'Claim RNat rewards'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint128 _amount, bool _wrap)",
+    "effects": [
+     "Creates an RNat account for the signer if none exists.",
+     "Burns _amount of the signer's rFLR (Transfer signer -> 0x0).",
+     "The signer's RNat account sends _amount to the signer as WFLR when _wrap is true, or as native FLR when _wrap is false (logic in RNatAccount, not in the directory)."
+    ],
+    "shown": "Intent 'Withdraw RNat', Amount '1 rFLR' and 'Wrap to WFLR: true/false' as a raw boolean.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: the intent says 'Withdraw RNat' but the signer receives FLR or WFLR, named only by a raw boolean.",
+      "evidence": "Descriptor withdraw: intent 'Withdraw RNat', field 'Wrap to WFLR' format raw renders 'true'. devdoc: '_wrap: If true, the tokens will be sent wrapped in WNat. If false, they will be sent as Nat.'",
+      "fix": "Change the intent to 'Withdraw rFLR to FLR or WFLR' and map _wrap with an enum: true -> 'Receive WFLR', false -> 'Receive native FLR'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "Synthetic case, no mined tx. Screen shows 1 rFLR burned and wrap=true (receive 1 WFLR) only through the boolean."
+     }
+    ],
+    "glance": 65,
+    "depth": 75
+   },
+   {
+    "key": "withdrawAll(bool _wrap)",
+    "effects": [
+     "Creates an RNat account for the signer if none exists.",
+     "Burns the signer's whole rFLR balance (Transfer signer -> 0x0 for the returned amount).",
+     "Sends the unlocked balance plus 50% of the locked balance to the signer as WFLR or native FLR, depending on _wrap.",
+     "Burns the other 50% of the still-locked balance as a penalty (from userdoc; RNatAccount source is not in the directory)."
+    ],
+    "shown": "Intent 'Withdraw all RNat, half of locked is burned' and 'Wrap to WFLR' as a raw boolean.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdrawAll: the balance withdrawn and the burned penalty come from storage, so no amount is shown.",
+      "evidence": "RNat.sol withdrawAll: `uint128 amount = _getOrCreateRNatAccount().withdrawAll(wNat, firstMonthStartTs, _wrap);` No amount parameter in calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "withdrawAll: the received asset (FLR or WFLR) is shown only as a raw 'true/false' value.",
+      "evidence": "Descriptor withdrawAll: field 'Wrap to WFLR' format raw; case 2 renders 'false', which means native FLR.",
+      "fix": "Map _wrap with an enum: true -> 'Receive WFLR', false -> 'Receive native FLR'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "Synthetic, no mined tx. The penalty burn and the native payout are stated; the amounts come from storage."
+     }
+    ],
+    "glance": 80,
+    "depth": 60
+   },
+   {
+    "key": "setClaimExecutors(address[] _executors)",
+    "effects": [
+     "Creates an RNat account for the signer if none exists.",
+     "Replaces all claim executors of the signer's RNat account in ClaimSetupManager with _executors, plus the signer as owner-executor.",
+     "Sends msg.value (native FLR) through the RNat account to ClaimSetupManager as the executor fee."
+    ],
+    "shown": "Intent 'Set reward claim executors', each executor address, and 'Executor fee' as the native value in FLR.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "setClaimExecutors: previous executors are removed; the intent 'Set' implies the replacement but does not state it.",
+      "evidence": "devdoc setClaimExecutors: '_executors: The new executors. All old executors will be deleted and replaced by these.' Intent: 'Set reward claim executors'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "Synthetic, no mined tx. The 1 FLR fee and the executor are shown."
+     }
+    ],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "distributeRewards(uint256 _projectId, uint256 _month, address[] _recipients, uint128[] _amountsWei)",
+    "effects": [
+     "The signer must be the project's distributor; nothing of the signer's own assets moves.",
+     "Assigns _amountsWei[i] rFLR rewards for _month of _projectId to each _recipients[i], to be claimed later, and uses up the project's monthly assigned budget."
+    ],
+    "shown": "Intent 'Distribute project rewards', raw project id and month, then each recipient paired with its rFLR amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "distributeRewards: project id and month are internal indexes shown raw; no format can name them.",
+      "evidence": "RNat.sol distributeRewards: `Project storage project = _getProject(_projectId);` and `currentMonth == _month + 1`. Descriptor: 'Project Id' and 'Month' format raw.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Synthetic, no mined tx. No signer asset moves; the recipient/amount pairs are shown bundled."
+     }
+    ],
+    "glance": 75,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": [
+   "RNatAccount library (clone target at RNat.libraryAddress) is not in the directory. It holds the logic of withdraw, withdrawAll (50% locked penalty), receiveRewards and setClaimExecutors that moves the signer's WFLR/FLR.",
+   "ClaimSetupManager (called by RNatAccount.setClaimExecutors with msg.value) is not in the directory, so the handling of the executor fee and executor rights could not be checked."
+  ]
+ },
+ "cost": 0.44,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 72,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "claimRewards(uint256[] _projectIds, uint256 _month)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint128 _amount, bool _wrap)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent says 'Withdraw RNat' but the signer receives FLR or WFLR, named only by a raw boolean.",
+   "comprehension": null
+  },
+  "withdrawAll(bool _wrap)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdrawAll: the received asset (FLR or WFLR) is shown only as a raw 'true/false' value.",
+   "comprehension": null
+  },
+  "setClaimExecutors(address[] _executors)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "distributeRewards(uint256 _projectId, uint256 _month, address[] _recipients, uint128[] _amountsWei)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 70,
+  "functions": "5B",
+  "incomplete": true,
+  "worst": null
+ }
+}

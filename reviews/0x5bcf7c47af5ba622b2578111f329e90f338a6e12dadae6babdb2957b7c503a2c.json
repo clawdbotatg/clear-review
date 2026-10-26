@@ -1,0 +1,239 @@
+{
+ "hash": "0x5bcf7c47af5ba622b2578111f329e90f338a6e12dadae6babdb2957b7c503a2c",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakPYUSD-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef00b5d83c1188f07a5184230a805639c39f04"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` PYUSD is pulled from the signer (msg.sender) into the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Vault shares (steakPYUSD) equal to previewDeposit(assets) are minted to onBehalf (createShares(onBehalf, shares)). The amount depends on the vault's share price and has no minimum.",
+     "Interest accrues first, which may mint fee shares to the fee recipients and so sets the share price the signer gets.",
+     "The deposited PYUSD may be moved on into the liquidity adapter. This does not touch the signer's assets."
+    ],
+    "shown": "Deposit 0.01 PYUSD for <onBehalf>, with the share ticker steakPYUSD and the share recipient. The number of shares received is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of steakPYUSD shares received is not shown and has no minimum in the calldata.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The share count comes from the vault's price, and no calldata parameter bounds it. Case 0: the signer received 0.01 steakPYUSD (10000000000000000), but the screen shows only 'Share ticker: steakPYUSD'.",
+      "fix": "No descriptor change can show a price-derived amount. A front end could use a router that takes a minimum-shares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The PYUSD out (0.01) and the share recipient are shown right. The steakPYUSD received is named by ticker and recipient, but its amount is not shown, so the reader got it partly."
+     }
+    ],
+    "glance": 80,
+    "depth": 78
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "PYUSD equal to previewMint(shares), rounded up, is pulled from the signer into the vault. It depends on the share price and has no maximum.",
+     "Exactly `shares` steakPYUSD vault shares are minted to onBehalf.",
+     "Interest accrues first, which may mint fee shares and sets the price the signer pays.",
+     "The deposited PYUSD may be moved on into the liquidity adapter. This does not touch the signer's assets."
+    ],
+    "shown": "Mint 0.999999999 steakPYUSD for <onBehalf>, with 'Deposit asset: PYUSD' as a bare ticker and no PYUSD amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the PYUSD amount taken from the signer is not shown and has no maximum in the calldata.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` and enter: `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: 1.024856 PYUSD (1024856) left the signer. The screen only shows 'Deposit asset: PYUSD'.",
+      "fix": "No calldata value carries the amount. A front end could use a router with a max-assets bound.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent never says that PYUSD is paid. 'Mint X steakPYUSD for addr' reads like a free mint.",
+      "evidence": "descriptor mint: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. The only hint at payment is a constant field 'Deposit asset' with format raw and value $.metadata.constants.underlyingTicker. enter() pulls PYUSD from msg.sender.",
+      "fix": "Use intent 'Deposit PYUSD for vault shares' and interpolatedIntent 'Deposit PYUSD to mint {#.shares} for {#.onBehalf}'. Relabel the constant field 'Pay with'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer's only effect is PYUSD out (1.024856). The shares went to 0xdead, not the signer. The screen names PYUSD but no amount, so the reader understood the direction and asset but not the amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `assets` PYUSD is sent from the vault to receiver.",
+     "steakPYUSD shares equal to previewWithdraw(assets), rounded up, are burned from onBehalf. The amount depends on the price and has no maximum.",
+     "When the signer is not onBehalf, the signer's share allowance from onBehalf drops by the shares burned.",
+     "Interest accrues first, and liquidity may be pulled from the adapter to pay out."
+    ],
+    "shown": "Withdraw exactly 50004.069043 PYUSD to <receiver>, with the owner whose shares are used. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of steakPYUSD shares burned from the owner is not shown and has no maximum.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`, and exit: `deleteShares(onBehalf, shares)`. Case 2: 49381.588076765629508273 steakPYUSD left the signer. The screen shows only 'Owner: 0x8328…'.",
+      "fix": "No calldata value carries it. A front end could use a router with a max-shares bound.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The PYUSD in (50004.069043, to the signer) is shown and understood. The shares-out effect is implied by 'Owner', but the share amount and the steakPYUSD asset are not on screen."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` steakPYUSD are burned from onBehalf.",
+     "PYUSD equal to previewRedeem(shares), rounded down, is sent to receiver. The amount depends on the price and has no minimum.",
+     "When the signer is not onBehalf, the signer's share allowance from onBehalf drops by `shares`.",
+     "Interest accrues first, and liquidity may be pulled from the adapter to pay out."
+    ],
+    "shown": "Redeem 1380.70327921050529259 steakPYUSD to <receiver>, with the owner. The asset received and its amount are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the PYUSD amount received is not shown and has no minimum in the calldata.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);` and exit: `safeTransfer(asset, receiver, assets)`. Case 3: the signer received 1382.587833 PYUSD, and no field shows it.",
+      "fix": "No calldata value carries it. A front end could use a router with a minimum-assets bound.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the screen never names PYUSD as the asset the receiver gets.",
+      "evidence": "descriptor redeem: interpolatedIntent 'Redeem {#.shares} to {#.receiver}'. The fields are shares, receiver and owner only. Mint, by contrast, has a constant 'Deposit asset' ticker field. Case 3 reader: 'Which token is paid out; presumably PYUSD but not stated'.",
+      "fix": "Add a constant field 'Receive asset' = $.metadata.constants.underlyingTicker and set interpolatedIntent to 'Redeem {#.shares} for PYUSD to {#.receiver}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out (1380.70… steakPYUSD) are shown right. The PYUSD in has neither its asset nor its amount on screen, so the reader only guessed PYUSD and had no amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.44,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 105,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent never says that PYUSD is paid. 'Mint X steakPYUSD for addr' reads like a free mint.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names PYUSD as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 66,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the intent never says that PYUSD is paid. 'Mint X steakPYUSD for addr' reads like a free mint."
+ }
+}

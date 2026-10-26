@@ -1,0 +1,218 @@
+{
+ "hash": "0xa274347946f2f01ef9655497ec21a31551f52858cd8c33b374db086b69967432",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakUSDA.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xbeefa1abfebe621df50ceaef9f54fdb73648c92c"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Exactly `assets` USDA (0x0000206329b97DB379d5E1Bf586BbDB969C63274) moves from the signer to the vault via safeTransferFrom, which uses the signer's USDA allowance to the vault.",
+     "steakUSDA vault shares are minted to `receiver`. The amount is assets*(totalSupply+1)/(totalAssets+1), rounded down, after fee accrual. Nothing in calldata sets a minimum."
+    ],
+    "shown": "\"Deposit\" with the USDA amount to deposit (correct token constant), a fixed 'Share ticker: steakUSDA' line and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is computed on chain and not shown, and there is no minimum.",
+      "evidence": "MetaMorpho.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor). The share amount is not in calldata. The descriptor shows only the 'Share ticker' constant.",
+      "fix": "None possible in the descriptor; the price comes from vault storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent is just \"Deposit\" with no interpolatedIntent naming the amount, asset or share recipient.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\", no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} for steakUSDA shares to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' field shows a constant string where the reader would expect a share amount.",
+      "evidence": "descriptor.json deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'}",
+      "fix": "Name the share token in the intent or a label instead, e.g. 'Receive steakUSDA shares to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Exactly `shares` steakUSDA shares are minted to `receiver`.",
+     "USDA moves from the signer to the vault via safeTransferFrom. The amount is computed as shares*(totalAssets+1)/(totalSupply+1), rounded up. Only the signer's USDA allowance to the vault caps it."
+    ],
+    "shown": "\"Mint\" with 'Deposit asset: USDA' (ticker only), the exact share amount in steakUSDA and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDA amount pulled from the signer is computed from vault state and never shown.",
+      "evidence": "MetaMorpho.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); then ERC4626._deposit: safeTransferFrom(_asset, caller, address(this), assets). The descriptor shows only the 'Deposit asset' ticker constant.",
+      "fix": "None possible in the descriptor; the price comes from vault storage. Only the signer's USDA allowance caps it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent \"Mint\" does not say that USDA is paid for steakUSDA shares.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", no interpolatedIntent. The field 'Deposit asset' shows only 'USDA'.",
+      "fix": "Use intent 'Deposit USDA for shares' and interpolatedIntent 'Mint {shares} steakUSDA to {receiver} by depositing USDA'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Exactly `assets` USDA is sent from the vault to `receiver`.",
+     "steakUSDA shares are burned from `owner`. The amount is computed as assets*(totalSupply+1)/(totalAssets+1), rounded up.",
+     "If the signer is not `owner`, the signer's share allowance from `owner` is spent by the burned share amount."
+    ],
+    "shown": "\"Withdraw\" with the exact USDA amount, the recipient and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is computed on chain and not shown.",
+      "evidence": "MetaMorpho.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); ERC4626._withdraw: _burn(owner, shares).",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: there is no interpolatedIntent, so the one-line intent omits the amount, the recipient and the burning of shares.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", no interpolatedIntent.",
+      "fix": "Add interpolatedIntent 'Withdraw {assets} to {receiver} by burning steakUSDA shares of {owner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Exactly `shares` steakUSDA shares are burned from `owner`. If the signer is not the owner, the signer's share allowance from `owner` is spent.",
+     "USDA is sent from the vault to `receiver`. The amount is shares*(totalAssets+1)/(totalSupply+1), rounded down. Nothing in calldata sets a minimum."
+    ],
+    "shown": "\"Redeem\" with the exact steakUSDA share amount, the recipient and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDA amount received is computed on chain, has no minimum, and is not shown.",
+      "evidence": "MetaMorpho.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor); ERC4626._withdraw: safeTransfer(_asset, receiver, assets).",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent \"Redeem\" does not say that USDA is received, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", no interpolatedIntent. No field names USDA as the asset received.",
+      "fix": "Add interpolatedIntent 'Redeem {shares} for USDA to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 78
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.29,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 62,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 68,
+  "functions": "4B",
+  "incomplete": false,
+  "worst": null
+ }
+}

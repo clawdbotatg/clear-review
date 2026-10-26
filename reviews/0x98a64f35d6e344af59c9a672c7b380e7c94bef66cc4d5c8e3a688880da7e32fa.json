@@ -1,0 +1,195 @@
+{
+ "hash": "0x98a64f35d6e344af59c9a672c7b380e7c94bef66cc4d5c8e3a688880da7e32fa",
+ "file": "registry/threshold/calldata-L2WormholeGateway.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x09959798b95d00a3183d20fac298e4594e599eab"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x1293a54e160d1cd7075487898d65266081a15458"
+  },
+  {
+   "chainId": 10,
+   "address": "0x1293a54e160d1cd7075487898d65266081a15458"
+  },
+  {
+   "chainId": 137,
+   "address": "0x09959798b95d00a3183d20fac298e4594e599eab"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xc3d46e0266d95215589de639cc4e93b79f88fc6c"
+  },
+  {
+   "chainId": 421614,
+   "address": "0xc3d46e0266d95215589de639cc4e93b79f88fc6c"
+  },
+  {
+   "chainId": 11155420,
+   "address": "0x5fb63d9e076a314023f2d1ab5dbfd7045c281eba"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:08Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "sendTbtc(uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce)",
+    "effects": [
+     "Burns `amount` of canonical tBTC from the signer, rounded down to a multiple of 1e10 (the dust stays with the signer), using the signer's tBTC allowance to the gateway.",
+     "Sends all native value (msg.value) to the Wormhole Token Bridge as the message fee.",
+     "The gateway sends the same normalized amount of Wormhole tBTC over the bridge to `recipient` on `recipientChain`. When no gateway is registered for that chain, it uses transferTokens with `arbiterFee`; the destination relayer takes that fee from the amount.",
+     "When a gateway is registered for the destination chain, `arbiterFee` is ignored and the recipient goes in the payload, so the destination gateway mints canonical tBTC to the recipient."
+    ],
+    "shown": "\"Bridge tBTC\" with the amount in tBTC, the destination chain by name, the recipient as a raw 32-byte word, the arbiter fee in tBTC, the nonce, and the native value as \"Wormhole message fee\".",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "sendTbtc shows 'Arbiter fee' without saying the recipient gets the amount minus it, or that it may be ignored",
+      "evidence": "L2WormholeGateway.sol sendTbtc: `bridge.transferTokens{value: msg.value}(address(bridgeToken), amount, recipientChain, recipient, arbiterFee, nonce)` only when `gateway == bytes32(0)`; else `transferTokensWithPayload(...)` without arbiterFee (NatSpec: 'Ignored if sending tBTC to chain with Wormhole tBTC gateway'). Descriptor: field `arbiterFee` label 'Arbiter fee', format unit tBTC.",
+      "fix": "Change the label to 'Relayer fee (taken from amount)'. Consider an interpolatedIntent such as 'Bridge {amount} to {recipientChain}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "sendTbtc shows the recipient as a raw 32-byte word with 12 zero bytes in front",
+      "evidence": "Case 0 screen: Recipient '0x000000000000000000000000742d35cc6634c0532925a3b844bc454e4438f44e'. Descriptor field `recipient` format 'raw'. Code: `bytes32 recipient` is a Wormhole address, an EVM address left-padded with zeros.",
+      "fix": "For EVM destinations show `recipient.[12:32]` with format addressName; keep the raw bytes32 only for non-EVM chains such as Sui.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "sendTbtc chain enum lacks testnet and Solana Wormhole chain ids used by listed deployments",
+      "evidence": "metadata.enums.wormholeChain has only 2,5,21,23,24,30. Deployments include 84532, 421614, 11155420 (testnets), whose Wormhole ids are 10002-10005; Solana (1) is also a tBTC destination. These values render without a name.",
+      "fix": "Add the Wormhole chain ids for Solana (1) and the Sepolia testnets (10002, 10003, 10004, 10005) to the enum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "sendTbtc shows the input amount, but the code rounds it down to 1e10 before burning and bridging",
+      "evidence": "L2WormholeGateway.sol sendTbtc: `amount = normalize(amount);` normalize: `amount /= 10**10; amount *= 10**10;`. Descriptor field `amount` shows the raw calldata amount.",
+      "fix": "Label the field 'Amount (rounded down to 8 decimals)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "sendTbtc spends the signer's tBTC allowance via burnFrom; this is the prerequisite of the bridge",
+      "evidence": "L2WormholeGateway.sol sendTbtc: `tbtc.burnFrom(msg.sender, amount);`",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "sendTbtc has one test only, and it does not exercise the registered-gateway branch where arbiterFee is ignored",
+      "evidence": "Case 0: destination Ethereum, arbiter fee 0. Code branches on `gateways[recipientChain]`.",
+      "fix": "Add a case to an L2 destination with a registered gateway and a non-zero arbiter fee.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 68
+   },
+   {
+    "key": "receiveTbtc(bytes encodedVm)",
+    "effects": [
+     "Completes a Wormhole transfer: the bridge releases Wormhole tBTC to the gateway.",
+     "Mints canonical tBTC equal to the bridged amount to the receiver in the VAA payload. That address can be someone other than the signer.",
+     "When the minting limit is reached, sends Wormhole tBTC to that receiver instead of canonical tBTC.",
+     "Takes no assets from the signer. The signer pays gas only."
+    ],
+    "shown": "\"Claim bridged tBTC\" and the full signed Wormhole message as raw hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "receiveTbtc intent 'Claim bridged tBTC' implies the signer receives tBTC, but the VAA payload names the receiver",
+      "evidence": "L2WormholeGateway.sol receiveTbtc: `address receiver = fromWormholeAddress(bytes32(bridge.parseTransferWithPayload(encoded).payload));` then `tbtc.mint(receiver, amount);`. Descriptor intent 'Claim bridged tBTC'.",
+      "fix": "Change the intent to 'Complete tBTC bridge transfer'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "receiveTbtc amount, receiver and token type sit inside the VAA and in storage; ERC-7730 cannot decode them",
+      "evidence": "receiveTbtc: `uint256 amount = balanceAfter - balanceBefore;` receiver comes from the VAA payload; `if (mintedAmount + amount > mintingLimit) bridgeToken.safeTransfer(receiver, amount); else tbtc.mint(receiver, amount);`",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "receiveTbtc shows the whole VAA as raw hex, which a person cannot read",
+      "evidence": "Case 1 screen: 'Wormhole message' = '0x01000000000100abab…'. Descriptor field `encodedVm` format raw, visible always.",
+      "fix": "Hide `encodedVm` or keep it optional. It moves none of the signer's assets.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 40
+   }
+  ],
+  "couldNotCheck": [
+   "Wormhole Token Bridge (transferTokens / transferTokensWithPayload / completeTransferWithPayload) is not in the directory: how arbiterFee is cut from what the recipient receives, and how msg.value is used, could not be confirmed from source."
+  ]
+ },
+ "cost": 0.38,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 112,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "sendTbtc(uint256 amount, uint16 recipientChain, bytes32 recipient, uint256 arbiterFee, uint32 nonce)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 59,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "sendTbtc chain enum lacks testnet and Solana Wormhole chain ids used by listed deployments",
+   "comprehension": null
+  },
+  "receiveTbtc(bytes encodedVm)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "receiveTbtc intent 'Claim bridged tBTC' implies the signer receives tBTC, but the VAA payload names the receiver",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 95,
+  "clarity": 53,
+  "functions": "2C",
+  "incomplete": true,
+  "worst": "sendTbtc chain enum lacks testnet and Solana Wormhole chain ids used by listed deployments"
+ }
+}

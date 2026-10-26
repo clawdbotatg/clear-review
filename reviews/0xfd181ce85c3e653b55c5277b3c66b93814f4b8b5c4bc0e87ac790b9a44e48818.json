@@ -1,0 +1,139 @@
+{
+ "hash": "0xfd181ce85c3e653b55c5277b3c66b93814f4b8b5c4bc0e87ac790b9a44e48818",
+ "file": "registry/gondi/eip712-ExecutionData-v3_2.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe365ff3cad44d19cb7aba81df8ffd6818a66ac0a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "ExecutionData(OfferExecution[] offerExecution,uint256 loanId,address nftCollateralAddress,uint256 tokenId,uint256 duration,uint256 expirationTime,address principalReceiver,bytes callbackData)LoanOffer(uint256 offerId,address lender,uint256 fee,uint256 capacity,address nftCollateralAddress,uint256 nftCollateralTokenId,address principalAddress,uint256 principalAmount,uint256 aprBps,uint256 expirationTime,uint256 duration,uint256 maxSeniorRepayment,OfferValidator[] validators,bool lenderRefinanceDisabled,address borrower)OfferValidator(address validator,bytes arguments)",
+    "effects": [
+     "The signature lets anyone call emitLoan or refinanceFromLoanExecutionData for the borrower until expirationTime (_validateExecutionData checks the borrower signature when msg.sender != borrower).",
+     "New loan: the NFT nftCollateralAddress #tokenId moves from the borrower into escrow in the MultiSourceLoan contract (emitLoan: ERC721.transferFrom(borrower, address(this), tokenId)). If the loan is not repaid in time it can be liquidated.",
+     "For each offer, the lender sends amount - fee of principalAddress to principalReceiver. fee = offer.fee * amount / offer.principalAmount, so it is at most offer.fee (_processOffersFromExecutionData).",
+     "A debt is created in the borrower's name: one tranche per offer for `amount` at offer.aprBps over `duration`. Repayment is principal plus interest.",
+     "Refinance (loanId != 0): the borrower's wallet pays every old tranche's principal, accrued interest and new interest to the old lenders, plus the protocol fee on that interest (_processRepayments: safeTransferFrom(loan.borrower, tranche.lender, repayment)). The old loan is deleted and a new loan id holds the NFT.",
+     "If lenderRefinanceDisabled is set, the loan cannot be refinanced by lenders, it must have a single tranche, and a later refinance has to send the principal to the borrower.",
+     "If callbackData is not empty, the whitelisted caller contract's afterPrincipalTransfer runs with that data after the principal is transferred."
+    ],
+    "shown": "\"Borrow against <NFT>\" with the collateral NFT, then per offer the lender, gross amount in the principal token, APR, max lender fee and a raw no-refinance flag, then duration, principal receiver, signature expiry, raw callback data and, for a refinance, the raw loan id.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Refinance: the old loan's repayment from the borrower's wallet is not stated; only a raw loan id is shown.",
+      "evidence": "MultiSourceLoan.sol refinanceFromLoanExecutionData -> _processRepayments: `asset.safeTransferFrom(loan.borrower, tranche.lender, repayment)` and `asset.safeTransferFrom(loan.borrower, _protocolFee.recipient, totalProtocolFee)`. Descriptor: interpolatedIntent \"Borrow against {tokenId}\". The field `loanId` is labelled 'Loan to refinance' (raw). Case 1 shows only 'Loan to refinance: 15551'.",
+      "fix": "Label loanId 'Repays loan # (from your wallet)'. Make the intent say that a refinance repays the existing loan's principal plus interest from your wallet. The amount comes from storage and cannot be shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Refinance repayment amount is read from the stored loan and cannot be shown from the message.",
+      "evidence": "refinanceFromLoanExecutionData takes `Loan calldata _loan` outside the signed ExecutionData. The repayment is tranche.principalAmount + accruedInterest + newInterest (_processRepayments).",
+      "fix": "None in the descriptor. A wallet would need to read the loan from on-chain state.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "'Amount' is the gross principal; the receiver gets amount minus a pro-rata lender fee.",
+      "evidence": "_processOffersFromExecutionData: `fee = offer.fee.mulDivUp(amount, offer.principalAmount)` and `safeTransferFrom(lender, _principalReceiver, amount - fee)`. Descriptor: `offerExecution.[].amount` is labelled 'Amount' and `offer.fee` is labelled 'Lender fee (max)'.",
+      "fix": "Label the amount 'Principal borrowed (before lender fee)', or explain in the fee label that it is deducted from the principal you receive.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "Per-offer terms are separate array fields that the signer cannot pair when there are several offers.",
+      "evidence": "Separate fields `offerExecution.[].offer.lender`, `offerExecution.[].amount`, `offerExecution.[].offer.aprBps`, `offerExecution.[].offer.fee` and `offerExecution.[].offer.lenderRefinanceDisabled`, with no group on `offerExecution.[]`.",
+      "fix": "Put lender, amount, APR and fee in one field group iterated over offerExecution.[] so each tranche reads together.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "'No lender refinance' shows a raw true/false and does not explain what the flag restricts.",
+      "evidence": "Descriptor field `offerExecution.[].offer.lenderRefinanceDisabled` with format raw, shown as 'No lender refinance: true' in cases 0 and 1. Code: a single tranche is required, and a refinance must send the principal to the borrower (`if (_loan.lenderRefinanceDisabled && executionData.principalReceiver != borrower) revert`).",
+      "fix": "Use an enum or label such as 'Lenders cannot refinance this loan: Yes/No'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Callback data is shown as raw bytes; it runs on the caller's whitelisted callback contract.",
+      "evidence": "emitLoan: `if (_hasCallback(executionData.callbackData)) handleAfterPrincipalTransferCallback(loan, msg.sender, executionData.callbackData, totalFee)`. Descriptor: `callbackData` 'Callback data' (raw).",
+      "fix": "Hide it when it is empty (ifNotIn ['0x']), or add a message that a non-empty value triggers a follow-up action after the principal is sent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "The intent does not say the NFT is locked in escrow and can be liquidated if unpaid.",
+      "evidence": "emitLoan: `ERC721(nftCollateralAddress).transferFrom(borrower, address(this), executionData.tokenId)`. interpolatedIntent \"Borrow against {tokenId}\".",
+      "fix": "For example: \"Lock {tokenId} as collateral to borrow\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "No case covers several offers, a non-zero lender fee or non-empty callback data.",
+      "evidence": "cases/0.json and cases/1.json each have one offer with fee \"0\" and callbackData \"0x\".",
+      "fix": "Add a case with two tranches, a non-zero fee and non-empty callback data.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.457,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 92,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "ExecutionData(OfferExecution[] offerExecution,uint256 loanId,address nftCollateralAddress,uint256 tokenId,uint256 duration,uint256 expirationTime,address principalReceiver,bytes callbackData)LoanOffer(uint256 offerId,address lender,uint256 fee,uint256 capacity,address nftCollateralAddress,uint256 nftCollateralTokenId,address principalAddress,uint256 principalAmount,uint256 aprBps,uint256 expirationTime,uint256 duration,uint256 maxSeniorRepayment,OfferValidator[] validators,bool lenderRefinanceDisabled,address borrower)OfferValidator(address validator,bytes arguments)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "Refinance: the old loan's repayment from the borrower's wallet is not stated; only a raw loan id is shown.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 46,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "Refinance: the old loan's repayment from the borrower's wallet is not stated; only a raw loan id is shown."
+ }
+}

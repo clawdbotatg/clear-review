@@ -1,0 +1,182 @@
+{
+ "hash": "0x0f9112485fee15469f6873a842910e0cff99d68658fcbc9ccc38a4170e9ff61a",
+ "file": "registry/morpho/calldata-felix-feUSDT02.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 999,
+   "address": "0x9896a8605763106e57a51aa0a97fe8099e806bb3"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USD₮0 to the vault, spending the signer's USD₮0 allowance to the vault.",
+     "The vault mints shares (feUSDT02) to `receiver`. The count comes from vault totals in storage and is rounded down, with no minimum.",
+     "The vault supplies the USD₮0 to Morpho Blue markets in its supply queue. This has no direct effect on the signer."
+    ],
+    "shown": "The screen says \"Deposit\" with the exact USD₮0 amount, the constant share ticker feUSDT02 and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many feUSDT02 shares the receiver gets; the count is computed from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0: the signer receives 48753000000000000 feUSDT02, but the screen shows only 'Share ticker: feUSDT02'.",
+      "fix": "Nothing in calldata holds the share count. Keep the share ticker and the receiver fields.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "The 0.048753 USD₮0 out is shown exactly. The feUSDT02 shares in are shown with asset and receiver but no amount. The Approval event is USD₮0 lowering the existing allowance on transferFrom. It is not a new grant. It is the prerequisite of the deposit, so it gets no finding."
+     }
+    ],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns shares from `owner`. The count comes from storage and is rounded up.",
+     "When the caller is not `owner`, the call spends the caller's feUSDT02 allowance from `owner`.",
+     "The vault sends exactly `assets` USD₮0 to `receiver`, after it withdraws that amount from Morpho Blue markets."
+    ],
+    "shown": "The screen says \"Withdraw\" with the exact USD₮0 amount, the recipient and the owner whose shares pay for it.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many feUSDT02 shares the vault burns from the owner.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 1: the vault burns 369.969891220770900296 feUSDT02 from the signer, and no field states it.",
+      "fix": "Nothing in calldata holds the share count. Consider the intent 'Withdraw USD₮0 by burning feUSDT02 shares' so the signer knows shares are spent.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 370 USD₮0 in is shown exactly, with its recipient. The burn of 369.97 feUSDT02 is not shown. The reader guessed that shares leave but did not know the amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` feUSDT02 from `owner`. When the caller is not `owner`, this spends the caller's share allowance.",
+     "The vault sends USD₮0 to `receiver`. The amount comes from storage and is rounded down, with no minimum."
+    ],
+    "shown": "The screen says \"Redeem\" with the exact feUSDT02 share amount, the recipient and the owner. It never names the token received or its amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names USD₮0 as the asset the recipient gets; the signer must guess the token.",
+      "evidence": "MetaMorphoV1_1.redeem → ERC4626._withdraw sends the underlying asset (immutable 0xb8ce…5ebb) to `receiver`. The descriptor's redeem fields hold only 'Shares to redeem', 'To' and 'Owner'. The constant `underlyingTicker` is never used. Case 2: the signer receives 2700 USD₮0, and the reader said 'exact token and amount not shown'.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}, or change the intent to 'Redeem shares for USD₮0'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USD₮0 amount received; the vault computes it from storage, with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 2: 2700 USD₮0 arrives, and no field states an amount.",
+      "fix": "Nothing in calldata bounds it. Label the recipient field 'Send USD₮0 to'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 2700 feUSDT02 burn is shown exactly. The USD₮0 in is not named and has no amount. The reader knew funds arrive at their address but guessed the token."
+     }
+    ],
+    "glance": 50,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.388,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 71,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USD₮0 as the asset the recipient gets; the signer must guess the token.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 66,
+  "functions": "1B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never names USD₮0 as the asset the recipient gets; the signer must guess the token."
+ }
+}

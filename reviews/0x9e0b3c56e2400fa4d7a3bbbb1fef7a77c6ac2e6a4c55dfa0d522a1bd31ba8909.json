@@ -1,0 +1,272 @@
+{
+ "hash": "0x9e0b3c56e2400fa4d7a3bbbb1fef7a77c6ac2e6a4c55dfa0d522a1bd31ba8909",
+ "file": "registry/morpho/calldata-re7_labs-Re7USDC-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x618495ccc4e751178c4914b1e939c0fe0fb07b9b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` USDC from the signer into the vault (SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "Mints Re7USDC vault shares to `onBehalf`. The amount is computed by previewDeposit after accrueInterest, and there is no minimum-shares bound.",
+     "Accrues interest first, which may mint fee shares to the fee recipients. That only affects the signer through the share price, and that price is already in the shares minted."
+    ],
+    "shown": "Deposit X USDC, shares (Re7USDC) go to the onBehalf address. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: number of Re7USDC shares received is computed on chain and cannot be shown",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0: signer received 5.627440520753931790 Re7USDC; the screen shows only 'Share ticker: Re7USDC'. The function has no minShares parameter.",
+      "fix": "Nothing in calldata bounds it. You could change the label to 'Receive shares (Re7USDC)' so it is clear an unspecified amount of shares arrives.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' constant field reads as metadata, not as shares the signer receives",
+      "evidence": "descriptor deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'}. Case 0 screen: 'Share ticker: Re7USDC'.",
+      "fix": "Relabel it, for example 'You receive: Re7USDC vault shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The USDC out (5.770675) matches the screen exactly. The Re7USDC shares in go to the signer as shown, but their amount is not shown, so the reader understood it only partially. A fee mint to 0x93db… was signer-null."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns Re7USDC shares from `onBehalf` (the owner). The amount is computed by previewWithdraw (rounded up), and there is no maximum-shares bound.",
+     "If the signer is not `onBehalf`, it spends the share allowance that `onBehalf` gave the signer.",
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "May pull liquidity back from the liquidity adapter first. This is internal to the vault."
+    ],
+    "shown": "Withdraw exactly X USDC to the receiver. The owner address is shown. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: number of Re7USDC shares burned from the owner is computed and not shown",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 2: signer lost 222.962002973693499491 Re7USDC; the screen shows no share amount. There is no maxShares parameter.",
+      "fix": "Nothing in calldata bounds it. You could make the Owner label say shares are burned from it, for example 'Burn shares from'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: interpolatedIntent leaves out the owner whose shares are burned",
+      "evidence": "interpolatedIntent 'Withdraw {#.assets} to {#.receiver}'. The onBehalf field 'Owner' is shown, and exit spends allowance[onBehalf][msg.sender] when they differ.",
+      "fix": "Use 'Withdraw {#.assets} from {#.onBehalf}'s shares to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The USDC in (229, to the signer) matches the screen. The shares burned (222.96 Re7USDC) are not shown. The reader knew shares leave but not how many."
+     }
+    ],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` Re7USDC from `onBehalf`, spending the owner's allowance if the signer is not the owner.",
+     "Sends USDC from the vault to `receiver`. The amount is computed by previewRedeem, and there is no minimum-assets bound.",
+     "Accrues interest first. This mints fee shares to the fee recipients, which can be the signer (case 3)."
+    ],
+    "shown": "Redeem X Re7USDC to the receiver, with the owner shown. The asset received and its amount are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the asset paid out (USDC) is never named on the screen",
+      "evidence": "The descriptor redeem fields are only shares, receiver and onBehalf. Mint uses the constant `$.metadata.constants.underlyingTicker`, but redeem does not. Case 3 reader: 'Which token is paid out; assumed USDC from the name'.",
+      "fix": "Add a field {label:'Receive asset', format:'raw', value:'$.metadata.constants.underlyingTicker'} and write the intent as 'Redeem {#.shares} for USDC to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: amount of USDC received is computed by previewRedeem and not shown",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. Case 3: signer received 271.247937 USDC, and no amount is shown. There is no minAssets parameter.",
+      "fix": "Nothing in calldata bounds it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: fee shares minted to the signer by accrueInterest do not appear on the screen",
+      "evidence": "VaultV2.sol accrueInterest: `createShares(performanceFeeRecipient, ...)` / `createShares(managementFeeRecipient, ...)`. Case 3: 55.730058640444738070 Re7USDC minted to the signer, who is the fee recipient.",
+      "fix": "Fee recipients are read from storage. No descriptor change can show this.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: interpolatedIntent leaves out the owner whose shares are burned",
+      "evidence": "interpolatedIntent 'Redeem {#.shares} to {#.receiver}'. onBehalf is shown as 'Owner', and exit burns from onBehalf.",
+      "fix": "Use 'Redeem {#.shares} from {#.onBehalf} to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "The shares out (263.48 Re7USDC) are shown exactly. For the USDC in, the asset is not named and the amount is not shown, so the reader only guessed USDC. The fee-share mint of 55.73 Re7USDC to the signer was missed."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Pulls USDC from the signer. The amount is computed by previewMint (rounded up), and there is no maximum-assets bound.",
+     "Mints exactly `shares` Re7USDC to `onBehalf`."
+    ],
+    "shown": "Mint X Re7USDC for the onBehalf address, with the deposit asset named as USDC. The amount of USDC paid is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: amount of USDC pulled from the signer is computed and not shown",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`, and enter calls `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: 0.911651 USDC left the signer, and the screen shows only 'Deposit asset: USDC'. There is no maxAssets parameter.",
+      "fix": "Nothing in calldata bounds it. Label the field 'Pay with (amount set by vault): USDC'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: intent does not say that USDC leaves the signer's wallet",
+      "evidence": "intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. Case 1 screen: 'Mint 0.89 Re7USDC for 0x…dEaD'. The USDC payment appears only in a separate raw field.",
+      "fix": "Use intent 'Deposit USDC to mint shares' and interpolatedIntent 'Pay USDC to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "USDC out of 0.911651. The screen names USDC but not the amount. The shares went to 0xdead (signer-null), and the screen shows that correctly."
+     }
+    ],
+    "glance": 50,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.421,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 89,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: interpolatedIntent leaves out the owner whose shares are burned",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the asset paid out (USDC) is never named on the screen",
+   "comprehension": 50
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: intent does not say that USDC leaves the signer's wallet",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 59,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem: the asset paid out (USDC) is never named on the screen"
+ }
+}

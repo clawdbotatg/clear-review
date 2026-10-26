@@ -1,0 +1,134 @@
+{
+ "hash": "0x83679b7ead3918df354592766a2ea67b0d342629ee15c2d872daa0a3fe222805",
+ "file": "registry/symbiotic/calldata-WithdrawalQueue-ifUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5f3b48cfafeab497badeb692c24c2ccd3710e428"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "requestRedeem(uint256 shares,address receiver)",
+    "effects": [
+     "The signer's vault shares (ifUSDC, the vault ERC20) move to the withdrawal queue: IERC20(vault).safeTransferFrom(msg.sender, address(this), shares). This spends the signer's allowance to the queue.",
+     "A withdrawal-request ERC721 is minted to `receiver`. Whoever holds it is the only one who can later claim the underlying assets, so this is a right moved to `receiver`.",
+     "How many assets the shares redeem for is decided later, when the queue fills the request at the vault's rate. Nothing is fixed at request time.",
+     "The call then runs UniversalDelegator.sweepPending() on the vault's delegator. It acts as the queue, not as the signer, and moves none of the signer's assets."
+    ],
+    "shown": "Request queued withdrawal: queue {shares} ifUSDC from the named vault and send the withdrawal NFT to {receiver}.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedeem: 'NFT recipient' does not say the NFT holder alone can claim the withdrawn assets.",
+      "evidence": "WithdrawalQueue.sol requestRedeem: `_mint(receiver, tokenId);` and claim: `if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();`. Descriptor label 'NFT recipient', interpolatedIntent 'Queue {shares}, NFT to {receiver}'.",
+      "fix": "Label it 'Withdrawal claim (NFT) recipient' or say in the intent that the receiver can claim the assets.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestRedeem: the assets the shares will redeem for are set at fill time and cannot be shown.",
+      "evidence": "WithdrawalQueue.sol fill: `assets = IERC4626(vault).redeem(shares, address(this), address(this));` runs after the request. requestRedeem only records the shares.",
+      "fix": "None in the descriptor. It could note that the amount is set when the request is filled.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "requestRedeem: the vault constant matches only the queue's stored `vault`, which the source cannot confirm.",
+      "evidence": "WithdrawalQueue.sol `_initialize`: `vault = owner;` (storage). Descriptor constants.vault = 0x56097f1a378848A51F35e7D9Ca2592c444EC4637, used as the token of #.shares.",
+      "fix": "Check on chain that vault() equals the constant.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 82
+   },
+   {
+    "key": "claim(uint256 tokenId,address receiver)",
+    "effects": [
+     "The signer must own withdrawal NFT `tokenId`. The NFT is not burned and stays with the signer.",
+     "The currently claimable amount of the vault's underlying asset (IERC4626(vault).asset(), presumably USDC) goes from the queue to `receiver`: safeTransfer(receiver, assets).",
+     "The request's sharesClaimed goes up by the claimed shares, which uses up that part of the signer's claim right. If the request is only partly filled, only the filled part is paid out."
+    ],
+    "shown": "Claim filled withdrawal {tokenId} to {receiver}, with the vault address, the NFT id and the asset recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claim: neither the intent nor any field names the asset that is paid out.",
+      "evidence": "WithdrawalQueue.sol claim: `IERC20(IERC4626(vault).asset()).safeTransfer(receiver, assets);`. Descriptor intent 'Claim filled withdrawal', with fields Vault, 'Withdrawal NFT ID' and 'Asset recipient' only.",
+      "fix": "Name the underlying asset in the intent, for example 'Claim USDC from filled withdrawal', after checking vault.asset() on chain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount paid comes from fill checkpoints in storage and can be only part of the request.",
+      "evidence": "WithdrawalQueue.sol claim: `(assets, shares) = claimable(tokenId); requests[tokenId].sharesClaimed += shares;`. claimable caps endShares at totalFilled().",
+      "fix": "None possible. The intent could say 'claim the filled part of withdrawal'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.25,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 58,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "requestRedeem(uint256 shares,address receiver)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(uint256 tokenId,address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: neither the intent nor any field names the asset that is paid out.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 70,
+  "functions": "1A 1C",
+  "incomplete": false,
+  "worst": "claim: neither the intent nor any field names the asset that is paid out."
+ }
+}

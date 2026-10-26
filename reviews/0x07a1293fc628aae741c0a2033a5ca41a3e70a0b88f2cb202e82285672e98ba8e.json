@@ -1,0 +1,233 @@
+{
+ "hash": "0x07a1293fc628aae741c0a2033a5ca41a3e70a0b88f2cb202e82285672e98ba8e",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakUSDT-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef003c68896c7d2c3c60d363e8d71a49ab2bf9"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDT from the signer into the vault (safeTransferFrom in enter).",
+     "Mints vault shares (steakUSDT) to onBehalf. The share count is previewDeposit(assets), worked out from vault storage after accrueInterest."
+    ],
+    "shown": "Deposit X USDT for <onBehalf>. Fields show the USDT amount, the share ticker steakUSDT and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown because the vault works it out at execution time.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` comes from storage, not calldata. Case 0: the signer received 0.01 steakUSDT and the screen gives only the ticker 'Share ticker: steakUSDT'.",
+      "fix": "None possible in the descriptor. A label such as 'Shares (worked out by vault)' could set expectations.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The USDT out (0.01) is shown exactly. The steakUSDT in goes to the signer: ticker and recipient are shown, the amount is not (it comes from storage)."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns shares from onBehalf. The count is previewWithdraw(assets), rounded up and worked out from storage.",
+     "If the caller is not onBehalf, spends the caller's share allowance from onBehalf by that share count.",
+     "Sends exactly `assets` USDT to receiver."
+    ],
+    "shown": "Withdraw exactly X USDT to <receiver>, with the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown. The vault works them out from storage.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 2: 3019.95 steakUSDT were burned from the signer. The screen shows only 'Owner' and no share ticker or amount.",
+      "fix": "None possible for the amount. Optionally add a 'Shares burned from' label or a share ticker constant field, as the deposit format does.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The USDT in (3020.655283) to the signer is exact. The steakUSDT out is implied by the Owner field, but neither the asset nor the amount is stated."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from onBehalf.",
+     "If the caller is not onBehalf, spends the caller's share allowance from onBehalf by `shares`.",
+     "Sends previewRedeem(shares) USDT to receiver. The amount is worked out from storage."
+    ],
+    "shown": "Redeem X steakUSDT to <receiver>, with the owner. Nothing says which asset comes back or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the payout asset (USDT) is never named, so the signer must guess what arrives.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The descriptor's redeem fields are only shares, receiver and onBehalf, with no underlyingTicker field (mint has one). Case 3: the signer received 0.003487 USDT, and the reader wrote 'Underlying asset (presumably USDT)… exact amount not shown'.",
+      "fix": "Add a field like `{\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}` and say 'Redeem {#.shares} for USDT to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the amount of USDT received is worked out from storage and cannot be shown.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. The function takes no minimum-assets parameter.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The steakUSDT out is exact, with the right owner. The USDT in to the signer is shown only as a receiver: no asset and no amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes previewMint(shares) USDT from the signer. The amount is rounded up, worked out from storage and has no maximum bound.",
+     "Mints exactly `shares` vault shares to onBehalf."
+    ],
+    "shown": "Mint X steakUSDT for <onBehalf>. The fields say the deposit asset is USDT but give no USDT amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDT amount taken from the signer is not shown. The vault works it out and there is no max bound.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` then `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: 1.014889 USDT left the signer. The screen shows only 'Deposit asset: USDT'.",
+      "fix": "None possible in the descriptor, because the function has no maxAssets parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' and its sentence leave out that the signer pays USDT.",
+      "evidence": "descriptor mint: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. Case 1 sentence: 'Mint 0.999999999 steakUSDT for 0x…dEaD', but USDT leaves the signer.",
+      "fix": "Use intent 'Deposit USDT for shares' and interpolatedIntent 'Pay USDT to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The only signer effect is USDT out (1.014889). The asset is shown, the amount is not. The shares went to 0xdead, which the screen shows correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.374,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 89,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the payout asset (USDT) is never named, so the signer must guess what arrives.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 49,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' and its sentence leave out that the signer pays USDT.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 69,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the payout asset (USDT) is never named, so the signer must guess what arrives."
+ }
+}

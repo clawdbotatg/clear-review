@@ -1,0 +1,123 @@
+{
+ "hash": "0x5278b84da9574eb5bc9dc1aa15820bd9a0f0eb8f9c8224bdb575c58cf4e486d7",
+ "file": "registry/safe/calldata-BatchExecutor.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2cc8475177918e8c4d840150b68815a4b6f0f5f3"
+  },
+  {
+   "chainId": 10,
+   "address": "0xd0efb07126e865ac95b60381b468081ef648ec5f"
+  },
+  {
+   "chainId": 137,
+   "address": "0x2cc8475177918e8c4d840150b68815a4b6f0f5f3"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xd0efb07126e865ac95b60381b468081ef648ec5f"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xd0efb07126e865ac95b60381b468081ef648ec5f"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x2cc8475177918e8c4d840150b68815a4b6f0f5f3"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "batchExecute((address to, uint256 value, bytes data)[] calls)",
+    "effects": [
+     "Runs only by DELEGATECALL from the signer's Safe (line 50 reverts on a direct call), so every sub-call is made from the Safe's own account.",
+     "For each call i, sends calls[i].value of native currency from the Safe to calls[i].to.",
+     "For each call i, runs calls[i].data on calls[i].to with the Safe as msg.sender. That can move any of the Safe's tokens, set approvals, or change roles and settings, depending on the inner call.",
+     "Calls with empty data are allowed to any address, EOAs included (line 53). Those are plain native-currency transfers.",
+     "All-or-nothing: if any sub-call fails, the whole batch reverts with BatchExecutionFailed(i, errorData)."
+    ],
+    "shown": "The intent 'Batch transactions', then one 'Transaction' calldata field per call. Each field is decoded with the inner descriptor for calls[].to, and calls[].value is passed in through amountPath. The target and value have no fields of their own.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "batchExecute: calls[].value (native currency leaving the Safe) is never its own field; empty-data transfers have no inner descriptor",
+      "evidence": "BatchExecutor.sol batchExecute: `calls[i].to.call{value: calls[i].value}(calls[i].data)`, and line 53 lets calls with `data.length == 0` go to any address. In the descriptor, the only field is `calls.[].data` with format calldata and params `amountPath: calls.[].value`. Under the spec, amountPath only passes the value to the inner descriptor, which 'MAY reference' @.value. For a plain native transfer (empty data) there is no selector and no inner descriptor, so no field shows the amount or the recipient.",
+      "fix": "Add per-call fields: `calls.[].to` labelled 'To' (addressName) and `calls.[].value` labelled 'Value' (format amount). Keep the calldata field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "batchExecute: the intent 'Batch transactions' says nothing about the calls running as the Safe",
+      "evidence": "descriptor intent: \"Batch transactions\", with no interpolatedIntent. The code runs each call from the Safe through delegatecall (devdoc: 'It executes each call in the context of the calling Safe'). Each call can move Safe assets or change its settings, and the whole batch reverts if one call fails.",
+      "fix": "Use an intent like 'Execute batch of calls from this Safe', and add an interpolatedIntent if the runner supports counting calls.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "batchExecute: no spenderPath, so inner descriptors that read @.from cannot resolve the Safe as sender",
+      "evidence": "descriptor params hold only calleePath and amountPath. In the code, msg.sender of each sub-call is the Safe, because BatchExecutor runs by delegatecall. The spec says spenderPath supplies @.from to the embedded descriptor.",
+      "fix": "If the runner allows it, pass the account address (e.g. `spenderPath: @.from`) so inner descriptors see the Safe as sender.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "batchExecute: payable, but @.value has no field; under delegatecall from a Safe the top-level value is not what moves funds",
+      "evidence": "`function batchExecute(Call[] calldata calls) external payable`. Line 50 forces delegatecall, and a Safe delegatecall carries no value of its own. Native currency moves only through calls[i].value.",
+      "fix": "None needed beyond showing calls[].value per call.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.192,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [
+  "batchExecute((address to, uint256 value, bytes data)[] calls)"
+ ],
+ "seconds": 54,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "batchExecute((address to, uint256 value, bytes data)[] calls)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "batchExecute: calls[].value (native currency leaving the Safe) is never its own field; empty-data transfers have no inner descriptor",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 0,
+  "clarity": 35,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "batchExecute: calls[].value (native currency leaving the Safe) is never its own field; empty-data transfers have no inner descriptor"
+ }
+}

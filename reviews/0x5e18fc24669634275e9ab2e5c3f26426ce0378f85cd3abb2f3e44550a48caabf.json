@@ -1,0 +1,119 @@
+{
+ "hash": "0x5e18fc24669634275e9ab2e5c3f26426ce0378f85cd3abb2f3e44550a48caabf",
+ "file": "registry/symbiotic/calldata-WithdrawalQueue-vUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf696ee2206051f31ceeb284d0bd14d83d3537028"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "requestRedeem(uint256 shares,address receiver)",
+    "effects": [
+     "The signer sends `shares` vault shares (vUSDC, the token at the vault address) from their wallet to the withdrawal queue via safeTransferFrom.",
+     "The queue mints a new withdrawal NFT to `receiver`; whoever holds this NFT is the only party that can later claim the underlying assets.",
+     "No native value is taken; the function is not payable.",
+     "The queue then calls UniversalDelegator.sweepPending() on the vault's delegator; this is the queue's own call and does not move the signer's assets."
+    ],
+    "shown": "The screen says 'Request queued withdrawal' / 'Queue 1.5 vUSDC, NFT to <receiver>', and shows the vault, the share amount with its token and the NFT recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedeem: the 'NFT recipient' label does not say the NFT holds the right to claim the withdrawn assets.",
+      "evidence": "WithdrawalQueue.requestRedeem: `_mint(receiver, tokenId);` and claim: `if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();`. Descriptor: field `#.receiver` label 'NFT recipient', interpolatedIntent 'Queue {shares}, NFT to {receiver}'.",
+      "fix": "Change the label to 'Withdrawal claim owner' and the interpolatedIntent to 'Queue {shares} for withdrawal; claim right to {receiver}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "requestRedeem: the source cannot confirm the vault constant, because the queue reads its vault from storage set at initialization.",
+      "evidence": "WithdrawalQueue._initialize: `vault = owner;` and requestRedeem: `IERC20(vault).safeTransferFrom(msg.sender, address(this), shares);`. Descriptor constant `vault`: 0x9C8F48faD950D078AF0C6256Cb41e23B7185d142. The proxy constructor data is `0x`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "claim(uint256 tokenId,address receiver)",
+    "effects": [
+     "The signer must own withdrawal NFT `tokenId`; the NFT stays with the signer and is not burned.",
+     "The queue sends the claimable amount of the vault's underlying asset (IERC4626(vault).asset(), presumably USDC) to `receiver`. The amount comes from storage: the filled but not yet claimed part of the request.",
+     "The request's sharesClaimed goes up by the claimed shares, so the claimed part of the position is used up. A partial fill gives a partial claim, and the rest stays claimable later.",
+     "No native value is taken; the function is not payable."
+    ],
+    "shown": "The screen says 'Claim filled withdrawal' / 'Claim filled withdrawal <id> to <receiver>', and shows the vault, the raw NFT id and the asset recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the asset and amount sent to the receiver come from storage and are not shown.",
+      "evidence": "WithdrawalQueue.claim: `(assets, shares) = claimable(tokenId);` ... `IERC20(IERC4626(vault).asset()).safeTransfer(receiver, assets);`. Descriptor fields: Vault, 'Withdrawal NFT ID' (raw), 'Asset recipient'. No field names the asset.",
+      "fix": "Name the underlying asset in the intent or the label, for example 'Claim USDC from filled withdrawal', after you confirm the vault's asset.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": [
+   "VaultV2 (the vault share token at 0x9C8F48faD950D078AF0C6256Cb41e23B7185d142) is not in the directory. requestRedeem moves the signer's shares through its transferFrom, and claim reads asset() from it, so the share transfer code and the underlying asset could not be checked.",
+   "UniversalDelegator.sweepPending(), which requestRedeem calls through VaultV2(vault).delegator(), is not in the directory."
+  ]
+ },
+ "cost": 0.293,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 50,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "requestRedeem(uint256 shares,address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "requestRedeem: the 'NFT recipient' label does not say the NFT holds the right to claim the withdrawn assets.",
+   "comprehension": null
+  },
+  "claim(uint256 tokenId,address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 66,
+  "functions": "2B",
+  "incomplete": true,
+  "worst": "requestRedeem: the 'NFT recipient' label does not say the NFT holds the right to claim the withdrawn assets."
+ }
+}

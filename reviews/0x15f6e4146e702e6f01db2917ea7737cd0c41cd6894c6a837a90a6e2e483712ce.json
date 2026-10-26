@@ -1,0 +1,276 @@
+{
+ "hash": "0x15f6e4146e702e6f01db2917ea7737cd0c41cd6894c6a837a90a6e2e483712ce",
+ "file": "registry/symbiotic/calldata-VaultV1-WBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x06881cfac22039b89b511309ef12dc062ebed820"
+  },
+  {
+   "chainId": 1,
+   "address": "0x0db67d60d98cf8d27c8720110c7793929f091cc2"
+  },
+  {
+   "chainId": 1,
+   "address": "0x35e44d92e8f738a272bddbae53d1dc9490e75fe7"
+  },
+  {
+   "chainId": 1,
+   "address": "0x4b873da454d038b10a87eb196bdbcd43e28b3012"
+  },
+  {
+   "chainId": 1,
+   "address": "0x9e405601b645d3484baeecf17bbf7ad87680f6e8"
+  },
+  {
+   "chainId": 1,
+   "address": "0xe527089636241ea8d6915eb67a9f68bd8bbf67c6"
+  },
+  {
+   "chainId": 1,
+   "address": "0xfcdaef4d62b95b585ca5a6c328607e0548563dde"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` of the vault's collateral token (WBTC for 0x0688…) from the signer to the vault with safeTransferFrom, which spends the signer's allowance to the vault.",
+     "Credits active vault shares for the deposited amount to `onBehalfOf`, not necessarily to the signer. The deposit becomes slashable stake."
+    ],
+    "shown": "Deposit 123.25 WBTC for the beneficiary address, plus the vault address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "deposit: WBTC as the collateral is confirmed only for 0x0688…; the other six vaults' collateral could not be read.",
+      "evidence": "descriptor metadata.constants.underlyingToken = 0x2260FAC5…C599 is used for all seven deployments. The init data of proxy 0x06881c… (meta.json constructorArguments) sets collateral = 0x2260fac5…c599. No source or init data is in the directory for 0x0dB67D…, 0x35E44d…, 0x4b873d…, 0x9e4056…, 0xe52708…, 0xFCdaeF…. Vault.deposit uses IERC20(collateral), a storage value.",
+      "fix": "Confirm collateral() == WBTC on every listed deployment. Remove any vault whose collateral is different.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the shares minted to the beneficiary are not shown because they are derived from vault state.",
+      "evidence": "Vault.sol deposit: mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...)",
+      "fix": "None possible. The beneficiary field already shows who gets the position.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 88
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active shares worth `amount` of collateral, rounded up (fails if the signer holds too few).",
+     "Gives `claimer` a withdrawal claim of `amount` collateral for the next epoch. Only the claimer can claim it, after that epoch ends, and it can still be slashed until then.",
+     "No tokens move in this transaction."
+    ],
+    "shown": "Request a 2.5 WBTC withdrawal, with the claim owner's address and the vault address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: the sentence does not say that the claimer, not the signer, gets the right to the funds.",
+      "evidence": "interpolatedIntent \"Request {amount} withdrawal for {claimer}\". Vault._withdraw: withdrawalSharesOf[epoch][claimer] += mintedShares, and only msg.sender can later claim it in _claim.",
+      "fix": "Use wording like \"Request {amount} withdrawal, claimable by {claimer}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the active shares burned from the signer are derived from state and not shown.",
+      "evidence": "Vault.withdraw: burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Gives `claimer` a withdrawal claim, for the next epoch, of the collateral those shares are worth (previewRedeem). It can be claimed only after that epoch ends.",
+     "No tokens move in this transaction."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claim owner, with the vault address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is shown as a raw integer with no decimals, so the signer cannot judge its size.",
+      "evidence": "descriptor field #.shares format \"raw\", label 'Vault shares (raw)'. Case 8 shows \"987654321123456789\". ERC4626Math._decimalsOffset() returns 0, so shares follow the collateral's 8 decimals at about 1:1 until a slash.",
+      "fix": "Use format \"unit\" with decimals 8 and base \"shares\" (or a similar label), so the number reads in collateral-sized units.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WBTC value of the claim is computed from vault state and not shown.",
+      "evidence": "Vault.redeem: withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())",
+      "fix": "None possible. A label could say the shares convert to WBTC claimable next epoch.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed.",
+     "Sends the signer's whole withdrawal amount for that epoch (withdrawalsOf(epoch, msg.sender)), in the collateral token, from the vault to `recipient`."
+    ],
+    "shown": "Claim epoch 42 to the recipient address, with the vault address. Neither the token nor the amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount sent to the recipient comes from storage and cannot be shown.",
+      "evidence": "Vault._claim: amount = withdrawalsOf(epoch, msg.sender); claim: IERC20(collateral).safeTransfer(recipient, amount)",
+      "fix": "None possible for the amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim: the intent never names WBTC, the asset sent to the recipient, though it is fixed.",
+      "evidence": "intent \"Claim withdrawal\", interpolatedIntent \"Claim epoch {epoch} to {recipient}\". The transfer is IERC20(collateral), which is WBTC.",
+      "fix": "Use \"Claim WBTC withdrawal\" and \"Claim WBTC from epoch {epoch} to {recipient}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 62
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawals for every listed epoch as claimed.",
+     "Sends the sum of those withdrawal amounts, in the collateral token, from the vault to `recipient` in one transfer."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient address, with the vault address. Neither the token nor the amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total sent to the recipient comes from storage and cannot be shown.",
+      "evidence": "Vault.claimBatch: amount += _claim(epochs[i]); IERC20(collateral).safeTransfer(recipient, amount)",
+      "fix": "None possible for the amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch: the intent never names WBTC, the asset sent to the recipient.",
+      "evidence": "intent \"Claim withdrawals\", interpolatedIntent \"Claim epochs {epochs.[]} to {recipient}\"",
+      "fix": "Use \"Claim WBTC withdrawals\" and \"Claim WBTC from epochs {epochs.[]} to {recipient}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": [
+   "The collateral token of six vault proxies (0x0dB67D…, 0x35E44d…, 0x4b873d…, 0x9e4056…, 0xe52708…, 0xFCdaeF…) could not be checked. Their source and init data are not in the directory, and collateral is set in storage at initialization. So the hardcoded WBTC constant is confirmed only for 0x06881c…."
+  ]
+ },
+ "cost": 0.36,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 148,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is shown as a raw integer with no decimals, so the signer cannot judge its size.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the intent never names WBTC, the asset sent to the recipient, though it is fixed.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the intent never names WBTC, the asset sent to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 68,
+  "functions": "2A 3C",
+  "incomplete": true,
+  "worst": "redeem: the share amount is shown as a raw integer with no decimals, so the signer cannot judge its size."
+ }
+}

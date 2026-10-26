@@ -1,0 +1,276 @@
+{
+ "hash": "0xb3634d5c9c83dccaee44e59dfe87d913e8658b0561650c586441ec25b9e053f1",
+ "file": "registry/morpho/calldata-clearstar-CSUSDC-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x1d3b1cd0a0f242d598834b3f2d126dc6bd774657"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC (0x8335…2913) to the vault, which supplies it to Morpho Blue markets.",
+     "The vault mints shares of COUSDC (this vault, 18 decimals) to `receiver`. The number of shares comes from the stored totals, rounded down, with no minimum.",
+     "The vault accrues interest and mints performance-fee shares to the fee recipient first. This sets the share price the signer gets."
+    ],
+    "shown": "Deposit: the USDC amount, a 'Share ticker' of CSUSDC, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit shows the share token as CSUSDC, but the vault mints COUSDC shares",
+      "evidence": "In descriptor.json, metadata.constants.vaultTicker is \"CSUSDC\" and the 'Share ticker' field uses \"$.metadata.constants.vaultTicker\". In meta.json the constructor __symbol is \"COUSDC\" (\"Clearstar OpenEden USDC\"). In case 0 the signer receives 51.069440268006074399 COUSDC, and the screen shows 'Share ticker: CSUSDC'.",
+      "fix": "Set metadata.constants.vaultTicker to \"COUSDC\". Better: show the shares as a tokenAmount with tokenPath \"@.to\" and drop the raw ticker constant.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the signer receives. The amount comes from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor). Case 0: the signer receives 51.069 COUSDC, and no field shows this amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "The deposit intent 'Deposit' names no asset and no vault.",
+      "evidence": "descriptor.json deposit intent \"Deposit\", with no interpolatedIntent.",
+      "fix": "Change the intent to \"Deposit USDC into vault\" and add an interpolatedIntent \"Deposit {assets} for vault shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out 55.716914 is shown correctly. COUSDC shares in: no amount is shown, and the ticker is shown wrongly as CSUSDC."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends USDC to the vault. The vault computes the amount from the stored totals, rounded up, with no maximum in the calldata. The vault supplies it to Morpho.",
+     "The vault mints exactly `shares` COUSDC shares to `receiver`.",
+     "The vault accrues interest and mints fee shares to the fee recipient first."
+    ],
+    "shown": "Mint: 'Deposit asset USDC' with no amount, the minted share amount (ticker CSUSDC), and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDC leaves the signer. The amount comes from storage, with no cap.",
+      "evidence": "MetaMorphoV1_1.mint: assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil). Case 1: the signer pays 0.000001 USDC, and the screen shows only 'Deposit asset: USDC'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "mint renders the minted shares as CSUSDC, but the vault token symbol is COUSDC.",
+      "evidence": "Case 1 screen 'Minted shares: 0.000000001 CSUSDC'. The mined transfer is of COUSDC (token 0x1d3b…4657). The constructor __symbol is \"COUSDC\". The descriptor constant vaultTicker is \"CSUSDC\".",
+      "fix": "Set metadata.constants.vaultTicker to \"COUSDC\" and fix the expected rendering in the test.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "The mint intent 'Mint' does not say that the signer pays USDC for the shares.",
+      "evidence": "descriptor.json mint intent \"Mint\". The field 'Deposit asset' is a raw ticker with no amount.",
+      "fix": "Change the intent to \"Deposit USDC to mint vault shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "USDC out (1 unit): the screen names USDC but shows no amount. The shares go to 0xdead, which is shown."
+     }
+    ],
+    "glance": 30,
+    "depth": 45
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns COUSDC shares from `owner`. The share amount comes from the stored totals, rounded up. When the signer is not the owner, the call spends the signer's share allowance from the owner.",
+     "The vault pulls exactly `assets` USDC from Morpho markets and sends it to `receiver`.",
+     "The vault accrues interest and mints fee shares to the fee recipient first."
+    ],
+    "shown": "Withdraw: exactly the USDC amount, the recipient and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares the vault burns. The amount comes from storage.",
+      "evidence": "MetaMorphoV1_1.withdraw: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil). Case 2: the vault burns 920.142 COUSDC from the signer, and no field shows it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "The withdraw intent 'Withdraw' does not say that vault shares are burned to pay the USDC.",
+      "evidence": "descriptor.json withdraw intent \"Withdraw\", with no interpolatedIntent.",
+      "fix": "Change the intent to \"Withdraw USDC from vault\" and add an interpolatedIntent \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDC in 1000 is shown correctly. The 920.14 COUSDC burned has no amount on the screen; the reader inferred shares worth about 1000 USDC."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` COUSDC from `owner`. When the signer is not the owner, the call spends the signer's share allowance from the owner.",
+     "The vault sends USDC to `receiver`. The amount comes from the stored totals, rounded down, with no minimum.",
+     "The vault accrues interest and mints fee shares to the fee recipient first."
+    ],
+    "shown": "Redeem: the share amount (ticker CSUSDC), the recipient and the owner. The screen names no output asset and shows no output amount.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem shows the burned shares as CSUSDC, but the signer's shares are COUSDC.",
+      "evidence": "Case 3 screen 'Shares to redeem: 9.251795 CSUSDC'. The mined effect burns 9251795000000000000 COUSDC from the signer. The constructor __symbol is \"COUSDC\". The descriptor vaultTicker is \"CSUSDC\".",
+      "fix": "Set metadata.constants.vaultTicker to \"COUSDC\" and fix the expected rendering in the test.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem never names USDC as the asset the signer receives.",
+      "evidence": "descriptor.json redeem fields: shares, receiver, owner. Unlike mint, it has no underlyingTicker field. In case 3 the reader wrote 'Underlying asset (probably USDC)'.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}, or change the intent to \"Redeem vault shares for USDC\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount received. The amount comes from storage, with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor). Case 3: the signer receives 10.093728 USDC, and no field shows it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 0,
+      "reader": [
+       "partial",
+       "partial"
+      ],
+      "notes": "The share amount 9.251795 is right but has the wrong ticker (CSUSDC instead of COUSDC). The screen does not name the USDC received and shows no amount for it."
+     }
+    ],
+    "glance": 40,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.489,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 86,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 60,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "deposit shows the share token as CSUSDC, but the vault mints COUSDC shares",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "D",
+   "truth": 0,
+   "clarity": 40,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "mint renders the minted shares as CSUSDC, but the vault token symbol is COUSDC.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The withdraw intent 'Withdraw' does not say that vault shares are burned to pay the USDC.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "redeem shows the burned shares as CSUSDC, but the signer's shares are COUSDC.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 31,
+  "clarity": 52,
+  "functions": "1B 1D 2F",
+  "incomplete": false,
+  "worst": "redeem shows the burned shares as CSUSDC, but the signer's shares are COUSDC."
+ }
+}

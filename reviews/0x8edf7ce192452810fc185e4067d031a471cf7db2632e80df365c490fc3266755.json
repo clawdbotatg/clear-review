@@ -1,0 +1,265 @@
+{
+ "hash": "0x8edf7ce192452810fc185e4067d031a471cf7db2632e80df365c490fc3266755",
+ "file": "registry/morpho/calldata-block_analitica-bbUSDT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2c25f6c25770ffec5959d34b94bf898865e5d6b1"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends `assets` USDT to the vault through safeTransferFrom (ERC4626._deposit), which spends the signer's USDT allowance to the vault.",
+     "The vault mints bbUSDT shares to `receiver`. The number is computed from storage: assets * (totalSupply + 1e12) / (totalAssets + 1), rounded down, after fees accrue.",
+     "The USDT is then supplied to Morpho Blue markets in the vault's name. The signer keeps no direct position there."
+    ],
+    "shown": "Intent \"Deposit\", the USDT amount, a fixed 'Share ticker: bbUSDT' line, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of bbUSDT shares received is not shown; the vault price in storage decides it.",
+      "evidence": "MetaMorpho.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor). The descriptor shows only 'Share ticker' = $.metadata.constants.vaultTicker, with no amount.",
+      "fix": "No calldata value carries it. A label such as 'Receive bbUSDT shares (at vault price)' could make this clear.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' names no amount, asset or vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\" with no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into bbUSDT vault for {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "deposit: the only mined case reverted, so no on-chain effect checks the screen.",
+      "evidence": "cases/0.json mined.status = 0, effects = [].",
+      "fix": "Use a successful deposit transaction as the test case.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The transaction reverted (status 0) and moved nothing. The reader correctly expected 0.1 USDT out and bbUSDT in to their own address."
+     }
+    ],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer pays USDT to the vault through safeTransferFrom. The amount is computed from storage: shares * (totalAssets + 1) / (totalSupply + 1e12), rounded up. The calldata sets no maximum; only the signer's allowance limits it.",
+     "The vault mints exactly `shares` bbUSDT to `receiver`.",
+     "The USDT is supplied to Morpho Blue markets in the vault's name."
+    ],
+    "shown": "Intent \"Mint\", 'Deposit asset: USDT' with no amount, the exact bbUSDT share amount, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDT amount pulled from the signer is not shown and has no bound in the calldata.",
+      "evidence": "MetaMorpho.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); ERC4626._deposit: safeTransferFrom(_asset, caller, address(this), assets). The descriptor shows only the raw 'Deposit asset' = \"USDT\".",
+      "fix": "No calldata value carries the amount. Relabel the field 'Pays USDT (amount set by vault share price)' so the signer knows USDT leaves.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say the signer pays USDT; there is no interpolatedIntent.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\". The blind reader in case 1 was unsure how much USDT leaves and why.",
+      "fix": "Use intent 'Mint vault shares (pay USDT)' and interpolatedIntent \"Mint {shares} for {receiver}, paid in USDT\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "mint: the only mined case reverted, so no on-chain effect checks the screen.",
+      "evidence": "cases/1.json mined.status = 0, effects = [].",
+      "fix": "Use a successful mint transaction as the test case.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The transaction reverted with no effects. The screen correctly shows the 0.000000001 bbUSDT going to the dEaD address."
+     }
+    ],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns bbUSDT shares from `owner`. The number is computed from storage, rounded up, and is not in the calldata.",
+     "If the caller is not `owner`, the caller's bbUSDT allowance from `owner` is spent by that share amount.",
+     "The vault sends exactly `assets` USDT to `receiver`."
+    ],
+    "shown": "Intent \"Withdraw\", the exact USDT amount, the receiver and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of bbUSDT shares burned from the owner is not shown; the vault price decides it.",
+      "evidence": "MetaMorpho.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); ERC4626._withdraw: _burn(owner, shares).",
+      "fix": "No calldata value carries it. A label could say 'Burns bbUSDT shares of owner (at vault price)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' names no amount or vault; there is no interpolatedIntent.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\".",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from bbUSDT vault to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` bbUSDT from `owner`. If the caller is not `owner`, this spends the caller's allowance from `owner`.",
+     "The vault sends USDT to `receiver`. The amount is computed from storage: shares * (totalAssets + 1) / (totalSupply + 1e12), rounded down. The calldata sets no minimum."
+    ],
+    "shown": "Intent \"Redeem\", the bbUSDT shares to redeem, the receiver and the owner. The asset received is not named and its amount is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names USDT as the asset the signer receives.",
+      "evidence": "cases/2.json: the signer received 110888625 USDT (signer: in), and no screen field mentions USDT. MetaMorpho.sol redeem() -> ERC4626._withdraw: safeTransfer(_asset, receiver, assets). The mint format already shows $.metadata.constants.underlyingTicker, but redeem does not.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and name USDT in the intent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT amount received depends on the vault price, and the calldata sets no minimum.",
+      "evidence": "MetaMorpho.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor). Case 2 received 110.888625 USDT, and no field shows it.",
+      "fix": "Not fixable from the calldata.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent 'Redeem' names no amount, asset or vault; there is no interpolatedIntent.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\".",
+      "fix": "Add interpolatedIntent \"Redeem {shares} for USDT to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 102.95 bbUSDT burned from the signer is shown correctly. The 110.888625 USDT received is not named and its amount is not shown, so the reader had to guess USDT."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.375,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 81,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent 'Deposit' names no amount, asset or vault, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say the signer pays USDT; there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent 'Withdraw' names no amount or vault; there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never names USDT as the asset the signer receives.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 56,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names USDT as the asset the signer receives."
+ }
+}

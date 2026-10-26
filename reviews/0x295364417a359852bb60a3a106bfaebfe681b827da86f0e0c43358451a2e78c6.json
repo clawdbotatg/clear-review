@@ -1,0 +1,117 @@
+{
+ "hash": "0x295364417a359852bb60a3a106bfaebfe681b827da86f0e0c43358451a2e78c6",
+ "file": "registry/figment/calldata-figment-batch-deposit.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x8b0d88b8be3c15d746feb0b1f18c883c03b6aa62"
+  },
+  {
+   "chainId": 560048,
+   "address": "0x7ac74cb69104cea773cc3154d47c930ca6462fe8"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(bytes[] pubkeys, bytes[] withdrawal_credentials, bytes[] signatures, bytes32[] deposit_data_roots, uint256[] amounts_gwei)",
+    "effects": [
+     "The signer sends native ETH equal to the sum of amounts_gwei times 1e9 to the Figment depositor; the code reverts unless msg.value equals that sum exactly.",
+     "The contract forwards each amount_gwei[i] * 1e9 wei to the immutable Beacon deposit contract, which funds the validator pubkeys[i].",
+     "Each deposit binds withdrawal_credentials[i] to the validator, and that decides who can withdraw the staked ETH later.",
+     "signatures[i] and deposit_data_roots[i] are passed to the deposit contract as proof and checksum. They move no other asset."
+    ],
+    "shown": "\"Stake ETH\" with one list each of raw validator public keys, raw 32-byte withdrawal credentials, and per-validator amounts in ETH. The total native value and the signatures are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "deposit shows withdrawal credentials as raw 32 bytes, so the signer cannot see who controls the stake.",
+      "evidence": "Descriptor field {\"label\": \"Withdraw Credentials\", \"format\": \"raw\", \"path\": \"#.withdrawal_credentials.[]\"}. FigmentEth2DepositorV1.deposit forwards withdrawal_credentials[i] to depositContract.deposit, and the natspec says it is 'where rewards will be sent'. Case 0 shows the value 0x0000…0000, and the blind reader was unsure who controls the funds.",
+      "fix": "Add a field on \"#.withdrawal_credentials.[].[12:32]\" with format addressName, labelled \"Withdrawal address\". Keep the raw field so the signer can still see the 0x00/0x01/0x02 prefix.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit never shows the total ETH sent; the signer must add up the per-validator amounts.",
+      "evidence": "FigmentEth2DepositorV1.deposit: 'if (msg.value != totalAmount) revert EthAmountMismatch'. The descriptor has no @.value field. Only '#.amounts_gwei.[]' is shown, one entry per validator.",
+      "fix": "Add {\"label\": \"Total stake\", \"path\": \"@.value\", \"format\": \"amount\"} and put it in an interpolatedIntent such as \"Stake {total} on {count} validators\" (or just the total).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "deposit shows pubkeys, credentials and amounts as three separate arrays that the signer cannot pair by index.",
+      "evidence": "Descriptor fields '#.pubkeys.[]', '#.withdrawal_credentials.[]' and '#.amounts_gwei.[]' are separate fields. The contract pairs them by index i in 'cachedDepositContract.deposit{value: amountWei}(pubkeys[i], withdrawal_credentials[i], ...)'. A batch of up to 500 validators shows three long lists.",
+      "fix": "Add 'in order' to the labels (for example \"Validator public key (by index)\"), and add the @.value total so the batch can be checked overall.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the receiving Beacon deposit contract, which is an immutable in storage.",
+      "evidence": "FigmentEth2DepositorV1: 'IDepositContract public immutable depositContract;', set in the constructor. Case 0 shows the ETH going to 0x00000000219ab540356cbb839cbe05303d7705fa. The blind reader listed 'Which contract receives the ETH' as unsure.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Signer sent 32 ETH out. The screen shows 'Amount to Deposit 32ETH' and it matches. The reader understood the 32 ETH stake, but was confused by the raw all-zero withdrawal credentials."
+     }
+    ],
+    "glance": 65,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.326,
+ "account": "austingriffith",
+ "hiddenValue": [
+  "deposit(bytes[] pubkeys, bytes[] withdrawal_credentials, bytes[] signatures, bytes32[] deposit_data_roots, uint256[] amounts_gwei)"
+ ],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "deposit(bytes[] pubkeys, bytes[] withdrawal_credentials, bytes[] signatures, bytes32[] deposit_data_roots, uint256[] amounts_gwei)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 3,
+   "worst": "deposit takes ETH but never shows how much (@.value)",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 72,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "deposit takes ETH but never shows how much (@.value)"
+ }
+}

@@ -1,0 +1,94 @@
+{
+ "hash": "0x3fa96d35787b7ea25b39d5d0c6b12e1dbd266278c1d6a4c9b2b68e72e2bedf4f",
+ "file": "registry/swissborg/calldata-ChsbToBorgMigrator.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xaa854688caab725fe17b7d21b46fda5af365985a"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "migrate(uint256 _amount)",
+    "effects": [
+     "Under the current implementation (ChsbToBorgMigratorV2), migrate always reverts with \"MIGRATION_CLOSED\" (or \"Pausable: paused\" when paused). No asset moves; the signer only pays gas.",
+     "Under the earlier implementation that ran the mined transaction, the signer's _amount of CHSB (8 decimals) went to the migrator contract.",
+     "Under that earlier implementation, the signer received _amount * 10^10 BORG (18 decimals), the same token amount 1:1, from the migrator contract."
+    ],
+    "shown": "\"Migrate 2900 CHSB to BORG\", with one field showing the CHSB amount sent; it shows neither the BORG amount received nor that the migration is now closed.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "migrate: screen promises a CHSB-to-BORG migration, but the current code always reverts with MIGRATION_CLOSED.",
+      "evidence": "ChsbToBorgMigratorV2.sol migrate(): `function migrate(uint256 _amount) external whenNotPaused { revert(\"MIGRATION_CLOSED\"); }`; the proxy 0xaa85…985a resolves to this implementation (meta.json proxyResolution). Descriptor intent: \"Migrate CHSB to BORG\" / \"Migrate {#._amount} to BORG\".",
+      "fix": "Retire the format, or change the intent to say the migration is closed and the transaction will fail (for example \"Migration closed: this call reverts\").",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "migrate: the BORG amount received is not shown; only 'to BORG' is said, with no amount or rate.",
+      "evidence": "Case 0 mined: signer in 2900000000000000000000 BORG (0x64d0…2224) from 0xaa85…985a. Screen shows only 'CHSB Amount: 2900 CHSB' and 'Migrate 2900 CHSB to BORG'. The blind reader was unsure: 'How many BORG I will get (conversion rate not shown)'.",
+      "fix": "State the 1:1 rate in the intent, e.g. \"Migrate {#._amount} for the same amount of BORG (1:1)\". A tokenAmount field on _amount with BORG would render wrong because the decimals differ (8 vs 18).",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The mined tx ran the earlier implementation (0x6293…910B): 2900 CHSB out to the migrator, 2900 BORG in. The screen states the CHSB out correctly. It names BORG but gives no amount, so the reader got the direction right and was unsure of the amount. The current implementation would revert this call."
+     }
+    ],
+    "glance": 55,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.185,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 60,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "migrate(uint256 _amount)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "migrate: screen promises a CHSB-to-BORG migration, but the current code always reverts with MIGRATION_CLOSED.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 50,
+  "clarity": 66,
+  "functions": "1D",
+  "incomplete": false,
+  "worst": "migrate: screen promises a CHSB-to-BORG migration, but the current code always reverts with MIGRATION_CLOSED."
+ }
+}

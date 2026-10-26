@@ -1,0 +1,231 @@
+{
+ "hash": "0xe2443fecdf4c1cd44c3ddf5bdeb754837f222ea0c75d44f5209bab244eed441b",
+ "file": "registry/kiln/calldata-Vault-USDC-AAVE-Arbitrum.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42161,
+   "address": "0xff131917e1d6751e4d1b17612751db521b1403c5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC (0xaf88…5831 on Arbitrum) to the vault through transferFrom, which spends the signer's USDC allowance to the vault.",
+     "`receiver` gets newly minted vault shares; the count is computed from the vault's price after a deposit fee taken from storage. No minimum is set.",
+     "The vault delegatecalls the Aave connector to supply the net USDC to Aave. Any deposit fee stays in the vault and is credited to the fee dispatcher.",
+     "Pending reward fees are accrued first: shares are minted to the vault, which slightly dilutes the share price."
+    ],
+    "shown": "Intent 'Deposit', the USDC amount deposited, a constant 'Share ticker: skUSDC', and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "All formats bind to a vault whose on-chain name and symbol say STAGING_DO_NOT_USE.",
+      "evidence": "contracts/42161-0xff13…/meta.json constructorArguments data decodes name '[STAGING_DO_NOT_USE] Kiln Vault (Aave V3 USDC)' and symbol '[STAGING_DO_NOT_USE] skUSDC'. The descriptor deployment is 0xFf131917E1D6751e4d1B17612751Db521b1403c5 with owner 'Kiln'. ERC20 name/symbol have no setter in Vault.sol.",
+      "fix": "Confirm that this is the production Kiln USDC Aave vault on Arbitrum. If it is not, bind the descriptor to the production vault address instead.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit shows share ticker 'skUSDC' but the vault's symbol is '[STAGING_DO_NOT_USE] skUSDC'.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"skUSDC\", shown as field 'Share ticker' (raw). The proxy init data in meta.json sets symbol_ '[STAGING_DO_NOT_USE] skUSDC' (Vault._initialize → __ERC20_init).",
+      "fix": "Use the vault's real symbol, or drop the constant ticker field and rely on the token metadata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the number of shares received; the contract computes it with a storage-set deposit fee.",
+      "evidence": "Vault.deposit: `(uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply());`. _previewDeposit takes `assets.mulDiv($._depositFee, …)` before conversion. ERC-4626 deposit has no minShares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit field 'Share ticker' shows a lone constant with no amount, and the intent names no asset.",
+      "evidence": "descriptor deposit fields: {label 'Share ticker', format raw, value $.metadata.constants.vaultTicker}; intent 'Deposit'.",
+      "fix": "Use intent 'Deposit USDC into Kiln Aave vault' and add interpolatedIntent 'Deposit {assets} for shares sent to {receiver}'. Relabel the ticker field 'Receive shares (skUSDC)' or remove it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends USDC to the vault. The amount is computed by previewMint from the share price plus the deposit fee, and nothing caps it.",
+     "`receiver` gets exactly `shares` newly minted vault shares.",
+     "The vault delegatecalls the Aave connector to supply the net USDC. The deposit fee stays with the fee dispatcher.",
+     "Pending reward fees are accrued first: shares are minted to the vault."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: USDC' with no amount, the number of shares to mint, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDC leaves the signer; the contract computes it with no maximum.",
+      "evidence": "Vault.mint: `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); … _deposit(_msgSender(), receiver, _assets, shares, _depositFeeAmount);`. Field 'Deposit asset' shows only the constant 'USDC'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent 'Mint' does not say that USDC is pulled from the signer for vault shares.",
+      "evidence": "descriptor mint intent: \"Mint\"; field {label 'Deposit asset', format raw, value $.metadata.constants.underlyingTicker}.",
+      "fix": "Use intent 'Deposit USDC to mint vault shares' and add interpolatedIntent 'Mint {shares} to {receiver}, paying USDC'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "`receiver` gets exactly `assets` USDC. The amount sent is the vault's balance delta after the Aave connector withdraws.",
+     "The owner's vault shares are burned; the count is computed with ceiling rounding and is not shown.",
+     "When the signer is not `owner`, the call spends the signer's share allowance from the owner.",
+     "Pending reward fees are accrued first: shares are minted to the vault."
+    ],
+    "shown": "Intent 'Withdraw', 'Withdraw exactly' the USDC amount, the receiver ('To'), and the share owner ('Owner').",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the number of shares burned; the contract computes it from the vault price.",
+      "evidence": "Vault.withdraw: `uint256 _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); … _withdraw(_msgSender(), receiver, owner, assets, _shares);`. ERC-4626 withdraw has no maxShares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw intent 'Withdraw' does not name USDC or say that vault shares are burned.",
+      "evidence": "descriptor withdraw intent: \"Withdraw\"; no interpolatedIntent.",
+      "fix": "Use intent 'Withdraw USDC from Kiln vault' and add interpolatedIntent 'Withdraw {assets} to {receiver}, burning shares of {owner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Exactly `shares` vault shares are burned from `owner`. When the signer is not owner, this spends the signer's share allowance.",
+     "`receiver` gets USDC. The amount is computed from the share price, rounded down, with no minimum.",
+     "The vault delegatecalls the Aave connector to withdraw the USDC from Aave.",
+     "Pending reward fees are accrued first: shares are minted to the vault."
+    ],
+    "shown": "Intent 'Redeem', the number of shares to redeem, the receiver ('To'), and the share owner ('Owner').",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount received; the contract computes it with no minimum.",
+      "evidence": "Vault.redeem: `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply); … _withdraw(_msgSender(), receiver, owner, _assets, shares);`",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem intent and fields never say that the receiver gets USDC.",
+      "evidence": "descriptor redeem intent: \"Redeem\". Fields: 'Shares to redeem', 'To', 'Owner'. No field names the underlying asset, although mint shows $.metadata.constants.underlyingTicker.",
+      "fix": "Use intent 'Redeem vault shares for USDC'. Add a raw field 'Receive asset' with $.metadata.constants.underlyingTicker, and interpolatedIntent 'Redeem {shares} for USDC to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": [
+   "The Aave V3 connector is not in the directory. Vault._deposit and Vault._withdraw delegatecall it after resolving it through connector registry 0xa59a98872393be8410c42f8eed13821fa85a32a1 (name 'AAVE_V3'). It runs in the vault's context and decides totalAssets, the share price, and the USDC balance delta sent to the receiver on withdraw/redeem.",
+   "The FeeDispatcher contract is not in the directory. _deposit calls incrementPendingDepositFee on it, and the vault gave it an unlimited USDC approval."
+  ]
+ },
+ "cost": 0.519,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 71,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 80,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "All formats bind to a vault whose on-chain name and symbol say STAGING_DO_NOT_USE.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say that USDC is pulled from the signer for vault shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 56,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent 'Withdraw' does not name USDC or say that vault shares are burned.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 49,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem intent and fields never say that the receiver gets USDC.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 95,
+  "clarity": 50,
+  "functions": "1B 3C",
+  "incomplete": true,
+  "worst": "mint intent 'Mint' does not say that USDC is pulled from the signer for vault shares."
+ }
+}

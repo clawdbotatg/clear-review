@@ -1,0 +1,249 @@
+{
+ "hash": "0x8943b906e91f5095feb2ae8fde690e2ecf9313fc692d9ab1e8049c02924b3383",
+ "file": "registry/kiln/calldata-Vault-USDC-Morpho-Gauntlet-Core.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x80c179cb86c567a0047f53a290ec4c246151b0e7"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The vault pulls exactly `assets` USDC from the signer with transferFrom (Vault._deposit).",
+     "The vault mints kmgcUSDC shares to `receiver`. The share count is worked out on chain from the vault's total assets and supply, minus a deposit fee read from storage (_previewDeposit).",
+     "Before minting, accrued reward-fee shares are minted to the vault itself (_accrueRewardFee). This dilutes the share price the signer gets.",
+     "The vault is non-transferable. `receiver` must be the signer unless a SPENDER_ROLE holder is involved (checkTransferability)."
+    ],
+    "shown": "\"Deposit\" with 0.2 USDC, share ticker kmgcUSDC, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of kmgcUSDC shares received is not shown; the contract computes it.",
+      "evidence": "Case 0: the signer received 194951 kmgcUSDC (in). The screen only shows 'Share ticker: kmgcUSDC'. Vault.deposit computes _shares from _previewDeposit(assets, _newTotalAssets, totalSupply()), and the calldata carries no minimum-shares value.",
+      "fix": "None possible in the descriptor. A label such as 'Receive kmgcUSDC shares' would at least make the direction clear.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: a deposit fee read from storage can reduce the shares minted, and it is not shown.",
+      "evidence": "Vault._previewDeposit: depositFeeAmount = assets.mulDiv($._depositFee, ...); shares are computed on assets - depositFeeAmount. The fee was set to 0 at initialization but FEE_MANAGER_ROLE can change it with setDepositFee.",
+      "fix": "None possible in the descriptor; the rate lives in storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the intent is a bare \"Deposit\" with no interpolated sentence, and the labels read oddly.",
+      "evidence": "descriptor deposit: intent 'Deposit', no interpolatedIntent. The amount field is labelled 'Deposit asset' and a raw constant field is labelled 'Share ticker'. The reader was unsure where the USDC goes and what comes back.",
+      "fix": "Add interpolatedIntent 'Deposit {assets} into Kiln Morpho Gauntlet USDC Core vault for kmgcUSDC shares to {receiver}'. Rename the fields to 'Amount' and 'Receive shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out 200000 is shown exactly. kmgcUSDC in 194951: the asset and receiver are shown, the amount is not (the contract computes it)."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` kmgcUSDC to `receiver`.",
+     "The vault pulls from the signer the USDC needed for those shares, plus any deposit fee. The contract computes this amount (_previewMint), and the calldata sets no maximum.",
+     "Accrued reward-fee shares are minted to the vault first, which changes the price the signer pays.",
+     "The vault is non-transferable. `receiver` must be the signer unless a SPENDER_ROLE holder is involved."
+    ],
+    "shown": "\"Mint\" with deposit asset USDC (ticker only), the number of kmgcUSDC shares minted, and the address that receives them.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken from the signer is not shown and has no bound in the calldata.",
+      "evidence": "Vault.mint: (uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, ...); _deposit pulls _assets with safeTransferFrom. The descriptor field 'Deposit asset' is the raw constant 'USDC' with no amount.",
+      "fix": "None possible in the descriptor. The label could say the USDC amount is set by the vault price, e.g. 'Pay in USDC (amount set by vault)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the bare \"Mint\" intent does not say USDC is spent to get vault shares.",
+      "evidence": "descriptor mint: intent 'Mint', no interpolatedIntent. The 'Deposit asset' field shows only 'USDC'.",
+      "fix": "Use the intent 'Deposit USDC for vault shares' and add interpolatedIntent 'Mint {shares} to {receiver}, paying USDC'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns kmgcUSDC shares from `owner`. The contract computes the share count from `assets`, rounding up.",
+     "If the signer is not `owner`, the call spends the signer's share allowance from `owner` (_spendAllowance).",
+     "The vault withdraws `assets` USDC from Morpho through a connector delegatecall and sends the balance change to `receiver`.",
+     "Accrued reward-fee shares are minted to the vault first."
+    ],
+    "shown": "\"Withdraw\" with an exact USDC amount, the receiving address, and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of kmgcUSDC shares burned from the owner is not shown.",
+      "evidence": "Vault.withdraw: _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); _withdraw burns them from owner. The calldata has no maximum-shares value.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: the bare \"Withdraw\" intent does not say shares are burned for USDC.",
+      "evidence": "descriptor withdraw: intent 'Withdraw', no interpolatedIntent. The fields are 'Withdraw exactly', 'To' and 'Owner'.",
+      "fix": "Add interpolatedIntent 'Withdraw {assets} to {receiver}, burning kmgcUSDC shares of {owner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` kmgcUSDC from `owner`.",
+     "If the signer is not `owner`, the call spends the signer's share allowance from `owner`.",
+     "The vault withdraws the USDC value of those shares from Morpho through a connector delegatecall and sends it to `receiver`. The contract computes the amount (_convertToAssets, rounding down), and the calldata sets no minimum.",
+     "Accrued reward-fee shares are minted to the vault first, which lowers the amount paid out."
+    ],
+    "shown": "\"Redeem\" with the kmgcUSDC shares to redeem, the receiving address, and the owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem: the screen never names USDC as the asset received.",
+      "evidence": "Case 1: the signer received 406165 USDC (in). The screen fields are 'Shares to redeem', 'To' and 'Owner', and the intent is 'Redeem'. The reader said: 'Which asset is paid out (USDC assumed from the name)'. The deposit and mint formats already use the constant underlyingTicker.",
+      "fix": "Add a field 'Receive asset' = $.metadata.constants.underlyingTicker, or the interpolatedIntent 'Redeem {shares} for USDC to {receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown; the contract computes it with no minimum.",
+      "evidence": "Case 1: USDC in 406165 is not on the screen. Vault.redeem: _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply). The calldata has no minimum-assets parameter.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "kmgcUSDC out 394609 is shown exactly. USDC in 406165 is not shown: the reader guessed the asset and had no amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "Vault._deposit and Vault._withdraw delegatecall into the Morpho connector (connectorRegistry 0xde63817c82e93499357ae198518f90ac1be93a72, name MORPHO_GAUNTLET_USDC_CORE). Its source is not in the directory. On withdraw and redeem, the USDC sent to the receiver is the vault's balance change after that delegatecall. So whether 'Withdraw exactly' holds depends on code I could not read. The mined redeem tx is consistent with the expected behaviour."
+  ]
+ },
+ "cost": 0.449,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 81,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent is a bare \"Deposit\" with no interpolated sentence, and the labels read oddly.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the bare \"Mint\" intent does not say USDC is spent to get vault shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the bare \"Withdraw\" intent does not say shares are burned for USDC.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDC as the asset received.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 57,
+  "functions": "2B 2C",
+  "incomplete": true,
+  "worst": "mint: the bare \"Mint\" intent does not say USDC is spent to get vault shares."
+ }
+}

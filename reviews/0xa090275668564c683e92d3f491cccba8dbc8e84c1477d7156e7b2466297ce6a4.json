@@ -1,0 +1,97 @@
+{
+ "hash": "0xa090275668564c683e92d3f491cccba8dbc8e84c1477d7156e7b2466297ce6a4",
+ "file": "registry/zkstables/eip712-ebswap.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x9d6eff1419a175adee372b6c5bc4513c2c4dd97c"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xc48eef148b8874fcaac4252cb38fa5f076fb58d5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "SwapIntentAuth(bytes32 intentHash,bytes32 transferParamsHash,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Authorizes EBSwap to settle the signer's leg of the swap whose full terms are committed in intentHash (token pair, EPKs, amount ciphertexts, expiry, salt; or for a public swap the public token, payer, recipient and publicAmount).",
+     "Binds the authorization to one exact transfer: transferParamsHash is keccak256 of the encrypted transfer params (atomicSwap / encrypted leg) or of the EIP-3009 ReceiveWithAuthorization terms (payer, EBSwap, publicAmount, validAfter, validBefore, nonce) for the public leg.",
+     "When the swap settles, the signer's tokenIn / encrypted / public-token amount leaves to the counterparty's receive EPK or publicRecipient, and the counterparty's leg arrives; this also needs the separate ZKEMT caller-bound transfer signature or EIP-3009 signature.",
+     "Consumes the signer's nonce in EBSwap's bitmap (_useAuthNonce); the signature is valid only while block.timestamp < deadline."
+    ],
+    "shown": "\"Authorize swap\" with two raw 32-byte hashes (swap intent hash, transfer params hash) and the authorization deadline as a date.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "SwapIntentAuth: tokens, amounts and counterparties are hidden inside intentHash and transferParamsHash.",
+      "evidence": "EBSwap.sol hashIntent: keccak256(abi.encode(intent)); _spendLeg: transferParamsHash = keccak256(abi.encode(params)); _publicTransferCommitment hashes publicPayer, address(this), publicAmount. The descriptor shows 'Swap intent hash' and 'Transfer params hash' as raw values only.",
+      "fix": "Nothing in the descriptor can fix this. A wallet can't decode the hashes. Signers have to check them against the dApp. A future message type could carry the swap terms in clear.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "SwapIntentAuth: two 32-byte hex hashes fill the screen, and a person cannot verify them.",
+      "evidence": "descriptor fields intentHash and transferParamsHash use format 'raw'; case 0 screen shows 0xcaca…ca and 0xffff…ff.",
+      "fix": "Keep them for checking against the dApp, but use labels that say so, e.g. 'Swap terms ID (check in app)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "SwapIntentAuth intent 'Authorize swap' does not say it approves the signer's own leg of an atomic swap.",
+      "evidence": "descriptor intent 'Authorize swap'; EBSwap._spendLeg consumes this signature and then calls IZKEMT(token).encryptedTransferWithCallerAuth for the signer's leg.",
+      "fix": "Use an intent like 'Authorize your side of an atomic swap', or add a short note that the amounts and tokens come from the swap terms shown in the app.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 20
+   }
+  ],
+  "couldNotCheck": [
+   "ZKEMT token encryptedTransferWithCallerAuth and the ZKHub controllers/isZkemt contracts are not in the directory. So I couldn't confirm from code that the signer's encrypted leg also needs the separate ZKEMT transfer signature before it moves."
+  ]
+ },
+ "cost": 0.212,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 35,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "SwapIntentAuth(bytes32 intentHash,bytes32 transferParamsHash,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 28,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 28,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": null
+ }
+}

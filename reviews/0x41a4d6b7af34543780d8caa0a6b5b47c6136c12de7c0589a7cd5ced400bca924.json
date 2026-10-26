@@ -1,0 +1,174 @@
+{
+ "hash": "0x41a4d6b7af34543780d8caa0a6b5b47c6136c12de7c0589a7cd5ced400bca924",
+ "file": "registry/corestake/calldata-corestake.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1116,
+   "address": "0xf5fa1728babc3f8d2a617397fac2696c958c3409"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "mint(address _validator)",
+    "effects": [
+     "The signer sends msg.value CORE (native) to the Earn contract. It must be at least mintMinLimit (1 CORE by default).",
+     "Earn delegates that CORE to the chosen validator through PledgeAgent. Earn holds the delegation, not the signer.",
+     "The signer receives stCORE = msg.value * 1e6 / current exchange rate. Earn mints it to msg.sender."
+    ],
+    "shown": "\"Stake CORE\" with the native amount sent and the validator address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "mint: the intent and fields never say the signer receives stCORE for the CORE staked",
+      "evidence": "Earn.sol mint: `uint256 stCore = _exchangeSTCore(amount); ISTCore(STCORE).mint(account, stCore);` Descriptor: intent \"Stake CORE\", fields only `@.value` and `_validator`.",
+      "fix": "Change the intent to \"Stake CORE for stCORE\". The stCORE amount comes from the exchange rate in storage, so no field can show it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the validator field suggests a personal delegation, but Earn owns the stake",
+      "evidence": "Earn.sol _delegate: `IPledgeAgent(PLEDGE_AGENT).delegateCoin{value: amount}(validator); validatorDelegateMap.add(validator, amount);` Earn can rebalance this stake to other validators. Descriptor label \"Validator Address\".",
+      "fix": "Change the label to \"Delegate via validator\" or similar, so the signer sees that the pool holds the stake.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the stCORE amount received depends on a stored exchange rate the descriptor cannot show",
+      "evidence": "Earn.sol _exchangeSTCore: `return core * RATE_BASE / exchangeRates[exchangeRates.length-1];`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 stCore)",
+    "effects": [
+     "Earn burns stCore stCORE from the signer. It needs no approval, and the amount must be at least redeemMinLimit.",
+     "No CORE arrives now. Earn records a claim of stCore * rate - protocolFee CORE that unlocks after lockDay days (7 by default).",
+     "A protocol fee (protocolFeePoints of the CORE value) is cut from the claim and later goes to protocolFeeReceiver."
+    ],
+    "shown": "\"Request Redeem\" with the stCORE amount to redeem.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the intent \"Request Redeem\" does not say stCORE is burned and CORE comes only after a lock",
+      "evidence": "Earn.sol redeem: `ISTCore(STCORE).burn(account, stCore);` and `unlockTime: block.timestamp + DAY_INTERVAL * lockDay`. Descriptor intent \"Request Redeem\".",
+      "fix": "Change the intent to \"Burn stCORE to request CORE (locked)\". Add an interpolatedIntent such as \"Redeem {stCore} for CORE after unlock\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the CORE claim amount and the protocol fee come from storage and are not shown",
+      "evidence": "Earn.sol redeem: `uint256 core = _exchangeCore(stCore); uint256 protocolFee = core * protocolFeePoints / RATE_BASE; uint256 redeemAmount = core - protocolFee;`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   },
+   {
+    "key": "withdraw()",
+    "effects": [
+     "Earn removes every matured redeem record of the signer.",
+     "The signer receives the summed CORE (native) of those records. The protocol fees of those records go to protocolFeeReceiver."
+    ],
+    "shown": "\"Withdraw CORE\" with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the CORE amount comes from the signer's stored redeem records and cannot be shown",
+      "evidence": "Earn.sol withdraw: `if (record.unlockTime < block.timestamp) { accountAmount += record.amount; ... }` then `payable(account).sendValue(accountAmount);`",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw: the intent does not say it claims only unlocked redemptions, all of them at once",
+      "evidence": "Earn.sol withdraw loops all records and pops each with `record.unlockTime < block.timestamp`. Descriptor intent \"Withdraw CORE\".",
+      "fix": "Change the intent to \"Withdraw unlocked CORE\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "The stCORE token contract (STCORE, read from Earn storage) is not in the directory. Without it I cannot confirm that the descriptor's token 0xb3A8F0f0da9ffC65318aA39E55079796093029AD is the token that redeem burns from the signer and mint mints to the signer."
+  ]
+ },
+ "cost": 0.349,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 47,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "mint(address _validator)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent and fields never say the signer receives stCORE for the CORE staked",
+   "comprehension": null
+  },
+  "redeem(uint256 stCore)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the intent \"Request Redeem\" does not say stCORE is burned and CORE comes only after a lock",
+   "comprehension": null
+  },
+  "withdraw()": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 97,
+  "clarity": 67,
+  "functions": "2B 1C",
+  "incomplete": true,
+  "worst": "redeem: the intent \"Request Redeem\" does not say stCORE is burned and CORE comes only after a lock"
+ }
+}

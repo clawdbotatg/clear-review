@@ -1,0 +1,252 @@
+{
+ "hash": "0xc8b6d7853f4f3160bb836a86c3d209c7929e62474776fa2c6234c3605764efbb",
+ "file": "registry/morpho/calldata-flowdesk-fAUSDe-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x32401b9fb79065bc15949de0bd43927492f02f0c"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` AUSD to the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "The vault mints fAUSDe shares to `onBehalf`. The number is previewDeposit(assets), set by the vault's share price, and the signer sets no minimum.",
+     "The vault first runs accrueInterest, which may mint fee shares to the fee recipients. This dilutes the price slightly but moves none of the signer's assets."
+    ],
+    "shown": "Deposit 5 AUSD for <onBehalf>, with the share ticker fAUSDe and the address that receives the shares; the number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many fAUSDe shares the signer receives; the vault price decides it",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The calldata has no minimum-shares argument. Case 0: 5 fAUSDe went to the signer, and the screen shows only 'Share ticker: fAUSDe'.",
+      "fix": "No calldata value holds the share amount. Keep the 'Send shares to' field. A wallet could add a simulated share amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit interpolatedIntent says 'for {onBehalf}' and does not name fAUSDe shares as what arrives",
+      "evidence": "descriptor deposit interpolatedIntent: \"Deposit {#.assets} for {#.onBehalf}\"; the separate raw field 'Share ticker' = $.metadata.constants.vaultTicker.",
+      "fix": "Change interpolatedIntent to \"Deposit {#.assets} for fAUSDe shares to {#.onBehalf}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states the 5 AUSD out and the vault correctly. The 5 fAUSDe in has the right asset and recipient, but its amount is not shown and cannot be."
+     }
+    ],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns fAUSDe shares from `onBehalf`. The number is previewWithdraw(assets), rounded up, and the calldata sets no maximum.",
+     "The vault sends exactly `assets` AUSD to `receiver`.",
+     "When msg.sender != onBehalf, the call spends the signer's share allowance from onBehalf by the number of shares burned."
+    ],
+    "shown": "Withdraw exactly N AUSD to <receiver>, with an Owner field; the screen never says that fAUSDe shares are burned or how many.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw never says fAUSDe shares are burned from the owner; the label just says 'Owner'",
+      "evidence": "VaultV2.sol exit: `deleteShares(onBehalf, shares);`. descriptor withdraw field onBehalf label \"Owner\"; interpolatedIntent \"Withdraw {#.assets} to {#.receiver}\". Case 2: 11.8426 fAUSDe left the signer, and the reader was unsure 'Whether receipt tokens or shares are given up'.",
+      "fix": "Rename the onBehalf label to \"Burn fAUSDe shares from\" and set interpolatedIntent to \"Withdraw {#.assets} to {#.receiver} by burning fAUSDe shares\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the number of fAUSDe shares burned; the vault price decides it",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);`. The calldata has no maximum-shares argument. Case 2: 11842617072116611233 fAUSDe burned, and no amount is shown.",
+      "fix": "No calldata value holds it. A wallet could add a simulated share amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 11.853428 AUSD in is exact and goes to the right recipient. The fAUSDe burned is not stated: the reader guessed it was a position but did not know the asset or the amount."
+     }
+    ],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` fAUSDe from `onBehalf`.",
+     "The vault sends previewRedeem(shares) AUSD to `receiver`. The vault price decides this amount, and the calldata sets no minimum.",
+     "When msg.sender != onBehalf, the call spends the signer's share allowance from onBehalf by `shares`."
+    ],
+    "shown": "Redeem N fAUSDe to <receiver>, with an Owner field; the screen never names AUSD as the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names AUSD as the asset the receiver gets, though mint shows it as a constant",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The redeem fields are only shares, receiver and onBehalf. Case 3: 199.987886 AUSD went to the signer, and the reader said 'The screen does not say which asset or how much.'",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}. Set interpolatedIntent to \"Redeem {#.shares} for AUSD to {#.receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much AUSD is received; the vault price decides it, with no minimum",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. The calldata has no minimum-assets argument. Case 3: 199987886 AUSD in, and no amount is shown.",
+      "fix": "No calldata value holds it. A wallet could add a simulated output.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 199.7579 fAUSDe out is exact. For the AUSD in, the screen shows only the recipient; the asset and the amount are missing."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer sends previewMint(shares) AUSD to the vault, rounded up. The vault price decides the amount, and the calldata sets no maximum.",
+     "The vault mints exactly `shares` fAUSDe to `onBehalf`."
+    ],
+    "shown": "Mint N fAUSDe for <onBehalf>, with a 'Deposit asset: AUSD' field that has no amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint intent and sentence omit that the signer pays AUSD; only a ticker field hints at it",
+      "evidence": "descriptor mint intent \"Mint\" and interpolatedIntent \"Mint {#.shares} for {#.onBehalf}\"; field 'Deposit asset' = $.metadata.constants.underlyingTicker. VaultV2.sol enter: `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets);`. Case 1: 1.000102 AUSD out.",
+      "fix": "Set intent to \"Deposit AUSD for shares\" and interpolatedIntent to \"Pay AUSD to mint {#.shares} to {#.onBehalf}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much AUSD leaves the signer; the vault price decides it, with no cap",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. The calldata has no maximum-assets argument. Case 1: 1000102 AUSD out, and the screen shows only 'Deposit asset: AUSD'.",
+      "fix": "No calldata value holds it. A wallet could add a simulated cost.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "AUSD out is named as the asset, but the amount (1.000102) is not shown and cannot be. The shares went to 0xdead, which the screen shows; that effect is not the signer's."
+     }
+    ],
+    "glance": 50,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.436,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 80,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw never says fAUSDe shares are burned from the owner; the label just says 'Owner'",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names AUSD as the asset the receiver gets, though mint shows it as a constant",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent and sentence omit that the signer pays AUSD; only a ticker field hints at it",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 64,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never names AUSD as the asset the receiver gets, though mint shows it as a constant"
+ }
+}

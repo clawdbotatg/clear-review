@@ -1,0 +1,152 @@
+{
+ "hash": "0xd908e3e743ea45c7e43f625f54c34d84b51ce71c6e23e2edc6616b45bd32db35",
+ "file": "registry/safe/eip712-SafeL2-1.4.1.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 10,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 56,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 137,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "effects": [
+     "The Safe (the signer's account) runs `data` against `to`: with operation 0 it calls `to` and sends `value` native currency from the Safe to `to`.",
+     "With operation 1 the Safe delegate-calls `to`: `to`'s code runs with the Safe's storage and balances, and `value` is not sent.",
+     "Any effect of the inner call happens in the Safe's name: token transfers, approvals, owner, threshold, module, guard or fallback handler changes.",
+     "When gasPrice > 0 the Safe pays (gasUsed + baseGas) * gasPrice in gasToken (native currency when gasToken is zero, capped at tx.gasprice) to refundReceiver, or to tx.origin when refundReceiver is zero. The Safe pays this refund even when the inner call fails.",
+     "safeTxGas caps the gas of the inner call when gasPrice > 0. A non-zero safeTxGas or gasPrice lets the inner call fail while the nonce is still used.",
+     "The signature consumes the Safe nonce `nonce` once."
+    ],
+    "shown": "The intent \"Safe\", then the To address, the Value in native currency, the operation type (Call or Delegate Call), the decoded nested call, and raw base gas, gas price, gas token and gas receiver. safeTxGas and nonce are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "SafeTx decodes `data` as a call to `to` with `value`, also when operation is Delegate Call.",
+      "evidence": "Executor.execute: `if (operation == Enum.Operation.DelegateCall) { success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0) }`. Descriptor field `data`: \"format\": \"calldata\", \"params\": {\"calleePath\": \"to\", \"amountPath\": \"value\", \"spenderPath\": \"@.to\"}. With operation 1 the code of `to` runs in the Safe's storage with the Safe's balances, and `value` is not sent. The nested rendering states a call to `to` that does not occur.",
+      "fix": "Show the nested call only when operation is 0, or add a separate warning field for operation 1, for example a `visible: {\"ifNotIn\": [\"1\"]}` condition on `data` and `value`, plus an intent that names delegate calls. Add a test case with operation 1.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "SafeTx shows the gas refund as raw baseGas, gasPrice and gasToken, so the signer cannot read the refund cost.",
+      "evidence": "Safe.handlePayment: `payment = gasUsed.add(baseGas).mul(gasPrice); require(transferToken(gasToken, receiver, payment), \"GS012\");`. Descriptor: `baseGas` 'Gas amount' (raw), `gasPrice` 'Gas price' (raw), `gasToken` 'Gas token' (raw). When gasPrice > 0, the Safe pays this refund in gasToken whether the inner call succeeds or not.",
+      "fix": "Format `gasPrice` as `tokenAmount` with `tokenPath: \"gasToken\"` and `nativeCurrencyAddress` set to the zero address, and show `gasToken` as `addressName` with types `token`. Change the label of `baseGas` to \"Base gas (refunded)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "SafeTx shows the zero gas receiver and the zero gas token literally, without their meaning.",
+      "evidence": "Safe.handlePayment: `address payable receiver = refundReceiver == address(0) ? payable(tx.origin) : refundReceiver;` and `if (gasToken == address(0)) { ... receiver.send(payment) }`. Case 0 renders 'Gas receiver' and 'Gas token' as \"0x0000000000000000000000000000000000000000\".",
+      "fix": "Show `refundReceiver` as `addressName` with `senderAddress` or a label that says the zero address means the executor (tx.origin). Show `gasToken` with `nativeCurrencyAddress` set to the zero address.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "SafeTx hides safeTxGas, which bounds the refund and decides whether a failed inner call can still be executed.",
+      "evidence": "Safe.execTransaction: `success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);` and `require(success || safeTxGas != 0 || gasPrice != 0, \"GS013\");`. Descriptor: {\"label\": \"Safe Tx Gas\", \"path\": \"safeTxGas\", \"visible\": \"never\"}.",
+      "fix": "Make `safeTxGas` visible with `format: raw`, or show it only when it is not 0 with `visible: {\"ifNotIn\": [\"0\"]}`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "SafeTx intent \"Safe\" does not say that the signer approves a transaction from their Safe.",
+      "evidence": "Descriptor: \"intent\": \"Safe\", no interpolatedIntent. Safe.execTransaction runs `to`, `value`, `data`, `operation` from the Safe account once the threshold of signatures is reached.",
+      "fix": "Change the intent to \"Approve Safe transaction\" and add an interpolatedIntent such as \"Send {value} to {to} from your Safe\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "SafeTx tests only a plain native transfer and skip delegate call, gas refunds and nested calldata.",
+      "evidence": "Case 0: operation 0, data \"0x\", gasPrice 0, gasToken and refundReceiver zero. Its domain verifyingContract is the singleton 0x29fcB43b…, but Safe.domainSeparator uses `this`, the Safe proxy, so real messages carry the proxy address.",
+      "fix": "Add cases with operation 1, with gasPrice > 0 and a gasToken, and with an ERC-20 transfer in `data`. Use a Safe proxy address as verifyingContract.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "SafeTx binds to the singleton, but each Safe signs with its own proxy as verifyingContract.",
+      "evidence": "Safe.domainSeparator: `return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));`. Descriptor deployments list only 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762. The match works only if the wallet resolves the Safe proxy (masterCopy in slot 0) to the singleton through the spec's proxy support.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 15,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.429,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 61,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 17,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 5,
+   "worst": "SafeTx decodes `data` as a call to `to` with `value`, also when operation is Delegate Call.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 17,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "SafeTx decodes `data` as a call to `to` with `value`, also when operation is Delegate Call."
+ }
+}

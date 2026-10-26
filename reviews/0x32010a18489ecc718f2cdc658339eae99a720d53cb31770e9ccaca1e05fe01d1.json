@@ -1,0 +1,225 @@
+{
+ "hash": "0x32010a18489ecc718f2cdc658339eae99a720d53cb31770e9ccaca1e05fe01d1",
+ "file": "registry/morpho/calldata-gauntlet-smUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x616a4e1db48e22028f6bbf20444cd3b8e3273738"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The vault pulls exactly `assets` USDC from the signer with transferFrom, which spends the signer's USDC allowance to the vault.",
+     "The vault mints smUSDC shares to `receiver`. The number is floor(assets × (totalSupply + 10^12) / (lastTotalAssets + 1)) after interest accrues.",
+     "Before the deposit, the vault mints performance-fee shares to the fee recipient. This sets the share price the signer gets.",
+     "The vault supplies the USDC to Morpho Blue markets in supply-queue order. The signer's position is the shares only."
+    ],
+    "shown": "Intent \"Deposit\", then the USDC amount (tokenAmount with the USDC constant), a constant 'Share ticker: smUSDC', and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many smUSDC shares the receiver gets; the vault derives this from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. The descriptor only shows 'Share ticker' as the raw constant `$.metadata.constants.vaultTicker`, with no amount.",
+      "fix": "No descriptor fix is possible: the share count is not in the calldata, and ERC-4626 deposit has no minimum-shares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit intent \"Deposit\" names neither the asset nor the vault.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`, with no interpolatedIntent. The code takes USDC (`SafeERC20.safeTransferFrom(_asset, caller, address(this), assets)`) and mints smUSDC.",
+      "fix": "Set the intent to \"Deposit USDC into smUSDC vault\" and add the interpolatedIntent \"Deposit {assets} for smUSDC shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault pulls USDC from the signer. The amount is ceil(shares × (lastTotalAssets + 1) / (totalSupply + 10^12)), computed after interest accrues, and it spends the signer's USDC allowance.",
+     "The vault mints exactly `shares` smUSDC to `receiver`.",
+     "Before the mint, the vault mints performance-fee shares to the fee recipient. This sets the price the signer pays.",
+     "The vault supplies the USDC to Morpho Blue markets."
+    ],
+    "shown": "Intent \"Mint\", 'Deposit asset: USDC' as a raw constant, the minted share amount (tokenAmount of the vault token), and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show the USDC amount taken from the signer. The amount comes from the share price in storage, with no cap.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. The descriptor shows only `\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"`.",
+      "fix": "No field can show the amount. Change the 'Deposit asset' label to 'Pays with (amount set by share price)' so the signer knows the USDC amount is variable.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent \"Mint\" does not say that the signer pays USDC to get vault shares.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`, with no interpolatedIntent. The code pulls USDC from the caller in ERC4626._deposit with `safeTransferFrom(_asset, caller, address(this), assets)`.",
+      "fix": "Set the intent to \"Deposit USDC to mint smUSDC shares\" and add the interpolatedIntent \"Mint {shares} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns smUSDC shares from `owner`. The amount is ceil(assets × (totalSupply + 10^12) / (lastTotalAssets + 1)), computed after interest accrues.",
+     "If the signer is not `owner`, the vault spends `owner`'s share allowance to the signer by that share amount.",
+     "The vault withdraws liquidity from Morpho markets and sends exactly `assets` USDC to `receiver`.",
+     "Before the withdrawal, the vault mints performance-fee shares to the fee recipient."
+    ],
+    "shown": "Intent \"Withdraw\", 'Withdraw exactly' with the USDC amount, the receiver as 'To', and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many smUSDC shares are burned from the owner; the vault derives this from storage.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _withdraw(_msgSender(), receiver, owner, assets, shares);`. The descriptor has no shares field.",
+      "fix": "No descriptor fix is possible: the share count is not in the calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw intent \"Withdraw\" names neither the asset nor that vault shares are burned.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`, with no interpolatedIntent. ERC4626._withdraw runs `_burn(owner, shares); SafeERC20.safeTransfer(_asset, receiver, assets);`.",
+      "fix": "Set the intent to \"Withdraw USDC from smUSDC vault\" and add the interpolatedIntent \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` smUSDC from `owner`.",
+     "If the signer is not `owner`, the vault spends `owner`'s share allowance to the signer by `shares`.",
+     "The vault sends USDC to `receiver`. The amount is floor(shares × (lastTotalAssets + 1) / (totalSupply + 10^12)), computed after interest accrues, with no minimum.",
+     "Before the redemption, the vault mints performance-fee shares to the fee recipient."
+    ],
+    "shown": "Intent \"Redeem\", 'Shares to redeem' (tokenAmount of the vault token), the receiver as 'To', and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount the receiver gets, and nothing sets a minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. The descriptor has no field for the asset that arrives.",
+      "fix": "No field can show the amount. You can add a constant field 'Receive: USDC' (`$.metadata.constants.underlyingTicker`) so the signer at least sees the output asset.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem intent and fields never say that the signer receives USDC.",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"` with the fields shares, receiver and owner only. ERC4626._withdraw runs `SafeERC20.safeTransfer(_asset, receiver, assets)`, where _asset is USDC.",
+      "fix": "Set the intent to \"Redeem smUSDC shares for USDC\" and add the interpolatedIntent \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "metadata.owner is \"Gauntlet\", but the vault's on-chain name is \"Seamless Flagship USDC Vault\".",
+      "evidence": "meta.json constructorArguments: `__name: \"Seamless Flagship USDC Vault\"`, `__symbol: \"smUSDC\"`. descriptor metadata: `\"owner\": \"Gauntlet\"`. Gauntlet may be the curator, but the source does not show it.",
+      "fix": "Confirm the curator. Consider an owner such as \"Seamless (curated by Gauntlet)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.346,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 54,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent \"Deposit\" names neither the asset nor the vault.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent \"Mint\" does not say that the signer pays USDC to get vault shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent \"Withdraw\" names neither the asset nor that vault shares are burned.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem intent and fields never say that the signer receives USDC.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 58,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "mint intent \"Mint\" does not say that the signer pays USDC to get vault shares."
+ }
+}

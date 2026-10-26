@@ -1,0 +1,128 @@
+{
+ "hash": "0xbe899792aab593ce18362414e37d95a6eefde7dc7055cbe171a658f11e35db39",
+ "file": "registry/hyperliquid/calldata-CctpExtension.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42161,
+   "address": "0xa95d9c1f655341597c94393fddc30cf3c08e4fce"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "batchDepositForBurnWithAuth((uint256 amount, uint256 authValidAfter, uint256 authValidBefore, bytes32 authNonce, uint8 v, bytes32 r, bytes32 s) _receiveWithAuthorizationData, (uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold, bytes hookData) _depositForBurnData)",
+    "effects": [
+     "Pulls _receiveWithAuthorizationData.amount of USDC (the `token` set in storage) from the signer to the CctpExtension contract through EIP-3009 receiveWithAuthorization, using up the signer's signed authorization nonce.",
+     "Burns that USDC on Arbitrum through TokenMessengerV2 in totalAmount / batchSize equal burns of _depositForBurnData.amount each.",
+     "Each burn mints batchSize minus a fee of up to maxFee to mintRecipient on destinationDomain. So in total the recipient gets at least totalAmount - batchCount * maxFee, and only destinationCaller can relay the messages.",
+     "When hookData is not empty, each burn carries the hook. With the cctp-forward hook, the HyperEVM forwarder credits the address in hookData[32:52] on the destination DEX given in hookData[52:56].",
+     "The function is non-payable, so no native value leaves the signer."
+    ],
+    "shown": "The intent 'Bridge USDC via CCTP' and the fields show total debited, amount per batch, destination chain, mint recipient, destination caller, max fee per batch, HyperEVM recipient and destination DEX.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "batchDepositForBurnWithAuth shows the fee only per batch; the total fee and batch count are never shown.",
+      "evidence": "CctpExtension.sol batchDepositForBurnWithAuth: `uint256 batchCount = totalAmount / batchSize;` then loops depositForBurn(batchSize, ..., _depositForBurnData.maxFee, ...) batchCount times. Descriptor field 'Max fee per batch' (_depositForBurnData.maxFee). In case 1 the screen shows 'Total debited 808 USDC', 'Amount per batch 8.08 USDC', 'Max fee per batch 0.2 USDC': 100 burns, up to 20 USDC in fees, which the signer has to work out alone.",
+      "fix": "Label the fee 'Max fee per burn (total = fee × number of burns)'. Better, have the dApp submit batches so that the descriptor can show a computed total, or add a note that the amount received is the total minus up to (total / batch) × max fee.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "batchDepositForBurnWithAuth has no interpolatedIntent, so the amount, destination and recipient are missing at a glance.",
+      "evidence": "descriptor.json format: \"intent\": \"Bridge USDC via CCTP\", no interpolatedIntent. The amount, destination chain and HyperEVM recipient are in fields only.",
+      "fix": "Add an interpolatedIntent like \"Bridge {_receiveWithAuthorizationData.amount} to {_depositForBurnData.destinationDomain} for {_depositForBurnData.hookData.[32:52]}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "The Destination DEX slice [52:53] reads only the first byte of a 4-byte DEX id in the hook.",
+      "evidence": "In case 0/1, hookData is 56 bytes: 24-byte 'cctp-forward' magic, version, length 0x18, then 20-byte recipient [32:52] and a 4-byte field [52:56] = 0x00000000. The descriptor path is `_depositForBurnData.hookData.[52:53]` with enum {0: Perp, 255: Spot}. Any DEX id other than 0 or 0xFFFFFFFF (for example 0x00000001) would render as 'Perp'.",
+      "fix": "Use the slice `hookData.[52:56]` and enum keys \"0\": \"Perp\", \"4294967295\": \"Spot\", so that other ids render raw rather than as a wrong label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "The HyperEVM recipient field assumes a cctp-forward hookData layout that the contract never checks.",
+      "evidence": "CctpExtension.sol: `if (_depositForBurnData.hookData.length > 0) { depositForBurnWithHook(... hookData) } else { depositForBurn(...) }`. Any bytes are passed through. The descriptor always reads `hookData.[32:52]` as 'HyperEVM recipient'. With empty hookData or another hook format, this field is empty or garbage, and the funds stay with mintRecipient.",
+      "fix": "Use the magic prefix to gate the field (for example a mustMatch/ifNotIn on hookData.[0:12] = 'cctp-forward'). Or label it 'Forwarding recipient (cctp-forward hook)' and give the mint recipient a label that says it receives the funds when no hook is set.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The destination chain enum lists only domain 19, and the address types are narrower than the code allows.",
+      "evidence": "metadata.enums.cctpDomains = {\"19\": \"HyperEVM\"}, while the code accepts any uint32 destinationDomain. mintRecipient uses `types: [\"contract\"]` and the hook recipient uses `types: [\"eoa\"]`, but the code accepts any bytes32 recipient.",
+      "fix": "Add the other CCTP domains (0 Ethereum, 1 Avalanche, 2 OP, 3 Arbitrum, 6 Base, ...). Widen the address types to [\"eoa\",\"contract\"].",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "The token comes from contract storage; the descriptor hard-codes the Arbitrum USDC constant.",
+      "evidence": "CctpExtension.sol: `address _token = token;` is set in initialize(params.token). The descriptor sets constants.usdcToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831 on chain 42161. That is plausible, but it cannot be checked against storage from the source.",
+      "fix": "None needed if storage `token` is Arbitrum native USDC. Confirm on chain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "minFinalityThreshold and the authorization validity window and nonce are hidden.",
+      "evidence": "Fields `_depositForBurnData.minFinalityThreshold` and `_receiveWithAuthorizationData` are `visible: never`. The tests use threshold 1000 (fast transfer), which decides whether the maxFee is charged. The fee is still capped by the 'Max fee per batch' that is shown.",
+      "fix": "Optionally show the finality threshold as an enum (1000 Fast, 2000 Standard).",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 78
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.29,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "batchDepositForBurnWithAuth((uint256 amount, uint256 authValidAfter, uint256 authValidBefore, bytes32 authNonce, uint8 v, bytes32 r, bytes32 s) _receiveWithAuthorizationData, (uint256 amount, uint32 destinationDomain, bytes32 mintRecipient, bytes32 destinationCaller, uint256 maxFee, uint32 minFinalityThreshold, bytes hookData) _depositForBurnData)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 51,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 5,
+   "worst": "The Destination DEX slice [52:53] reads only the first byte of a 4-byte DEX id in the hook.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 80,
+  "clarity": 51,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "The Destination DEX slice [52:53] reads only the first byte of a 4-byte DEX id in the hook."
+ }
+}

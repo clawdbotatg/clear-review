@@ -1,0 +1,247 @@
+{
+ "hash": "0x2af2cda68cab57c3816ac29695c326770cc0386163626db33405b321d147fe0f",
+ "file": "registry/symbiotic/calldata-VaultV1-IBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xae052557af0024514a916396c8eb950ad7d260dc"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` of the vault collateral (IBTC, 0x20157DBA…, set at init) from the signer into the vault with safeTransferFrom, using up the signer's IBTC allowance to the vault.",
+     "Credits active vault shares, worth the amount actually received, to `onBehalfOf`. This may be someone other than the signer.",
+     "Not payable: no native value leaves."
+    ],
+    "shown": "Deposit 123.25 IBTC for <beneficiary>, with the vault, the IBTC amount and the beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to the beneficiary is not shown.",
+      "evidence": "Vault.sol deposit(): `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)`. This is derived from storage and is not in the calldata.",
+      "fix": "None possible. The deposit amount and the beneficiary already state the position created.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active vault shares worth `amount` IBTC, rounded up (previewWithdraw).",
+     "Moves `amount` IBTC of stake into the queue for the next epoch. The withdrawal shares for that queue go to `claimer`, so `claimer`, not necessarily the signer, gets the right to claim it later.",
+     "Nothing is transferred now. The queued amount stays slashable and can be claimed only after the next epoch ends."
+    ],
+    "shown": "Request 2.5 IBTC withdrawal for <claimer>, with the vault, the requested IBTC amount and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned and the possible slashing of the queued amount are not shown.",
+      "evidence": "Vault.sol withdraw(): `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`. In onSlash(), `withdrawals[currentEpoch_ + 1] = nextWithdrawals - nextWithdrawalsSlashed` can reduce the amount later claimed.",
+      "fix": "None needed. The requested IBTC amount is the effect the signer authorizes, and the shares burned are derived from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "Synthetic case, no mined tx. Judged from code: the 2.5 IBTC amount and claimer 0x3333 are shown correctly."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Queues the IBTC those shares are worth (previewRedeem, from storage) for the next epoch, with the withdrawal shares going to `claimer`, who gets the right to claim it.",
+     "Nothing is transferred now. The queued amount stays slashable until it is claimed."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for <claimer>, with the vault, the raw share count and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is shown as an 18-digit raw integer in the intent and the field.",
+      "evidence": "descriptor: `#.shares` format `raw`, label 'Vault shares (raw)'. Case 2 shows 'Queue 987654321123456789 raw shares'. ERC4626Math._decimalsOffset() returns 0, so shares use the collateral's 8-decimal scale.",
+      "fix": "Use format `unit` with `decimals: 8` and base 'shares', or a label that explains the scale, so the count reads as about 9,876,543,211.23 shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the IBTC amount queued for withdrawal is not shown.",
+      "evidence": "Vault.sol redeem(): `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())`. This is derived from storage.",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "Synthetic case, no mined tx. The shares burned and the claimer are shown. The share count is raw."
+     }
+    ],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed.",
+     "Transfers the signer's whole withdrawal for that epoch (withdrawalsOf(epoch, msg.sender), from storage) in IBTC to `recipient`."
+    ],
+    "shown": "Claim epoch 42 to <recipient>, with the vault, the epoch and the recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the IBTC amount sent to the recipient is not shown, and the asset is not named.",
+      "evidence": "Vault.sol claim(): `amount = _claim(epoch); IERC20(collateral).safeTransfer(recipient, amount);`. The amount is read from storage. The intent 'Claim withdrawal' does not name IBTC.",
+      "fix": "The amount cannot be shown. The intent could name the asset, for example 'Claim IBTC withdrawal'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic case, no mined tx. The recipient and epoch are shown. The amount comes from storage."
+     }
+    ],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawals for each listed epoch as claimed.",
+     "Transfers the sum of the signer's withdrawals for those epochs (from storage) in IBTC to `recipient`, in one transfer."
+    ],
+    "shown": "Claim epochs 42 and 44 and 128 to <recipient>, with each epoch and the recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total IBTC sent to the recipient is not shown, and the asset is not named.",
+      "evidence": "Vault.sol claimBatch(): `amount += _claim(epochs[i]); ... IERC20(collateral).safeTransfer(recipient, amount);`. The amount is read from storage. The intent 'Claim withdrawals' does not name IBTC.",
+      "fix": "The amount cannot be shown. The intent could name the asset, for example 'Claim IBTC withdrawals'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic case, no mined tx. All epochs and the recipient are shown."
+     }
+    ],
+    "glance": 75,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.353,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 78,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is shown as an 18-digit raw integer in the intent and the field.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 75,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: the share amount is shown as an 18-digit raw integer in the intent and the field."
+ }
+}

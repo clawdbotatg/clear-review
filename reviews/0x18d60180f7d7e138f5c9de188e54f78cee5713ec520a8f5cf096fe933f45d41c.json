@@ -1,0 +1,156 @@
+{
+ "hash": "0x18d60180f7d7e138f5c9de188e54f78cee5713ec520a8f5cf096fe933f45d41c",
+ "file": "registry/flyingtulip/eip712-SessionManager-ftUSD.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2daf4b445e7d659100b22a15c3eeb10e64ac5dc9"
+  },
+  {
+   "chainId": 56,
+   "address": "0xc85cb743f72b3a9bb594faa7d46ee1efc61b7a42"
+  },
+  {
+   "chainId": 146,
+   "address": "0x2daf4b445e7d659100b22a15c3eeb10e64ac5dc9"
+  },
+  {
+   "chainId": 146,
+   "address": "0x52ef449d44cc4205fa44bf644dee15611fc30734"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x176592c8ed3f2d94ce4c3f1a4cff7d068176ac54"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Session(address owner,address delegate,uint48 validAfter,uint48 validUntil,uint32 maxCalls,uint16 maxFeeBps,AssetLimit[] limits,bytes32 salt)AssetLimit(address token,uint256 limit)",
+    "effects": [
+     "Anyone who holds the signature can call createSessionBySig to create a session in the owner's name. The signature has no deadline and no nonce.",
+     "The delegate gets the right to sign per-call intents. Allowlisted target contracts (e.g. MintAndRedeem) then execute those intents for the owner.",
+     "For each listed token, the session gets a spend allowance equal to `limit`. A limit of type(uint256).max is never decremented, so it is unlimited.",
+     "The session is valid from validAfter to validUntil. A validUntil of 0 means the session never expires.",
+     "The delegate can sign at most maxCalls calls. A maxCalls of 0 means unlimited calls (only allowed when validUntil is not 0).",
+     "Relayers can take a fee of up to maxFeeBps of the output amount, from what the owner receives.",
+     "Once the session is created, only the owner can revoke it, with revokeSession or revokeSessionBySig."
+    ],
+    "shown": "\"Create ftUSD session\" / \"ftUSD session <delegate>\", with the owner, delegate, valid-after and valid-until dates, max calls (raw), max fee in bps, and one token limit per listed token.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Session intent does not say the delegate can spend the owner's tokens through target contracts.",
+      "evidence": "descriptor: \"intent\": \"Create ftUSD session\", \"interpolatedIntent\": \"ftUSD session {delegate}\". SessionManager.sol devdoc: \"Delegate signs per-call intents (EIP-712) that are consumed by trusted target contracts (e.g. MintAndRedeem)\"; validateAndConsume decrements tokenAllowance[sessionId][spendToken].",
+      "fix": "Change the intent to \"Let delegate spend tokens for you\" and the interpolatedIntent to \"Allow {delegate} to act and spend tokens for you until {validUntil}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Session validUntil of 0 means no expiry but renders as the 1970 epoch date.",
+      "evidence": "SessionManager.sol SessionConfig: \"uint48 validUntil; // 0 = no expiry\"; validateAndConsume: \"if (s.validUntil != 0 && nowTs > s.validUntil)\". descriptor field validUntil: format \"date\", encoding \"timestamp\", no special-value handling.",
+      "fix": "Show 0 as \"No expiry\", e.g. with a threshold/message or an enum-style label, or add a separate notice when validUntil is 0.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Session maxCalls of 0 means unlimited calls but is shown as the raw number 0.",
+      "evidence": "SessionManager.sol: \"uint32 maxCalls; // 0 = unlimited (requires validUntil != 0)\"; validateAndConsume: \"if (s.maxCalls != 0 && expectedNonce >= s.maxCalls)\". descriptor: maxCalls \"format\": \"raw\".",
+      "fix": "Label 0 as \"Unlimited\" for maxCalls (e.g. an enum or map with 0 -> \"Unlimited\").",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "Session token limit renders as a raw 1e20 number and never names the token.",
+      "evidence": "case 0 screen: {\"label\": \"Token limit\", \"value\": \"100000000000000000000\"} for token 0xF7D85EC4E7710f71992752eac2111312e73E9C9C. The descriptor has no field for limits.[].token. It is only used as the tokenPath.",
+      "fix": "Add a field {\"path\": \"limits.[].token\", \"label\": \"Token\", \"format\": \"addressName\", \"params\": {\"types\": [\"token\"]}} before the limit, so the token is named even when its metadata does not resolve.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Session \"Max fee\" does not say it is a relayer fee taken from the signer's output.",
+      "evidence": "SessionManager.sol: \"uint16 maxFeeBps; // max relayer fee vs output amount (0 = no fee)\". descriptor: label \"Max fee\", unit base \"bps\", decimals 0; case 0 renders \"500bps\".",
+      "fix": "Use label \"Max relayer fee (of output)\" and params {\"base\": \"%\", \"decimals\": 2} so 500 renders as 5%.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Session signature does not limit which target contracts or actions the delegate can run.",
+      "evidence": "validateAndConsume: \"if (!allowedTarget[msg.sender]) revert TargetNotAllowed(msg.sender);\". allowedTarget is set by the contract owner through setAllowedTarget. Calls with spendAmount 0 skip the per-asset limit check.",
+      "fix": "No descriptor change can show the allowlist. Name the known target actions (mint/redeem ftUSD) in the intent or in the descriptor metadata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Session signature has no deadline or nonce, so anyone can submit it at any later time.",
+      "evidence": "createSessionBySig: the digest covers owner_, delegate, validAfter, validUntil, maxCalls, maxFeeBps, limitsHash and salt only. revokeSession requires \"s.owner == address(0) revert SessionNotFound\", so the signer cannot cancel the signature before someone submits it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "Session test does not cover validUntil 0, maxCalls 0 or an unlimited token limit.",
+      "evidence": "case 0 uses validUntil 1770600000, maxCalls 100 and limit 1e20 only. The \"Unlimited\" threshold message and the 0 special values in _createSession / validateAndConsume are not tested.",
+      "fix": "Add cases with validUntil 0 and maxCalls>0, with maxCalls 0, and with limit type(uint256).max, plus a known token so the amount renders with a ticker.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "The allowlisted target contracts that consume sessions and move the owner's tokens (e.g. MintAndRedeem) are not in the directory. I could not check that they report every spend to validateAndConsume or that they enforce maxFeeBps."
+  ]
+ },
+ "cost": 0.331,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 56,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "Session(address owner,address delegate,uint48 validAfter,uint48 validUntil,uint32 maxCalls,uint16 maxFeeBps,AssetLimit[] limits,bytes32 salt)AssetLimit(address token,uint256 limit)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 22,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 6,
+   "worst": "Session intent does not say the delegate can spend the owner's tokens through target contracts.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 22,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": "Session intent does not say the delegate can spend the owner's tokens through target contracts."
+ }
+}

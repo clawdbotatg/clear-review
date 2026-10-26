@@ -1,0 +1,109 @@
+{
+ "hash": "0xc7454128c62565d5a7f6ea71d83cabe56685ab39e6783a26e9ebec267ac75d23",
+ "file": "registry/permit/eip712-permit-ethereum-dai.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x6b175474e89094c44da98b954eedeac495271d0f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Permit(address holder,address spender,uint256 nonce,uint256 expiry,bool allowed)",
+    "effects": [
+     "Sets the signer's DAI allowance for `spender` to unlimited (uint(-1)) when `allowed` is true.",
+     "Sets the signer's DAI allowance for `spender` to 0 when `allowed` is false, which revokes any existing allowance.",
+     "The signature can be submitted by anyone until `expiry`; `expiry` = 0 means it never expires.",
+     "Uses up the signer's current permit nonce, so any older signed permit with that nonce becomes invalid."
+    ],
+    "shown": "The screen reads 'Authorize spending of tokens' and shows the spender as a raw address, 'Unlimited spending' as a raw true/false, and 'Valid until' as a date. The date is hidden when expiry is 0.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "DAI Permit with allowed=false sets the allowance to 0, but the screen still says 'Authorize spending'.",
+      "evidence": "dai.sol Dai.permit: `uint wad = allowed ? uint(-1) : 0; allowance[holder][spender] = wad;`. Descriptor: intent \"Authorize spending of tokens\", field `allowed` label 'Unlimited spending', format raw. A signer who sees 'Unlimited spending: false' can read it as a limited grant. The real effect is a revoke.",
+      "fix": "Add an enum on `allowed` with {\"true\": \"Unlimited DAI\", \"false\": \"Revoke (0)\"}. Label it 'Allowance', show it with format enum, and change the intent to 'Approve or revoke DAI spending'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "DAI Permit hides the expiry field when expiry is 0, so a permit that never expires shows no validity limit.",
+      "evidence": "dai.sol Dai.permit: `require(expiry == 0 || now <= expiry, \"Dai/permit-expired\");`. Descriptor field `expiry` has visible {\"ifNotIn\": [0, \"0\"]}. Case 1 (expiry \"0\") shows only Spender and 'Unlimited spending'. Nothing on the screen says the signature stays valid forever.",
+      "fix": "Keep `expiry` always visible and render 0 as 'No expiry', for example with a threshold or message, or add a fixed notice field when expiry is 0.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "DAI Permit intent says 'tokens' and never names DAI or the unlimited amount.",
+      "evidence": "Descriptor intent \"Authorize spending of tokens\"; no field names the token. dai.sol: `string public constant symbol = \"DAI\";` and `uint wad = allowed ? uint(-1) : 0;`. The asset is shown only through the owner 'Dai Stablecoin v2.0'.",
+      "fix": "Change the intent to 'Approve unlimited DAI spending', or add an interpolatedIntent such as 'Allow {spender} to spend your DAI'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "DAI Permit shows the spender as a raw hex address instead of a resolved name.",
+      "evidence": "Descriptor field `spender` has format \"raw\". In cases 0 and 1 the screen shows '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', which is the Uniswap V2 Router.",
+      "fix": "Use format addressName with types [\"contract\",\"eoa\"] for `spender`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "DAI Permit tests never use allowed=false, the revoke path that changes what the screen should say.",
+      "evidence": "Cases 0 and 1 both use `\"allowed\": true`. dai.sol Dai.permit sets the allowance to 0 when allowed is false.",
+      "fix": "Add a test case with `allowed: false` and the expected revoke rendering.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.217,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 34,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "Permit(address holder,address spender,uint256 nonce,uint256 expiry,bool allowed)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 5,
+   "worst": "DAI Permit hides the expiry field when expiry is 0, so a permit that never expires shows no validity limit.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 35,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "DAI Permit hides the expiry field when expiry is 0, so a permit that never expires shows no validity limit."
+ }
+}

@@ -1,0 +1,193 @@
+{
+ "hash": "0xa036a59a8843c09a789f7110ac819883766d2874bb0ba0da51c7357981bdd60b",
+ "file": "registry/morpho/calldata-re7_labs-Re7RWA.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x6e37c95b43566e538d8c278eb69b00fc717a001b"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` of the underlying token (0x59aa…964b, verUSDC) from their wallet to the vault (ERC4626._deposit safeTransferFrom).",
+     "The vault mints Re7RWA shares to `receiver`. The share count comes from on-chain totals after fee accrual, rounded down.",
+     "The vault supplies the assets to Morpho Blue markets in its supply queue. This does not change what the signer holds."
+    ],
+    "shown": "Intent 'Deposit', with the verUSDC amount, a constant 'Share ticker: Re7RWA', and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many Re7RWA shares the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. The descriptor shows only `assets`, plus the constant 'Share ticker' Re7RWA.",
+      "fix": "None in the descriptor. The share amount depends on the vault state at execution.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' does not name the asset or the vault.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`. The sentence does not say verUSDC or Re7 RWA vault.",
+      "fix": "Change the intent to \"Deposit verUSDC into Re7 RWA vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends verUSDC to the vault. The amount comes from on-chain totals after fee accrual, rounded up, and is not in the calldata.",
+     "The vault mints exactly `shares` Re7RWA shares to `receiver`.",
+     "The vault supplies the assets to Morpho Blue markets."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: verUSDC' as a raw ticker with no amount, the share amount, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much verUSDC leaves the signer; the vault computes it from storage.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then `_deposit(_msgSender(), receiver, assets, shares)`. The descriptor shows 'Deposit asset' as the raw constant `$.metadata.constants.underlyingTicker`, with no amount.",
+      "fix": "None in the descriptor. The signer's verUSDC allowance to the vault caps the amount taken.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint intent 'Mint' does not say that the signer pays verUSDC for the shares.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`. The code takes verUSDC from the caller in ERC4626._deposit.",
+      "fix": "Change the intent to \"Deposit verUSDC for Re7RWA shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 70
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns Re7RWA shares from `owner`. The share count comes from on-chain totals, rounded up.",
+     "If the signer is not `owner`, the signer spends that number of shares from owner's allowance to them.",
+     "`receiver` receives exactly `assets` verUSDC, which the vault withdraws from Morpho Blue markets."
+    ],
+    "shown": "Intent 'Withdraw', with the exact verUSDC amount, the recipient and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many Re7RWA shares are burned from owner; the vault computes it from storage.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);`. The descriptor shows `assets`, `receiver` and `owner` only.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 85
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` Re7RWA shares from `owner`. If the signer is not owner, this spends owner's share allowance to the signer.",
+     "`receiver` receives verUSDC. The amount comes from on-chain totals, rounded down, and is not in the calldata."
+    ],
+    "shown": "Intent 'Redeem', with the share amount, the recipient and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much verUSDC the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. The descriptor shows `shares`, `receiver` and `owner` only, and it does not show the verUSDC ticker.",
+      "fix": "Add a constant field 'Receive asset' with the value `$.metadata.constants.underlyingTicker`, as the mint format does. The amount itself cannot be shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.291,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 49,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 62,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": null
+ }
+}

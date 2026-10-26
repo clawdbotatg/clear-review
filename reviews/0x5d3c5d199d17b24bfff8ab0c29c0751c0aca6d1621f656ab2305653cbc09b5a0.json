@@ -1,0 +1,199 @@
+{
+ "hash": "0x5d3c5d199d17b24bfff8ab0c29c0751c0aca6d1621f656ab2305653cbc09b5a0",
+ "file": "registry/morpho/calldata-fence-ERY.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xc21db71648b18c5b9e038d88393c9b254cf8eac8"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` EURe (0x3231…273f) to the vault through transferFrom, which spends the signer's EURe allowance to the vault.",
+     "The vault mints ERY shares to `receiver`. The share count comes from the exchange rate after fee accrual, rounded down, and has no minimum bound.",
+     "The vault supplies the EURe to Morpho Blue markets in its supply queue. This is internal to the vault."
+    ],
+    "shown": "Deposit: the EURe amount, the 'Share ticker' ERY, and 'Send shares to' the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many ERY shares the receiver gets; the vault's exchange rate decides it.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` The deposit fields show only `assets` and `Share ticker` ERY. The share count is not in calldata and has no minimum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' names neither the EURe sent nor the ERY vault shares received.",
+      "evidence": "descriptor deposit format: \"intent\": \"Deposit\", with no interpolatedIntent. The asset and the receiver are only in the fields.",
+      "fix": "Change the intent to \"Deposit EURe into ERY vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` ERY to `receiver`.",
+     "The signer pays an EURe amount that the vault computes from the shares, rounded up after fee accrual. transferFrom takes it from the signer, bounded only by the signer's allowance.",
+     "The vault supplies the EURe to Morpho Blue markets. This is internal to the vault."
+    ],
+    "shown": "Mint: 'Deposit asset' EURe as a ticker only, 'Minted shares' as an ERY amount, and 'Mint shares to' the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show the EURe amount it takes from the signer; storage-based exchange rate decides it.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` The 'Deposit asset' field is a raw constant: \"value\": \"$.metadata.constants.underlyingTicker\". No calldata value bounds the EURe taken.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent 'Mint' does not say that EURe leaves the signer's wallet.",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\". The only payment hint is the field 'Deposit asset' with the value 'EURe'. ERC4626._deposit runs `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets)`.",
+      "fix": "Change the intent to \"Deposit EURe to mint ERY shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns ERY shares from `owner`. The vault computes the number from `assets`, rounded up after fee accrual.",
+     "If the signer is not `owner`, the call spends the signer's ERY allowance from `owner` by that number of shares.",
+     "The vault sends exactly `assets` EURe to `receiver` after it withdraws them from Morpho Blue markets."
+    ],
+    "shown": "Withdraw: 'Withdraw exactly' with the EURe amount, 'To' the receiver, and the 'Owner' of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many ERY shares it burns from the owner; the exchange rate decides it.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then ERC4626._withdraw runs `_burn(owner, shares)`. The withdraw fields show only `assets`, `receiver` and `owner`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` ERY from `owner`.",
+     "If the signer is not `owner`, the call spends the signer's ERY allowance from `owner` by `shares`.",
+     "The vault sends EURe to `receiver`. The amount is computed from the shares, rounded down, and has no minimum."
+    ],
+    "shown": "Redeem: 'Shares to redeem' as an ERY amount, 'To' the receiver, and 'Owner'. The screen does not name EURe or give an amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names EURe as the asset that the receiver gets.",
+      "evidence": "ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);` The redeem format has only `shares`, `receiver` and `owner`. Unlike the mint format, it has no field for the constant `underlyingTicker`.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"} and change the intent to \"Redeem ERY for EURe\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show or bound the EURe amount the receiver gets; storage decides it.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` No minimum-out parameter exists in calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.364,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 52,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' names neither the EURe sent nor the ERY vault shares received.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say that EURe leaves the signer's wallet.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names EURe as the asset that the receiver gets.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 58,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem never names EURe as the asset that the receiver gets."
+ }
+}

@@ -1,0 +1,218 @@
+{
+ "hash": "0x56072c09216dfc0835ca737236bbf347c0da3415d0e9efb29d8e00d18428df0c",
+ "file": "registry/opencover/calldata-Quote.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x789d89ebb2a882343044830a9d4d072737ffec92"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xd68647555e5da198d50866334eed647cbe3d1556"
+  },
+  {
+   "chainId": 10,
+   "address": "0x0ac34fe133bde3a2ef589a18a4e10b6a7d253829"
+  },
+  {
+   "chainId": 137,
+   "address": "0x0ac34fe133bde3a2ef589a18a4e10b6a7d253829"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x0ac34fe133bde3a2ef589a18a4e10b6a7d253829"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "submitQuote((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "The signer pays premiumAmount + feeAmount in the payment asset. For an ERC20 this is a transferFrom to the Quote contract, which spends the signer's allowance. For the native coin, msg.value must equal the total.",
+     "When the payment asset is an ERC20, any msg.value sent is kept by the contract. It is not added to pendingAmounts, so the operator can collect it.",
+     "A soulbound proof-of-cover NFT (quoteId) is minted to the signer. Its owner can claim refunds of the payment if the quote is not settled.",
+     "A quote for coverAmount of the cover asset, for coverExpiry, under providerId/productId, is stored and waits for off-chain settlement by the operator."
+    ],
+    "shown": "\"Buy cover in <cover asset>\", with cover asset, raw cover amount, duration in days, payment asset, raw premium and raw fee. Native value, product and provider are not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "submitQuote is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+      "evidence": "QuoteV15.sol _submitQuote: `if (_isNativeCoin(paymentAssetAddress)) { if (msg.value != totalPayment) revert ...} else { safeTransferFrom(...) }`. In the ERC20 branch msg.value is never checked, and it is not added to pendingAmounts, so collect() can sweep it. The descriptor has no `@.value` field.",
+      "fix": "Add a field `{\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The submitQuote intent names the cover asset but not the payment, so it reads like what you receive, not what you pay.",
+      "evidence": "interpolatedIntent \"Buy cover in {quote.coverAssetId}\". The code takes premiumAmount + feeAmount of paymentAssetId from the signer (_requireValidQuote: `totalPayment = quote.premiumAmount + quote.feeAmount`).",
+      "fix": "Use \"Buy {quote.coverAmount} {quote.coverAssetId} cover for {quote.premiumAmount} + {quote.feeAmount} fee in {quote.paymentAssetId}\", or at least name the payment asset.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "submitQuote shows cover, premium and fee amounts raw, without decimals, because the token is only an ID.",
+      "evidence": "descriptor fields `#.quote.coverAmount`, `#.quote.premiumAmount`, `#.quote.feeAmount` use format \"raw\". The token address comes from storage: `_assets[quote.providerId][quote.paymentAssetId].assetAddress` (QuoteV1._requireValidQuote). Decimals differ by asset (ETH 18, USDC 6), so one `unit` decimals value cannot fit.",
+      "fix": "Nothing in the spec maps a storage asset ID to a token. Per-asset formats would need a token-from-enum feature.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "The submitQuote assetSymbol enum is static, but asset IDs map to tokens per provider and per chain in storage.",
+      "evidence": "metadata.enums.assetSymbol {0:ETH,1:DAI,2:USDC,3:USDT,4:POL,5:cbBTC}. The code resolves the ID through `_assets[quote.providerId][quote.paymentAssetId]`, which an admin sets with setAsset. The same enum is used on chains 1, 8453, 10, 137 and 42161.",
+      "fix": "Confirm that every provider uses these IDs on every chain, or limit deployments to chains where they hold.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "submitQuote hides productId and providerId, which say what risk the cover protects.",
+      "evidence": "fields `#.quote.providerId` and `#.quote.productId` are `visible: never`. _requireValidQuote checks `_products[quote.providerId][quote.productId].isEnabled`.",
+      "fix": "Show the product ID raw, or add an enum of known products.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 50
+   },
+   {
+    "key": "submitQuoteV15((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, address[] coveredAddresses, uint256 integratorId, address mintTo, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "The signer pays premiumAmount + feeAmount in the payment asset. For an ERC20 this is a transferFrom to the Quote contract, which spends the signer's allowance. For the native coin, msg.value must equal the total.",
+     "When the payment asset is an ERC20, any msg.value sent is kept by the contract and is not tracked as a pending payment.",
+     "A soulbound proof-of-cover NFT is minted to mintTo, or to the signer if mintTo is zero. That holder gets the refund rights and receives operator refunds.",
+     "The cover is recorded for the coveredAddresses list, which may differ from the signer, under providerId/productId, for coverAmount and coverExpiry.",
+     "integratorId is stored and only selects the NFT metadata renderer."
+    ],
+    "shown": "\"Buy cover in <cover asset>\", with cover asset, raw amounts, duration, payment asset and recipient (mintTo). Covered addresses, native value and product are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "submitQuoteV15 is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+      "evidence": "QuoteV15.sol _submitQuote checks msg.value only in the `_isNativeCoin` branch. In the ERC20 branch the ETH stays in the contract, outside pendingAmounts. The descriptor has no `@.value` field.",
+      "fix": "Add a field `{\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "submitQuoteV15 hides coveredAddresses, the wallets the purchased cover actually protects.",
+      "evidence": "QuoteV15.submitQuoteV15 stores `_quoteCoveredAddresses[quoteId] = coveredAddresses` (\"covered addresses which may be different from the sender address\"). Descriptor field `#.coveredAddresses` is `visible: never`, and nothing else on the screen states who is insured.",
+      "fix": "Show `#.coveredAddresses.[]` with format addressName and the label \"Covered address\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "submitQuoteV15 labels mintTo as 'Recipient'; it receives the proof NFT and every refund.",
+      "evidence": "_submitQuote: `_safeMint(mintTo, quoteId)`. refundQuote sends funds to `ownerOf(quoteId)`, and refundUnfulfilledQuote requires `ownerOf(quoteId) == _msgSender()`. The descriptor label is \"Recipient\".",
+      "fix": "Use the label \"Cover NFT & refund recipient\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The submitQuoteV15 intent names the cover asset but not the payment or its amount.",
+      "evidence": "interpolatedIntent \"Buy cover in {quote.coverAssetId}\". The signer pays premiumAmount + feeAmount of paymentAssetId.",
+      "fix": "Use \"Buy {quote.coverAmount} {quote.coverAssetId} cover, pay {quote.premiumAmount}+{quote.feeAmount} in {quote.paymentAssetId}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "submitQuoteV15 shows amounts raw because the token is a storage asset ID.",
+      "evidence": "fields coverAmount, premiumAmount and feeAmount use format \"raw\". The asset address comes from `_assets[providerId][paymentAssetId].assetAddress`.",
+      "fix": "None in the current spec.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "The submitQuoteV15 static asset enum may not match the per-provider, per-chain asset IDs in storage.",
+      "evidence": "metadata.enums.assetSymbol is used for all five chains. The IDs are configured through setAsset per provider.",
+      "fix": "Verify the mapping for each chain and provider.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "submitQuoteV15 hides productId and providerId, which define the covered risk.",
+      "evidence": "`#.quote.productId` and `#.quote.providerId` are `visible: never`.",
+      "fix": "Show the product ID, or an enum of products.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 40
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.404,
+ "account": "ethereum_foundation",
+ "hiddenValue": [
+  "submitQuote((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, uint8 v, bytes32 r, bytes32 s)",
+  "submitQuoteV15((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, address[] coveredAddresses, uint256 integratorId, address mintTo, uint8 v, bytes32 r, bytes32 s)"
+ ],
+ "seconds": 72,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "submitQuote((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "submitQuote is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+   "comprehension": null
+  },
+  "submitQuoteV15((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, address[] coveredAddresses, uint256 integratorId, address mintTo, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 2,
+   "worst": "submitQuoteV15 is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 0,
+  "clarity": 41,
+  "functions": "2F",
+  "incomplete": false,
+  "worst": "submitQuote is payable but shows no @.value, and nothing forces it to zero for ERC20 payments."
+ }
+}

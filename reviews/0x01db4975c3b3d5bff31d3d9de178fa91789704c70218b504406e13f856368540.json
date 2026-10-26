@@ -1,0 +1,233 @@
+{
+ "hash": "0x01db4975c3b3d5bff31d3d9de178fa91789704c70218b504406e13f856368540",
+ "file": "registry/symbiotic/calldata-VaultV1-rETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xd25f31806de8d608d05dfeaeb1140c1d365864b3"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` rETH (the vault collateral, 0xae78…6393) from the signer into the vault via transferFrom, which needs a prior approval.",
+     "Credits vault active shares, worth the deposited rETH, to `onBehalfOf`, not necessarily the signer.",
+     "Reverts if the depositor whitelist or deposit limit is active and blocks the signer."
+    ],
+    "shown": "Deposit 123.25 rETH for a named beneficiary into the shown vault.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to onBehalfOf is not shown; it comes from vault storage.",
+      "evidence": "Vault.sol deposit: mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...). The descriptor has no shares field because the value is not in calldata.",
+      "fix": "None possible. The beneficiary and the rETH amount already describe the position.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns enough of the signer's active vault shares to cover `amount` rETH, rounded up.",
+     "Moves `amount` rETH of stake into the next epoch's withdrawal queue. That stake can still be slashed until it is claimed.",
+     "Gives `claimer` the withdrawal shares, i.e. the right to claim the rETH after the epoch ends. No tokens move in this call."
+    ],
+    "shown": "Request a withdrawal of 2.5 rETH whose claim right belongs to the claimer address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned and the delay or slashing risk before claiming are not shown.",
+      "evidence": "Vault.sol withdraw: burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake()); _withdraw queues it at currentEpoch()+1, and onSlash can reduce withdrawals[epoch]. Descriptor intent: 'Request withdrawal'.",
+      "fix": "Optionally mention in the intent that funds can be claimed after the next epoch and remain slashable until then.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Moves the matching rETH value, computed from vault storage, into the next epoch's withdrawal queue. That stake can still be slashed.",
+     "Gives `claimer` the withdrawal shares, i.e. the right to claim that rETH after the epoch ends."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claimer address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: shares are shown as a raw 18-decimal integer in both the intent and the field.",
+      "evidence": "descriptor redeem: '#.shares' format 'raw', label 'Vault shares (raw)'; case 2 shows 'Queue 987654321123456789 raw shares'. ERC4626Math._decimalsOffset() returns 0, so shares use the same 18 decimals as rETH.",
+      "fix": "Use format 'unit' with params {decimals: 18, base: 'shares'} so the value reads as 0.9877 shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the rETH amount being queued is derived from storage and is not shown.",
+      "evidence": "Vault.sol redeem: withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Sends the signer's full matured rETH withdrawal for `epoch` (withdrawalsOf(epoch, msg.sender)) from the vault to `recipient`.",
+     "Marks the signer's withdrawal for that epoch as claimed, so it cannot be claimed again."
+    ],
+    "shown": "Claim epoch 42 to the recipient address; the asset and amount are not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: the screen never says that rETH is the asset sent to the recipient.",
+      "evidence": "Vault.sol claim: IERC20(collateral).safeTransfer(recipient, amount); descriptor intent 'Claim withdrawal', interpolatedIntent 'Claim epoch {epoch} to {recipient}'.",
+      "fix": "Name the asset: intent 'Claim rETH withdrawal', interpolatedIntent 'Claim rETH from epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the rETH amount paid comes from storage and cannot be shown.",
+      "evidence": "Vault.sol _claim: amount = withdrawalsOf(epoch, msg.sender);",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Sends the sum of the signer's matured rETH withdrawals for every listed epoch from the vault to `recipient`.",
+     "Marks each listed epoch as claimed for the signer."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient address; the asset and amount are not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimBatch: the screen never says that rETH is the asset sent to the recipient.",
+      "evidence": "Vault.sol claimBatch: IERC20(collateral).safeTransfer(recipient, amount); descriptor intent 'Claim withdrawals', interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}'.",
+      "fix": "Name the asset: intent 'Claim rETH withdrawals', interpolatedIntent 'Claim rETH from epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total rETH paid comes from storage and cannot be shown.",
+      "evidence": "Vault.sol claimBatch: amount += _claim(epochs[i]);",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.338,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 55,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: shares are shown as a raw 18-decimal integer in both the intent and the field.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the screen never says that rETH is the asset sent to the recipient.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the screen never says that rETH is the asset sent to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 69,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: shares are shown as a raw 18-decimal integer in both the intent and the field."
+ }
+}

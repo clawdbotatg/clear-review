@@ -1,0 +1,316 @@
+{
+ "hash": "0x20cd0108c3ec770c054cd2525c6811dfb580fb64d5b5d290b09eb90e1f95c8b5",
+ "file": "registry/lombard/calldata-lbtc-mainnet.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x8236a87084f8b84306f72007f36f2618a5634494"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "approve(address spender, uint256 value)",
+    "effects": [
+     "Sets the signer's LBTC allowance for `spender` to `value`, replacing the previous allowance; max uint256 is never reduced on transferFrom."
+    ],
+    "shown": "Intent 'Approve' with the LBTC amount ('Unlimited' above 2^255) and the spender address.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Approval of 0 LBTC to 0x6A00…1068 is shown as '0 LBTC'. The reader read it as a revoke, which is correct."
+     }
+    ],
+    "glance": 55,
+    "depth": 95
+   },
+   {
+    "key": "burn(uint256 amount)",
+    "effects": [
+     "Burns `amount` LBTC from the signer's balance (`_burn(_msgSender(), amount)`). Nothing is returned to the signer."
+    ],
+    "shown": "Intent 'Burn' with 'Amount to Burn' in LBTC.",
+    "findings": [],
+    "cases": [],
+    "glance": 60,
+    "depth": 95
+   },
+   {
+    "key": "mint(bytes rawPayload, bytes proof)",
+    "effects": [
+     "Forwards to assetRouter.mint(rawPayload, proof), which mints LBTC to the recipient encoded in rawPayload, in the amount encoded in rawPayload (in case 1 the signer receives 0.06727469 LBTC).",
+     "The signer spends nothing except gas; the proof consumes the payload so it cannot be replayed."
+    ],
+    "shown": "Intent 'Mint' with the whole payload and the whole proof as raw hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "mint shows the minted amount and recipient only inside raw payload hex, not as readable fields.",
+      "evidence": "Case 1: the mined effect mints 6727469 (0.06727469 LBTC) to the signer 0xe75d…6b9e. The screen field 'Payload' is raw hex that contains …e75d41c7…6b9e…000066a72d. In the descriptor, the mint field `rawPayload` has format raw. StakedLBTC.mint returns $.assetRouter.mint(rawPayload, proof).",
+      "fix": "For the deposit payload layout of case 1, add a tokenAmount field on rawPayload.[296:328] with tokenPath @.to, labelled 'Amount to Mint'. Add an addressName field on rawPayload.[276:296], labelled 'Recipient'. Do this only after you confirm the router accepts only this layout. Then set the intent to 'Mint LBTC' and an interpolatedIntent such as 'Mint {amount} to {recipient}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint shows the consortium proof as about 2 KB of raw hex, which tells the signer nothing.",
+      "evidence": "The descriptor mint field `proof` has format raw and visible always. In case 1, the screen 'Proof' value is a long hex blob of signatures. StakedLBTC.mint documents @param proof as 'Signature of the consortium approving the mint.'",
+      "fix": "Set the `proof` field to \"visible\": \"never\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer receives 0.06727469 LBTC. The amount appears only as hex inside the payload. The reader guessed they were the recipient but saw no amount."
+     }
+    ],
+    "glance": 35,
+    "depth": 25
+   },
+   {
+    "key": "permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Sets the allowance that `spender` has over `owner`'s LBTC to `value`, using owner's EIP-2612 signature valid until `deadline`; uses owner's nonce."
+    ],
+    "shown": "Intent 'Permit' with owner, spender, allowance in LBTC ('Unlimited' above 2^255) and the 'Valid Until' date.",
+    "findings": [],
+    "cases": [],
+    "glance": 50,
+    "depth": 95
+   },
+   {
+    "key": "redeem(uint256 amount)",
+    "effects": [
+     "Forwards to assetRouter.redeem(msg.sender, this, amount). Per the source docs, this burns `amount` StakedLBTC from the signer and gives NativeLBTC on this chain under the router's rules (ratio and any fee).",
+     "The asset and amount received are decided by the asset router, which is not in the directory."
+    ],
+    "shown": "Intent 'Redeem' with 'Amount to Redeem' in LBTC.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem intent says 'Redeem' but does not say the signer gets NativeLBTC for the LBTC.",
+      "evidence": "In StakedLBTC.redeem, the natspec says 'Redeem StakedLBTC into NativeLBTC on this chain via the asset router' and the code calls $.assetRouter.redeem(_msgSender(), address(this), amount). The descriptor intent is \"Redeem\", with the single field 'Amount to Redeem'. It does not name the asset received. The redeemForBtc format reads 'Redeem BTC', so the two can be confused.",
+      "fix": "Change the intent to 'Redeem LBTC for native LBTC'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the NativeLBTC amount, because the asset router computes it from a ratio and fees.",
+      "evidence": "StakedLBTC.redeem forwards to $.assetRouter.redeem. StakedLBTC.ratio and getRate read the router oracle. The calldata carries only `amount`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 55
+   },
+   {
+    "key": "redeemForBtc(bytes scriptPubkey, uint256 amount)",
+    "effects": [
+     "Burns `amount` LBTC from the signer (case 1: 2.871914 LBTC).",
+     "The router mints a redeem fee to the treasury (case 2: 0.0001 LBTC to 0x251a…4892). The BTC paid out to scriptPubkey is the amount minus that fee.",
+     "Starts a BTC withdrawal on Bitcoin to the output script `scriptPubkey`."
+    ],
+    "shown": "Intent 'Redeem BTC' with 'Amount to Burn' in LBTC and the BTC output script as raw hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeemForBtc does not say that a redeem fee is taken from the amount, so the BTC paid is lower.",
+      "evidence": "Case 2: 287191400 LBTC units are burned from the signer, and 10000 units are minted to 0x251a604e…4892, which is the treasury fee. The screen shows only 'Amount to Burn 2.871914 LBTC' under 'Redeem BTC'. StakedLBTC.getRedeemFee reads the fee from assetRouter.tokenConfig. The burned amount is correct, but the BTC payout is not stated.",
+      "fix": "Change the label to 'Amount to Burn (BTC sent = amount minus redeem fee)', or change the intent to 'Burn LBTC to redeem BTC, minus fee'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "redeemForBtc shows the Bitcoin destination as a raw scriptPubkey, because ERC-7730 has no Bitcoin address format.",
+      "evidence": "The descriptor field `scriptPubkey` has format raw. In case 2 it shows 0x5120b1ab…1002, which is a Taproot script, not a bc1p address.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The 2.871914 LBTC burn is shown right. The reader also saw that no BTC amount is stated."
+     }
+    ],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "transfer(address to, uint256 value)",
+    "effects": [
+     "Moves `value` LBTC from the signer to `to`, with no fee."
+    ],
+    "shown": "Intent 'Send' with 'Amount to Send' in LBTC and the recipient (ENS name when it resolves).",
+    "findings": [],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.10935535 LBTC to ldzx-001.eth matches the mined transfer."
+     }
+    ],
+    "glance": 55,
+    "depth": 95
+   },
+   {
+    "key": "transferFrom(address from, address to, uint256 value)",
+    "effects": [
+     "Moves `value` LBTC from `from` to `to`.",
+     "Spends `value` of the allowance that `from` gave the signer, unless that allowance is max uint256."
+    ],
+    "shown": "Intent 'Transfer' with the LBTC amount, the 'From' address and the recipient.",
+    "findings": [],
+    "cases": [],
+    "glance": 50,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": [
+   "The asset router (StakedLBTC storage `assetRouter`) has no source in the directory. mint, redeem and redeemForBtc forward all their logic to it, including amounts, fees, the received asset and the recipient. redeem has no mined case, so what it takes and gives could not be checked."
+  ]
+ },
+ "cost": 0.654,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 102,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "approve(address spender, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "burn(uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(bytes rawPayload, bytes proof)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 32,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "mint shows the minted amount and recipient only inside raw payload hex, not as readable fields.",
+   "comprehension": 50
+  },
+  "permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 amount)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem intent says 'Redeem' but does not say the signer gets NativeLBTC for the LBTC.",
+   "comprehension": null
+  },
+  "redeemForBtc(bytes scriptPubkey, uint256 amount)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 84,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeemForBtc does not say that a redeem fee is taken from the amount, so the BTC paid is lower.",
+   "comprehension": 100
+  },
+  "transfer(address to, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "transferFrom(address from, address to, uint256 value)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 99,
+  "clarity": 69,
+  "functions": "3A 3B 2C",
+  "incomplete": true,
+  "worst": "mint shows the minted amount and recipient only inside raw payload hex, not as readable fields."
+ }
+}

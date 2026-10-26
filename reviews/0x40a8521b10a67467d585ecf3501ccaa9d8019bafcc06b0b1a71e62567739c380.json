@@ -1,0 +1,235 @@
+{
+ "hash": "0x40a8521b10a67467d585ecf3501ccaa9d8019bafcc06b0b1a71e62567739c380",
+ "file": "registry/paraswap/eip712-paraswap.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe92b586627cca7a83dc919cc7127196d70f55a06"
+  },
+  {
+   "chainId": 10,
+   "address": "0x0927fd43a7a87e3e8b81df2c44b03c4756849f6d"
+  },
+  {
+   "chainId": 56,
+   "address": "0x8dcdfe88ef0351f27437284d0710cd65b20288bb"
+  },
+  {
+   "chainId": 137,
+   "address": "0xf3cd476c3c4d3ac5ca2724767f269070ca09a043"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x0927fd43a7a87e3e8b81df2c44b03c4756849f6d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Order(uint256 nonceAndMeta,uint128 expiry,address makerAsset,address takerAsset,address maker,address taker,uint256 makerAmount,uint256 takerAmount)",
+    "effects": [
+     "The signer (maker) lets the allowed taker pull up to makerAmount of makerAsset from the signer's wallet (_fillOrder: transferTokens(order.makerAsset, maker, target, makerTokenFillAmount)).",
+     "The maker asset goes to a `target` address that the filler picks (fillOrderWithTarget / partialFillOrderWithTarget), not necessarily the taker.",
+     "The signer receives takerAsset from the filler, up to takerAmount, at the signer's own address (transferTokens(order.takerAsset, msg.sender, maker, takerTokenFillAmount)).",
+     "The order can be filled in several parts at the signed rate (partialFillOrder*, tryBatchFill*); each part gives makerAmount*fill/takerAmount.",
+     "If taker is the zero address, anyone can fill the order (_checkOrder: taker == address(0) || taker == msg.sender).",
+     "If expiry is 0, the order never expires; it stays valid until it is filled or the signer calls cancelOrder (_checkOrder: expiry == 0 || block.timestamp <= expiry)."
+    ],
+    "shown": "\"AugustusRFQ ERC20 order\" with a raw nonce, the expiry date (hidden when 0), the maker and taker tokens by name, raw maker and taker addresses, and the maker and taker amounts formatted with their tokens.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Order intent \"AugustusRFQ ERC20 order\" does not say the signer sells makerAsset for takerAsset.",
+      "evidence": "descriptor.json Order intent \"AugustusRFQ ERC20 order\", no interpolatedIntent; AugustusRFQ.sol _fillOrder moves makerAsset out of the maker and takerAsset in. Case 0 screen gives no direction for 3000 USDC vs 1 WETH.",
+      "fix": "Use intent \"Sign swap order\" and interpolatedIntent \"Sell {makerAmount} for {takerAmount}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order labels Maker/Taker amount do not tell the signer which amount they give and which they get.",
+      "evidence": "descriptor.json labels 'Maker asset', 'Taker asset', 'Maker amount', 'Taker amount'. The signer of the EIP-712 message is `maker` (_checkOrder: SignatureChecker.isValidSignatureNow(maker, ...)), so makerAmount is what leaves the signer and takerAmount is what arrives.",
+      "fix": "Relabel to 'You send' / 'Token you send' and 'You receive' / 'Token you receive'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Order hides expiry 0, so the signer is not told that the order never expires.",
+      "evidence": "descriptor.json expiry visible {ifNotIn:[0,'0']}; AugustusRFQ.sol _checkOrder `require(expiry == 0 || block.timestamp <= expiry)`. In case 1 the screen has no expiry field at all.",
+      "fix": "Show the expiry always, and render 0 as 'Never' (with a message, or a separate field visible only when expiry is 0).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order shows maker/taker as raw hex, and taker 0x0 is not explained as 'anyone can fill'.",
+      "evidence": "descriptor.json maker/taker format 'raw'; case 1 shows 'Taker address' 0x0000000000000000000000000000000000000000; _checkOrder `taker == address(0) || taker == msg.sender`.",
+      "fix": "Use addressName for both; label taker 'Allowed counterparty' and say that the zero address means anyone.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "Order amounts are totals; partial fills at the signed rate are allowed and not mentioned.",
+      "evidence": "AugustusRFQ.sol partialFillOrderWithTarget: makerTokenFilledAmount = takerTokenFillAmount * makerAmount / takerAmount; _checkOrder tracks remaining.",
+      "fix": "Optionally label the amounts 'Up to'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order shows nonceAndMeta as a raw integer that means nothing to the signer.",
+      "evidence": "descriptor.json nonceAndMeta format 'raw'; the struct comment says 'Nonce and taker specific metadata'; it only makes the order hash unique.",
+      "fix": "Hide it or label it 'Order nonce'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 65
+   },
+   {
+    "key": "OrderNFT(uint256 nonceAndMeta,uint128 expiry,uint256 makerAsset,uint256 makerAssetId,uint256 takerAsset,uint256 takerAssetId,address maker,address taker,uint256 makerAmount,uint256 takerAmount)",
+    "effects": [
+     "The signer (maker) lets the allowed taker pull makerAmount of the maker asset (ERC20, ERC1155 id makerAssetId, or ERC721 id makerAssetId, chosen by bits 160-161 of makerAsset) from the signer's wallet to a `target` the filler picks (transferTokensNFT).",
+     "The signer receives takerAmount of the taker asset (ERC20/ERC1155/ERC721 by its packed type, with takerAssetId) from the filler, at the signer's own address.",
+     "Partial fills are possible at the signed rate (partialFillOrderNFT, batchFillOrderWithTargetNFT).",
+     "If taker is the zero address, anyone can fill the order.",
+     "If expiry is 0, the order never expires; it stays valid until it is filled or the signer cancels it."
+    ],
+    "shown": "\"AugustusRFQ NFT order\" with every value raw: the nonce, the packed asset integers, the NFT ids, hex addresses and unscaled amounts; the expiry is shown as a date only when it is not 0.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "OrderNFT shows maker/taker assets as raw packed uint256, so the token and its type cannot be read.",
+      "evidence": "descriptor.json makerAsset/takerAsset format 'raw' ('Maker asset encoded'); AugustusRFQ.sol comment '0 - 159 bits are address, 160 - 161 bits are tokenType'. Case 2 shows makerAsset 2536500777716045908446414720245124845575819686205 (type 1, 0xBC4CA0…f13D) and takerAsset 1097077688018008265106216665536940668749033598146 (WETH).",
+      "fix": "Show `makerAsset.[-20:]` and `takerAsset.[-20:]` with addressName (types token, collection), and the type byte `makerAsset.[11:12]` with an enum: 0 ERC20, 1 ERC1155, 2 ERC721.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "OrderNFT shows makerAmount/takerAmount raw; case 2 shows 15 WETH as 15000000000000000000.",
+      "evidence": "descriptor.json makerAmount/takerAmount format 'raw'; case 2 'Taker amount' 15000000000000000000 with WETH packed in takerAsset.",
+      "fix": "Use tokenAmount with tokenPath `takerAsset.[-20:]` / `makerAsset.[-20:]` (it falls back to a plain count for NFTs).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "OrderNFT intent does not say what the signer gives and what they receive.",
+      "evidence": "descriptor.json intent \"AugustusRFQ NFT order\", no interpolatedIntent; _fillOrderNFT moves makerAsset out of the maker and takerAsset in.",
+      "fix": "Use intent \"Sign NFT swap order\" and interpolatedIntent \"Give {makerAmount} of {makerAsset} for {takerAmount} of {takerAsset}\" (with sliced paths).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "OrderNFT Maker/Taker labels and raw hex addresses hide which side the signer is on.",
+      "evidence": "descriptor.json labels 'Maker amount', 'Taker amount', 'Maker address' (raw), 'Taker address' (raw). The signer is `maker` (_checkOrder signature check), and taker 0x0 means anyone can fill.",
+      "fix": "Relabel to 'You send' / 'You receive'; use addressName for the addresses; say that taker 0x0 means anyone.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "OrderNFT hides expiry 0, so the signer is not told that the order never expires.",
+      "evidence": "descriptor.json expiry visible {ifNotIn:[0,'0']}; _checkOrder `expiry == 0 || block.timestamp <= expiry`. Case 3 has no expiry field.",
+      "fix": "Show the expiry always and render 0 as 'Never'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "OrderNFT shows asset IDs even for ERC20 sides, where the contract ignores them.",
+      "evidence": "AugustusRFQ.sol struct comment 'simply ignored in case of ERC20s'; case 2 shows 'Taker asset NFT ID: 0' for WETH.",
+      "fix": "Label the IDs 'Token ID (NFT only)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "OrderNFT cases 2/3 pack BAYC (an ERC721) as token type 1 (ERC1155), which would revert when filled.",
+      "evidence": "cases/2.json and 3.json makerAsset 2536500777716045908446414720245124845575819686205 = 2^160 + 0xBC4CA0EdA7647A8aB7C2061c2E118A18a936f13D; transferTokensNFT tokenType 1 calls IERC1155.safeTransferFrom.",
+      "fix": "Use type 2 (2*2^160 + address) for an ERC721 collection in the test cases.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "OrderNFT shows nonceAndMeta as a raw integer that means nothing to the signer.",
+      "evidence": "descriptor.json nonceAndMeta format 'raw'.",
+      "fix": "Hide it or label it 'Order nonce'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 20,
+    "depth": 25
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.413,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 82,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "Order(uint256 nonceAndMeta,uint128 expiry,address makerAsset,address takerAsset,address maker,address taker,uint256 makerAmount,uint256 takerAmount)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "Order hides expiry 0, so the signer is not told that the order never expires.",
+   "comprehension": null
+  },
+  "OrderNFT(uint256 nonceAndMeta,uint128 expiry,uint256 makerAsset,uint256 makerAssetId,uint256 takerAsset,uint256 takerAssetId,address maker,address taker,uint256 makerAmount,uint256 takerAmount)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 2,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 5,
+   "worst": "OrderNFT hides expiry 0, so the signer is not told that the order never expires.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 18,
+  "functions": "2C",
+  "incomplete": false,
+  "worst": "Order hides expiry 0, so the signer is not told that the order never expires."
+ }
+}

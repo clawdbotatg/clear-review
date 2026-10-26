@@ -1,0 +1,199 @@
+{
+ "hash": "0x9c7c7f8d3234625ea8b7358e7a46c33d60aad3cc8dcafb0c32b970a8ac33bd60",
+ "file": "registry/morpho/calldata-felix-feUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 999,
+   "address": "0x8a862fd6c12f9ad34c9c2ff45ab2b6712e8cea27"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC (0xb88339…630f, the vault's immutable asset) to the vault, using the allowance the signer gave the vault.",
+     "The vault mints feUSDC shares to `receiver`. The amount is assets × (totalSupply + 10^12) / (lastTotalAssets + 1), rounded down, and comes from storage.",
+     "The vault supplies the USDC to Morpho Blue markets. This moves vault funds and does not change what the signer gets."
+    ],
+    "shown": "The screen shows \"Deposit\", the USDC amount, a constant line \"Share ticker: feUSDC\" and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many feUSDC shares the receiver gets; the vault's exchange rate in storage sets it.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0: 10 feUSDC in to the signer. The screen shows only 'Share ticker: feUSDC'. The function has no minShares parameter.",
+      "fix": "No descriptor change can show this. A wallet simulation could show the share amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit labels the USDC amount 'Deposit asset' and shows the share ticker as a separate field with no amount.",
+      "evidence": "descriptor deposit format: label \"Deposit asset\" on `assets` (tokenAmount), and {\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}. Case 0 screen: 'Share ticker: feUSDC'.",
+      "fix": "Rename the label to \"Amount to deposit\" and the share line to \"Receive shares in\". Add interpolatedIntent \"Deposit {assets} into Felix USDC vault for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 10 USDC out is shown correctly. feUSDC in goes to the signer's address and the ticker is shown, but the amount (10 feUSDC) is not shown. The reader saw that gap."
+     }
+    ],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns feUSDC shares from `owner`. The count is assets × (totalSupply + 10^12) / (lastTotalAssets + 1), rounded up, and comes from storage.",
+     "When `owner` is not the signer, the call spends the signer's feUSDC allowance from `owner` by the shares burned.",
+     "The vault sends exactly `assets` USDC to `receiver`, after it pulls the USDC out of Morpho Blue markets."
+    ],
+    "shown": "The screen shows \"Withdraw\", 'Withdraw exactly' with the USDC amount, the receiver ('To') and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many feUSDC shares it burns from the owner; the storage exchange rate sets the count.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 1: 0.5 feUSDC out from the signer, and no field shows shares.",
+      "fix": "No descriptor change can show this. A wallet simulation could show the share amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent 'Withdraw' does not name the vault or say that feUSDC shares are burned.",
+      "evidence": "descriptor withdraw format: \"intent\": \"Withdraw\", with no interpolatedIntent. Case 1 reader: 'exact share amount not shown'.",
+      "fix": "Change the intent to \"Withdraw USDC from Felix vault\". Add interpolatedIntent \"Withdraw {assets} to {receiver}, burning {owner}'s shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 0.5 USDC in to the signer is shown exactly. The 0.5 feUSDC burned is not shown, and the reader knew only that the position goes down."
+     }
+    ],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` feUSDC from `owner`. When `owner` is not the signer, the call spends the signer's allowance.",
+     "The vault sends USDC to `receiver`. The amount is shares × (lastTotalAssets + 1) / (totalSupply + 10^12), rounded down, and comes from storage, with no minimum."
+    ],
+    "shown": "The screen shows \"Redeem\", 'Shares to redeem' with the feUSDC amount, the receiver ('To') and the owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem never names USDC as the asset received; the reader had to guess the payout token.",
+      "evidence": "descriptor redeem format: \"intent\": \"Redeem\" and fields shares/receiver/owner only. No field references $.metadata.constants.underlyingTicker. Case 2 reader: 'Which token is paid out; it is likely USDC but not stated'.",
+      "fix": "Change the intent to \"Redeem feUSDC for USDC\", or add {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}. Add interpolatedIntent \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount the receiver gets; the storage exchange rate sets it and there is no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 2: 0.5 USDC in to the signer, and no field shows it.",
+      "fix": "No descriptor change can show the amount. A wallet simulation could show it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.5 feUSDC out is shown correctly. USDC arrives at the signer, but the screen shows neither its amount nor its token, so the reader only guessed USDC."
+     }
+    ],
+    "glance": 50,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.365,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 54,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit labels the USDC amount 'Deposit asset' and shows the share ticker as a separate field with no amount.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent 'Withdraw' does not name the vault or say that feUSDC shares are burned.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset received; the reader had to guess the payout token.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 66,
+  "functions": "3B",
+  "incomplete": false,
+  "worst": "deposit labels the USDC amount 'Deposit asset' and shows the share ticker as a separate field with no amount."
+ }
+}

@@ -1,0 +1,241 @@
+{
+ "hash": "0xca720e382e85cf9ac3622ba1e5455d8904a7194a2f3ebffaca6747876b08377e",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakXSGD-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xbeef00a299ae1784fb7740d2d469f60a1e015fe9"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The exact `assets` amount of XSGD moves from the signer to the vault (safeTransferFrom in enter), spending the signer's XSGD allowance to the vault.",
+     "steakXSGD vault shares are minted to `onBehalf`. The number of shares is previewDeposit(assets), computed from the vault's exchange rate after accrueInterest."
+    ],
+    "shown": "Deposit <amount> XSGD for <onBehalf>, with fields for the XSGD amount, a 'Share ticker: steakXSGD' constant and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of steakXSGD shares received is not shown; it depends on the vault rate.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets);` computed from storage. Case 0: the signer received 12602452034685256 steakXSGD, and the screen shows no share amount. The reader wrote 'the amount is not shown'.",
+      "fix": "None in calldata. Optionally add a note that shares are priced at the current vault rate.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' raw constant field does not say these shares are what the signer receives.",
+      "evidence": "descriptor deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'}. Case 0 screen: 'Share ticker: steakXSGD'.",
+      "fix": "Relabel it 'Receive shares' (value steakXSGD) or put it in the sentence: 'Deposit {assets} for steakXSGD shares to {onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The XSGD out amount and asset are correct. The steakXSGD shares received show recipient and ticker but no amount, which is set by the vault rate."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `assets` XSGD is sent from the vault to `receiver`.",
+     "steakXSGD shares are burned from `onBehalf`. The number is previewWithdraw(assets), rounded up from the vault rate, and has no maximum in calldata.",
+     "When the signer is not `onBehalf`, the signer spends onBehalf's share allowance by the burned shares."
+    ],
+    "shown": "Withdraw exactly <assets> XSGD to <receiver>, with the Owner (onBehalf) shown as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the steakXSGD shares burned are neither named nor counted; the count depends on the vault rate.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 2: 2.373086675367780848 steakXSGD burned from the signer, and the screen names no shares at all. The reader was unsure how many shares are burned.",
+      "fix": "The amount cannot come from calldata. Relabel 'Owner' to 'Burn steakXSGD shares from' so the signer knows the asset that leaves.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The XSGD received (exact amount and recipient) is shown. The shares burned show only the owner address, with no asset name or amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` steakXSGD are burned from `onBehalf`, spending the signer's share allowance from onBehalf if the signer is not onBehalf.",
+     "XSGD equal to previewRedeem(shares), rounded down from the vault rate, is sent from the vault to `receiver`. There is no minimum-out parameter."
+    ],
+    "shown": "Redeem <shares> steakXSGD to <receiver>, with the owner shown as a field. Nothing says which asset arrives or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says XSGD is received; the signer only sees shares and a recipient.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. Case 3: the signer received 1.084106 XSGD. The fields are only 'Shares to redeem', 'To' and 'Owner'. The reader wrote 'Exact amount and identity of the token I get back; the screen doesn't say' and 'likely XSGD'. mint already uses an underlyingTicker constant field, so redeem can too.",
+      "fix": "Add a field {label:'Receive asset', format:'raw', value:'$.metadata.constants.underlyingTicker'} and say 'Redeem {shares} for XSGD to {receiver}' in interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the XSGD amount received is set by the vault rate, and calldata has no minimum.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);` with no min-assets parameter. Case 3: 1084106 XSGD received, and no amount or bound is shown.",
+      "fix": "None in calldata. A router with slippage protection would be needed for a bound.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares burned are shown exactly. The XSGD received has neither asset nor amount on screen; the reader guessed the asset."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "XSGD equal to previewMint(shares), rounded up from the vault rate, moves from the signer to the vault, spending the signer's XSGD allowance. No maximum is in calldata.",
+     "Exactly `shares` steakXSGD are minted to `onBehalf`."
+    ],
+    "shown": "Mint <shares> steakXSGD for <onBehalf>, with a 'Deposit asset: XSGD' constant field and no XSGD amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the XSGD amount pulled from the signer is not shown and has no maximum in calldata.",
+      "evidence": "VaultV2.sol mint(): `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` then `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: the signer paid 1.003734 XSGD, and the screen shows only 'Deposit asset: XSGD'. The reader wrote 'The exact XSGD amount you pay is not shown.'",
+      "fix": "None in calldata. Add a label note that the XSGD cost is set by the vault rate, limited only by the signer's XSGD allowance.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' and its sentence never say the signer pays XSGD.",
+      "evidence": "descriptor mint intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. Case 1: 'Mint 0.999999999 steakXSGD for 0x...dEaD', while 1.003734 XSGD leaves the signer.",
+      "fix": "Use intent 'Deposit XSGD' and interpolatedIntent 'Deposit XSGD to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The XSGD out is named but has no amount or bound. The shares went to 0xdead, which is not the signer, and that is shown correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.387,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 96,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says XSGD is received; the signer only sees shares and a recipient.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' and its sentence never say the signer pays XSGD.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 66,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says XSGD is received; the signer only sees shares and a recipient."
+ }
+}

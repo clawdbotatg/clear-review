@@ -1,0 +1,221 @@
+{
+ "hash": "0xa08783b2588b8ff7cd76c7701953f5d50d2ed1dca1279584a260ff1f9ea56e7a",
+ "file": "registry/morpho/calldata-9summits-9SETHcore.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x5496b42ad0decebfab0db944d83260e60d54f667"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` WETH (0x4200…0006 on Base) from the signer into the vault, using the signer's WETH allowance to the vault.",
+     "Mints vault shares (9SETHcore) to `receiver`. The number is assets × (totalSupply + 1) / (lastTotalAssets + 1), rounded down, after interest and fees accrue.",
+     "The vault supplies the WETH to Morpho Blue markets in its supply queue. The vault holds that position, not the signer."
+    ],
+    "shown": "Deposit: the exact WETH amount, the share ticker 9SETHcore as a constant, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to the receiver is not shown.",
+      "evidence": "MetaMorphoV1_1.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Floor). The rate comes from storage, and the descriptor only has the field 'Share ticker' with value $.metadata.constants.vaultTicker.",
+      "fix": "None possible from calldata. A label such as 'Receive 9SETHcore shares' can make the outcome plain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' gives no asset, amount, vault or receiver, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\", and interpolatedIntent is missing.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into 9Summits WETH vault for {receiver}\" and set intent to \"Deposit WETH\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' field shows a constant string and no amount.",
+      "evidence": "descriptor.json deposit field {\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}",
+      "fix": "Rename it to 'Receive shares of' or drop it and name the vault in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Pulls WETH from the signer, using the signer's allowance to the vault. The amount is shares × (lastTotalAssets + 1) / (totalSupply + 1), rounded up, and calldata does not bound it.",
+     "Mints exactly `shares` vault shares (9SETHcore) to `receiver`.",
+     "The vault supplies the WETH to Morpho Blue markets."
+    ],
+    "shown": "Mint: the deposit asset name 'WETH' (no amount), the exact number of shares minted, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the WETH amount taken from the signer is not shown, only the ticker 'WETH'.",
+      "evidence": "MetaMorphoV1_1.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Ceil); _deposit(_msgSender(), receiver, assets, shares). The descriptor field 'Deposit asset' has value $.metadata.constants.underlyingTicker (raw).",
+      "fix": "None possible from calldata. The signer's WETH allowance is the only bound. A label such as 'Pays in WETH (amount set by share price)' would help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say that WETH is paid for vault shares, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", and interpolatedIntent is missing.",
+      "fix": "Use intent \"Buy vault shares with WETH\" and interpolatedIntent \"Mint {shares} for {receiver}, paid in WETH\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Sends exactly `assets` WETH from the vault to `receiver`, after the vault withdraws it from Morpho markets.",
+     "Burns vault shares from `owner`. The number is assets × (totalSupply + 1) / (lastTotalAssets + 1), rounded up.",
+     "If `owner` is not the signer, spends the signer's share allowance from `owner` by the shares burned."
+    ],
+    "shown": "Withdraw: the exact WETH amount, the receiver and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown.",
+      "evidence": "MetaMorphoV1_1.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Ceil); _withdraw(...) burns shares from owner. The descriptor has no shares field.",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' gives no asset, amount or receiver, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", and interpolatedIntent is missing.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from {owner}'s shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 82
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `owner`.",
+     "If `owner` is not the signer, spends the signer's share allowance from `owner` by `shares`.",
+     "Sends WETH to `receiver`. The amount is shares × (lastTotalAssets + 1) / (totalSupply + 1), rounded down, and calldata does not set a minimum."
+    ],
+    "shown": "Redeem: the exact number of shares redeemed, the receiver and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WETH amount sent to the receiver is not shown, and the asset is not named.",
+      "evidence": "MetaMorphoV1_1.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Floor). The descriptor fields are only shares, receiver and owner.",
+      "fix": "The amount cannot be shown from calldata. Name WETH in the intent or in a constant field, as deposit and mint do.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent 'Redeem' does not say WETH comes back, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", and interpolatedIntent is missing.",
+      "fix": "Use intent \"Redeem shares for WETH\" and interpolatedIntent \"Redeem {shares} from {owner} for WETH to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.278,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 59,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent 'Deposit' gives no asset, amount, vault or receiver, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that WETH is paid for vault shares, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent 'Withdraw' gives no asset, amount or receiver, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the intent 'Redeem' does not say WETH comes back, and there is no interpolatedIntent.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 57,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "mint: the intent 'Mint' does not say that WETH is paid for vault shares, and there is no interpolatedIntent."
+ }
+}

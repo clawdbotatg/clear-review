@@ -1,0 +1,214 @@
+{
+ "hash": "0x23f3ffe975b35c437c75ced5f10f457dc8cb8b4f3808ffb99216f10464dbd7d7",
+ "file": "registry/morpho/calldata-block_analitica-mwUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xc1256ae5ff1cf2719d4937adb3bbccab2e00a2ca"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Exactly `assets` USDC (0x8335...2913) leaves the signer and goes to the vault through transferFrom. The signer must have approved the vault beforehand.",
+     "The vault mints `assets*(totalSupply+1e12)/(totalAssets+1)` mwUSDC shares (rounded down) to `receiver`. The price is taken after performance fees accrue.",
+     "The vault supplies the USDC to Morpho Blue markets in its supply queue. This moves vault funds only."
+    ],
+    "shown": "\"Deposit\", with the exact USDC amount, a constant 'mwUSDC' share ticker and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is computed on chain and is not shown.",
+      "evidence": "MetaMorpho.sol deposit(): `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor)`. The share price comes from storage and Morpho, not from calldata. The descriptor shows only `Share ticker: mwUSDC`.",
+      "fix": "None possible. A minimum-shares bound does not exist in this ERC-4626 signature.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' has no interpolatedIntent naming the amount and the vault.",
+      "evidence": "descriptor.json display.formats deposit: `\"intent\": \"Deposit\"` and no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into mwUSDC vault for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "USDC leaves the signer through transferFrom, in an amount the vault computes: `shares*(totalAssets+1)/(totalSupply+1e12)`, rounded up. There is no maximum bound in the calldata.",
+     "Exactly `shares` mwUSDC shares are minted to `receiver`.",
+     "The vault supplies the USDC to Morpho Blue markets. This moves vault funds only."
+    ],
+    "shown": "\"Mint\", with 'Deposit asset: USDC' (no amount), the exact share amount in mwUSDC and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken from the signer is computed on chain and is never shown.",
+      "evidence": "MetaMorpho.sol mint(): `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. The descriptor shows only the constant `Deposit asset: USDC` as a raw field. No calldata parameter bounds the USDC spent.",
+      "fix": "None in the descriptor. The amount comes from the vault's storage price, and the signer's USDC allowance is the only cap.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint' does not say USDC leaves the wallet, and 'Deposit asset' shows a ticker without an amount.",
+      "evidence": "descriptor.json mint: `\"intent\": \"Mint\"`, field `{label: 'Deposit asset', format: 'raw', value: '$.metadata.constants.underlyingTicker'}`. The code pulls USDC from the caller in ERC4626._deposit via safeTransferFrom.",
+      "fix": "Use the intent 'Deposit USDC for vault shares', or add interpolatedIntent \"Mint {shares} mwUSDC for {receiver}, paid in USDC\". Relabel the field 'Pays with (amount set by vault)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Exactly `assets` USDC is sent from the vault to `receiver`.",
+     "mwUSDC shares are burned from `owner`, in an amount the vault computes: `assets*(totalSupply+1e12)/(totalAssets+1)`, rounded up.",
+     "If the caller is not `owner`, the caller's share allowance from `owner` is spent by that share amount.",
+     "The vault withdraws USDC from Morpho Blue markets in its withdraw queue. This moves vault funds only."
+    ],
+    "shown": "\"Withdraw\", with the exact USDC amount, the receiver and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of mwUSDC shares burned from the owner is computed on chain and not shown.",
+      "evidence": "MetaMorpho.sol withdraw(): `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil)`. The descriptor has no field for the shares burned. A maximum-shares bound does not exist in the calldata.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' has no interpolatedIntent naming the amount and the receiver.",
+      "evidence": "descriptor.json withdraw: `\"intent\": \"Withdraw\"` and no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from mwUSDC vault to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Exactly `shares` mwUSDC shares are burned from `owner`.",
+     "If the caller is not `owner`, the caller's share allowance from `owner` is spent by `shares`.",
+     "USDC is sent to `receiver` in an amount the vault computes: `shares*(totalAssets+1)/(totalSupply+1e12)`, rounded down. There is no minimum bound.",
+     "The vault withdraws USDC from Morpho Blue markets. This moves vault funds only."
+    ],
+    "shown": "\"Redeem\", with the exact share amount in mwUSDC, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is computed on chain, has no minimum and is not shown.",
+      "evidence": "MetaMorpho.sol redeem(): `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor)`. The descriptor has no field for the USDC received and does not name USDC as the output asset.",
+      "fix": "None for the amount. Optionally add a constant field 'Receive asset: USDC' as in mint.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent 'Redeem' does not say shares are swapped back for USDC.",
+      "evidence": "descriptor.json redeem: `\"intent\": \"Redeem\"`, no interpolatedIntent and no field naming USDC.",
+      "fix": "Add interpolatedIntent \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.288,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 54,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say USDC leaves the wallet, and 'Deposit asset' shows a ticker without an amount.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 62,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the intent 'Mint' does not say USDC leaves the wallet, and 'Deposit asset' shows a ticker without an amount."
+ }
+}

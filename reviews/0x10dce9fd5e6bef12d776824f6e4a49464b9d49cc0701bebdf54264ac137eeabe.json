@@ -1,0 +1,190 @@
+{
+ "hash": "0x10dce9fd5e6bef12d776824f6e4a49464b9d49cc0701bebdf54264ac137eeabe",
+ "file": "registry/morpho/calldata-re7_labs-re7frxUSD-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x07ecd7e0c348d526902258e3b1c4f2898057e611"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` frxUSD from the signer into the vault (safeTransferFrom in enter).",
+     "Mints vault shares (re7frxUSD) to `onBehalf`. The share count comes from previewDeposit at the current share price, not from calldata.",
+     "Allocates the deposited assets to the liquidity adapter. This is vault-internal and does not touch the signer."
+    ],
+    "shown": "Deposit <assets> frxUSD for <onBehalf>, with fields for the frxUSD amount, a constant 'Share ticker: re7frxUSD' and 'Send shares to <onBehalf>'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown because the contract computes it from the share price.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. shares is not a calldata parameter.",
+      "fix": "None possible in a calldata descriptor. Optionally note in a label that shares are minted at the current price.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "deposit: the 'Share ticker' field shows a bare constant with no amount, which adds little.",
+      "evidence": "descriptor deposit field {label: 'Share ticker', format: 'raw', value: '$.metadata.constants.vaultTicker'}. Case 0 screen shows 'Share ticker: re7frxUSD'.",
+      "fix": "Fold it into the recipient label, e.g. 'Send re7frxUSD shares to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The signer sent 1e9 wei of frxUSD (18 decimals), shown as 0.000000001 frxUSD. That is correct. The shares were minted to 0xdead, not to the signer. The screen shows this as 'Send shares to' and the reader understood it."
+     }
+    ],
+    "glance": 85,
+    "depth": 82
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` frxUSD from the vault to `receiver` (safeTransfer in exit).",
+     "Burns shares from `onBehalf`. The amount is previewWithdraw(assets), rounded up at the current price, with no maximum-shares bound.",
+     "When msg.sender != onBehalf, spends the share allowance that onBehalf gave the signer."
+    ],
+    "shown": "Withdraw exactly <assets> frxUSD to <receiver>, with Owner <onBehalf> shown as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the re7frxUSD shares burned from the owner are not shown because the contract computes the amount.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)`. Case 1: re7frxUSD 79866.968… out from the signer is not on the screen. The reader marked the amount unknown.",
+      "fix": "No calldata value exists. A label such as 'Owner (shares burned from)' would at least say where the shares come from.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "80000 frxUSD in matches 'Withdraw exactly 80000 frxUSD' to the signer's own address. The 79866.97 re7frxUSD burned is not stated. The contract derives it, so no descriptor can show it. The reader knew shares are burned but not how many."
+     }
+    ],
+    "glance": 82,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` re7frxUSD from `onBehalf` (deleteShares in exit).",
+     "Sends previewRedeem(shares) frxUSD from the vault to `receiver`. The amount depends on the current price and has no minimum.",
+     "When msg.sender != onBehalf, spends the share allowance that onBehalf gave the signer."
+    ],
+    "shown": "Redeem <shares> re7frxUSD to <receiver>, with Owner <onBehalf>. The screen does not say which asset arrives or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names frxUSD as the asset the receiver gets.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The descriptor's redeem fields are only shares, receiver and onBehalf. Case 2: 15119.155… frxUSD arrived. The reader wrote 'Underlying asset (likely frxUSD) … amount not shown'.",
+      "fix": "Add a constant field such as {label: 'Receive asset', value: '$.metadata.constants.underlyingTicker'}, or label the receiver 'frxUSD sent to'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the frxUSD amount received is computed from the share price and has no minimum bound.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);`. assets is not a calldata parameter. Case 2: 15119.155… frxUSD in.",
+      "fix": "None possible in a calldata descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "15103.74 re7frxUSD out is shown exactly. 15119.16 frxUSD in: the amount is derived and the asset is not named. The reader guessed frxUSD."
+     }
+    ],
+    "glance": 65,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.297,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 69,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names frxUSD as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 80,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names frxUSD as the asset the receiver gets."
+ }
+}

@@ -1,0 +1,215 @@
+{
+ "hash": "0xd7467f6fe17fbbdf58f71bc7b64724b17259ec2e32419c0855a5629c5e5385a4",
+ "file": "registry/morpho/calldata-gauntlet-gtUSDT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x8cb3649114051ca5119141a34c200d65dc0faa73"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDT to the vault (safeTransferFrom from the caller), spending the signer's USDT allowance to the vault.",
+     "The vault mints gtUSDT shares to `receiver`, floor(assets × (supply+1e12)/(totalAssets+1)) after fee accrual. The exchange rate comes from storage.",
+     "The vault supplies the USDT to Morpho Blue markets in its supply queue. The vault holds that position, not the signer."
+    ],
+    "shown": "Intent 'Deposit', with the USDT amount deposited, the share ticker gtUSDT and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many gtUSDT shares the receiver gets; the vault's exchange rate decides it.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. The descriptor shows only 'Share ticker' as raw $.metadata.constants.vaultTicker.",
+      "fix": "None possible: the share amount depends on totalAssets in storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit intent 'Deposit' does not name the asset or the vault.",
+      "evidence": "descriptor deposit format: \"intent\": \"Deposit\"; the asset is USDT (constructor _asset 0xdAC1…1ec7) and the vault is gtUSDT.",
+      "fix": "Change the intent to \"Deposit USDT into Gauntlet gtUSDT vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` gtUSDT to `receiver`.",
+     "The signer pays USDT to the vault: ceil(shares × (totalAssets+1)/(supply+1e12)), set by the exchange rate in storage. The only cap is the signer's allowance.",
+     "The vault supplies the USDT to Morpho Blue markets."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: USDT' with no amount, the shares minted, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDT leaves the signer; the vault's exchange rate decides it.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. The descriptor's 'Deposit asset' field is raw $.metadata.constants.underlyingTicker, with no amount.",
+      "fix": "None possible in calldata. Consider a label like 'Pay in (amount set by vault rate)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent 'Mint' does not say that the signer pays USDT for the vault shares.",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\"; the code pulls USDT from the caller in ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);`",
+      "fix": "Change the intent to \"Deposit USDT to mint gtUSDT shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault sends exactly `assets` USDT to `receiver`.",
+     "The vault burns gtUSDT shares from `owner`: ceil(assets × (supply+1e12)/(totalAssets+1)). The amount comes from storage.",
+     "When the caller is not `owner`, the vault spends `owner`'s gtUSDT allowance to the caller by the burned shares.",
+     "The vault withdraws the USDT from Morpho Blue markets in its withdraw queue."
+    ],
+    "shown": "Intent 'Withdraw', the exact USDT amount, the address that receives it ('To') and the owner of the burned shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many gtUSDT shares the vault burns from the owner.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then ERC4626._withdraw `_burn(owner, shares);`",
+      "fix": "None possible: the share amount depends on the exchange rate in storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtUSDT from `owner`. When the caller is not `owner`, it spends `owner`'s allowance to the caller.",
+     "The vault sends USDT to `receiver`: floor(shares × (totalAssets+1)/(supply+1e12)). The amount comes from storage.",
+     "The vault withdraws the USDT from Morpho Blue markets."
+    ],
+    "shown": "Intent 'Redeem', the gtUSDT shares redeemed, the address that receives the funds ('To') and the owner; the screen does not name the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "redeem never names USDT as the asset the receiver gets, so the reader was unsure of the asset.",
+      "evidence": "descriptor redeem fields: only 'Shares to redeem', 'To', 'Owner'; the deposit and mint formats carry underlyingTicker but redeem does not. Case 0: the signer received 6593.077992 USDT; the reader wrote 'Underlying asset (likely USDT)' and was unsure 'Whether the underlying asset is really USDT'.",
+      "fix": "Add {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}, and change the intent to \"Redeem gtUSDT for USDT\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDT amount received; the vault's exchange rate decides it.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. Case 0: the signer received 6593077992 USDT (6 decimals), and no field shows it.",
+      "fix": "None possible from calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 5970.49 gtUSDT out correctly. It does not show the 6593.08 USDT in: the amount comes from the exchange rate, and the asset is not named. The reader guessed USDT with no amount."
+     }
+    ],
+    "glance": 50,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.339,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 58,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' does not name the asset or the vault.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say that the signer pays USDT for the vault shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDT as the asset the receiver gets, so the reader was unsure of the asset.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 58,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint intent 'Mint' does not say that the signer pays USDT for the vault shares."
+ }
+}

@@ -1,0 +1,262 @@
+{
+ "hash": "0x94e524b3c3e7c6948d25766a2e952d8e58b1f6b1a8b3b42a0a3ff55496a62fac",
+ "file": "registry/sky/calldata-sUSDS.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` USDS from the signer and sends it to the sUSDS vault (usds.transferFrom(msg.sender, address(this), assets) in _mint), using the signer's USDS allowance to the vault.",
+     "Mints assets*RAY/chi sUSDS shares to `receiver`. chi is the savings rate accumulator, updated by drip() in the same call."
+    ],
+    "shown": "Deposit USDS into Sky Savings: the exact USDS amount, a fixed 'sUSDS' ticker, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of sUSDS shares received is not shown; it depends on the on-chain rate chi.",
+      "evidence": "SUsds.sol deposit(): `shares = assets * RAY / drip();`. Calldata has no share amount or minimum, so the descriptor can only show the ticker via the 'Share ticker' field.",
+      "fix": "None possible from calldata. Could add an intent such as 'Deposit USDS, receive sUSDS shares'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: no interpolatedIntent, and the 'Share ticker' field shows only a constant.",
+      "evidence": "descriptor deposit(uint256,address): no interpolatedIntent; field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'}",
+      "fix": "Add interpolatedIntent 'Deposit {assets} into Sky Savings for {receiver}' and fold the share ticker into the intent wording.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Takes ceil(shares*chi/RAY) USDS from the signer and sends it to the vault (mint(): `assets = _divup(shares * drip(), RAY)`, then _mint transferFrom), using the signer's USDS allowance.",
+     "Mints exactly `shares` sUSDS to `receiver`."
+    ],
+    "shown": "Mint, with a constant 'Deposit asset: USDS', the exact sUSDS shares minted, and the receiver.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent says only 'Mint' and does not say the signer pays USDS to get sUSDS.",
+      "evidence": "descriptor mint(uint256,address) intent: \"Mint\"; SUsds.sol mint() pulls USDS from msg.sender through _mint.",
+      "fix": "Intent 'Deposit USDS for sUSDS shares', plus interpolatedIntent 'Mint {shares} sUSDS to {receiver}, paying USDS'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDS amount taken from the signer is not shown; it comes from the rate chi in storage.",
+      "evidence": "SUsds.sol mint(): `assets = _divup(shares * drip(), RAY); _mint(assets, shares, receiver);`. The 'Deposit asset' field shows only the constant 'USDS', with no amount.",
+      "fix": "None from calldata. Label the field 'Pays in' or 'USDS paid (amount set by savings rate)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns ceil(assets*RAY/chi) sUSDS from `owner`. When owner is not the signer, it spends owner's sUSDS allowance to the signer (_burn).",
+     "Sends exactly `assets` USDS from the vault to `receiver` (usds.transfer(receiver, assets))."
+    ],
+    "shown": "Withdraw USDS from Sky Savings: exactly the stated USDS, to the receiver, from the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the sUSDS shares burned are not shown; their number comes from the rate chi.",
+      "evidence": "SUsds.sol withdraw(): `shares = _divup(assets * RAY, drip());`. Case 1: 74787.156114792009712014 sUSDS burned from the signer (signer out), and no field shows a share amount or the sUSDS asset.",
+      "fix": "None for the amount. Label 'Owner' as 'sUSDS burned from' so the asset spent is named.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDS in 82000 shown exactly with the right receiver. sUSDS out 74787.16 is not shown in asset or amount. The reader inferred the shares were burned but did not know how many."
+     }
+    ],
+    "glance": 75,
+    "depth": 78
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` sUSDS from `owner`. When owner is not the signer, it spends owner's sUSDS allowance to the signer.",
+     "Sends shares*chi/RAY USDS from the vault to `receiver`."
+    ],
+    "shown": "Redeem, with the exact sUSDS shares, the receiver and the owner; nothing names USDS as the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem: the intent says only 'Redeem'; no field names USDS as the asset the receiver gets.",
+      "evidence": "descriptor redeem(uint256,address,address) intent: \"Redeem\"; fields are shares/To/Owner only. SUsds.sol _burn: `usds.transfer(receiver, assets);`",
+      "fix": "Intent 'Redeem sUSDS for USDS', and add a constant field 'Receive asset: USDS' (like mint's underlyingTicker).",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDS amount received is not shown; it comes from the rate chi.",
+      "evidence": "SUsds.sol redeem(): `assets = shares * drip() / RAY;`. There is no minimum in calldata.",
+      "fix": "None from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 65
+   },
+   {
+    "key": "deposit(uint256 assets, address receiver, uint16 referral)",
+    "effects": [
+     "Takes exactly `assets` USDS from the signer and sends it to the vault, using the signer's USDS allowance.",
+     "Mints assets*RAY/chi sUSDS shares to `receiver`.",
+     "Emits a Referral event with the referral code; it moves no assets."
+    ],
+    "shown": "Deposit USDS into Sky Savings: the exact USDS amount, a fixed 'sUSDS' ticker, the share receiver, and the referral code.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit with referral: the sUSDS shares received are not shown; their number comes from the rate chi.",
+      "evidence": "SUsds.sol deposit(): `shares = assets * RAY / drip();`. Case 0: 1580.255627868061169742 sUSDS minted to the signer, and the screen shows only the ticker 'sUSDS'.",
+      "fix": "None from calldata.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit with referral: no interpolatedIntent, and the share ticker field shows only a constant.",
+      "evidence": "descriptor deposit(uint256,address,uint16): no interpolatedIntent; 'Share ticker' raw constant field.",
+      "fix": "Add interpolatedIntent 'Deposit {assets} into Sky Savings for {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDS out 1732.7088 shown exactly. sUSDS in is shown as a ticker and receiver but with no amount, which the rate decides. The reader understood that shares arrive but not how many."
+     }
+    ],
+    "glance": 75,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.316,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 77,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent says only 'Mint' and does not say the signer pays USDS to get sUSDS.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the intent says only 'Redeem'; no field names USDS as the asset the receiver gets.",
+   "comprehension": null
+  },
+  "deposit(uint256 assets, address receiver, uint16 referral)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 64,
+  "functions": "3B 2C",
+  "incomplete": false,
+  "worst": "mint: the intent says only 'Mint' and does not say the signer pays USDS to get sUSDS."
+ }
+}

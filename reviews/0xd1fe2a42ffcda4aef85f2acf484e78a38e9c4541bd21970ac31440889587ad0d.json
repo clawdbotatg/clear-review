@@ -1,0 +1,235 @@
+{
+ "hash": "0xd1fe2a42ffcda4aef85f2acf484e78a38e9c4541bd21970ac31440889587ad0d",
+ "file": "registry/morpho/calldata-ultrayield-edgeUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x5435bc53f2c61298167cdb11cdf0db2bfa259ca0"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC to the vault, which supplies it to Morpho Blue markets.",
+     "The receiver gets newly minted edgeUSDC shares; the contract computes the share count from assets at the current vault price (rounded down).",
+     "Interest accrues first and fee shares may be minted to the fee recipient; this sets the price but takes nothing from the signer directly."
+    ],
+    "shown": "Intent 'Deposit' with the exact USDC amount, the share ticker edgeUSDC, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many edgeUSDC shares the receiver gets; the contract computes it from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0 mints 1906.246051496302327583 edgeUSDC to the signer; the screen shows only 'Share ticker: edgeUSDC'.",
+      "fix": "No descriptor change can show a storage-derived share count; the calldata has no minimum-shares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out 4005.946268 shown exactly. edgeUSDC in: asset and receiver shown, amount not (derived from storage)."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer pays USDC to the vault; the contract computes the amount from `shares` at the current vault price, rounded up. The calldata does not cap it.",
+     "The receiver gets exactly `shares` newly minted edgeUSDC.",
+     "The vault supplies the USDC to Morpho Blue markets."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: USDC' with no amount, the exact share count in edgeUSDC, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDC leaves the signer; the vault price decides it, with no cap.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` then `_deposit(_msgSender(), receiver, assets, shares)`. Case 1: 1 wei of USDC leaves the signer; the screen shows only 'Deposit asset: USDC'.",
+      "fix": "No descriptor change can show it; the calldata has no maxAssets parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent 'Mint' does not say that the signer pays USDC for vault shares.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`. Case 1 reader: 'How much USDC is taken. The screen shows only the share amount.' The code pulls USDC from the caller in `_deposit`.",
+      "fix": "Change the intent to \"Deposit USDC for edgeUSDC shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "Only signer effect is 1 wei USDC out. The screen names USDC but no amount. The shares go to 0xdEaD (signer null), and the screen shows that correctly."
+     }
+    ],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns edgeUSDC shares from `owner`; the contract computes the count from assets at the current price, rounded up.",
+     "If the signer is not the owner, the signer's share allowance from the owner is spent.",
+     "The receiver gets exactly `assets` USDC, which the vault withdraws from Morpho Blue markets."
+    ],
+    "shown": "Intent 'Withdraw', the exact USDC amount, the receiver, and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many edgeUSDC shares the owner burns; the vault price decides it.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 2 burns 476.487876750232442535 edgeUSDC from the signer; no field shows shares.",
+      "fix": "No descriptor change can show it; the calldata has no maxShares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDC in 1001.133157 to the signer is shown exactly. Shares out: the owner is shown but not the amount; the reader understood shares are burned."
+     }
+    ],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` edgeUSDC from `owner`.",
+     "If the signer is not the owner, the signer's share allowance from the owner is spent.",
+     "The receiver gets USDC; the contract computes the amount from shares at the current price, rounded down. The calldata sets no minimum."
+    ],
+    "shown": "Intent 'Redeem', the exact share count in edgeUSDC, the receiver, and the owner. Nothing names the asset paid out.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDC the receiver gets; the vault price decides it, with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 3 sends 314.15953 USDC to the signer; the screen shows no USDC amount.",
+      "fix": "No descriptor change can show it; the calldata has no minAssets parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names USDC as the asset the receiver gets back.",
+      "evidence": "descriptor redeem format has only fields `shares`, `receiver`, `owner`. The mint format shows `$.metadata.constants.underlyingTicker`, but redeem does not. Case 3 reader: 'Which asset is paid out; assumed USDC from the name only'.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}, or change the intent to \"Redeem edgeUSDC for USDC\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Shares out 149.467202680420985329 edgeUSDC shown exactly. USDC in: the receiver is shown, but no asset or amount; the reader guessed USDC."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.408,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 79,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 44,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say that the signer pays USDC for vault shares.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset the receiver gets back.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 62,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never names USDC as the asset the receiver gets back."
+ }
+}

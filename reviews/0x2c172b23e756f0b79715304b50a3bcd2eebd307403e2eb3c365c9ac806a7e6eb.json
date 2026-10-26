@@ -1,0 +1,192 @@
+{
+ "hash": "0x2c172b23e756f0b79715304b50a3bcd2eebd307403e2eb3c365c9ac806a7e6eb",
+ "file": "registry/morpho/calldata-rockawayx-roxFX-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2ca22cb25558fa2018ecb1ce4ed8af92ee7ea423"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer and sends it to the vault (safeTransferFrom(asset, msg.sender, address(this), assets)). This spends the signer's USDC allowance to the vault.",
+     "Mints roxFX shares to `onBehalf`. The number is previewDeposit(assets), set by the vault's exchange rate after interest and fees accrue. There is no minimum-shares bound.",
+     "Accrues interest first and may mint fee shares to the fee recipients, which dilutes the share price. The signer does not receive these shares."
+    ],
+    "shown": "Deposit 246870.182936 USDC for <onBehalf>, with fields for the USDC amount, the share ticker roxFX and the address that gets the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of roxFX shares minted is not shown; the vault computes it from storage.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0: the signer received 246815.148999752976547628 roxFX. The screen shows only 'Share ticker: roxFX'.",
+      "fix": "No calldata path holds the share amount. The descriptor could say that shares are minted at the current vault rate.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the label 'Deposit asset' sits on an amount field, and 'Share ticker' is a bare constant.",
+      "evidence": "descriptor deposit fields: `\"label\": \"Deposit asset\"` on path `assets` (tokenAmount), and `\"label\": \"Share ticker\"` with value $.metadata.constants.vaultTicker in raw format.",
+      "fix": "Use 'Amount to deposit' and 'Receive shares (roxFX)', or fold the ticker into the intent: 'Deposit {assets} for roxFX shares to {onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The USDC out matches exactly. The roxFX in is shown by ticker and recipient, but its amount cannot be shown from calldata."
+     }
+    ],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) roxFX shares from `onBehalf`. The vault rounds this number up from its exchange rate.",
+     "When the signer is not `onBehalf`, it spends that number of shares from onBehalf's allowance to the signer.",
+     "Sends exactly `assets` USDC from the vault to `receiver`. It may first pull liquidity out of the liquidity adapter.",
+     "Accrues interest first, which may mint fee shares to the fee recipients."
+    ],
+    "shown": "Withdraw exactly <assets> USDC to <receiver>, with the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of roxFX shares burned from the owner is not shown; the vault computes it.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 1: 31062.153152972040390579 roxFX left the signer, and no field states it.",
+      "fix": "No calldata path holds it. A label such as 'Shares burned at vault rate' could tell the signer that shares are spent.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "Exactly 31063 USDC reached the signer, as shown. The reader knew shares were burned but not how many."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` roxFX from `onBehalf`. When the signer is not `onBehalf`, it spends the same number from onBehalf's allowance to the signer.",
+     "Sends previewRedeem(shares) USDC from the vault to `receiver`. The vault rounds this down from its exchange rate, and there is no minimum-assets bound.",
+     "Accrues interest first and may pull liquidity from the adapter."
+    ],
+    "shown": "Redeem <shares> roxFX to <receiver>, with the owner. The screen never says that USDC is the asset paid out.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names USDC as the asset the receiver gets.",
+      "evidence": "Descriptor redeem: intent 'Redeem', interpolatedIntent 'Redeem {#.shares} to {#.receiver}', and no field for the underlying asset. Case 2: the signer received 28499.194748 USDC, and the reader wrote 'the screen doesn't say which asset or how much'.",
+      "fix": "Add a constant field 'Receive asset' set to $.metadata.constants.underlyingTicker (as deposit does for the share ticker). Or change the interpolatedIntent to 'Redeem {#.shares} for USDC to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount paid out is computed by the vault and not shown, with no minimum.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. Case 2: 28499194748 USDC was received and is not on the screen.",
+      "fix": "No calldata path holds it. Label the payout as 'at current vault rate'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out are exact. The USDC in was understood only as 'some underlying asset', with neither asset nor amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.347,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 65,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDC as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 72,
+  "functions": "3B",
+  "incomplete": false,
+  "worst": null
+ }
+}

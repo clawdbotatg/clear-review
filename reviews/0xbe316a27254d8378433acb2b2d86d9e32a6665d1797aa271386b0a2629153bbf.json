@@ -1,0 +1,104 @@
+{
+ "hash": "0xbe316a27254d8378433acb2b2d86d9e32a6665d1797aa271386b0a2629153bbf",
+ "file": "registry/threshold/calldata-L2BitcoinDepositor.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xa2a81d9445b4f898b028c96d164bcd6c8c8c512e"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x1c8d7b744b474c080faadd5bf9ad965be4258f9e"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xdebd9aa9bc4845c7cd2d9a997f82a2daea540bd5"
+  },
+  {
+   "chainId": 421614,
+   "address": "0xb2fec598a9374078bb639f3d70555fc4389b7a78"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "initializeDeposit((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal, address l2DepositOwner)",
+    "effects": [
+     "No tokens or ETH move and no approval or state changes; the function is not payable and only emits DepositInitialized(fundingTx, reveal, l2DepositOwner, msg.sender).",
+     "An off-chain relayer picks up the event and reveals the Bitcoin deposit on L1, so tBTC minted from the BTC already sent on Bitcoin is later bridged to l2DepositOwner on L2.",
+     "The BTC amount being deposited and the refund terms (refundPubKeyHash, refundLocktime) come from the Bitcoin funding transaction and the reveal data. The L2 call only passes them along."
+    ],
+    "shown": "\"Initialize L2 tBTC deposit\", with the L2 deposit owner and the vault as addresses, plus the reveal values and the Bitcoin tx parts as raw hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "initializeDeposit has no interpolatedIntent naming who will receive the minted tBTC.",
+      "evidence": "descriptor.json: \"intent\": \"Initialize L2 tBTC deposit\", and there is no interpolatedIntent. L2BitcoinDepositor.sol initializeDeposit emits l2DepositOwner, and that is the address tBTC is later bridged to.",
+      "fix": "Add interpolatedIntent \"Initialize tBTC deposit for {l2DepositOwner}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "initializeDeposit: the BTC deposit amount is buried in the raw Bitcoin outputVector bytes.",
+      "evidence": "descriptor.json field fundingTx.outputVector 'Bitcoin outputs' format raw, visible optional. In case 0 the screen shows 0x01a086010000000000220020..., which is a little-endian value of 100000 sats that no reader can decode.",
+      "fix": "No ERC-7730 format can parse Bitcoin varint/LE outputs; the amount cannot be shown until the spec supports it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "initializeDeposit: the refund locktime is a little-endian bytes4 timestamp shown as raw hex.",
+      "evidence": "descriptor.json reveal.refundLocktime 'Refund locktime' format raw; case 0 shows 0x65f1d480. tBTC encodes it as a 4-byte little-endian Unix time, so the date format cannot render it.",
+      "fix": "Waits on a little-endian or bytes-to-date format in the spec.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.228,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 66,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "initializeDeposit((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal, address l2DepositOwner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "initializeDeposit has no interpolatedIntent naming who will receive the minted tBTC.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 65,
+  "functions": "1B",
+  "incomplete": false,
+  "worst": "initializeDeposit has no interpolatedIntent naming who will receive the minted tBTC."
+ }
+}

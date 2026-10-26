@@ -1,0 +1,250 @@
+{
+ "hash": "0x199e629b958369fc6d2b6682717a469cf8648d284ea189f6718f5139f0b788d3",
+ "file": "registry/morpho/calldata-hyperithm-ApyxapxUSD-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x3a618e9d4159dff94e90bd6239161de4dd7c0082"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` apxUSD to the vault (safeTransferFrom from msg.sender in enter).",
+     "The vault mints shares to `onBehalf`. The number is set by previewDeposit at the current share price, after fees accrue, and the caller sets no minimum."
+    ],
+    "shown": "Deposit X apxUSD for <onBehalf>, with the share ticker ApyxapxUSD and the share recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown because the contract computes it from the share price.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);` No min-shares parameter. Case 0: the signer received 6.015341882345353593 ApyxapxUSD, which is on no screen field.",
+      "fix": "Nothing in calldata bounds it. The descriptor cannot show it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' field shows only a constant ticker, with no amount.",
+      "evidence": "descriptor deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'}. The screen shows 'ApyxapxUSD'.",
+      "fix": "Label it 'You receive (vault shares)' so it is clear these shares arrive, in an amount set at execution.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "6.06451194 apxUSD out is shown exactly. The ApyxapxUSD shares in have their asset and recipient shown, but the amount (6.0153) appears nowhere and no bound exists. The reader saw this correctly as unknown."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Vault shares are burned from `onBehalf`. The number is set by previewWithdraw at the current share price, rounded up, with no maximum.",
+     "Exactly `assets` apxUSD go to `receiver`.",
+     "When the signer is not `onBehalf`, the signer's share allowance from `onBehalf` drops by the shares burned."
+    ],
+    "shown": "Withdraw exactly X apxUSD to <receiver>, with the owner (onBehalf) as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown, and no maximum bounds it.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)`, then deleteShares(onBehalf, shares). Case 2: 108.233608911749140330 ApyxapxUSD left the signer and the screen does not show it.",
+      "fix": "Not possible from calldata. A label such as 'Shares burned from' on onBehalf would at least name the asset that leaves.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: the 'Owner' label does not say that vault shares are burned from this address.",
+      "evidence": "descriptor withdraw field {path:'onBehalf', label:'Owner'}. exit() calls deleteShares(onBehalf, shares) and spends allowance[onBehalf][msg.sender]. Case 2 reader: 'the screen doesn't name it or the amount'.",
+      "fix": "Relabel to 'Burn ApyxapxUSD shares from'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "108.987934987252654306 apxUSD in is shown exactly. The shares that left (108.2336 ApyxapxUSD) are not shown. The reader guessed a share claim was used up but had no asset or amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` vault shares are burned from `onBehalf`. When the signer is not the owner, the signer's share allowance drops by that amount.",
+     "apxUSD goes to `receiver` in an amount set by previewRedeem at the current price, with no minimum."
+    ],
+    "shown": "Redeem X ApyxapxUSD to <receiver>, with the owner as a field. Nothing says what asset comes back.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says apxUSD is what the receiver gets back.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The redeem fields are only shares, receiver and onBehalf. The sibling mint format shows the constant underlyingTicker. Case 3: 2658.049331626184946213 apxUSD arrived. Reader: 'Unknown asset and amount'.",
+      "fix": "Add a field {label:'You receive', format:'raw', value:'$.metadata.constants.underlyingTicker'}, and say it in the intent: 'Redeem {shares} for apxUSD to {receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the amount of apxUSD received is not shown, and no minimum bounds it.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);`. No minAssets parameter. Case 3: 2658.0493 apxUSD in, not on the screen.",
+      "fix": "Not possible from calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 2652.974667942147977999 ApyxapxUSD shares out are shown exactly. For the apxUSD in, the recipient is shown but the asset and amount are not, and the reader said so."
+     }
+    ],
+    "glance": 70,
+    "depth": 62
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer pays apxUSD to the vault. The amount is set by previewMint at the current price, rounded up, and the caller sets no maximum.",
+     "Exactly `shares` vault shares are minted to `onBehalf`."
+    ],
+    "shown": "Mint X ApyxapxUSD for <onBehalf>, with 'Deposit asset: apxUSD' shown as a ticker with no amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the amount of apxUSD the signer pays is not shown, and no maximum bounds it.",
+      "evidence": "VaultV2.sol mint(): `uint256 assets = previewMint(shares); enter(...)`, which calls safeTransferFrom(asset, msg.sender, ...). Case 1: 0.000000001 apxUSD (1e9 wei) left the signer and the screen does not show the amount.",
+      "fix": "Not possible from calldata. The descriptor can only name the asset, which it does.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' and the sentence do not say that the signer pays apxUSD.",
+      "evidence": "descriptor mint interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. Payment shows only in the field 'Deposit asset: apxUSD'.",
+      "fix": "Use an intent such as 'Deposit apxUSD to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "apxUSD out: the asset is named but the amount (1e-9 apxUSD) is not shown, and no bound exists. The shares went to 0xdead, which the screen shows correctly; this is not a signer effect."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.481,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 116,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says apxUSD is what the receiver gets back.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 69,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says apxUSD is what the receiver gets back."
+ }
+}

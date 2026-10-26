@@ -1,0 +1,241 @@
+{
+ "hash": "0xd9fcc156f8c2ad2dcfc067998ea7a01f073eca7446e9560d630795a8057412a9",
+ "file": "registry/morpho/calldata-re7_labs-Re7FRAX.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbe40491f3261fd42724f1aeb465796eb11c06ddf"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` FRAX from the signer into the vault (ERC4626._deposit safeTransferFrom), spending the signer's FRAX allowance to the vault.",
+     "Mints Re7FRAX shares to `receiver`. The share count is computed from vault totals in storage (rounded down), after fees accrue.",
+     "Supplies the FRAX to Morpho Blue markets in the vault's name. The signer's assets are not directly affected."
+    ],
+    "shown": "Deposit: the FRAX amount (tokenAmount with the FRAX constant), the share ticker Re7FRAX, and the address that gets the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of Re7FRAX shares received is not shown; it comes from vault totals in storage.",
+      "evidence": "MetaMorpho.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Floor). The function has no minShares parameter. The descriptor only shows 'Share ticker' = Re7FRAX.",
+      "fix": "None possible in calldata. You could label the ticker field 'Receive shares in'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "deposit: the intent 'Deposit' has no interpolatedIntent naming the amount and the receiver.",
+      "evidence": "descriptor deposit format: \"intent\": \"Deposit\", no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} for Re7FRAX shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Pulls FRAX from the signer into the vault. The amount is convertToAssets(shares) rounded up from vault totals in storage, with no cap the signer sets, and it spends the signer's FRAX allowance to the vault.",
+     "Mints exactly `shares` Re7FRAX to `receiver`.",
+     "Supplies the FRAX to Morpho Blue markets in the vault's name."
+    ],
+    "shown": "Mint: deposit asset FRAX (a constant ticker), the share amount in Re7FRAX, and the address that gets the shares. The FRAX amount taken is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the FRAX amount pulled from the signer is not shown; it comes from vault storage with no max.",
+      "evidence": "MetaMorpho.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Ceil); _deposit pulls `assets`. Case 0: 1027453138 wei FRAX went out of the signer. The screen shows only 'Deposit asset: FRAX'.",
+      "fix": "None in calldata. The allowance the signer granted earlier is the only bound.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "mint: the screen does not mention that the FRAX allowance to the vault is spent.",
+      "evidence": "Case 0: FRAX approval event from the signer to the vault (signer=grant), as transferFrom lowers the allowance. ERC4626._deposit safeTransferFrom. This spend is what depositing means (not_critical #12).",
+      "fix": "None needed.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' does not say the signer pays FRAX into the vault.",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\", no interpolatedIntent. Case 0 reader: 'How much FRAX is taken. The screen shows only the shares'.",
+      "fix": "Use intent \"Deposit FRAX for vault shares\" and interpolatedIntent \"Mint {shares} by depositing FRAX, shares to {receiver}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 0,
+      "reader": [
+       "partial",
+       "missed"
+      ],
+      "notes": "The signer paid 1027453138 wei FRAX. The screen names FRAX but not the amount, which only the contract can compute. The allowance spend is not mentioned. The shares to 0x…01 are shown correctly and are not the signer's."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns Re7FRAX shares from `owner`. The count is convertToShares(assets) rounded up from storage. When the caller is not the owner, it spends the caller's share allowance from the owner.",
+     "Sends exactly `assets` FRAX from the vault to `receiver`, after pulling it from Morpho Blue markets."
+    ],
+    "shown": "Withdraw: exactly N FRAX, the recipient and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of Re7FRAX shares burned is not shown, and neither is the share token.",
+      "evidence": "MetaMorpho.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Ceil); ERC4626._withdraw _burn(owner, shares). The descriptor shows no shares field and no vaultTicker constant.",
+      "fix": "Add a constant field 'Shares burned from' = $.metadata.constants.vaultTicker, as deposit does. The amount cannot be shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "withdraw: the intent 'Withdraw' has no interpolatedIntent with the amount and the recipient.",
+      "evidence": "descriptor withdraw format: \"intent\": \"Withdraw\", no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` Re7FRAX from `owner`. When the caller is not the owner, it spends the caller's share allowance from the owner.",
+     "Sends FRAX to `receiver`. The amount is convertToAssets(shares) rounded down from storage, and there is no minimum."
+    ],
+    "shown": "Redeem: the share amount in Re7FRAX, the recipient and the owner. The asset received and its amount are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names FRAX as the asset received, though it is a fixed constant.",
+      "evidence": "ERC4626._withdraw: SafeERC20.safeTransfer(_asset, receiver, assets). Case 1: 30000.857 FRAX came in to the signer (signer=in). The screen has no FRAX field. The reader said 'likely FRAX-related … token not shown'. The mint format does show $.metadata.constants.underlyingTicker.",
+      "fix": "Add a constant field 'Receive asset' = $.metadata.constants.underlyingTicker, and interpolatedIntent \"Redeem {shares} for FRAX to {receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the FRAX amount received comes from vault storage and has no minimum to show.",
+      "evidence": "MetaMorpho.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Floor). Case 1: the signer received 30000857141467083859215 wei FRAX, and the screen shows no amount.",
+      "fix": "None in calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares burned (29999.3154 Re7FRAX) are shown right. The FRAX received (30000.857) has neither its asset nor its amount on screen, so the reader guessed the direction only."
+     }
+    ],
+    "glance": 60,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.354,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 90,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 30,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say the signer pays FRAX into the vault.",
+   "comprehension": 25
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names FRAX as the asset received, though it is a fixed constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 62,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names FRAX as the asset received, though it is a fixed constant."
+ }
+}

@@ -1,0 +1,212 @@
+{
+ "hash": "0x045abdee19dd1f412635e3e9f4d171019dc5f42fc3761d6a323be0a46a1bb06e",
+ "file": "registry/morpho/calldata-re7_labs-meUSD.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xbb819d845b573b5d7c538f5b85057160cfb5f313"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` eUSD (0xCfA3…9FB4) from their wallet to the vault (safeTransferFrom(_asset, caller, address(this), assets)).",
+     "The receiver gets meUSD vault shares, computed from `assets` at the current exchange rate after fee accrual, rounded down; no minimum is enforced.",
+     "The vault spends the signer's eUSD allowance to the vault by `assets`."
+    ],
+    "shown": "Intent \"Deposit\", then the eUSD amount deposited, the share ticker \"meUSD\" and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many meUSD shares the receiver gets, and the code sets no minimum.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. The share count comes from storage, not from calldata. The descriptor shows only `\"label\": \"Share ticker\", \"value\": \"$.metadata.constants.vaultTicker\"`.",
+      "fix": "No descriptor change can show the computed share amount. Leave as is.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit intent \"Deposit\" names neither the asset nor the vault.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`, with no interpolatedIntent. The token eUSD and the vault meUSD appear only in the fields.",
+      "fix": "Change the intent to \"Deposit eUSD into meUSD vault\" and add an interpolatedIntent such as \"Deposit {assets} to receive meUSD shares for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends eUSD to the vault. The amount is computed from `shares` at the current exchange rate after fee accrual, rounded up. The only bound is the signer's eUSD allowance to the vault.",
+     "The receiver gets exactly `shares` meUSD vault shares.",
+     "The vault spends the signer's eUSD allowance to the vault by the computed amount."
+    ],
+    "shown": "Intent \"Mint\", the label \"Deposit asset: eUSD\" with no amount, the exact meUSD shares minted, and the address that receives them.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much eUSD leaves the signer's wallet; the field shows only the ticker.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. The descriptor shows `\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"`. That renders \"eUSD\" with no amount.",
+      "fix": "No calldata value carries the eUSD amount. Leave as is, or relabel the ticker field \"Pays with (amount set by vault rate)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent \"Mint\" does not say that the signer pays eUSD for the shares.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`. The code pulls eUSD from the caller in ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);`.",
+      "fix": "Change the intent to \"Deposit eUSD to mint meUSD shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns meUSD shares from `owner`. The share amount is computed from `assets` at the current exchange rate, rounded up.",
+     "When the signer is not `owner`, the vault spends the signer's meUSD share allowance from `owner` by that share amount.",
+     "The receiver gets exactly `assets` eUSD from the vault."
+    ],
+    "shown": "Intent \"Withdraw\", the exact eUSD amount to withdraw, the receiver and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many meUSD shares the vault burns from the owner.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);`. ERC4626._withdraw: `_burn(owner, shares);`. No field shows the shares.",
+      "fix": "No calldata value carries the share amount. Leave as is.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw intent \"Withdraw\" names neither the asset nor the vault.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`, with no interpolatedIntent.",
+      "fix": "Change the intent to \"Withdraw eUSD from meUSD vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` meUSD shares from `owner`.",
+     "When the signer is not `owner`, the vault spends the signer's meUSD share allowance from `owner` by `shares`.",
+     "The receiver gets eUSD from the vault. The amount is computed from `shares` at the current exchange rate, rounded down, with no minimum."
+    ],
+    "shown": "Intent \"Redeem\", the exact meUSD shares to redeem, the receiver and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the eUSD the receiver gets, and the code sets no minimum.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);`. No field names eUSD or the amount.",
+      "fix": "No calldata value carries the eUSD amount. To name the asset, add a constant field: {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem intent \"Redeem\" does not say that the shares become eUSD.",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"`. None of its fields mentions eUSD.",
+      "fix": "Change the intent to \"Redeem meUSD shares for eUSD\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.313,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 54,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 67,
+  "functions": "4B",
+  "incomplete": false,
+  "worst": null
+ }
+}

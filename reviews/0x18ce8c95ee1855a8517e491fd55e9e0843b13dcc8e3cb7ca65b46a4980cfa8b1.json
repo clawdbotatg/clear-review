@@ -1,0 +1,235 @@
+{
+ "hash": "0x18ce8c95ee1855a8517e491fd55e9e0843b13dcc8e3cb7ca65b46a4980cfa8b1",
+ "file": "registry/yieldxyz/calldata-yieldxyz-usde-vault.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2d152fb171353e70e45322d32bc748f8a61d9971"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 _underlying, address receiver)",
+    "effects": [
+     "The signer sends `_underlying` USDe to the vault, using the signer's USDe allowance to the vault.",
+     "The vault deposits that USDe into sUSDe and mints stk-USDe shares to `receiver`.",
+     "The vault keeps a deposit fee: it mints part of the new shares to `config.feeRecipient`, so the receiver gets fewer shares.",
+     "Before the deposit, `_harvest` mints management and performance fee shares to the fee recipient. This dilutes existing holders."
+    ],
+    "shown": "Intent 'Deposit', with the USDe amount, the stk-USDe ticker as a constant, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the number of stk-USDe shares received, which a storage fee rate reduces",
+      "evidence": "AllocatorVaultV3.deposit: `uint256 userShares = (newShares * (MAX_BPS - config.depositFee)) / MAX_BPS;` `_mint(config.feeRecipient, feeShares);`. Case 0: the signer receives 7929090223291065430379033034 stk-USDe, but the screen shows only 'Share ticker: stk-USDe'.",
+      "fix": "No descriptor change can show the share count, because the vault computes it from storage. You can add 'after fees' to a label.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit intent 'Deposit' names neither the asset nor the vault share received",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`, with no interpolatedIntent.",
+      "fix": "Change the intent to \"Deposit USDe for stk-USDe\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "partial",
+       "partial"
+      ],
+      "notes": "9644.046 USDe leaves and is shown right. 7929090223.29 stk-USDe arrive to the signer: the asset and the receiver are shown, the amount is not. The USDe allowance spent equals the amount shown. The reader only guessed that an approval was needed."
+     }
+    ],
+    "glance": 50,
+    "depth": 65
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends an amount of USDe that the vault computes with previewMint. This amount includes the deposit fee, and nothing in the calldata caps it.",
+     "The vault mints exactly `shares` stk-USDe to `receiver`.",
+     "The vault mints extra fee shares to `config.feeRecipient`, and the signer pays for them in USDe.",
+     "`_harvest` mints fee shares to the fee recipient first."
+    ],
+    "shown": "Intent 'Mint', with 'Deposit asset: USDe' as a constant ticker, the number of stk-USDe shares, and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDe leaves the signer, and no bound caps that amount",
+      "evidence": "AllocatorVaultV3.mint: `uint256 _underlying = previewMint(shares); ... IERC20(underlying).safeTransferFrom(msg.sender, address(this), _underlying);`. The descriptor field 'Deposit asset' only shows the constant `underlyingTicker`.",
+      "fix": "No calldata value holds the USDe cost. Change the label to 'Pays in (amount set by vault)' to make this clear.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent 'Mint' does not say that USDe leaves the wallet",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`. The USDe payment appears only as the raw constant field 'Deposit asset'.",
+      "fix": "Change the intent to \"Deposit USDe to mint stk-USDe\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 45
+   },
+   {
+    "key": "withdraw(uint256 _underlying, address receiver, address owner)",
+    "effects": [
+     "The vault burns stk-USDe shares from `owner`. It computes the number with ceiling rounding, and nothing in the calldata caps it.",
+     "If the signer is not the owner, the vault spends the owner's stk-USDe allowance to the signer.",
+     "With `config.hasCooldown` set (the live state, see case 1), `receiver` gets sUSDe worth `_underlying` USDe, not USDe.",
+     "Without cooldown, `receiver` gets `_underlying` USDe from sUSDe.",
+     "`_harvest` mints fee shares to the fee recipient first."
+    ],
+    "shown": "Intent 'Withdraw', with 'Withdraw exactly' X USDe, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "withdraw shows 'Withdraw exactly X USDe', but the receiver gets sUSDe",
+      "evidence": "AllocatorVaultV3.withdraw: `uint256 assets = strategy.previewWithdraw(_underlying); ... if (config.hasCooldown) { IERC20(address(strategy)).safeTransfer(receiver, assets); }`. The descriptor field reads `\"label\": \"Withdraw exactly\"` with `\"token\": \"$.metadata.constants.underlyingToken\"` (USDe). Case 1 (redeem, same branch) shows the vault sending sUSDe, so hasCooldown is on.",
+      "fix": "Change the intent to \"Withdraw sUSDe worth USDe amount\". Change the label to 'USDe value to withdraw (paid in sUSDe)'. You can also add a constant field 'Receive asset: sUSDe'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many stk-USDe shares the vault burns from the owner",
+      "evidence": "AllocatorVaultV3.withdraw: `uint256 shares = _convertToShares(assets, true); ... _burn(owner, shares);`. No max-shares parameter exists.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 30
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns `shares` stk-USDe from `owner`. If the signer is not the owner, it spends the owner's allowance to the signer.",
+     "With `config.hasCooldown` set, the vault sends sUSDe (the strategy shares) to `receiver`, not USDe.",
+     "The amount received comes from the vault exchange rate after `_harvest` mints fee shares. It has no minimum."
+    ],
+    "shown": "Intent 'Redeem', with the stk-USDe shares to redeem, the receiver and the owner. Nothing says which asset arrives.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem does not show that the signer receives sUSDe; the reader expected USDe",
+      "evidence": "AllocatorVaultV3.redeem: `if (config.hasCooldown) { IERC20(address(strategy)).safeTransfer(receiver, assets); }`. Case 1: the signer receives 1626.3125 sUSDe (0x9d39…3497). The screen shows only 'Shares to redeem', 'To' and 'Owner'. The reader believed 'Underlying asset (likely USDe)'.",
+      "fix": "Change the intent to \"Redeem stk-USDe for sUSDe\". Add a constant field 'Receive asset: sUSDe' with a new constant `strategyTicker`.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem has no minimum-received bound, and the sUSDe amount comes from storage",
+      "evidence": "AllocatorVaultV3.redeem: `uint256 assets = _convertToAssets(shares, false);` after `_harvest()`. No calldata parameter bounds `assets`.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "wrong"
+      ],
+      "notes": "1632128188.76 stk-USDe burned from the signer, shown right. 1626.31 sUSDe arrive. The screen names no asset, so the reader expected USDe."
+     }
+    ],
+    "glance": 30,
+    "depth": 40
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.413,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 77,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "deposit(uint256 _underlying, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' names neither the asset nor the vault share received",
+   "comprehension": 67
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say that USDe leaves the wallet",
+   "comprehension": null
+  },
+  "withdraw(uint256 _underlying, address receiver, address owner)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "withdraw shows 'Withdraw exactly X USDe', but the receiver gets sUSDe",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 29,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "redeem does not show that the signer receives sUSDe; the reader expected USDe",
+   "comprehension": 25
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 62,
+  "clarity": 38,
+  "functions": "2C 2F",
+  "incomplete": false,
+  "worst": "withdraw shows 'Withdraw exactly X USDe', but the receiver gets sUSDe"
+ }
+}

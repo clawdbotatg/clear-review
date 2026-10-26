@@ -1,0 +1,112 @@
+{
+ "hash": "0x9df3b873fb67e67372cb425ed65d8db8567a2e5e70c2365ceed4ef61ddf1303e",
+ "file": "registry/tether/calldata-usdt0-OFT-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0x567287d2a9829215a37e3b88843d32f9221e7588"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)",
+    "effects": [
+     "Burns amountLD of USDT0 (token 0xe7cd86e1…, conversion rate 1 so no dust is removed) from the signer's balance on Flare.",
+     "Reverts unless the amount sent is at least minAmountLD; the same amount is minted to `to` on the destination chain dstEid.",
+     "Takes exactly nativeFee in FLR as msg.value (it reverts if msg.value != nativeFee) and pays it to the LayerZero endpoint; any excess the endpoint does not use goes back to _refundAddress.",
+     "If lzTokenFee > 0, pulls lzTokenFee of the endpoint's lzToken from the signer to the endpoint.",
+     "If composeMsg is not empty, a compose call to the recipient runs with that payload on the destination after delivery; extraOptions set destination gas or native drop, paid out of nativeFee."
+    ],
+    "shown": "\"Bridge USDT0\" with the amount and minimum in USDT0, the destination chain (Ethereum is the only named one), the recipient as raw bytes32, the bridge fee in FLR and the refund address; the LZ token fee shows up only when it is not zero.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "send: recipient shown as a 32-byte padded hex word, not as an address.",
+      "evidence": "descriptor field {\"path\":\"#._sendParam.to\",\"label\":\"Recipient\",\"format\":\"raw\"}; case 0 screen shows 'Recipient: 0x0000000000000000000000001111111111111111111111111111111111111111'. OFTCoreUpgradeable._lzReceive: toAddress = _message.sendTo().bytes32ToAddress().",
+      "fix": "Use path \"#._sendParam.to.[12:32]\" with format addressName so EVM recipients show as a readable address.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "send: the dstEid enum names only Ethereum, so any other destination shows as a bare number.",
+      "evidence": "metadata.enums.dstEid = {\"30101\": \"Ethereum\"}; OFTCoreUpgradeable.send sends to _sendParam.dstEid for any configured peer (_getPeerOrRevert).",
+      "fix": "Add every endpoint ID the Flare USDT0 OFT has a peer for (e.g. Arbitrum, Ink, Polygon …) to the enum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "send: no interpolatedIntent, so the intent line gives no amount, destination or recipient.",
+      "evidence": "descriptor: \"intent\": \"Bridge USDT0\", interpolatedIntent absent.",
+      "fix": "Add an interpolatedIntent such as \"Bridge {amountLD} to {to} on {dstEid}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "send: composeMsg and extraOptions are hidden; they can trigger a compose call at the recipient and a native drop on the destination.",
+      "evidence": "fields composeMsg/extraOptions are visible: never; OFTCoreUpgradeable._buildMsgAndOptions encodes composeMsg (SEND_AND_CALL) and combineOptions(extraOptions); _lzReceive calls endpoint.sendCompose(toAddress,…). The recipient and the native fee are shown elsewhere.",
+      "fix": "Optionally add a field or a notice saying when composeMsg is not empty.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "send: a non-zero LZ token fee is shown raw, without its token or decimals.",
+      "evidence": "field {\"path\":\"#._fee.lzTokenFee\",\"format\":\"raw\",\"visible\":{\"mustMatch\":[0]}}; OAppSenderUpgradeable._payLzToken: IERC20(lzToken).safeTransferFrom(msg.sender, address(endpoint), _lzTokenFee), where lzToken is read from endpoint storage.",
+      "fix": "No token constant is known for the endpoint's lzToken; leave as is or add a label noting it is paid in the LayerZero token.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.331,
+ "account": "austingriffith",
+ "hiddenValue": [
+  "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)"
+ ],
+ "seconds": 81,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 3,
+   "worst": "send takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 55,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "send takes ETH but never shows how much (@.value)"
+ }
+}

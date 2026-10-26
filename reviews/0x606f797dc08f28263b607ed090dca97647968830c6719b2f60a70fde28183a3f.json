@@ -1,0 +1,241 @@
+{
+ "hash": "0x606f797dc08f28263b607ed090dca97647968830c6719b2f60a70fde28183a3f",
+ "file": "registry/morpho/calldata-kpk-KPK_USDC_Prime-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x4ef53d2caa51c447fdfeeedee8f07fd1962c9ee6"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` USDC from the signer into the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints vault shares to `onBehalf`. The number is previewDeposit(assets), set by the share price after accrueInterest.",
+     "May forward the deposited USDC to the liquidity adapter. This moves no asset of the signer."
+    ],
+    "shown": "Deposit 0.1 USDC for 0x…dEaD. The fields show the USDC amount, a constant share ticker and the share recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the 'Share ticker' constant KPK_USDC_Prime is not the vault token's on-chain symbol kpk_USDC_v2.",
+      "evidence": "descriptor.json metadata.constants.vaultTicker = \"KPK_USDC_Prime\", shown as field 'Share ticker'. In cases 0-3 the mined share transfers of asset 0x4ef53d2c… carry symbol \"kpk_USDC_v2\".",
+      "fix": "Set vaultTicker to the on-chain symbol, kpk_USDC_v2, or relabel the field as the vault name.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown, because the vault computes it from its share price.",
+      "evidence": "VaultV2.deposit: shares = previewDeposit(assets), from storage (totalAssets, totalSupply). There is no minShares parameter in the calldata.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The signer sends 0.1 USDC, which is shown exactly. The shares went to 0xdead, which is shown as 'Send shares to', so this is not a signer effect."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns vault shares from `onBehalf`. The number is previewWithdraw(assets), rounded up and set by the share price.",
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "If the caller is not `onBehalf`, spends the caller's share allowance from onBehalf by the number of shares burned."
+    ],
+    "shown": "Withdraw exactly 10 USDC to the receiver. The fields show the receiver and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown, because the vault computes them from its share price.",
+      "evidence": "VaultV2.withdraw: shares = previewWithdraw(assets), then exit → deleteShares(onBehalf, shares). Case 2: 9.873424736964835479 kpk_USDC_v2 left the signer, and no field states it.",
+      "fix": "None possible: there is no maxShares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "10 USDC in is shown exactly. The burn of 9.87 shares is not shown. The reader expected shares to leave but did not know how many."
+     }
+    ],
+    "glance": 85,
+    "depth": 78
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf`, spending the caller's allowance if the caller is not onBehalf.",
+     "Sends USDC to `receiver`. The amount is previewRedeem(shares), set by the share price. There is no minimum."
+    ],
+    "shown": "Redeem N vault shares to the receiver, with the owner shown. Nothing says USDC is paid out or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: nothing on the screen names USDC as the asset that arrives, though the sibling mint format does.",
+      "evidence": "VaultV2.exit: SafeERC20Lib.safeTransfer(asset, receiver, assets). In descriptor redeem, the fields are only shares, receiver and onBehalf. Case 3: 20110.299989 USDC arrived at the signer, and the reader wrote 'probably USDC; the screen doesn't show'.",
+      "fix": "Add a constant field 'Receive asset' = $.metadata.constants.underlyingTicker, and say in the intent that USDC is received (e.g. 'Redeem shares for USDC').",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received comes from the share price and has no minimum in the calldata.",
+      "evidence": "VaultV2.redeem: assets = previewRedeem(shares). Case 3: 20110.299989 USDC came in, and no field states it.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out are exact. For the USDC in, the asset is not named and the amount is not shown. The reader guessed USDC."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Pulls USDC from the signer into the vault. The amount is previewMint(shares), rounded up and set by the share price. There is no maximum in the calldata.",
+     "Mints exactly `shares` vault shares to `onBehalf`."
+    ],
+    "shown": "Mint 0.9 vault shares for 0x…dEaD. A constant field says the deposit asset is USDC, with no amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint' and its sentence never say USDC leaves the signer's wallet.",
+      "evidence": "descriptor mint intent \"Mint\", interpolatedIntent \"Mint {#.shares} for {#.onBehalf}\". VaultV2.enter: safeTransferFrom(asset, msg.sender, address(this), assets). Case 1: 0.918839 USDC out.",
+      "fix": "Use an intent such as 'Deposit USDC to mint shares' and 'Deposit USDC to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken is computed from the share price and is not in the calldata.",
+      "evidence": "VaultV2.mint: assets = previewMint(shares) (mulDivUp). Case 1: 918839 USDC left the signer, and the screen shows only 'Deposit asset: USDC'.",
+      "fix": "None possible: there is no maxAssets parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The asset USDC is named, but no amount or bound is shown. The reader knew USDC leaves but not how much."
+     }
+    ],
+    "glance": 50,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.382,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 118,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the 'Share ticker' constant KPK_USDC_Prime is not the vault token's on-chain symbol kpk_USDC_v2.",
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: nothing on the screen names USDC as the asset that arrives, though the sibling mint format does.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' and its sentence never say USDC leaves the signer's wallet.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 85,
+  "clarity": 72,
+  "functions": "1A 1B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: nothing on the screen names USDC as the asset that arrives, though the sibling mint format does."
+ }
+}

@@ -1,0 +1,191 @@
+{
+ "hash": "0x1b4601d8dca69e01483603d4010bdc5d34070a3da6adf0b134b8b2a532613d67",
+ "file": "registry/morpho/calldata-steakhouse_financial-bitgetUSDT0-v2-42161.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42161,
+   "address": "0xbeeff77ce5c059445714e6a3490e273fe7f2492f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDT0 (0xFd086bC7…) to the vault via transferFrom, which spends the signer's USDT0 allowance to the vault.",
+     "The vault mints shares to `onBehalf`; the share count is previewDeposit(assets), computed from vault storage after fee accrual, with no minimum.",
+     "The vault may allocate the deposited USDT0 to its liquidity adapter. This does not change the signer's balance."
+    ],
+    "shown": "Deposit 0.01 USDT0 for <onBehalf>, with the share ticker 'bitgetUSDT0' as a constant and the share recipient as 'Send shares to'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the signer receives, and there is no minimum.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. previewDeposit uses totalSupply, fees and _totalAssets from storage. Case 0: signer received 10000000000000000 shares (0.01) and the screen shows only the ticker 'bitgetUSDT0'.",
+      "fix": "Nothing to change in the descriptor. The share amount comes from storage and calldata has no minShares parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit 'Share ticker' constant 'bitgetUSDT0' differs from the symbol 'bbqUSDT0' the receipt reader found.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"bitgetUSDT0\"; case 0 mined effect: asset 0xbeeff77… symbol \"bbqUSDT0\". VaultV2.sol: `string public symbol;` is set by setSymbol in storage. The redeem runner resolves @.to as 'bitgetUSDT0', so the two sources disagree.",
+      "fix": "Set vaultTicker to the vault's current on-chain `symbol()` value.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "0.01 USDT0 out is shown correctly. 0.01 shares in: the screen shows the ticker and recipient but no amount. The USDT0 allowance spent to 0 is not shown, but spending it is a normal part of a deposit."
+     }
+    ],
+    "glance": 82,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "`receiver` gets exactly `assets` USDT0 from the vault.",
+     "The vault burns shares from `onBehalf`; the count is previewWithdraw(assets), rounded up, from storage, with no maximum.",
+     "If msg.sender is not onBehalf, the call spends the caller's share allowance from onBehalf."
+    ],
+    "shown": "Withdraw exactly 0.1 USDT0 to <receiver>, with the owner of the shares shown as 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares the vault burns, and there is no maximum.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);`; exit: `deleteShares(onBehalf, shares);`. Case 1: signer burned 99992025236801562 shares (0.09999), and the screen has no share amount.",
+      "fix": "Nothing to change in the descriptor. The share amount comes from storage and calldata has no maxShares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "0.1 USDT0 in to the signer is shown correctly. The reader knew vault shares leave but saw no share count."
+     }
+    ],
+    "glance": 78,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` vault shares from `onBehalf`; if msg.sender is not onBehalf, this spends the caller's share allowance.",
+     "`receiver` gets USDT0 equal to previewRedeem(shares), computed from storage, with no minimum."
+    ],
+    "shown": "Redeem 2433.33 bitgetUSDT0 to <receiver>, with Owner. Nothing names the asset received or its amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDT0 as the asset the receiver gets.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` where asset = USDT0 (constructor _asset 0xFd086bC7…). The descriptor redeem fields are only shares, receiver and onBehalf. Case 2: the signer received 2433457715 USDT0, and the reader wrote 'Which token is paid out; the name suggests USDT0 but the screen doesn't say'.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"} and change interpolatedIntent to \"Redeem {#.shares} for USDT0 to {#.receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDT0 amount the receiver gets, and there is no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. The amount comes from storage after fee accrual and loss realization. Case 2: 2433.457715 USDT0 in, with no amount on the screen.",
+      "fix": "Nothing to change in the descriptor. Calldata has no minAssets parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Shares out are shown exactly. The reader guessed the incoming asset is USDT0 but had no asset name and no amount."
+     }
+    ],
+    "glance": 62,
+    "depth": 58
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.452,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 75,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDT0 as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 68,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem never names USDT0 as the asset the receiver gets."
+ }
+}

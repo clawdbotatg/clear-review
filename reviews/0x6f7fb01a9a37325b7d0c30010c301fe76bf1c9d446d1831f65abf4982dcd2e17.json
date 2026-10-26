@@ -1,0 +1,376 @@
+{
+ "hash": "0x6f7fb01a9a37325b7d0c30010c301fe76bf1c9d446d1831f65abf4982dcd2e17",
+ "file": "registry/10102/calldata-TimeLockRouter.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2b947e3c348c81409f8e8fc5ef8f65d9dff76a42"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "createTimelock(((address storageToken, uint256 amountOutMin, uint256 deadline) timelockETHSwap, (address tokenAddress, uint256 amount)[] timelockERC20, (address tokenAddress, uint256 id)[] timelockERC721, (address tokenAddress, uint256 id, uint256 amount)[] timelockERC1155, uint256 duration, string name) timelockRegular)",
+    "effects": [
+     "The signer sends msg.value ETH. The router wraps it 1:1 to WETH, or swaps it on Uniswap V2 for storageToken with at least amountOutMin. The output goes to the TimelockERC20 vault.",
+     "Each listed ERC-20 amount is pulled from the signer with transferFrom into the TimelockERC20 vault. This uses the signer's existing allowance to the router.",
+     "Each listed ERC-721 token id is pulled from the signer into the TimelockERC721 vault.",
+     "Each listed ERC-1155 id and amount is pulled from the signer into the TimelockERC1155 vault.",
+     "A timelock with a new id is created. The signer owns it, it is locked for `duration`, and the swapped token is marked to be paid out as ETH."
+    ],
+    "shown": "\"Create timelock\" with the ETH sent, the storage token, the swap minimum and deadline, each ERC-20 amount with its token, each NFT and ERC-1155 item, and the lock duration.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "createTimelock labels amountOutMin 'Swap min (not WETH)' but still shows it as a WETH amount",
+      "evidence": "Case 1 shows 'Swap min (not WETH)': '0.3 WETH'. TimeLockRouter._executeEthSwapForToken: `if (timelockETHSwap.storageToken == weth) { IWETH(weth).deposit{value: msg.value}(); ... return (weth, msg.value); }`, so amountOutMin is ignored for WETH.",
+      "fix": "Label the field 'Minimum received from swap'. In tests, use amountOutMin 0 for the WETH path, or note that a WETH wrap is always 1:1.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "createTimelock hides the swap minimum when it is 0, so a swap with no slippage bound shows no minimum",
+      "evidence": "Descriptor field amountOutMin has `visible: {ifNotIn: [0]}`. TimeLockRouter._executeEthSwapForToken passes amountOutMin to `swapExactETHForTokensSupportingFeeOnTransferTokens`, and 0 there means no bound.",
+      "fix": "Always show amountOutMin while storageToken is set, or show the message 'No minimum' for 0.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createTimelock shows 'ETH held as' as a raw hex address instead of the token name",
+      "evidence": "Case 1: 'ETH held as': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'. The field uses addressName with sources ['local'] only.",
+      "fix": "Use a token-aware source so WETH and other storage tokens resolve to a ticker, or state the token in the swap-min amount only.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "createTimelock intent does not say the assets are locked and cannot be withdrawn until the duration ends",
+      "evidence": "Descriptor intent: 'Create timelock', no interpolatedIntent. TimeLockRouter._createTimelockRegular moves all listed assets out of the signer's wallet into the vaults for `duration`.",
+      "fix": "Use the intent 'Lock assets for a fixed time' and an interpolatedIntent such as 'Lock assets for {duration}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "createTimelock shows the duration as hours, '8760:00:00', not as days or years",
+      "evidence": "Case 0: 'Locked for': '8760:00:00'. The field uses `format: duration`.",
+      "fix": "No descriptor change can render years. You can add the length in words to the label, such as 'Locked for (h:m:s)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "createTimelock tests do not cover ERC-721, ERC-1155 or a non-WETH swap with a real minimum",
+      "evidence": "Cases 0 and 1 only lock USDC or wrap ETH to WETH. The bundled NFT and item fields and the Uniswap swap branch in _executeEthSwapForToken are not exercised.",
+      "fix": "Add cases with an NFT, an ERC-1155 item, and storageToken set to a non-WETH token with amountOutMin above 0.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 78
+   },
+   {
+    "key": "createSoftTimelock(((address storageToken, uint256 amountOutMin, uint256 deadline) timelockETHSwap, (address tokenAddress, uint256 amount)[] timelockERC20, (address tokenAddress, uint256 id)[] timelockERC721, (address tokenAddress, uint256 id, uint256 amount)[] timelockERC1155, uint256 bufferTime, string name) timelockSoft)",
+    "effects": [
+     "The signer sends msg.value ETH. The router wraps it to WETH or swaps it on Uniswap V2 for storageToken with at least amountOutMin, into the TimelockERC20 vault.",
+     "The listed ERC-20 amounts, ERC-721 ids and ERC-1155 ids and amounts are pulled from the signer into the vaults.",
+     "A soft timelock is created that the signer owns. It has no end date: the signer must call unlockSoftTimelock and then wait bufferTime before withdrawing."
+    ],
+    "shown": "\"Create soft timelock\" with the ETH sent, the storage token, the swap minimum and deadline, the token amounts, NFTs and items, and 'Unlock delay'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "createSoftTimelock intent 'Create soft timelock' does not explain that the assets stay locked until an unlock plus delay",
+      "evidence": "Descriptor intent: 'Create soft timelock'. TimeLockRouter._createSoftTimelock uses bufferTime only. Release needs unlockSoftTimelock and then the delay.",
+      "fix": "Use the intent 'Lock assets until you unlock + delay' and an interpolatedIntent with {bufferTime}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "createSoftTimelock labels amountOutMin 'Swap min (not WETH)' but shows it as a WETH amount",
+      "evidence": "Case 3: 'Swap min (not WETH)': '0.3 WETH'. _executeEthSwapForToken ignores amountOutMin when storageToken == weth.",
+      "fix": "Label the field 'Minimum received from swap'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "createSoftTimelock hides the swap minimum when it is 0, so a swap with no slippage bound shows no minimum",
+      "evidence": "Field amountOutMin has `visible: {ifNotIn: [0]}`. _executeEthSwapForToken passes it as the Uniswap amountOutMin.",
+      "fix": "Always show amountOutMin while storageToken is set, or show the message 'No minimum' for 0.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createSoftTimelock shows the storage token as a raw hex address",
+      "evidence": "Case 3: 'ETH held as': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'.",
+      "fix": "Resolve the storage token to its ticker.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "createSoftTimelock tests do not cover NFTs, ERC-1155 items or a real Uniswap swap",
+      "evidence": "Cases 2 and 3 only lock USDC or wrap ETH to WETH.",
+      "fix": "Add cases with an NFT, an ERC-1155 item and a non-WETH storage token.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 75
+   },
+   {
+    "key": "createTimelockedGift(((address storageToken, uint256 amountOutMin, uint256 deadline) timelockETHSwap, (address tokenAddress, uint256 amount)[] timelockERC20, (address tokenAddress, uint256 id)[] timelockERC721, (address tokenAddress, uint256 id, uint256 amount)[] timelockERC1155, uint256 duration, address recipient, string name, string giftName) timelockGift)",
+    "effects": [
+     "The signer sends msg.value ETH. The router wraps it or swaps it for storageToken with at least amountOutMin, into the TimelockERC20 vault.",
+     "The listed ERC-20, ERC-721 and ERC-1155 assets are pulled from the signer into the vaults.",
+     "A gift timelock is created. `recipient` can withdraw the assets after `duration`, and the signer stays recorded as owner.",
+     "When a consent verifier is set, the router records that the signer accepts the active terms for this timelock id (consentVerifier.recordConsent)."
+    ],
+    "shown": "\"Seal gift and accept terms\" with the ETH sent, the storage token, the swap minimum and deadline, the token amounts, NFTs and items, 'Opens after' and the recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "createTimelockedGift intent does not name the recipient or say the assets leave the signer",
+      "evidence": "Descriptor intent: 'Seal gift and accept terms', no interpolatedIntent. _createTimelockedGift passes timelockGift.recipient to the vaults as the party who can withdraw.",
+      "fix": "Add an interpolatedIntent such as 'Gift locked assets to {recipient}, opens after {duration}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createTimelockedGift records acceptance of terms that the screen cannot show",
+      "evidence": "TimeLockRouter._createTimelockedGift: `consentVerifier.recordConsent(msg.sender, timelockCounter);`. The terms live in the verifier's storage.",
+      "fix": "Point the signer to the terms URL in metadata.info, or keep it as is.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "createTimelockedGift hides the swap minimum when it is 0, so a swap with no slippage bound shows no minimum",
+      "evidence": "Field amountOutMin has `visible: {ifNotIn: [0]}`. _executeEthSwapForToken passes it to Uniswap.",
+      "fix": "Always show amountOutMin while storageToken is set, or show the message 'No minimum' for 0.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "createTimelockedGift labels amountOutMin 'Swap min (not WETH)' but shows '0.3 WETH'",
+      "evidence": "Case 5: 'Swap min (not WETH)': '0.3 WETH'.",
+      "fix": "Label the field 'Minimum received from swap'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createTimelockedGift shows the storage token as a raw hex address",
+      "evidence": "Case 5: 'ETH held as': '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'.",
+      "fix": "Resolve the storage token to its ticker.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "unlockSoftTimelock(uint256 id)",
+    "effects": [
+     "Starts the unlock countdown (bufferTime) for soft timelock `id` in the ERC-20, ERC-721 and ERC-1155 vaults, with the signer as caller. After the delay the owner can withdraw. Nothing moves in this call."
+    ],
+    "shown": "\"Start soft timelock countdown\" with the timelock id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "unlockSoftTimelock shows only the id, not the locked assets or the delay, which live in vault storage",
+      "evidence": "TimeLockRouter.unlockSoftTimelock: `timelockERC20Contract.unlockSoftTimelock(id, msg.sender); ...`. The descriptor field is id with format raw.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 id)",
+    "effects": [
+     "Each vault releases the assets of timelock `id` to the signer (msg.sender), if the signer is the owner or the recipient and the lock has expired.",
+     "The ERC-20 vault is called with skipSwap = false, so a swapped storage token is converted back to ETH before payout. The bound of that conversion is in unverified vault code."
+    ],
+    "shown": "\"Withdraw from timelock\" with the timelock id.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw(id) does not say that swapped tokens are converted back to ETH",
+      "evidence": "TimeLockRouter.withdraw(uint256): `timelockERC20Contract.withdraw(id, msg.sender, false);`. Descriptor intent: 'Withdraw from timelock'.",
+      "fix": "Use the intent 'Withdraw timelock, swapped tokens as ETH'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw(id) cannot show the assets or the amounts received, because they are stored in the vaults",
+      "evidence": "withdraw(uint256) passes only id and msg.sender to the vaults. The descriptor shows only 'Timelock' raw.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 40
+   },
+   {
+    "key": "withdraw(uint256 id, bool skipSwap)",
+    "effects": [
+     "Each vault releases the assets of timelock `id` to the signer.",
+     "When skipSwap is false, the ERC-20 vault converts the swapped storage token back to ETH. When it is true, the signer receives the token itself."
+    ],
+    "shown": "\"Withdraw from timelock\" with the timelock id and 'Skip ETH conversion' as raw true or false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "withdraw(id, skipSwap) shows the payout choice as a raw boolean under a negative label",
+      "evidence": "Descriptor field skipSwap: label 'Skip ETH conversion', format raw. Cases 8 and 9 render 'true' and 'false'. TimeLockRouter.withdraw(uint256,bool) passes skipSwap to timelockERC20Contract.withdraw.",
+      "fix": "Map the bool with an enum: true -> 'Keep token', false -> 'Convert to ETH'. Use the label 'Receive swapped asset as'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw(id, skipSwap) cannot show the assets or amounts received, which are stored in the vaults",
+      "evidence": "withdraw(uint256,bool) passes only id, msg.sender and skipSwap to the vaults.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": [
+   "The TimelockERC20, TimelockERC721 and TimelockERC1155 vault contracts are not in the directory. Their addresses are in router storage and the source is omitted. They hold createTimelock/createSoftTimelock/createTimelockedGift recording, the unlockSoftTimelock logic, withdraw payout, the token-to-ETH reconversion and its slippage bound, and any creator rights over a gift.",
+   "The consentVerifier (IEIP712LegacyVerifier) called by createTimelockedGift is not in the directory, so what recordConsent binds the signer to cannot be checked."
+  ]
+ },
+ "cost": 0.661,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 168,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "createTimelock(((address storageToken, uint256 amountOutMin, uint256 deadline) timelockETHSwap, (address tokenAddress, uint256 amount)[] timelockERC20, (address tokenAddress, uint256 id)[] timelockERC721, (address tokenAddress, uint256 id, uint256 amount)[] timelockERC1155, uint256 duration, string name) timelockRegular)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 51,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 5,
+   "worst": "createTimelock hides the swap minimum when it is 0, so a swap with no slippage bound shows no minimum",
+   "comprehension": null
+  },
+  "createSoftTimelock(((address storageToken, uint256 amountOutMin, uint256 deadline) timelockETHSwap, (address tokenAddress, uint256 amount)[] timelockERC20, (address tokenAddress, uint256 id)[] timelockERC721, (address tokenAddress, uint256 id, uint256 amount)[] timelockERC1155, uint256 bufferTime, string name) timelockSoft)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 5,
+   "worst": "createSoftTimelock hides the swap minimum when it is 0, so a swap with no slippage bound shows no minimum",
+   "comprehension": null
+  },
+  "createTimelockedGift(((address storageToken, uint256 amountOutMin, uint256 deadline) timelockETHSwap, (address tokenAddress, uint256 amount)[] timelockERC20, (address tokenAddress, uint256 id)[] timelockERC721, (address tokenAddress, uint256 id, uint256 amount)[] timelockERC1155, uint256 duration, address recipient, string name, string giftName) timelockGift)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "createTimelockedGift hides the swap minimum when it is 0, so a swap with no slippage bound shows no minimum",
+   "comprehension": null
+  },
+  "unlockSoftTimelock(uint256 id)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 id)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw(id) does not say that swapped tokens are converted back to ETH",
+   "comprehension": null
+  },
+  "withdraw(uint256 id, bool skipSwap)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw(id, skipSwap) shows the payout choice as a raw boolean under a negative label",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 92,
+  "clarity": 50,
+  "functions": "6C",
+  "incomplete": true,
+  "worst": "createTimelock hides the swap minimum when it is 0, so a swap with no slippage bound shows no minimum"
+ }
+}

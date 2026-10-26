@@ -1,0 +1,200 @@
+{
+ "hash": "0xa28b87879a6d1ef38a43be55610ed784ccec4cca785e5bbbe329e9209e8f1503",
+ "file": "registry/morpho/calldata-re7_labs-mMAI.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x30b8a2c8e7fa41e77b54b8faf45c610e7ad909e3"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` MAI (0xbf1a…87aE) to the vault through safeTransferFrom, using the signer's MAI allowance to the vault.",
+     "The vault mints mMAI shares to `receiver`. The number of shares comes from the vault's total assets and supply at execution, floor rounded, with no minimum."
+    ],
+    "shown": "Intent 'Deposit', the MAI amount deposited, the share ticker 'mMAI' as a raw constant, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many mMAI shares the receiver gets; the vault rate decides it.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` No share amount is in the calldata. The descriptor shows only 'Share ticker' = $.metadata.constants.vaultTicker.",
+      "fix": "None in the descriptor. The share amount and its lack of a minimum come from storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit intent 'Deposit' does not name MAI or the mMAI shares that come back.",
+      "evidence": "descriptor deposit format: \"intent\": \"Deposit\", no interpolatedIntent. The asset appears only in the 'Deposit asset' field.",
+      "fix": "Add \"interpolatedIntent\": \"Deposit {assets} for mMAI shares to {receiver}\", or change the intent to \"Deposit MAI into Morpho vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends MAI to the vault. The amount is computed at execution from the vault's rate (ceil rounded) and has no upper bound in the calldata.",
+     "The vault mints exactly `shares` mMAI to `receiver`."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset' showing only the ticker 'MAI', the exact mMAI shares minted, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much MAI leaves the signer; the vault rate decides it, with no cap.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` The descriptor field 'Deposit asset' shows only the constant underlyingTicker 'MAI'.",
+      "fix": "None in the descriptor. Only the signer's MAI allowance to the vault bounds the amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint field 'Deposit asset' shows only a ticker, so a reader may think no amount is spent.",
+      "evidence": "descriptor mint format: {\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}. The intent is only 'Mint'.",
+      "fix": "Change the label to \"Pay with (amount set by vault rate)\" and the intent to \"Mint mMAI shares by depositing MAI\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns mMAI shares from `owner`. The share count is computed at execution (ceil rounded) and is not in the calldata.",
+     "If the signer is not `owner`, the call spends `owner`'s mMAI allowance to the signer by that share count.",
+     "The vault sends exactly `assets` MAI to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', 'Withdraw exactly' MAI amount, the recipient 'To', and the 'Owner' whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many mMAI shares are burned from the owner; the vault rate decides it.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` ERC4626._withdraw: `_burn(owner, shares);`",
+      "fix": "None in the descriptor. The share count is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` mMAI from `owner`. If the signer is not `owner`, it spends `owner`'s mMAI allowance to the signer.",
+     "The vault sends MAI to `receiver`. The amount is computed at execution (floor rounded) with no minimum in the calldata."
+    ],
+    "shown": "Intent 'Redeem', the mMAI shares to redeem, the recipient 'To', and the 'Owner'. The screen never names MAI as the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names MAI as the asset the receiver gets back; mint shows that ticker.",
+      "evidence": "ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);` The descriptor redeem fields are only shares, receiver and owner. The mint format shows $.metadata.constants.underlyingTicker.",
+      "fix": "Add {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"} and change the intent to \"Redeem mMAI for MAI\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much MAI the receiver gets; the vault rate decides it, with no minimum.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` No asset amount is in the calldata.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.333,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 49,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' does not name MAI or the mMAI shares that come back.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint field 'Deposit asset' shows only a ticker, so a reader may think no amount is spent.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names MAI as the asset the receiver gets back; mint shows that ticker.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 62,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem never names MAI as the asset the receiver gets back; mint shows that ticker."
+ }
+}

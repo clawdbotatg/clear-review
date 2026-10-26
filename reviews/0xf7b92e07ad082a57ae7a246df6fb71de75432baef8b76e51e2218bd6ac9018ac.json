@@ -1,0 +1,198 @@
+{
+ "hash": "0xf7b92e07ad082a57ae7a246df6fb71de75432baef8b76e51e2218bd6ac9018ac",
+ "file": "registry/morpho/calldata-kpk-KPK_USDC_Yield-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x392b3ccf36c8adb8094f45573346b457414cd752"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDC to the vault (safeTransferFrom(asset, msg.sender, address(this), assets)) and spends that much of their USDC allowance to the vault.",
+     "The vault mints KPK_USDC_Yield shares to `onBehalf`; the share amount comes from previewDeposit at the current price after fee accrual, with no minimum."
+    ],
+    "shown": "Deposit 28.8 USDC for the onBehalf address; the screen names the KPK_USDC_Yield share ticker but not how many shares arrive.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown because the vault computes it from storage.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The share amount depends on _totalAssets, totalSupply and fee accrual. The function has no minShares parameter. Case 0: 28.633495937342133291 KPK_USDC_Yield arrive, and the screen shows only 'Share ticker: KPK_USDC_Yield'.",
+      "fix": "No descriptor change can show it. Keep the share ticker field so the signer knows which token arrives.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out 28.8 is exact. Shares in: asset and recipient are shown, but the amount (28.63 shares) is not, and the contract derives it."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns shares from `onBehalf`; the amount comes from previewWithdraw (rounded up) at the current price.",
+     "When msg.sender != onBehalf, the call spends the signer's share allowance from onBehalf by that number of shares.",
+     "The vault sends exactly `assets` USDC to `receiver`."
+    ],
+    "shown": "Withdraw exactly the given USDC amount to the receiver, with the owner whose shares are burned in a separate field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is not shown because the vault computes it from storage.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` with `deleteShares(onBehalf, shares)`. Case 1: 1031.406035663804398790 KPK_USDC_Yield leave the signer, and no field shows a share amount.",
+      "fix": "No descriptor change can show it. Optionally add 'shares burned at the current price' to the label of the amount field.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the interpolatedIntent does not name the owner whose shares are burned.",
+      "evidence": "descriptor withdraw interpolatedIntent 'Withdraw {#.assets} to {#.receiver}'. VaultV2.sol exit burns from onBehalf and spends allowance[onBehalf][msg.sender] when the owner is not the sender.",
+      "fix": "Change interpolatedIntent to 'Withdraw {#.assets} from {#.onBehalf} to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDC in (1035.967771) is exact, with the correct recipient. Shares out: the owner is shown, but the burned amount is not, and the contract derives it."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` KPK_USDC_Yield from `onBehalf`. When msg.sender != onBehalf, it spends the signer's share allowance by that amount.",
+     "The vault sends USDC to `receiver`; the amount comes from previewRedeem at the current price, with no minimum."
+    ],
+    "shown": "Redeem the given number of KPK_USDC_Yield shares to the receiver, with the owner in a separate field; the asset paid out is not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says that USDC is paid out, although the asset is a fixed constant.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. The descriptor has constant underlyingTicker 'USDC', but the redeem fields show only shares, receiver and owner. Case 2: the signer receives 200.032592 USDC, and the reader wrote 'Underlying asset (likely USDC) ... amount not shown'.",
+      "fix": "Add a field like deposit's: label 'Receive asset', value $.metadata.constants.underlyingTicker. Or change the intent to 'Redeem shares for USDC'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown because the vault computes it from storage.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);` with no minAssets parameter. Case 2: 200.032592 USDC arrive, and no field shows an amount.",
+      "fix": "No descriptor change can show the amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the interpolatedIntent names neither what the signer receives nor the owner whose shares burn.",
+      "evidence": "descriptor redeem interpolatedIntent 'Redeem {#.shares} to {#.receiver}'.",
+      "fix": "Change it to 'Redeem {#.shares} of {#.onBehalf} for USDC to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Shares out (198.62 KPK_USDC_Yield) is exact. USDC in: the screen shows only the recipient, with no asset and no amount, so the reader guessed USDC."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.34,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 76,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the interpolatedIntent does not name the owner whose shares are burned.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never says that USDC is paid out, although the asset is a fixed constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 73,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says that USDC is paid out, although the asset is a fixed constant."
+ }
+}

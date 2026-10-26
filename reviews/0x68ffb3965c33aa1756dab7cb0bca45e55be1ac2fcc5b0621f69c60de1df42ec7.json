@@ -1,0 +1,266 @@
+{
+ "hash": "0x68ffb3965c33aa1756dab7cb0bca45e55be1ac2fcc5b0621f69c60de1df42ec7",
+ "file": "registry/symbiotic/calldata-VaultV1-SolvBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x249ae9d8a2fe33748884e401d964310c36c24e8a"
+  },
+  {
+   "chainId": 1,
+   "address": "0x7797ffe875978f070523d0e126ea6c432f6c1548"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Moves `amount` of the vault collateral (SolvBTC for 0x249a…, read from the init data) from the signer to the vault via safeTransferFrom, spending the signer's allowance to the vault.",
+     "Mints active vault shares (previewDeposit of the amount received) to `onBehalfOf`, which then holds the slashable stake position.",
+     "Reverts if a deposit whitelist is on and the signer is not on it, or if the deposit limit would be passed."
+    ],
+    "shown": "Deposit 123.25 SolvBTC into the named vault, with the shares going to the named beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: number of vault shares minted to onBehalfOf is not shown; it is computed from vault storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...)`; descriptor shows only #.amount and #.onBehalfOf.",
+      "fix": "None possible from calldata; the beneficiary field already names the holder of the new position.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit/withdraw: SolvBTC token constant also used for deployment 0x7797…1548, whose collateral could not be verified.",
+      "evidence": "descriptor metadata.constants.underlyingToken = 0x7A56E1C5… used for both deployments; collateral is read from storage (`IERC20(collateral)`); only 0x249a…'s init data (collateral 0x7a56e1c5…) is available; case 1 shows '123.25 SolvBTC' for 0x7797….",
+      "fix": "Confirm 0x7797…1548 has collateral() == 0x7A56E1C5…; if not, put it in a separate descriptor with its own token constant.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns enough of the signer's active shares to cover `amount` of collateral (rounded up), lowering the signer's stake position.",
+     "Gives `claimer` withdrawal shares for epoch currentEpoch+1. Only the claimer can claim that `amount` of SolvBTC after the epoch ends, and it can still be slashed until then.",
+     "No tokens move in this call."
+    ],
+    "shown": "Request a 2.5 SolvBTC withdrawal for the named claim owner from the named vault.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: intent does not say the claimer, not the signer, gets the right to the funds after an epoch delay.",
+      "evidence": "Vault.sol _withdraw: `withdrawalSharesOf[epoch][claimer] += mintedShares` with `epoch = currentEpoch() + 1`; _claim reads `withdrawalsOf(epoch, msg.sender)`. Descriptor: intent 'Request withdrawal', interpolatedIntent 'Request {amount} withdrawal for {claimer}'.",
+      "fix": "Use e.g. 'Withdraw {amount} from your stake; claimable by {claimer} after the next epoch'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: number of shares burned from the signer is derived from storage and not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`.",
+      "fix": "None; the asset amount is shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Gives `claimer` withdrawal shares worth previewRedeem(shares) SolvBTC for epoch currentEpoch+1, which only the claimer can claim after that epoch ends.",
+     "No tokens move in this call."
+    ],
+    "shown": "Queue 987654321123456789 raw vault shares for withdrawal to the named claim owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: share amount is shown as a raw 18-digit integer instead of a scaled unit.",
+      "evidence": "descriptor field #.shares format 'raw'; case 3 shows '987654321123456789'; ERC4626Math._decimalsOffset() returns 0, so shares have the collateral's 18 decimals.",
+      "fix": "Use format 'unit' with params {base: 'shares', decimals: 18}, or the equivalent, to show '0.9877 shares'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the SolvBTC amount queued for the claimer is computed from storage and is not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())`.",
+      "fix": "None from calldata; the intent could still name SolvBTC as the asset.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem: intent does not say the claimer, not the signer, can claim the funds later.",
+      "evidence": "Vault.sol _withdraw `withdrawalSharesOf[epoch][claimer] += mintedShares`; interpolatedIntent 'Queue {shares} raw shares for {claimer}'.",
+      "fix": "Use e.g. 'Withdraw {shares} vault shares; SolvBTC claimable by {claimer} after the next epoch'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed.",
+     "Moves withdrawalsOf(epoch, signer) of SolvBTC from the vault to `recipient`."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 to the named recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claim: the asset received (SolvBTC) is not named in the intent or any field.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount)`; descriptor intent 'Claim withdrawal', interpolatedIntent 'Claim epoch {epoch} to {recipient}'.",
+      "fix": "Use e.g. 'Claim SolvBTC withdrawal for epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount paid out comes from the signer's withdrawal shares in storage, not from calldata.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawals for every listed epoch as claimed.",
+     "Moves the sum of withdrawalsOf(epoch, signer) over all listed epochs, in SolvBTC, from the vault to `recipient` in one transfer."
+    ],
+    "shown": "Claim the withdrawals for epochs 42, 44 and 128 to the named recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claimBatch: the asset received (SolvBTC) is not named in the intent or any field.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount)`; descriptor intent 'Claim withdrawals', interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}'.",
+      "fix": "Use e.g. 'Claim SolvBTC withdrawals for epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total paid out is the sum of the signer's withdrawals in storage, not from calldata.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i])`.",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "Deployment 1:0x7797ffe875978f070523d0e126ea6c432f6c1548 has no source, meta or init data in the directory, so its collateral token (shown as SolvBTC through the hardcoded constant) and its implementation could not be checked."
+  ]
+ },
+ "cost": 0.414,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 82,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: intent does not say the claimer, not the signer, gets the right to the funds after an epoch delay.",
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: share amount is shown as a raw 18-digit integer instead of a scaled unit.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the asset received (SolvBTC) is not named in the intent or any field.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the asset received (SolvBTC) is not named in the intent or any field.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 65,
+  "functions": "1A 3B 1C",
+  "incomplete": true,
+  "worst": "redeem: share amount is shown as a raw 18-digit integer instead of a scaled unit."
+ }
+}

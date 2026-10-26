@@ -1,0 +1,102 @@
+{
+ "hash": "0xe7fdcd65c9d2565197daf5679d661c2e289cd45a9a2eec8d90de76de47d97429",
+ "file": "registry/zkstables/eip712-executor.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x83f6aebf9fc929bbea92af571c66436b360e324e"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xc6d302506c59a57fa8d4fc7b8109f7b48168be86"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Exec(address safe,address to,uint256 value,bytes data,bytes32 requestId,uint256 deadline)",
+    "effects": [
+     "The Safe in `safe` sends `value` of native ETH to the address `to`.",
+     "The Safe makes a plain CALL to `to` with `data`, and that inner call can move any of the Safe's assets or change its settings. `operation` is fixed to 0, so a delegate call is not possible.",
+     "`requestId` is marked as used for this Safe. The signature does not use the Safe nonce, so it works in any order and alongside the normal queue.",
+     "Anyone can relay the signature until `deadline`, once enough owners to reach the Safe threshold have signed and this module is enabled on the Safe."
+    ],
+    "shown": "The intent \"Authorize Safe transaction\", then fields for the Safe, the native Value, the Deadline, the raw Request id, the To address, and the Action, which is decoded as an embedded call to `to` with the Safe as sender and `value` as amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "Exec has one test only, with empty data, so the embedded calldata Action field is never decoded.",
+      "evidence": "cases/0.json is described as \"Exec — forward ether, no inner call\". It has \"data\": \"0x\" and the screen shows Action \"0x\". The descriptor field `data` uses format calldata with calleePath \"to\", amountPath \"value\" and spenderPath \"safe\". UnorderedExecutor.exec forwards `data` through execTransactionFromModuleReturnData(to, value, data, 0).",
+      "fix": "Add a test case where `data` is a call that a known descriptor decodes, for example an ERC-20 transfer to a token. Check that the nested screen shows the Safe as sender and the right token, amount and recipient.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Exec intent \"Authorize Safe transaction\" does not say that ETH is sent and a call runs from the Safe.",
+      "evidence": "descriptor.json: \"intent\": \"Authorize Safe transaction\". UnorderedExecutor.exec: ISafe(safe).execTransactionFromModuleReturnData(to, value, data, 0). The Value, To and Action fields do show the transfer and the call.",
+      "fix": "Think about changing the intent to \"Execute call from Safe\". Add an interpolatedIntent that names `value`, `to` and `safe`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Exec Action depends on a descriptor for `to`. Without one, the inner call shows as raw bytes.",
+      "evidence": "UnorderedExecutor.exec has \"no target allowlist\" (contract natspec), so `to` and `data` can be anything. The descriptor field `data` uses format calldata with calleePath \"to\". The spec says that without a matching descriptor the wallet MAY show only a hash of the calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "Exec does not show that anyone can relay the signature in any order, outside the Safe nonce queue.",
+      "evidence": "UnorderedExecutor natspec: \"a single-use `requestId` replaces the sequential nonce\" and exec is \"Callable by anyone — the signatures are the authorization\". The screen shows a raw Request id and a Deadline only.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.268,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 45,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "Exec(address safe,address to,uint256 value,bytes data,bytes32 requestId,uint256 deadline)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "Exec has one test only, with empty data, so the embedded calldata Action field is never decoded.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 90,
+  "clarity": 65,
+  "functions": "1B",
+  "incomplete": false,
+  "worst": "Exec has one test only, with empty data, so the embedded calldata Action field is never decoded."
+ }
+}

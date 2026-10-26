@@ -1,0 +1,232 @@
+{
+ "hash": "0xa479e2fddf2181ec992b3cda7d5b7084f070be4eb1c2cf8d967fbdb5d5f6fefc",
+ "file": "registry/symbiotic/calldata-VaultV1-mETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf60e6e6d8648fdbc2834ef7bc6f5e49ab55bec31"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` mETH (the vault's collateral 0xd5F7…ADfa, set at init) from the signer to the vault via safeTransferFrom. This spends the signer's mETH allowance to the vault.",
+     "Mints active vault shares, worth the amount deposited, to `onBehalfOf`, who may be someone other than the signer. The share count comes from storage (activeStake/activeShares)."
+    ],
+    "shown": "Deposit X mETH into the vault, with the shares credited to the beneficiary address. The vault address is also shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of vault shares minted to onBehalfOf is not shown.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)` uses storage values. The descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "fix": "None possible from calldata. The deposited mETH amount and the beneficiary are already shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active vault shares worth `amount` mETH, rounded up (previewWithdraw, Ceil). The signer's position shrinks.",
+     "Queues `amount` mETH into next epoch's withdrawals and credits the withdrawal shares to `claimer`. Only `claimer` can claim the mETH after that epoch ends.",
+     "No tokens move in this call. The queued amount stays slashable until it is claimed."
+    ],
+    "shown": "Request a withdrawal of X mETH from the vault, owned by the claimer address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "withdraw: the screen does not say that the mETH arrives only after the next epoch and can be slashed meanwhile.",
+      "evidence": "Vault.sol _withdraw: `uint256 epoch = currentEpoch() + 1; withdrawals[epoch] = withdrawals_ + withdrawnAssets`. onSlash reduces `withdrawals[currentEpoch_ + 1]`. The intent is 'Request withdrawal'.",
+      "fix": "Optionally reword the intent to 'Request withdrawal (claimable next epoch)'. The final amount depends on slashing and cannot be shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Queues the mETH value of those shares (previewRedeem from storage) into next epoch's withdrawals and credits it to `claimer`. Only `claimer` can claim it later.",
+     "No tokens move in this call."
+    ],
+    "shown": "Queue N raw shares for withdrawal to the claimer. The share count is an unscaled integer, and the mETH value is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is shown as a raw 18-decimal integer, which nobody can read.",
+      "evidence": "descriptor redeem field `#.shares` has format 'raw', label 'Vault shares (raw)'. Case 2 renders '987654321123456789'. ERC4626Math._decimalsOffset() returns 0, so shares use mETH's 18 decimals.",
+      "fix": "Use format 'unit' with params {decimals: 18, base: 'shares'} (or similar) and update the interpolated intent to match.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the mETH amount queued for those shares is not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())` depends on storage.",
+      "fix": "None from calldata. A note that the shares convert to mETH at the current rate would help.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed.",
+     "Transfers the signer's full withdrawal for that epoch (withdrawalsOf(epoch, msg.sender), read from storage) in mETH from the vault to `recipient`."
+    ],
+    "shown": "Claim the withdrawal of epoch E to the recipient address. No asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: the screen never names the asset (mETH) the recipient receives.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount)`. The intent is 'Claim withdrawal' and the interpolated intent is 'Claim epoch {epoch} to {recipient}'. Case 3 has no token anywhere on the screen.",
+      "fix": "Name the asset in the intent and labels, e.g. 'Claim mETH withdrawal' and 'Claim epoch {epoch} mETH to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount transferred is read from storage and cannot be shown.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawals for every listed epoch as claimed.",
+     "Transfers the sum of the signer's withdrawals for those epochs (read from storage) in mETH from the vault to `recipient`."
+    ],
+    "shown": "Claim the withdrawals of the listed epochs to the recipient address. No asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimBatch: the screen never names the asset (mETH) the recipient receives.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount)`. The intent is 'Claim withdrawals' and the interpolated intent is 'Claim epochs {epochs.[]} to {recipient}'. Case 4 shows no token.",
+      "fix": "Name mETH in the intent and interpolated intent, e.g. 'Claim mETH withdrawals'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total amount transferred is summed from storage and cannot be shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i])`, where _claim reads withdrawalsOf(epoch, msg.sender).",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.354,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 62,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is shown as a raw 18-decimal integer, which nobody can read.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the screen never names the asset (mETH) the recipient receives.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the screen never names the asset (mETH) the recipient receives.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 64,
+  "functions": "1A 1B 3C",
+  "incomplete": false,
+  "worst": "redeem: the share amount is shown as a raw 18-decimal integer, which nobody can read."
+ }
+}

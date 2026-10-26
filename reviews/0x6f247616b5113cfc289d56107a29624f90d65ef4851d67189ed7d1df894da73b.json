@@ -1,0 +1,379 @@
+{
+ "hash": "0x6f247616b5113cfc289d56107a29624f90d65ef4851d67189ed7d1df894da73b",
+ "file": "registry/cofund/eip712-cofund-treasury.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xd59efc1803fb72231db0b6a872a9c22d8a0102c0"
+  },
+  {
+   "chainId": 4663,
+   "address": "0xf3b43952bcc2560789be8076529df8f908cef535"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "InviteUser(string company,string callerId,string userId,bool userIsAdmin,string userPosition,uint256 expiresAt,string authId)",
+    "effects": [
+     "Authorizes adding userId as an active member of the company, with admin rights when userIsAdmin is true (State.addUser sets isAdmin and increments activeAdmins).",
+     "Sets the member's position string.",
+     "The invitation is valid until expiresAt and spends authId once per company (State.setClientContractAuthID).",
+     "When callerId equals userId (founder case), the same message appears to create a new company and its vault (State.newClient), but the users helper that decides this is not available."
+    ],
+    "shown": "\"Invite member\" with company, inviter, member ID, admin flag (true/false), position and expiry date; the address that gets the seat is not in the message.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "InviteUser has no interpolated intent, so the admin grant and the member are not in the sentence.",
+      "evidence": "descriptor.json InviteUser: \"intent\": \"Invite member\", no interpolatedIntent; userIsAdmin shown only as field 'Admin rights' = \"true\" (case 0). State.addUser: if (isAdmin) activeAdmins[clientId]++.",
+      "fix": "Add interpolatedIntent \"Invite {userId} to {company} (admin: {userIsAdmin})\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "InviteUser does not carry the address that receives the member seat and its rights.",
+      "evidence": "Type string has no address member; State.addUser(clientId, userId, addr, isAdmin, position) and State.newClient(..., founder, ...) take the address from the users helper, which is not in the directory.",
+      "fix": "No descriptor change; the address is bound outside the signed message.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "InviteUser founder case (callerId equals userId) appears to create a company, but the screen says 'Invite member'.",
+      "evidence": "case 0: callerId \"founder\", userId \"founder\", authId \"vec-create-acme\"; State.newClient creates a vault via ICFHelpersVaultFactory.createVault. The users helper source is missing.",
+      "fix": "Confirm with the users helper source; if it creates a company, say so in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "RemoveUser(string company,string removedUserId,string authId)",
+    "effects": [
+     "Marks removedUserId inactive in the company (State.removeUser sets active=false).",
+     "If the removed member is an admin, decrements activeAdmins; reverts if it is the last admin.",
+     "The removed member can no longer sign for any policy (resolvePolicySigner returns false for inactive users).",
+     "Spends authId once per company."
+    ],
+    "shown": "\"Remove member\" with company and member ID.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "RemoveUser has no interpolated intent naming the member removed.",
+      "evidence": "descriptor.json RemoveUser: \"intent\": \"Remove member\", no interpolatedIntent; removedUserId is a field.",
+      "fix": "Add interpolatedIntent \"Remove member {removedUserId} from {company}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "RotateUser(string company,string userId,address newAddress,string authId)",
+    "effects": [
+     "Moves member userId to newAddress: the old address loses the seat and newAddress gets all the member's rights, admin and policy signing included (State.rotateUser).",
+     "Spends authId once per company."
+    ],
+    "shown": "\"Move member {userId} to {newAddress}\" with company, member ID and the new key address.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "CompleteOnboarding(string company,string authId)",
+    "effects": [
+     "Sets onboardingComplete for the company to true, permanently (State.setOnboardingComplete; one-way flag).",
+     "After this, a single admin can no longer activate a policy alone (State comment on onboardingComplete; the rule is in the policies helper).",
+     "Spends authId once per company."
+    ],
+    "shown": "\"Complete onboarding\" with the company name.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "CompleteOnboarding does not say it is permanent and ends single-admin policy activation.",
+      "evidence": "CFHelpersStatev1.sol onboardingComplete doc: \"while it is false a single admin may activate a policy\"; setOnboardingComplete: \"no way back\". descriptor intent: \"Complete onboarding\".",
+      "fix": "Add interpolatedIntent \"Close onboarding for {company} permanently\" and say that policies then need more than one admin.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "TransferPolicyActivation(string company,string policyId,string title,string policyType,string[] signerIds,uint256 threshold,address token,uint256 maxAmount,address[] recipients,string authId)",
+    "effects": [
+     "Creates an active transfer policy that lets threshold of the listed signerIds move token from the company vault (State.activatePolicy).",
+     "Sets the per-transfer limit maxAmount and the recipient allowlist; an empty list means any recipient (descriptor $comment; enforced in the vault, not available).",
+     "Spends authId once per company."
+    ],
+    "shown": "\"Activate transfer policy\" with title, ID, type, each signer, threshold, token, max per transfer and each allowed recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "TransferPolicyActivation with no recipients shows nothing, though an empty list allows any recipient.",
+      "evidence": "case 23: recipients [] and no 'Allowed recipient' field on screen. descriptor $comment: \"Empty policy recipients are unrestricted.\" State.activatePolicy only rejects zero entries.",
+      "fix": "State it in the intent or label, e.g. intent \"Activate transfer policy (no recipient list = any recipient)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "TransferPolicyActivation has no interpolated intent stating who may send what.",
+      "evidence": "descriptor.json: \"intent\": \"Activate transfer policy\", no interpolatedIntent; token, maxAmount, threshold are fields only.",
+      "fix": "Add interpolatedIntent \"Let {threshold} signers send up to {maxAmount} per transfer\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "TransactionPolicyActivation(string company,string policyId,string title,string policyType,string[] signerIds,uint256 threshold,address wrapper,string func,string authId)",
+    "effects": [
+     "Creates an active transaction policy that lets threshold of the listed signerIds make the vault run func on the wrapper contract (State.activatePolicy with isTransaction=true).",
+     "Spends authId once per company."
+    ],
+    "shown": "\"Activate transaction policy\" with title, ID, type, each signer, threshold, wrapper contract and function name.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "TransactionPolicyActivation has no interpolated intent naming the contract and function granted.",
+      "evidence": "descriptor.json: \"intent\": \"Activate transaction policy\", no interpolatedIntent; wrapper and func are fields only.",
+      "fix": "Add interpolatedIntent \"Let {threshold} signers run {func} on {wrapper}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "PolicyDeactivation(string company,string policyId,string authId)",
+    "effects": [
+     "Sets the policy inactive (State.deactivatePolicy: policy.active = false).",
+     "Spends authId once per company."
+    ],
+    "shown": "\"Deactivate policy {policyId}\" with company and policy ID.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "Transfer(string company,string policyId,string messageType,uint256 amount,address token,address recipient,string authId)",
+    "effects": [
+     "Approves the company vault sending amount of token to recipient under policyId, once threshold signatures exist (vault code not available).",
+     "A Cofund fee at the company's tier rate (0-10%, State.subscriptionTierBps) appears to go to cfFeeRecipientAddress on top of the amount (descriptor $comment: amount excludes fees).",
+     "Spends authId once per company."
+    ],
+    "shown": "\"Approve transfer of {amount} to {recipient}\" with company, amount with token, token, recipient, policy ID and policy type.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Transfer does not show the Cofund fee that the vault pays on top of the amount.",
+      "evidence": "descriptor $comment: \"Transfer amount is principal and excludes fees\"; State: subscriptionTierBps up to 1_000 and cfFeeRecipientAddress. The rate is in storage; vault source missing.",
+      "fix": "Change the Amount label to \"Amount (before Cofund fee)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "Transaction(string company,string policyId,string messageType,address wrapper,string func,Allowance[] allowances,bytes32 instructionsHash,string authId)Allowance(address asset,uint256 amount)",
+    "effects": [
+     "Approves the company vault running func on the wrapper contract with instructions bound only by instructionsHash (vault code not available).",
+     "Gives the wrapper allowances of each listed asset and amount from the vault.",
+     "What the instructions do with vault assets (tokens out, recipients) is not in the message.",
+     "Spends authId once per company."
+    ],
+    "shown": "\"Approve transaction\" with company, wrapper, function, each approved token and amount, a raw instructions hash, policy ID and type.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Transaction binds the wrapper instructions by hash, so the screen cannot show what they do.",
+      "evidence": "Type member bytes32 instructionsHash, field 'Hash (see Cofund)' raw (case 36, 37). descriptor $comment: \"Transaction binds wrapper instructions by hash\".",
+      "fix": "No descriptor change; the signer must check the instructions in Cofund.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Transaction intent \"Approve transaction\" is generic and has no interpolated intent.",
+      "evidence": "descriptor.json Transaction: \"intent\": \"Approve transaction\", no interpolatedIntent; wrapper and func are fields only.",
+      "fix": "Add interpolatedIntent \"Run {func} on {wrapper} from the vault\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Transaction allowance labels do not name the spender of the approval.",
+      "evidence": "allowances.[] fields labeled \"Approve token\" / \"Approve amount\"; spender assumed to be wrapper, vault source missing (cases 37, 43, 44).",
+      "fix": "Label as \"Allow wrapper to spend\" once the vault code confirms the spender.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 40
+   }
+  ],
+  "couldNotCheck": [
+   "The EIP-712 signatures are not checked by the deployment in the directory. CFHelpersStatev1 (1:0xd59e…02c0) has no EIP-712 code; it only stores authIds. The users helper, the policies helper and the vault contracts check the signatures and run the effects, and their source is not here. Their addresses are in helperContracts[\"users\"/\"policies\"/\"vaults\"] and clientVaults. So the domain, the type strings and all effects cannot be checked.",
+   "Transfer: the vault code is missing, so the fee, the amount the recipient receives and the token handling cannot be checked.",
+   "Transaction: the vault and wrapper code is missing, so the allowance spender, the allowance semantics and the instruction execution cannot be checked.",
+   "TransferPolicyActivation: the vault code is missing, so 'empty recipients = any recipient' and 'maxAmount is per transfer' cannot be checked.",
+   "InviteUser: the users helper is missing, so the invitee address binding and company creation cannot be checked. CompleteOnboarding: the policies helper is missing, so the single-admin rule cannot be checked."
+  ]
+ },
+ "cost": 0.564,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 122,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "InviteUser(string company,string callerId,string userId,bool userIsAdmin,string userPosition,uint256 expiresAt,string authId)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "InviteUser has no interpolated intent, so the admin grant and the member are not in the sentence.",
+   "comprehension": null
+  },
+  "RemoveUser(string company,string removedUserId,string authId)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "RemoveUser has no interpolated intent naming the member removed.",
+   "comprehension": null
+  },
+  "RotateUser(string company,string userId,address newAddress,string authId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "CompleteOnboarding(string company,string authId)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "CompleteOnboarding does not say it is permanent and ends single-admin policy activation.",
+   "comprehension": null
+  },
+  "TransferPolicyActivation(string company,string policyId,string title,string policyType,string[] signerIds,uint256 threshold,address token,uint256 maxAmount,address[] recipients,string authId)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "TransferPolicyActivation with no recipients shows nothing, though an empty list allows any recipient.",
+   "comprehension": null
+  },
+  "TransactionPolicyActivation(string company,string policyId,string title,string policyType,string[] signerIds,uint256 threshold,address wrapper,string func,string authId)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "TransactionPolicyActivation has no interpolated intent naming the contract and function granted.",
+   "comprehension": null
+  },
+  "PolicyDeactivation(string company,string policyId,string authId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "Transfer(string company,string policyId,string messageType,uint256 amount,address token,address recipient,string authId)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "Transaction(string company,string policyId,string messageType,address wrapper,string func,Allowance[] allowances,bytes32 instructionsHash,string authId)Allowance(address asset,uint256 amount)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "Transaction intent \"Approve transaction\" is generic and has no interpolated intent.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 99,
+  "clarity": 61,
+  "functions": "2A 2B 5C",
+  "incomplete": true,
+  "worst": "TransferPolicyActivation with no recipients shows nothing, though an empty list allows any recipient."
+ }
+}

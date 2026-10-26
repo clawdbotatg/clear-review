@@ -1,0 +1,212 @@
+{
+ "hash": "0xc1567bef402fb6d71131271ddde0813a116f58f7a56bfcf3aaf46c5784a8ce4a",
+ "file": "registry/symbiotic/calldata-VaultV1-ETHFI.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2bcfa0283c92b7845ece12ceadc521414bef1067"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls exactly `amount` ETHFI (collateral 0xFe0c…) from the signer into the vault via safeTransferFrom, which spends the signer's ETHFI allowance to the vault.",
+     "Mints vault active shares, at a rate set from storage, to `onBehalfOf`, which may be someone other than the signer.",
+     "Not payable; no native value."
+    ],
+    "shown": "Deposit a given ETHFI amount into the vault, with the share position credited to the named beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to the beneficiary is not shown; it comes from storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` The descriptor has no shares field because the value is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active shares worth `amount` ETHFI, rounded up (previewWithdraw), so the signer's active stake drops by `amount`.",
+     "Queues `amount` ETHFI for the next epoch and credits the withdrawal shares to `claimer`, who alone can claim them after that epoch ends.",
+     "No tokens move now. The queued amount stays slashable until it is claimed."
+    ],
+    "shown": "Request a withdrawal of a given ETHFI amount, which the named claim owner can claim later.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned and any later slashing of the queued amount are not shown; both depend on storage.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` In onSlash, `withdrawals[currentEpoch_ + 1] = nextWithdrawals - nextWithdrawalsSlashed;` can reduce what the claimer gets later.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Queues the ETHFI those shares are worth (previewRedeem, from storage) for the next epoch and credits the claim to `claimer`.",
+     "No tokens move now. The claim can be made after the next epoch ends."
+    ],
+    "shown": "Queue a raw integer number of vault shares for withdrawal to the named claim owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: share amount is shown as a raw 18-decimal integer instead of a readable share count.",
+      "evidence": "ERC4626Math.sol `_decimalsOffset()` returns 0, so shares use the collateral's 18 decimals. The descriptor field `#.shares` has format `raw`. Case 2 shows \"Queue 987654321123456789 raw shares\", which is about 0.988 shares.",
+      "fix": "Use format `unit` with params {\"base\":\"shares\",\"decimals\":18} and drop \"raw\" from the label and the interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the ETHFI amount queued for the shares is derived from storage and not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed.",
+     "Transfers the signer's full withdrawal for that epoch in ETHFI (withdrawalsOf(epoch, msg.sender), from storage) from the vault to `recipient`."
+    ],
+    "shown": "Claim the withdrawal of a given epoch and send it to the named recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the ETHFI amount sent to the recipient comes from storage and is not shown; the intent does not name ETHFI.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);` then claim does `IERC20(collateral).safeTransfer(recipient, amount);` The intent reads only \"Claim withdrawal\".",
+      "fix": "Optionally reword the intent to \"Claim ETHFI withdrawal\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 72
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawals for every listed epoch as claimed.",
+     "Transfers the sum of those withdrawals in ETHFI (from storage) from the vault to `recipient` in one transfer."
+    ],
+    "shown": "Claim the withdrawals of the listed epochs and send them to the named recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total ETHFI sent to the recipient comes from storage and is not shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` then `IERC20(collateral).safeTransfer(recipient, amount);`",
+      "fix": "Optionally reword the intent to \"Claim ETHFI withdrawals\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 72
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.349,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: share amount is shown as a raw 18-decimal integer instead of a readable share count.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 75,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: share amount is shown as a raw 18-decimal integer instead of a readable share count."
+ }
+}

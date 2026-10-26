@@ -1,0 +1,221 @@
+{
+ "hash": "0xd6d6364979f5083daff38043f7d02f3a77e280562efb1be5eef99dcb092b0fe2",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakUSDTlite.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x097ffedb80d4b2ca6105a07a4d90eb739c45a666"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "`assets` USDT leave the signer and go to the vault (ERC4626 _deposit, safeTransferFrom caller to vault), then the vault supplies them to Morpho markets.",
+     "Vault shares (steakUSDTlite) are minted to `receiver`; the number is computed from vault totals in storage (floor rounding), with no minimum in the calldata."
+    ],
+    "shown": "Deposit: the USDT amount, the share ticker steakUSDTlite and the address that gets the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: number of shares received is not shown; the vault computes it from storage.",
+      "evidence": "MetaMorphoV1_1.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Floor). Case 0: signer received 9660849369919166 steakUSDTlite (0.00966); the screen shows only the ticker 'Share ticker: steakUSDTlite'. Reader unsure 'How many shares I'll get'.",
+      "fix": "No calldata value holds it. A label such as 'Shares (amount set by vault price)' would help.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: intent 'Deposit' does not name the asset, amount or vault; there is no interpolatedIntent.",
+      "evidence": "descriptor deposit format: \"intent\": \"Deposit\" and no interpolatedIntent; the fields carry the 0.01 USDT and the receiver.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into steakUSDTlite for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDT out 0.01 shown exactly. Shares in: the asset and the receiver (the signer) are shown, but the amount is not. The vault sets it, so a descriptor cannot show it."
+     }
+    ],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "USDT leaves the signer for the vault. The amount is computed from vault totals (ceil rounding) and nothing in the calldata caps it.",
+     "Exactly `shares` steakUSDTlite vault shares are minted to `receiver`."
+    ],
+    "shown": "Mint: deposit asset 'USDT' with no amount, the exact shares minted in steakUSDTlite, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: USDT amount paid is not shown; the vault computes it and the calldata has no maximum.",
+      "evidence": "MetaMorphoV1_1.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Ceil); _deposit pulls `assets` from caller. Case 1: signer paid 2 (0.000002) USDT; screen shows 'Deposit asset: USDT' only. Reader unsure 'How much USDT is deposited'.",
+      "fix": "No calldata value holds it. Label the field 'Pay with (amount set by vault price)' so the signer knows the amount is not shown.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: intent 'Mint' does not say USDT leaves the wallet; the payment is only in a ticker field.",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\", field 'Deposit asset' = raw constant underlyingTicker 'USDT'. In the deposit format, the same label 'Deposit asset' holds an amount.",
+      "fix": "Use intent 'Deposit USDT for shares' and interpolatedIntent 'Mint {shares} to {receiver}, paying USDT'. Rename the field 'Pays with'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "USDT out: the asset and direction are shown, the amount (2 base units) is not. The shares went to 0xdEaD, not the signer, and the screen shows that correctly."
+     }
+    ],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Exactly `assets` USDT go from the vault to `receiver`.",
+     "steakUSDTlite shares of `owner` are burned. The number is computed from vault totals (ceil rounding) with no maximum in the calldata.",
+     "If the caller is not `owner`, the caller's share allowance from `owner` is spent by that share amount."
+    ],
+    "shown": "Withdraw: the exact USDT amount, the receiver and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from owner are not stated, by amount or by token.",
+      "evidence": "MetaMorphoV1_1.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Ceil); _withdraw burns them from owner. The descriptor fields are only assets, receiver and owner.",
+      "fix": "The amount comes from storage. Add a constant field 'Shares burned: steakUSDTlite' to name the token.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Exactly `shares` steakUSDTlite shares of `owner` are burned. If the caller is not owner, the caller's allowance from owner is spent.",
+     "USDT goes from the vault to `receiver`. The amount is computed from vault totals (floor rounding) and the calldata has no minimum."
+    ],
+    "shown": "Redeem: the exact shares in steakUSDTlite, the receiver and the owner. The screen never says that USDT is what arrives.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the asset received (USDT) is not named anywhere on the screen.",
+      "evidence": "descriptor redeem format fields: shares, receiver, owner only. MetaMorphoV1_1.sol redeem() sends `assets` of the underlying (USDT) to receiver via _withdraw. The mint format shows the underlyingTicker constant; redeem does not.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and label the receiver 'Send USDT to'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: USDT amount received is not shown; the vault computes it and the calldata has no minimum.",
+      "evidence": "MetaMorphoV1_1.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Floor).",
+      "fix": "No calldata value holds it. A label can say the amount is set by the vault price.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.403,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 90,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: intent 'Mint' does not say USDT leaves the wallet; the payment is only in a ticker field.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the asset received (USDT) is not named anywhere on the screen.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 59,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem: the asset received (USDT) is not named anywhere on the screen."
+ }
+}

@@ -1,0 +1,200 @@
+{
+ "hash": "0xfd227c26144607f221810806c0217ee7407a524a5e8c115c065c7152c56ddbdc",
+ "file": "registry/morpho/calldata-sky_money-skyMoneyUsdcRiskCapital-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x56bfa6f53669b836d1e0dfa5e99706b12c373ecf"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer and sends it to the vault (VaultV2.enter, safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints vault shares, worth previewDeposit(assets), to `onBehalf`, which may not be the signer (createShares(onBehalf, shares)).",
+     "The vault then puts the USDC into its liquidity adapter. This moves none of the signer's assets."
+    ],
+    "shown": "Deposit 1 USDC for <onBehalf>, with the vault share ticker and the share recipient as fields; the number of shares minted is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown; the vault works it out from its share price in storage.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` reads totalAssets and totalSupply from storage. The descriptor shows only `assets` and a raw 'Share ticker' constant.",
+      "fix": "None possible from calldata. You could relabel 'Share ticker' as 'Shares received' to make clear that shares come back.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the label 'Deposit asset' sits on an amount, and 'Share ticker' is a raw constant with no amount.",
+      "evidence": "descriptor deposit fields: label 'Deposit asset' on path `assets` (tokenAmount); label 'Share ticker' with value $.metadata.constants.vaultTicker (raw).",
+      "fix": "Rename them to 'Amount' and 'Receive shares of'. You could also name the vault in the interpolatedIntent, for example 'Deposit {#.assets} into skyMoneyUsdcRiskCapital for {#.onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1 USDC left the signer and is shown exactly. The shares were minted to 0xdEaD (signer null), and both the screen and the reader got that right."
+     }
+    ],
+    "glance": 82,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) vault shares from `onBehalf` (deleteShares(onBehalf, shares)).",
+     "When the signer is not `onBehalf`, uses up that many shares of onBehalf's allowance to the signer (allowance[onBehalf][msg.sender] -= shares).",
+     "Sends exactly `assets` USDC to `receiver` (safeTransfer(asset, receiver, assets)).",
+     "May pull liquidity from the adapter first. This moves none of the signer's assets."
+    ],
+    "shown": "Withdraw exactly X USDC to <receiver>, with Owner = onBehalf; the number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown; it comes from the share price in storage.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`, then deleteShares(onBehalf, shares). Case 1: 95065.142649005895003744 skyMoneyUsdcRiskCapital left the signer (signer out) and the screen shows no share amount.",
+      "fix": "None possible from calldata. You could add a constant field such as 'Burns: skyMoneyUsdcRiskCapital shares' so the signer knows shares leave.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent does not say that the owner's shares are burned or allowance is spent when the owner is not the signer.",
+      "evidence": "VaultV2.sol exit: `if (msg.sender != onBehalf) { allowance[onBehalf][msg.sender] = _allowance - shares; }`. interpolatedIntent 'Withdraw {#.assets} to {#.receiver}' leaves out onBehalf, which appears only as the field 'Owner'.",
+      "fix": "Put the owner in the sentence: 'Withdraw {#.assets} from {#.onBehalf}'s shares to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The USDC that arrived matches the screen exactly. The reader guessed that shares leave but had no amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf` (deleteShares(onBehalf, shares)).",
+     "When the signer is not `onBehalf`, uses up `shares` of onBehalf's allowance to the signer.",
+     "Sends previewRedeem(shares) USDC to `receiver` (safeTransfer(asset, receiver, assets)). The calldata has no minimum for this amount."
+    ],
+    "shown": "Redeem N skyMoneyUsdcRiskCapital to <receiver>, with Owner = onBehalf; it names neither the asset received (USDC) nor its amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown; the vault works it out from its share price in storage.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. Case 2: 4,564,128.923757 USDC came in to the signer and no amount is on screen.",
+      "fix": "None for the amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the screen never says that USDC is the asset received, so the blind reader had to guess.",
+      "evidence": "interpolatedIntent 'Redeem {#.shares} to {#.receiver}'. No field names the underlying token, although metadata.constants.underlyingTicker = 'USDC'. Case 2 reader: 'Some underlying asset (likely USDC) ... the screen does not state the asset or amount'.",
+      "fix": "Change the intent to 'Redeem {#.shares} for USDC to {#.receiver}' or add a field 'Receive' with value $.metadata.constants.underlyingTicker.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares burned match the screen exactly. The reader expected USDC to arrive but had neither the asset nor the amount."
+     }
+    ],
+    "glance": 68,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.287,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 111,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the label 'Deposit asset' sits on an amount, and 'Share ticker' is a raw constant with no amount.",
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent does not say that the owner's shares are burned or allowance is spent when the owner is not the signer.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says that USDC is the asset received, so the blind reader had to guess.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 74,
+  "functions": "1A 2B",
+  "incomplete": false,
+  "worst": "withdraw: the intent does not say that the owner's shares are burned or allowance is spent when the owner is not the signer."
+ }
+}

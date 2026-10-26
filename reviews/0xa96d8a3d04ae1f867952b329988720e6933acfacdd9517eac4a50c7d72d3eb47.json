@@ -1,0 +1,198 @@
+{
+ "hash": "0xa96d8a3d04ae1f867952b329988720e6933acfacdd9517eac4a50c7d72d3eb47",
+ "file": "registry/morpho/calldata-yearn-ymvOG-WETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe89371eaaac6d46d4c3ed23453241987916224fc"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` WETH to the vault (ERC4626 _deposit uses safeTransferFrom from the caller), and the vault supplies it to Morpho Blue markets.",
+     "The vault mints shares to `receiver`. The number is assets*(totalSupply+10^offset)/(lastTotalAssets+1), rounded down, so it depends on storage.",
+     "The vault accrues interest first and mints performance-fee shares to the fee recipient. This does not change the WETH amount the signer pays."
+    ],
+    "shown": "Intent \"Deposit\" with the WETH amount, a raw 'Share ticker' row reading ymvOG-WETH, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the receiver gets; the vault sets that from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. No field shows the share amount. Case 0: 9777410903 ymvOG-WETH minted to 0x...dEaD.",
+      "fix": "None possible: the share amount comes from vault storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' names neither the asset nor the vault, and there is no interpolated intent.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`, no interpolatedIntent. The ticker sits in a separate raw row: `\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"`. Case 0: the reader was unsure which contract receives the WETH.",
+      "fix": "Change the intent to \"Deposit WETH into Yearn vault\". Add interpolatedIntent \"Deposit {assets} for ymvOG-WETH shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Signer pays 1e-8 WETH and the screen shows 0.00000001 WETH. The shares go to 0xdEaD (signer null), and the screen shows that recipient."
+     }
+    ],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns shares from `owner`. The number is assets*(supply+10^offset)/(lastTotalAssets+1), rounded up, so it depends on storage.",
+     "The vault pulls the WETH from Morpho markets and sends exactly `assets` WETH to `receiver`.",
+     "When `owner` is not the signer, the call spends the signer's share allowance from `owner` (ERC4626._withdraw calls _spendAllowance)."
+    ],
+    "shown": "Intent \"Withdraw\" with the exact WETH amount, the receiver ('To') and the share owner ('Owner').",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the vault shares burned from the owner; the vault computes that number from storage.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 1: the signer lost 33798681422235202 ymvOG-WETH, and no field shows a share amount.",
+      "fix": "None possible for the amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw never names the vault or the ymvOG-WETH shares it burns; the intent is only 'Withdraw'.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`, and the fields are assets, receiver and owner only. Case 1 reader: \"Which Yearn vault this is, since the screen shows no vault name or address\". The deposit format does show the vaultTicker constant.",
+      "fix": "Change the intent to \"Withdraw WETH from Yearn vault\". Add a field with value `$.metadata.constants.vaultTicker` labeled 'Shares burned from'. Add interpolatedIntent \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "WETH in, 0.035, is shown right. The ymvOG-WETH shares burned (0.0338) are not shown. The reader knew some vault shares leave but not how many or from which vault."
+     }
+    ],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` ymvOG-WETH from `owner`, spending the signer's allowance when `owner` is not the signer.",
+     "The vault sends WETH to `receiver`. The amount is shares*(lastTotalAssets+1)/(supply+10^offset), rounded down, and there is no minimum."
+    ],
+    "shown": "Intent \"Redeem\" with the share amount in ymvOG-WETH, the receiver and the owner. The WETH received is not named at all.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names WETH as the asset the receiver gets; the reader had to guess the payout token.",
+      "evidence": "descriptor redeem format: the fields are shares (tokenPath @.to), receiver and owner, with no field for the underlying token. Case 2: the signer received 9069082607057775 WETH. Reader: \"Which token is paid out (name suggests WETH, screen doesn't say)\".",
+      "fix": "Add a field with value `$.metadata.constants.underlyingTicker` labeled 'Receive'. Change the intent to \"Redeem shares for WETH\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the WETH amount received; the vault prices it from storage with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. The function takes no minimum-assets parameter. Case 2: the signer received 0.009069 WETH, and no amount is shown.",
+      "fix": "None possible: the amount comes from storage.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.008852537511575117 ymvOG-WETH shares out are shown right. For the WETH in, the screen shows neither the asset nor the amount; the reader guessed the underlying."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.395,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 75,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' names neither the asset nor the vault, and there is no interpolated intent.",
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw never names the vault or the ymvOG-WETH shares it burns; the intent is only 'Withdraw'.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names WETH as the asset the receiver gets; the reader had to guess the payout token.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 71,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem never names WETH as the asset the receiver gets; the reader had to guess the payout token."
+ }
+}

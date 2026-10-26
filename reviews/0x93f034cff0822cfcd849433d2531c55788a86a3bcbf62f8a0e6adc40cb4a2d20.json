@@ -1,0 +1,234 @@
+{
+ "hash": "0x93f034cff0822cfcd849433d2531c55788a86a3bcbf62f8a0e6adc40cb4a2d20",
+ "file": "registry/kiln/calldata-Vault-USDT-Aave-v3.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xdd7927c757c1659b56c81c65af848ae400eb879d"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` USDT from the signer into the vault (safeTransferFrom in Vault._deposit).",
+     "Mints kAaveUSDT vault shares to `receiver`. The share count is computed onchain from total assets and supply, minus any deposit fee set in storage.",
+     "Through a delegatecalled connector, the vault supplies the USDT to Aave v3. This moves vault funds, not the signer's.",
+     "Reverts if `receiver` is not the signer, because shares are non-transferable (transferable_=false at init), unless a SPENDER role applies."
+    ],
+    "shown": "\"Deposit\", with the USDT amount, a constant share ticker kAaveUSDT, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of kAaveUSDT shares received is not shown; the contract computes it.",
+      "evidence": "Vault.sol deposit: `(_shares, _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply())`. The descriptor only shows a constant 'Share ticker' kAaveUSDT. Case 0: the signer received 1000001 kAaveUSDT, and the reader noted 'amount not shown'.",
+      "fix": "None possible from calldata. A label such as 'Receive kAaveUSDT shares' would make it clear the amount is decided onchain.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: a deposit fee read from storage can lower the shares minted, and it is not shown.",
+      "evidence": "Vault._previewDeposit: `depositFeeAmount = assets.mulDiv($._depositFee, ...)`, and shares are computed on `assets - depositFeeAmount`. The fee is 0 at init and can be changed by FEE_MANAGER.",
+      "fix": "None. The fee rate lives in storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' names no asset or vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor deposit: `\"intent\": \"Deposit\"`, interpolatedIntent is absent.",
+      "fix": "Add an interpolatedIntent such as 'Deposit {assets} into Kiln Aave USDT vault for {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The USDT out (1.000001) is shown exactly. The kAaveUSDT in is shown by ticker and receiver only, not by amount (1000001 base units)."
+     }
+    ],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` kAaveUSDT to `receiver`.",
+     "Pulls a computed amount of USDT from the signer: previewMint, rounded up, plus any deposit fee. There is no maximum bound in the calldata.",
+     "Through a delegatecalled connector, the vault supplies the USDT to Aave v3."
+    ],
+    "shown": "\"Mint\", with a constant 'Deposit asset: USDT', the number of shares to mint (kAaveUSDT via @.to), and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDT amount taken from the signer is computed onchain and has no bound on screen.",
+      "evidence": "Vault.mint: `(_assets, _depositFeeAmount) = _previewMint(shares, ...)`, then `_deposit(_msgSender(), receiver, _assets, ...)`. The descriptor shows only `\"value\": \"$.metadata.constants.underlyingTicker\"` with no amount.",
+      "fix": "None from calldata. ERC-4626 mint has no maxAssets parameter. A label such as 'USDT spent (computed onchain)' would help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint' does not say that USDT leaves the wallet.",
+      "evidence": "descriptor mint: `\"intent\": \"Mint\"`. The only hint that USDT is spent is a raw constant field labelled 'Deposit asset'.",
+      "fix": "Use the intent 'Deposit USDT for vault shares', with an interpolatedIntent such as 'Deposit USDT to mint {shares} to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns a computed number of kAaveUSDT shares from `owner`.",
+     "If `owner` is not the signer, spends the signer's share allowance from `owner`.",
+     "The connector withdraws `assets` USDT from Aave, and the vault sends the balance increase to `receiver`."
+    ],
+    "shown": "\"Withdraw\", with the exact USDT amount, the recipient, and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of kAaveUSDT shares burned from the owner is computed and not shown.",
+      "evidence": "Vault.withdraw: `_shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply())`, then `_burn(owner, shares)` in _withdraw.",
+      "fix": "None from calldata. A label noting that kAaveUSDT shares are burned from the Owner would help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' names no asset, and there is no interpolatedIntent.",
+      "evidence": "descriptor withdraw: `\"intent\": \"Withdraw\"`.",
+      "fix": "Add an interpolatedIntent such as 'Withdraw {assets} to {receiver} from {owner}'s shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` kAaveUSDT from `owner`. If `owner` is not the signer, this spends the signer's share allowance.",
+     "The connector withdraws a computed USDT amount from Aave, and the vault sends it to `receiver`. There is no minimum bound."
+    ],
+    "shown": "\"Redeem\", with the shares to redeem (kAaveUSDT), the recipient and the owner. USDT is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names USDT as the asset that arrives.",
+      "evidence": "Vault._withdraw: `SafeERC20.safeTransfer(IERC20(asset()), receiver, ...)`. The descriptor redeem fields are only shares, receiver and owner. The mint format shows a constant underlyingTicker, but redeem does not.",
+      "fix": "Add a constant field 'Receive asset' with value $.metadata.constants.underlyingTicker, and an interpolatedIntent such as 'Redeem {shares} for USDT to {receiver}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT amount received is computed onchain and has no minimum bound.",
+      "evidence": "Vault.redeem: `_assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply)`.",
+      "fix": "None from calldata. ERC-4626 redeem has no minAssets parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "The Aave v3 connector is not in the directory. Vault._deposit and Vault._withdraw delegatecall into it, and it is resolved at runtime from the connector registry 0xde63817c82e93499357ae198518f90ac1be93a72 under 'AAVE_V3'. The USDT that withdraw and redeem send to the receiver is the vault's balance increase after that call, so I could not check that amount from source."
+  ]
+ },
+ "cost": 0.483,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 84,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that USDT leaves the wallet.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDT as the asset that arrives.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 56,
+  "functions": "2B 2C",
+  "incomplete": true,
+  "worst": "redeem: the screen never names USDT as the asset that arrives."
+ }
+}

@@ -1,0 +1,242 @@
+{
+ "hash": "0xc3c4cc9f5e7e520c6d4c7cfa1c9dfb1da823eb247318debd1c539a16b93e4fe6",
+ "file": "registry/morpho/calldata-api3-Api3-dCOMP-USDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x36cfe1568461e499391ef0a555300f1ae2da2439"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer and sends it to the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints vault shares (Api3-dCOMP-USDC) to `onBehalf`. The share count comes from previewDeposit at execution, and there is no minimum.",
+     "The vault may forward the USDC to its liquidity adapter. This does not change what the signer gets."
+    ],
+    "shown": "Deposit a stated USDC amount, with the share ticker and the share recipient shown. The number of shares received is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is computed on chain and cannot be shown.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` There is no minShares parameter. Case 0: 0.5e18 Api3-dCOMP-USDC came in to the signer, and the screen shows only the 'Share ticker' constant.",
+      "fix": "None in the descriptor. The amount depends on the share price stored in the vault.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the 'Share ticker' field shows a constant string with no amount, which adds little.",
+      "evidence": "descriptor deposit field {label 'Share ticker', format raw, value $.metadata.constants.vaultTicker}",
+      "fix": "Fold the ticker into the intent, e.g. 'Deposit {assets} for Api3-dCOMP-USDC shares to {onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "0.5 USDC out is shown exactly. The shares in are named by ticker only, and the reader noted the amount was not shown."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "Burns shares from `onBehalf`. The count comes from previewWithdraw and has no maximum.",
+     "If the signer is not `onBehalf`, the burned shares are taken out of the signer's share allowance from `onBehalf`."
+    ],
+    "shown": "Withdraw an exact USDC amount to the receiver, with the owner whose shares are burned. The share count burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned are computed on chain and are not shown.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets);` There is no maxShares parameter. Case 2: 9989.26 Api3-dCOMP-USDC left the signer, and the screen does not mention shares.",
+      "fix": "None in the descriptor. A label or intent such as 'Withdraw {assets} by burning vault shares' would at least state the direction.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The reader understood that their vault balance drops, but not that ~9989 shares are burned. The 10000 USDC in is right."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf`, spending the signer's share allowance if the signer is not `onBehalf`.",
+     "Sends USDC to `receiver`. The amount comes from previewRedeem at execution, and there is no minimum."
+    ],
+    "shown": "Redeem an exact number of Api3-dCOMP-USDC shares to the receiver, with the owner shown. The USDC received is neither named nor quantified.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC received is computed on chain, and its amount cannot be shown.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);` There is no minAssets parameter. Case 3: 700823.304447 USDC came in to the signer, and the screen has no output field.",
+      "fix": "None for the amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent never says the signer receives USDC.",
+      "evidence": "interpolatedIntent 'Redeem {#.shares} to {#.receiver}'. The underlyingTicker constant exists but is not used here. In case 3 the reader wrote 'probably USDC'.",
+      "fix": "Use 'Redeem {#.shares} for USDC to {#.receiver}', or add a 'Receive asset' field with $.metadata.constants.underlyingTicker.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out are exact. The reader guessed USDC with no amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes USDC from the signer. The amount comes from previewMint at execution (rounded up), and there is no maximum.",
+     "Mints exactly `shares` vault shares to `onBehalf`."
+    ],
+    "shown": "Mint an exact number of shares to the recipient, with 'Deposit asset: USDC' shown as a ticker only. The USDC amount paid is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC paid is computed on chain with no cap, and its amount cannot be shown.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares);` then enter: safeTransferFrom(asset, msg.sender, ...). There is no maxAssets parameter. Case 1: 1 wei USDC left the signer, and the screen shows only 'Deposit asset: USDC'.",
+      "fix": "None for the amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' hides that the signer pays USDC.",
+      "evidence": "intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. The USDC payment appears only as a field showing a raw ticker.",
+      "fix": "Use 'Deposit USDC to mint {#.shares} for {#.onBehalf}', and label the field 'Pay with'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The reader knew USDC leaves but not how much. The shares went to 0xdead (not the signer), and the screen showed that correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.434,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 88,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the intent never says the signer receives USDC.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' hides that the signer pays USDC.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 66,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the intent 'Mint' hides that the signer pays USDC."
+ }
+}

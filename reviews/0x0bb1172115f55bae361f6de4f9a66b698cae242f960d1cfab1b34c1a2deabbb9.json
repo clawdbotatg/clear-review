@@ -1,0 +1,235 @@
+{
+ "hash": "0x0bb1172115f55bae361f6de4f9a66b698cae242f960d1cfab1b34c1a2deabbb9",
+ "file": "registry/symbiotic/calldata-VaultV1-AA_FalconXUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xc1619326973c2f81a0311b6a4eabbc95d2ef3bbc"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` of the vault collateral (AA_FalconXUSDC, 0xC26A…f99C) to the vault via safeTransferFrom, spending the allowance it gave the vault.",
+     "Active vault shares worth the deposited amount (minted at the current share price) are credited to `onBehalfOf`, not necessarily to the signer. This is a slashable stake position.",
+     "No native value is taken (not payable)."
+    ],
+    "shown": "Deposit 123.25 AA_FalconXUSDC for the beneficiary address into the named vault.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: shares minted to the beneficiary come from vault storage and are not shown",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...)`. The descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "fix": "None needed. The share count depends on storage. The intent could say the deposit becomes slashable stake.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 88
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The signer's active shares are burned. The count is previewWithdraw(amount), rounded up, and must not exceed the signer's balance.",
+     "`amount` of collateral leaves the signer's active stake and is queued in the next epoch's withdrawals.",
+     "Withdrawal shares for that epoch are credited to `claimer`. Only the claimer can claim the collateral after the epoch ends.",
+     "No tokens move in this call."
+    ],
+    "shown": "Request a 2.5 AA_FalconXUSDC withdrawal for the claim-owner address from the named vault.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: burned share count and later slashing of the queued amount are not shown",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`. Vault.sol onSlash can cut `withdrawals[currentEpoch_ + 1]` before the claim. The screen shows only 'Requested assets' and 'Claim owner'.",
+      "fix": "None needed. Both values come from storage. The intent could say funds are claimable after the epoch ends and may be slashed until then.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "`shares` of the signer's active vault shares are burned.",
+     "Collateral equal to previewRedeem(shares), computed from storage, leaves the signer's active stake and is queued in the next epoch's withdrawals.",
+     "Withdrawal shares for that epoch are credited to `claimer`, who alone can claim the collateral later.",
+     "No tokens move in this call."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claim-owner address from the named vault.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: share amount shown as a raw 18-decimal integer in the intent and the field",
+      "evidence": "descriptor redeem: `#.shares` format `raw`, interpolatedIntent 'Queue {shares} raw shares for {claimer}'. Case 2 renders 'Queue 987654321123456789 raw shares'. ERC4626Math `_decimalsOffset()` returns 0, so shares use the collateral's 18 decimals.",
+      "fix": "Use format `unit` with params {\"decimals\": 18, \"base\": \"shares\"} so the screen reads about 0.9877 shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: collateral amount queued for the claimer is computed from storage and not shown",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares()); mintedShares = _withdraw(claimer, withdrawnAssets, shares);`",
+      "fix": "None possible in the descriptor. The intent could name the collateral asset.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The signer's withdrawal for `epoch` is marked claimed. This reverts if the epoch is not over, was already claimed, or is zero.",
+     "Collateral (AA_FalconXUSDC) worth the signer's withdrawal shares for that epoch, computed from storage, is sent from the vault to `recipient`, who may differ from the signer."
+    ],
+    "shown": "Claim epoch 42 to the recipient address from the named vault.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim: the asset paid out (AA_FalconXUSDC collateral) is named nowhere on the screen",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);`. Descriptor intent 'Claim withdrawal', interpolatedIntent 'Claim epoch {epoch} to {recipient}'. Case 3 shows no token.",
+      "fix": "Name the asset in the intent, e.g. 'Claim AA_FalconXUSDC withdrawal' and 'Claim AA_FalconXUSDC from epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount sent to the recipient comes from storage and is not shown",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);`",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Each listed epoch's withdrawal of the signer is marked claimed. This reverts if any epoch is not over, was already claimed, or is zero.",
+     "The sum of the signer's collateral (AA_FalconXUSDC) withdrawals over all listed epochs, computed from storage, is sent in one transfer from the vault to `recipient`."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient address from the named vault, with each epoch listed.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch: the asset paid out (AA_FalconXUSDC collateral) is named nowhere on the screen",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);`. Descriptor intent 'Claim withdrawals', interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}'. Case 4 shows no token.",
+      "fix": "Name the asset in the intent, e.g. 'Claim AA_FalconXUSDC withdrawals'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total amount sent comes from storage and is not shown",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` where _claim reads `withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.367,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 74,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: share amount shown as a raw 18-decimal integer in the intent and the field",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the asset paid out (AA_FalconXUSDC collateral) is named nowhere on the screen",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the asset paid out (AA_FalconXUSDC collateral) is named nowhere on the screen",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 68,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: share amount shown as a raw 18-decimal integer in the intent and the field"
+ }
+}

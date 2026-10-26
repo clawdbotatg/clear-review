@@ -1,0 +1,171 @@
+{
+ "hash": "0xa1f434c3a61dbe28175c77b3ec9eda974850fabb75fa514e50c0ae8342055682",
+ "file": "registry/morpho/calldata-MorphoBundlerV3.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x6566194141eefa99af43bb5aa71460ca2dc90245"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x6bfd8137e702540e7a42b74178a4a49ba43920c4"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "multicall((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)",
+    "effects": [
+     "The signer sends msg.value in native currency to Bundler3; the function is payable and nothing checks that msg.value equals the sum of the inner call values.",
+     "Bundler3 stores the signer as the transient `initiator`, so adapters that read `initiator()` can pull the signer's tokens through approvals and authorizations the signer gave them.",
+     "For each bundle element, Bundler3 calls `to` with `data` and sends `value` native currency from its own balance; the inner calls decide which assets leave or reach the signer.",
+     "When `skipRevert` is true, a failing inner call is ignored and the rest of the bundle runs.",
+     "When `callbackHash` is non-zero, the callee is allowed to call `reenter` with one specific bundle, which runs more calls while the signer is still the initiator.",
+     "Native currency left over in Bundler3 (msg.value above the inner values) stays in a contract that lets anybody make arbitrary calls, so anybody can take it."
+    ],
+    "shown": "The intent \"Bundler3 Multicall\" and one 'Action' field per bundle element, decoded as nested calldata for `to` with that element's `value`; msg.value, skipRevert and callbackHash are not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multicall is payable but shows no field for msg.value, and the code does not check it against inner values.",
+      "evidence": "Bundler3.sol multicall: `function multicall(Call[] calldata bundle) external payable` and nothing compares msg.value to the sum of `bundle[i].value`. Descriptor multicall fields: only `#.bundle.[].data` with `amountPath: #.bundle.[].value`; no `@.value` field.",
+      "fix": "Add a field `{\"path\": \"@.value\", \"label\": \"Total value sent\", \"format\": \"amount\"}` with visible always. The interpolated intent can mention it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multicall hides skipRevert, so an action shown on screen may fail silently while the rest runs.",
+      "evidence": "Bundler3.sol _multicall: `if (!bundle[i].skipRevert && !success) UtilsLib.lowLevelRevert(returnData);`. Descriptor shows only `#.bundle.[].data`; `skipRevert` is not a field.",
+      "fix": "Add a field for `#.bundle.[].skipRevert` with label \"Continue if this action fails\", or say in the intent that some actions are optional.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "multicall nested calls set no spenderPath, though adapters act for the initiator (the signer), not Bundler3.",
+      "evidence": "Bundler3.sol multicall: `initiator = msg.sender;` with `@dev Locks the initiator so that the sender can be identified by other contracts.` Descriptor params: `calleePath: #.bundle.[].to`, `amountPath: #.bundle.[].value`, no `spenderPath`. A nested adapter descriptor that uses `@.from` gets Bundler3, while the tokens are pulled from the signer.",
+      "fix": "Add `\"spenderPath\": \"@.from\"` so nested adapter descriptors see the signer as the party whose tokens move.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "multicall intent \"Bundler3 Multicall\" does not tell the signer what the bundle does.",
+      "evidence": "Descriptor multicall: `\"intent\": \"Bundler3 Multicall\"`. All asset effects come from the nested calls, and the intent names none of them.",
+      "fix": "Change the intent to \"Run Morpho batch of actions\". Add an interpolatedIntent if the wallet supports a count or summary of the actions.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "multicall hides callbackHash, which lets a callee re-enter with a bundle carried inside nested data.",
+      "evidence": "Bundler3.sol _multicall: `else reenterHash = keccak256(bytes.concat(bytes20(to), callbackHash));`. The reenter bundle sits inside the inner call data (for example flash-loan callback data). That is a nested array in bytes, which ERC-7730 cannot decode.",
+      "fix": "No descriptor change shows the re-entered bundle today. It waits on support for nested calldata in callback bytes.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 15,
+    "depth": 45
+   },
+   {
+    "key": "reenter((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)",
+    "effects": [
+     "Runs a further bundle of calls from Bundler3 while the original initiator is still set, so adapters can again move the initiator's tokens.",
+     "Each element calls `to` with `data` and `value` from Bundler3's balance; skipRevert lets an inner call fail silently.",
+     "Only the last unreturned callee with the matching reenterHash can call it; a signer's top-level transaction always reverts."
+    ],
+    "shown": "The intent \"Reenter Bundler3\" and one 'Action' field per bundle element, decoded as nested calldata for `to` with that element's `value`.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "wrong-binding",
+      "title": "reenter has a format, but no signer calls it directly; a top-level call always reverts.",
+      "evidence": "Bundler3.sol reenter: `require(reenterHash == keccak256(bytes.concat(bytes20(msg.sender), keccak256(msg.data[4:]))), ErrorsLib.IncorrectReenterHash());`. reenterHash is transient and is set only inside _multicall, so it is zero at the start of a transaction.",
+      "fix": "Remove the reenter format, or keep it only for smart accounts that act as the callee in a bundle.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "reenter hides skipRevert, so an action shown on screen may fail silently while the rest runs.",
+      "evidence": "Bundler3.sol _multicall: `if (!bundle[i].skipRevert && !success) UtilsLib.lowLevelRevert(returnData);`. The descriptor reenter format shows only `#.bundle.[].data`.",
+      "fix": "Add a field for `#.bundle.[].skipRevert` with label \"Continue if this action fails\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "reenter nested calls set no spenderPath, though adapters act for the stored initiator.",
+      "evidence": "Bundler3.sol: `address public transient initiator;` stays set during reenter. Descriptor reenter params have no `spenderPath`.",
+      "fix": "Add `\"spenderPath\"` pointing to the signer so nested adapter descriptors see the right party.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 15,
+    "depth": 40
+   }
+  ],
+  "couldNotCheck": [
+   "The bundle's effects on the signer's tokens happen in the callees, the Morpho adapters (for example GeneralAdapter1), which read Bundler3.initiator. Their source is not in the directory, so I could not check which party the nested descriptors need as @.from."
+  ]
+ },
+ "cost": 0.301,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [
+  "multicall((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)"
+ ],
+ "seconds": 65,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "multicall((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 25,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "multicall is payable but shows no field for msg.value, and the code does not check it against inner values.",
+   "comprehension": null
+  },
+  "reenter((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 28,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "reenter hides skipRevert, so an action shown on screen may fail silently while the rest runs.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 40,
+  "clarity": 26,
+  "functions": "1C 1F",
+  "incomplete": true,
+  "worst": "multicall is payable but shows no field for msg.value, and the code does not check it against inner values."
+ }
+}

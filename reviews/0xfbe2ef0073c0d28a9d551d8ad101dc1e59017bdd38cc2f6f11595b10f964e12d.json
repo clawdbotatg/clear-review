@@ -1,0 +1,320 @@
+{
+ "hash": "0xfbe2ef0073c0d28a9d551d8ad101dc1e59017bdd38cc2f6f11595b10f964e12d",
+ "file": "registry/kiln/calldata-kiln-batch-deposit-v2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x576834cb068e677db4aff6ca245c7bde16c3867e"
+  },
+  {
+   "chainId": 560048,
+   "address": "0x00ae9b96ef8d5d54cfcc02d9a1ccc19acd688b72"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "batchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)",
+    "effects": [
+     "Takes exactly 32 ETH × number of validators (len(dataRoots)) from the signer as msg.value; reverts on any other amount.",
+     "Sends 32 ETH per validator to the official beacon deposit contract 0x00000000219ab540356cBB839Cbe05303d7705Fa.",
+     "Creates (or tops up) one validator per public key. The 32-byte withdrawal credential decides who can withdraw the staked ETH and rewards for that validator."
+    ],
+    "shown": "\"Stake 32ETH per validators\", with the concatenated pubkeys as raw hex, the first validator's withdrawal address and credential type, every withdrawal credential as one raw hex blob, raw signatures and one Data Roots row per validator. The total ETH is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "batchDeposit: total ETH sent (@.value) is never stated; the signer must count data roots and multiply by 32.",
+      "evidence": "BatchDepositContract.vy batchDeposit: `if as_wei_value(32, \"ether\") * len(dataRoots) != msg.value: raise`. The descriptor has no `@.value` field. Intent: \"Stake 32ETH per validators\". Case 1 sends 64 ETH and the screen shows no total. Case 0 reader: \"Screen doesn't show the total ETH amount sent\".",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Total stake\",\"format\":\"amount\"} and an interpolatedIntent such as \"Stake {@.value} (32 ETH per validator)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "batchDeposit: only the first withdrawal address is decoded; the other validators' recipients appear only inside a raw hex blob.",
+      "evidence": "Descriptor fields `#.withdrawalCreds.[12:32]` 'First withdrawal address' and `#.withdrawalCreds` 'All withdrawal credentials' (raw). In case 1, the second validator's credential points to 0x1111…1111, but the decoded field shows only 0xC20D…108B. The other address is visible only in the concatenated hex.",
+      "fix": "Add a short note to the label, such as 'First withdrawal address (check others below)'. Per-validator decoding needs spec support for iterating fixed-size chunks of bytes.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "batchDeposit: for 0x00 (BLS) credentials, bytes 12-32 are a key hash, yet they render as an address.",
+      "evidence": "The contract passes any 32-byte credential to the deposit contract (`slice(withdrawalCreds, wc, WITHDRAWAL_CRED_LEN)`). The descriptor applies addressName to `#.withdrawalCreds.[12:32]` whatever the prefix in `#.withdrawalCreds.[:1]`.",
+      "fix": "Label the slice as valid only for credential types 0x01/0x02, or add a type field with labels so that 0x00 reads as 'BLS key, no execution address'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "batchDeposit: pubkeys, signatures and data roots are raw concatenated hex that no format can split.",
+      "evidence": "Fields `#.publicKeys` 'Validators' (raw) and `#.signatures` (raw) are `bytes` that pack 48-byte and 96-byte chunks. Case 1 shows two pubkeys run together as one value.",
+      "fix": "Waits on spec support for chunked bytes display.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "32 ETH out to the batch contract, forwarded to the beacon deposit contract. The total is implied by 32 ETH × 1 data root. The withdrawal address is the signer."
+     }
+    ],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "batchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)",
+    "effects": [
+     "Takes exactly amountPerValidator × number of validators as msg.value from the signer; reverts on any other amount.",
+     "Sends amountPerValidator to the beacon deposit contract 0x00000000219ab540356cBB839Cbe05303d7705Fa for each validator.",
+     "Creates (or tops up) one validator per public key, with the withdrawal credential that decides who can withdraw the stake."
+    ],
+    "shown": "\"Stake any amount per validator\", with the Amount Per Validator field in ETH, raw pubkeys, the first withdrawal address and type, all credentials as raw hex, raw signatures and Data Roots. The total ETH is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "batchDepositCustom: the intent says 'any amount' and does not state the amount; there is no interpolatedIntent.",
+      "evidence": "Intent \"Stake any amount per validator\" while the amount is in `#.amountPerValidator`. Case 2 reader: \"The 'Stake any amount' wording is confusing; I can't confirm the amount sent is exactly 32 ETH\".",
+      "fix": "Add interpolatedIntent \"Stake {amountPerValidator} per validator ({@.value} total)\" and change the intent to \"Stake ETH per validator\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "batchDepositCustom: total ETH sent (@.value) is not shown; it equals amountPerValidator × validators.",
+      "evidence": "BatchDepositContract.vy batchDepositCustom: `if amountPerValidator * len(dataRoots) != msg.value: raise`. The descriptor has no `@.value` field.",
+      "fix": "Add an {\"path\":\"@.value\",\"label\":\"Total stake\",\"format\":\"amount\"} field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "batchDepositCustom: withdrawal addresses after the first are only in a raw hex blob.",
+      "evidence": "Fields `#.withdrawalCreds.[12:32]` 'First withdrawal address' and `#.withdrawalCreds` raw. The contract forwards each 32-byte slice as that validator's credential.",
+      "fix": "Make the label say other credentials must be checked below. Per-validator decoding waits on the spec.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "batchDepositCustom: a 0x00 credential's hash bytes would render as a withdrawal address.",
+      "evidence": "addressName on `#.withdrawalCreds.[12:32]` whatever the prefix. The contract does not restrict the credential type.",
+      "fix": "Label the field as valid for 0x01/0x02 only.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "batchDepositCustom: pubkeys, signatures and data roots are raw packed hex.",
+      "evidence": "Fields `#.publicKeys`, `#.signatures` and `#.dataRoots.[]` are raw.",
+      "fix": "Waits on spec support for chunked bytes.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "32 ETH out. The screen shows 32 ETH per validator with one data root. The 0x02 credential points to the signer."
+     }
+    ],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "bigBatchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)",
+    "effects": [
+     "Takes exactly 32 ETH × number of validators (up to 512) as msg.value from the signer.",
+     "Sends 32 ETH per validator to the beacon deposit contract 0x00000000219ab540356cBB839Cbe05303d7705Fa.",
+     "Creates validators whose withdrawal credentials decide who can withdraw the stake."
+    ],
+    "shown": "\"Stake 32ETH per validators\", with raw pubkeys, the first withdrawal address and type, all credentials as raw hex, raw signatures and one Data Roots row per validator (up to 512). The total ETH is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "bigBatchDeposit: total ETH (up to 16,384 ETH) is not shown; the signer must count up to 512 data roots.",
+      "evidence": "bigBatchDeposit: `as_wei_value(32, \"ether\") * len(dataRoots) != msg.value`. There is no `@.value` field. Case 3 sends 320 ETH and the screen lists 10 Data Roots rows but no total.",
+      "fix": "Add an `@.value` amount field 'Total stake' and an interpolatedIntent with it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "bigBatchDeposit: up to 512 Data Roots rows plus huge hex blobs flood the screen.",
+      "evidence": "Field `#.dataRoots.[]` (DynArray up to BIG_MAX_LEN=512) and raw `#.signatures` (up to 49 KB). Case 3 already shows 10 Data Roots rows.",
+      "fix": "With `@.value` shown, set Signatures and Data Roots to visible 'optional'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "bigBatchDeposit: only the first of up to 512 withdrawal addresses is decoded.",
+      "evidence": "`#.withdrawalCreds.[12:32]` 'First withdrawal address'. The rest are in raw `#.withdrawalCreds`.",
+      "fix": "Make the label point the signer at the full list. Per-element decoding waits on the spec.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "bigBatchDeposit: 0x00 credentials would show part of a hash as a withdrawal address.",
+      "evidence": "addressName on `#.withdrawalCreds.[12:32]` with no check on the type byte.",
+      "fix": "Label the field as valid for 0x01/0x02 only.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 50
+   },
+   {
+    "key": "bigBatchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)",
+    "effects": [
+     "Takes exactly amountPerValidator × number of validators (up to 512) as msg.value from the signer.",
+     "Sends amountPerValidator to the beacon deposit contract 0x00000000219ab540356cBB839Cbe05303d7705Fa for each validator.",
+     "Creates or tops up validators whose withdrawal credentials decide who can withdraw the stake."
+    ],
+    "shown": "\"Stake any amount per validator\", with Amount Per Validator in ETH, raw pubkeys, the first withdrawal address and type, all credentials as raw hex, signatures and one Data Roots row per validator. The total ETH is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "bigBatchDepositCustom: the intent 'any amount' does not state the amount or the total; there is no interpolatedIntent.",
+      "evidence": "Intent \"Stake any amount per validator\". In case 4, 128 ETH leaves (64 ETH × 2) and the screen shows only '64 ETH' per validator.",
+      "fix": "Add interpolatedIntent \"Stake {amountPerValidator} per validator ({@.value} total)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "bigBatchDepositCustom: total ETH sent (@.value) is never shown.",
+      "evidence": "bigBatchDepositCustom: `if amountPerValidator * len(dataRoots) != msg.value: raise`. There is no `@.value` field.",
+      "fix": "Add an `@.value` amount field 'Total stake'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "bigBatchDepositCustom: up to 512 Data Roots rows and huge raw blobs drown the useful fields.",
+      "evidence": "`#.dataRoots.[]` is up to 512 entries. `#.signatures` and `#.withdrawalCreds` are raw.",
+      "fix": "Set Signatures and Data Roots to visible 'optional' once `@.value` is shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "bigBatchDepositCustom: only the first credential is decoded, and a 0x00 type would render a hash as an address.",
+      "evidence": "addressName on `#.withdrawalCreds.[12:32]`. The rest of the credentials are raw.",
+      "fix": "Change the label to say it applies to the first validator only and to 0x01/0x02 credentials.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.502,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [
+  "batchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)",
+  "batchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)",
+  "bigBatchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)",
+  "bigBatchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)"
+ ],
+ "seconds": 90,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "batchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 3,
+   "worst": "batchDeposit takes ETH but never shows how much (@.value)",
+   "comprehension": 100
+  },
+  "batchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 4,
+   "worst": "batchDepositCustom takes ETH but never shows how much (@.value)",
+   "comprehension": 100
+  },
+  "bigBatchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 4,
+   "worst": "bigBatchDeposit takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "bigBatchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 4,
+   "worst": "bigBatchDepositCustom takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 56,
+  "functions": "4F",
+  "incomplete": false,
+  "worst": "batchDeposit takes ETH but never shows how much (@.value)"
+ }
+}

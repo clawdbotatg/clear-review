@@ -1,0 +1,241 @@
+{
+ "hash": "0x43b54571eb557beeb574e688c4a4f8600bd1ef09972504939f24ee73360f374d",
+ "file": "registry/morpho/calldata-flowdesk-fcUSDT-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb48c056c5608ba2ee4cd94af2bf4b1f25295bd7e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDT to the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "onBehalf receives newly minted vault shares. The amount is previewDeposit(assets), set by the vault's stored share price after fees accrue. There is no minimum."
+    ],
+    "shown": "Deposit 10 USDT for <onBehalf>. Fields: the USDT amount, a fixed 'Share ticker' fcUSDT, and the share recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the hard-coded 'Share ticker' fcUSDT differs from the vault's on-chain symbol fUSDTe.",
+      "evidence": "descriptor.json deposit field {label 'Share ticker', value $.metadata.constants.vaultTicker = 'fcUSDT'}; case 0 mined share transfer to the signer has symbol 'fUSDTe'; VaultV2.sol symbol is set by setSymbol and can change.",
+      "fix": "Drop the constant ticker field, or set vaultTicker to the on-chain symbol. Better: show the shares through a field that resolves the token from @.to.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no minimum.",
+      "evidence": "VaultV2.sol deposit: shares = previewDeposit(assets), computed from storage (accrueInterestView). Case 0: the signer received 9.993643 fUSDTe and the screen shows no share amount.",
+      "fix": "No calldata value exists. Optionally relabel the recipient as 'Send shares (at vault price) to'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 10 USDT out is shown right. The shares in go to the signer as shown, but the amount is missing and the ticker differs from the on-chain symbol fUSDTe."
+     }
+    ],
+    "glance": 82,
+    "depth": 72
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The signer's vault shares (from onBehalf) are burned. The amount is previewWithdraw(assets), rounded up from the stored price, with no maximum.",
+     "Exactly `assets` USDT goes from the vault to receiver.",
+     "If msg.sender is not onBehalf, onBehalf's share allowance to the caller drops by the burned shares."
+    ],
+    "shown": "Withdraw 71000 USDT to <receiver>. Fields: exact USDT amount, recipient, and owner of the burned shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is not shown and has no maximum in calldata.",
+      "evidence": "VaultV2.sol withdraw: shares = previewWithdraw(assets); exit: deleteShares(onBehalf, shares). Case 2: 70958.571 fUSDTe burned from the signer, not on screen.",
+      "fix": "No calldata value exists. Optionally say 'Burns vault shares from' on the Owner label.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "71000 USDT in is shown right. The share burn is only implied by 'Owner'; the reader understood the position shrinks but not by how many shares."
+     }
+    ],
+    "glance": 85,
+    "depth": 78
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` vault shares are burned from onBehalf. The allowance is spent when the caller is not onBehalf.",
+     "USDT goes from the vault to receiver. The amount is previewRedeem(shares), set by the stored price, with no minimum."
+    ],
+    "shown": "Redeem 115147.616983 fcUSDT to <receiver>. Fields: shares, recipient, owner. The asset paid out is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names USDT as the asset the receiver gets.",
+      "evidence": "VaultV2.sol exit: SafeERC20Lib.safeTransfer(asset, receiver, assets). The descriptor redeem fields show only shares, receiver and owner, though the mint format already shows constant underlyingTicker. Case 3: the signer received 115155.747961 USDT; the reader was 'unsure whether the underlying is really USDT'.",
+      "fix": "Add a field 'Receive asset' with value $.metadata.constants.underlyingTicker. Relabel 'To' as 'Send USDT to'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT amount received is not shown and has no minimum.",
+      "evidence": "VaultV2.sol redeem: assets = previewRedeem(shares), from storage. Case 3: 115155.747961 USDT in, not on screen.",
+      "fix": "No calldata value exists.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The share burn is shown right. The reader expected 'probably USDT' in, with no amount; the asset is not named on screen."
+     }
+    ],
+    "glance": 65,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer pays USDT to the vault. The amount is previewMint(shares), rounded up from the stored price, with no maximum except the signer's approval.",
+     "Exactly `shares` vault shares are minted to onBehalf."
+    ],
+    "shown": "Mint 1 fcUSDT for <onBehalf>. Fields: deposit asset USDT (no amount), shares minted, and their recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent says 'Mint' and the sentence never says the signer pays USDT.",
+      "evidence": "descriptor.json mint intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. VaultV2.sol enter: safeTransferFrom(asset, msg.sender, ...). Case 1: the signer paid 1 USDT. Only the separate 'Deposit asset: USDT' field hints at a payment.",
+      "fix": "Use intent 'Deposit USDT for shares' and interpolatedIntent 'Pay USDT to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDT amount paid is not shown and has no maximum in calldata.",
+      "evidence": "VaultV2.sol mint: assets = previewMint(shares), from storage. Case 1: 1 USDT left the signer, and the screen shows no USDT amount.",
+      "fix": "No calldata value exists. Label could say 'Pay USDT (amount at vault price)'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The reader knew USDT leaves but not how much. The shares went to 0xdEaD, which the screen shows plainly and the reader understood."
+     }
+    ],
+    "glance": 55,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.396,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 80,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the hard-coded 'Share ticker' fcUSDT differs from the vault's on-chain symbol fUSDTe.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDT as the asset the receiver gets.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent says 'Mint' and the sentence never says the signer pays USDT.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 75,
+  "clarity": 68,
+  "functions": "1B 1C 2D",
+  "incomplete": false,
+  "worst": "deposit: the hard-coded 'Share ticker' fcUSDT differs from the vault's on-chain symbol fUSDTe."
+ }
+}

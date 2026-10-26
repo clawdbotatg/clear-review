@@ -1,0 +1,257 @@
+{
+ "hash": "0x12a3a085e12d8c89215dfac7c7667ebbb81e9a863330db5cc134b434e4defa80",
+ "file": "registry/avvatar-labs-alia/calldata-AgentIdentityRegistry-base.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xd5667acb0ac8108b45f6cdd4774559264098f8de"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "recordDecision(address _agent, string _action, address _assetInvolved, uint256 _value, bool _success, bytes32 _txHash)",
+    "effects": [
+     "Only the owner or auditorRegistry can call it; no tokens or ETH move and no approvals are set.",
+     "Adds a decision record (action, asset, value, success, tx hash) to the agent's history.",
+     "Adds _value to the agent's totalValueManaged and bumps totalDecisions and lastActivityAt.",
+     "Changes the agent's reputation: +5 (max 1000) on success, -50 on failure.",
+     "If reputation falls below 300 while the agent is ACTIVE, the agent is automatically SUSPENDED and set inactive."
+    ],
+    "shown": "Record A2A decision, with the agent, action text, asset address, raw value, success flag and tx hash.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "recordDecision shows _value as a raw integer when the asset is in the same calldata.",
+      "evidence": "descriptor field {path:_value, format:raw}; case 2 shows Value '2500000000' for USDC 0x8335...2913 (meaning 2,500 USDC). Code: totalValueManaged += _value.",
+      "fix": "Use format tokenAmount with params.tokenPath '_assetInvolved'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "recordDecision intent leaves out the reputation change and the possible automatic suspension of the agent.",
+      "evidence": "AgentIdentityRegistry.sol recordDecision -> _updateReputation: +5 or -50, and status = SUSPENDED when reputationScore < 300. Intent: 'Record A2A decision'.",
+      "fix": "Use an intent such as 'Record agent decision (updates reputation)', and label _success as 'Success (raises/lowers reputation)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "recordDecision intent uses the jargon 'A2A', which a normal signer will not know.",
+      "evidence": "descriptor intent 'Record A2A decision'.",
+      "fix": "Use 'Record agent decision'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Synthetic case with no mined tx. Nothing of the signer's moves; the value appears raw."
+     }
+    ],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "recordIncident(address _agent, string _description)",
+    "effects": [
+     "Only the owner or auditorRegistry can call it; no assets move.",
+     "Bumps the agent's incident counter.",
+     "Cuts the agent's reputation by 50, with 0 as the floor.",
+     "If reputation falls below 300 while the agent is ACTIVE, the agent is automatically SUSPENDED and set inactive."
+    ],
+    "shown": "Record agent incident, with the agent address and the description text.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "recordIncident intent leaves out the 50-point reputation cut and the possible automatic suspension.",
+      "evidence": "AgentIdentityRegistry.sol recordIncident: _updateReputation(_agent, false, _description) -> reputationScore -= 50; status = SUSPENDED if < 300. Intent: 'Record agent incident'.",
+      "fix": "Use an intent such as 'Record agent incident (-50 reputation)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Synthetic case with no mined tx."
+     }
+    ],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "registerAgent(address _agentWallet, address _ownerWallet, uint8 _agentType, string _name, string _version, string _manufacturer, string _serialNumber, uint256 _minColScore, uint256 _maxLTV)",
+    "effects": [
+     "Only the contract owner can call it; no assets move.",
+     "Registers _agentWallet as an ACTIVE agent with reputation 750 and the given type, name, version, minimum COL score (<=1000) and max LTV (<=10000 bps).",
+     "Makes _ownerWallet the agent owner, which lets it call setMandateRegistry, setCapabilities and updateFirmware for this agent.",
+     "For Physical or Hybrid agents with a serial, binds the serial number to the agent wallet."
+    ],
+    "shown": "Register agent ERC-8240, with every parameter shown: wallets, type enum, name, version, manufacturer, serial, raw min score and raw max LTV.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "registerAgent intent cites 'ERC-8240', but the contract says it implements ERC-8004.",
+      "evidence": "AgentIdentityRegistry.sol header '@dev Implémente ERC-8004 + prépare ERC-8XXX'; descriptor intent 'Register agent ERC-8240'.",
+      "fix": "Use 'Register agent' and drop the unverified standard number.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "registerAgent shows Max LTV raw in basis points; 6000 means 60%.",
+      "evidence": "registerAgent: require(_maxLTV <= 10000); case 1 shows Max LTV '6000'.",
+      "fix": "Use format unit with params {base:'%', decimals:2}, or label it 'Max LTV (bps)'. Label Min Score as 'Min COL score (0-1000)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Synthetic case with no mined tx. Every parameter is shown."
+     }
+    ],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "updateAgentStatus(address _agent, uint8 _newStatus, string _reason)",
+    "effects": [
+     "Only the contract owner can call it; no assets move.",
+     "Sets the agent's status to _newStatus, and isActive is true only when the new status is ACTIVE."
+    ],
+    "shown": "Update agent status, with the agent, the new status enum label and the reason.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Synthetic case with no mined tx. The enum labels match the AgentStatus order PENDING, ACTIVE, SUSPENDED, REVOKED."
+     }
+    ],
+    "glance": 80,
+    "depth": 95
+   },
+   {
+    "key": "updateFirmware(address _agent, string _newVersion)",
+    "effects": [
+     "Only the agent's owner or the contract owner can call it; no assets move.",
+     "Sets the version of a Physical or Hybrid agent to _newVersion and updates lastActivityAt; it reverts for Digital agents."
+    ],
+    "shown": "Update agent firmware, with the agent address and the new version string.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Synthetic case with no mined tx."
+     }
+    ],
+    "glance": 85,
+    "depth": 95
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.275,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 50,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "recordDecision(address _agent, string _action, address _assetInvolved, uint256 _value, bool _success, bytes32 _txHash)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "recordDecision intent leaves out the reputation change and the possible automatic suspension of the agent.",
+   "comprehension": null
+  },
+  "recordIncident(address _agent, string _description)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "recordIncident intent leaves out the 50-point reputation cut and the possible automatic suspension.",
+   "comprehension": null
+  },
+  "registerAgent(address _agentWallet, address _ownerWallet, uint8 _agentType, string _name, string _version, string _manufacturer, string _serialNumber, uint256 _minColScore, uint256 _maxLTV)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "registerAgent intent cites 'ERC-8240', but the contract says it implements ERC-8004.",
+   "comprehension": null
+  },
+  "updateAgentStatus(address _agent, uint8 _newStatus, string _reason)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "updateFirmware(address _agent, string _newVersion)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 96,
+  "clarity": 76,
+  "functions": "2A 3B",
+  "incomplete": false,
+  "worst": "recordDecision intent leaves out the reputation change and the possible automatic suspension of the agent."
+ }
+}

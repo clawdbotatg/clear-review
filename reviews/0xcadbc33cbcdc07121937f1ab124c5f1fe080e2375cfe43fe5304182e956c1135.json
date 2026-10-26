@@ -1,0 +1,595 @@
+{
+ "hash": "0xcadbc33cbcdc07121937f1ab124c5f1fe080e2375cfe43fe5304182e956c1135",
+ "file": "registry/zama/calldata-ConfidentialWrapper.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe978f22157048e5db8e5d07971376e86671672b2"
+  },
+  {
+   "chainId": 1,
+   "address": "0xae0207c757aa2b4019ad96edd0092ddc63ef0c50"
+  },
+  {
+   "chainId": 1,
+   "address": "0xda9396b82634ea99243ce51258b6a5ae512d4893"
+  },
+  {
+   "chainId": 1,
+   "address": "0x85de671c3bec1aded752c3cea943521181c826bc"
+  },
+  {
+   "chainId": 1,
+   "address": "0x80cb147fd86dc6dee3eee7e4cee33d1397d98071"
+  },
+  {
+   "chainId": 1,
+   "address": "0xa873750ccbafd5ec7dd13bfd5237d7129832edd9"
+  },
+  {
+   "chainId": 1,
+   "address": "0x73cc9af9d6befdb3c3faf8a5e8c05cb95fdaeef1"
+  },
+  {
+   "chainId": 1,
+   "address": "0xba4cff6ed6f7cb2a58776deca4e984b498446762"
+  },
+  {
+   "chainId": 1,
+   "address": "0x66bf74e96900d1a19c7070d939d124f2f565c458"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x7c5bf43b851c1dff1a4fee8db225b87f2c223639"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x4e7b06d78965594eb5ef5414c357ca21e1554491"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x46208622da27d91db4f0393733c8ba082ed83158"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xaa5612fa27c927a0c7961f5aefee5ba3a0f9c891"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xf2d628d2598af4eaf94cb76a437ff86ca78ffbfb"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xfce5c7069c5525ef6c8c2b2e35a745ba20a2f7cc"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xe4fcf848739845bc81dee1d5352cf3844f0a60c7"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x167dc962808b32cfffc7e14b5018c0be06a3a208"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x13f7d34a4f0102734f19e3ff16e068fe194b28c4"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "wrap(address to,uint256 amount)",
+    "effects": [
+     "The signer's underlying ERC-20 (underlying(), e.g. USDC or WETH) leaves the wallet: amount rounded down to a multiple of rate() is pulled with safeTransferFrom, spending the signer's allowance to the wrapper.",
+     "The receiver `to` gets amount / rate() confidential tokens (cToken, 6 decimals), minted as an encrypted balance.",
+     "Dust below rate() is not taken (amount % rate stays with the signer)."
+    ],
+    "shown": "\"Shield <raw integer> underlying units to <to>\", with the raw amount and the receiver as fields; neither the underlying token nor the cToken received is named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "wrap shows the underlying amount as a raw integer with no token name or decimals.",
+      "evidence": "descriptor wrap field {\"path\":\"amount\",\"label\":\"Amount (underlying units)\",\"format\":\"raw\"}; case 1 (cWETH, 18 decimals) shows \"Shield 1000000000000000000 underlying units\" for 1 WETH. Code: ERC7984ERC20WrapperUpgradeable.wrap pulls roundedAmount of IERC20(underlying()) from msg.sender.",
+      "fix": "Split the descriptor per underlying (or per deployment) and use format tokenAmount with params.token set to that chain's underlying address, so the screen reads e.g. \"Shield 1 WETH\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "wrap intent names neither the asset leaving nor the confidential token minted to the receiver.",
+      "evidence": "intent \"Shield\"; interpolatedIntent \"Shield {amount} underlying units to {to}\". Code mints FHE.asEuint64(amount / rate()) cTokens to `to` (ERC7984ERC20WrapperUpgradeable.wrap). For rate 1e12 (cWETH), 1e18 units become 1 cWETH, and the screen never says so.",
+      "fix": "Once the underlying is resolvable, use an intent like \"Shield {amount} into confidential tokens for {to}\"; add a label that says the receiver gets the confidential version.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 50
+   },
+   {
+    "key": "unwrap(address from,address to,bytes32 amount)",
+    "effects": [
+     "Up to `amount` (an existing encrypted handle the signer may use) of cTokens is burned from `from`, either the signer or a holder that made the signer an operator. If the balance is too low, 0 is burned.",
+     "The burned amount is made publicly decryptable, so the amount is revealed.",
+     "An unwrap request is recorded that later sends burned amount × rate() of the underlying ERC-20 to `to` when finalizeUnwrap runs."
+    ],
+    "shown": "\"Request to unshield [Encrypted Amount] from <holder> to <receiver>\", with holder, receiver and the encrypted amount as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "unwrap does not say the burned amount becomes publicly decryptable.",
+      "evidence": "ERC7984ERC20WrapperUpgradeable._unwrap: FHE.makePubliclyDecryptable(unwrapAmount_); the screen only says \"Request to unshield [Encrypted Amount]\".",
+      "fix": "Optionally mention in the intent that the unshielded amount becomes public, e.g. \"Request to unshield (amount becomes public)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unwrap amount is an encrypted handle that most wallets will show as a placeholder.",
+      "evidence": "field `amount` uses definitions.encryptedAmount with encryption.fallbackLabel \"[Encrypted Amount]\"; case 2 shows \"[Encrypted Amount]\".",
+      "fix": "None in the descriptor; it depends on wallet FHE decryption support.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "unwrap(address from,address to,bytes32 encryptedAmount,bytes inputProof)",
+    "effects": [
+     "Up to the encrypted input amount of cTokens is burned from `from` (the signer or a holder that made the signer an operator). If the balance is too low, 0 is burned.",
+     "The burned amount is made publicly decryptable.",
+     "An unwrap request is recorded that later sends burned amount × rate() of the underlying ERC-20 to `to` on finalizeUnwrap."
+    ],
+    "shown": "\"Request to unshield [Encrypted Amount] from <holder> to <receiver>\", with holder, receiver and encrypted amount; the input proof is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "unwrap with proof does not say the burned amount becomes publicly decryptable.",
+      "evidence": "ERC7984ERC20WrapperUpgradeable._unwrap: FHE.makePubliclyDecryptable(unwrapAmount_); screen in case 3 only says \"Request to unshield\".",
+      "fix": "Optionally mention in the intent that the unshielded amount becomes public.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "finalizeUnwrap(bytes32 unwrapRequestId,uint64 unwrapAmountCleartext,bytes decryptionProof)",
+    "effects": [
+     "The wrapper sends unwrapAmountCleartext × rate() of the underlying ERC-20 to the recipient stored for the request (unwrapRequester). That recipient is not in calldata and is not necessarily the signer.",
+     "The request is deleted. None of the signer's assets leave; the cleartext is checked against the decryption proof."
+    ],
+    "shown": "\"Finalize unshield of <amount> cUSDC\", with the amount formatted in the cToken and the request id shown raw.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "finalizeUnwrap labels the amount in the confidential token, while the underlying ERC-20 is what gets delivered.",
+      "evidence": "field unwrapAmountCleartext tokenAmount with tokenPath \"@.to\" (the cToken); case 4 shows \"Finalize unshield of 1 cUSDC\". Code: SafeERC20.safeTransfer(IERC20(underlying()), to, unwrapAmountCleartext * rate()).",
+      "fix": "Relabel to make clear this is the unshielded amount paid out in the underlying token, e.g. \"Unshielded amount (paid in underlying)\", or use the underlying token constant per deployment.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "finalizeUnwrap recipient comes from storage and cannot be shown.",
+      "evidence": "ERC7984ERC20WrapperUpgradeable.finalizeUnwrap: address to = unwrapRequester(unwrapRequestId); no recipient on screen.",
+      "fix": "None possible from calldata; the request id stands in for it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 55
+   },
+   {
+    "key": "confidentialTransfer(address to,bytes32 amount)",
+    "effects": [
+     "Up to `amount` (an existing handle the signer may use) of the signer's cTokens moves to `to`. If the balance is too low, 0 moves.",
+     "Both parties are given ACL access to the transferred handle."
+    ],
+    "shown": "\"Confidential transfer of [Encrypted Amount] to <receiver>\", with amount and receiver fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "confidentialTransfer amount is encrypted and shows as a placeholder without wallet decryption.",
+      "evidence": "definitions.encryptedAmount encryption fallbackLabel \"[Encrypted Amount]\"; case 5 screen.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "confidentialTransfer(address to,bytes32 encryptedAmount,bytes inputProof)",
+    "effects": [
+     "Up to the encrypted input amount of the signer's cTokens moves to `to`. If the balance is too low, 0 moves."
+    ],
+    "shown": "\"Confidential transfer of [Encrypted Amount] to <receiver>\"; the input proof is hidden.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "confidentialTransferFrom(address from,address to,bytes32 amount)",
+    "effects": [
+     "As operator of `from`, the signer moves up to `amount` of `from`'s cTokens to `to`. The operator right is time-bounded and is not reduced by this call."
+    ],
+    "shown": "\"Confidential transfer of [Encrypted Amount] from <holder> to <receiver>\", with amount, holder and receiver fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 78,
+    "depth": 80
+   },
+   {
+    "key": "confidentialTransferFrom(address from,address to,bytes32 encryptedAmount,bytes inputProof)",
+    "effects": [
+     "As operator of `from`, the signer moves up to the encrypted input amount of `from`'s cTokens to `to`."
+    ],
+    "shown": "\"Confidential transfer of [Encrypted Amount] from <holder> to <receiver>\"; the input proof is hidden.",
+    "findings": [],
+    "cases": [],
+    "glance": 78,
+    "depth": 80
+   },
+   {
+    "key": "confidentialTransferAndCall(address to,bytes32 amount,bytes data)",
+    "effects": [
+     "Up to `amount` of the signer's cTokens moves to `to`.",
+     "`to` is then called with onConfidentialTransferReceived(signer, signer, sent, data). If it returns encrypted false, the contract tries to refund the sent amount from `to`. The refund is best-effort."
+    ],
+    "shown": "\"Confidential transfer of [Encrypted Amount] to <receiver>\"; the callback data is hidden and the call to the receiver is not mentioned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "confidentialTransferAndCall intent matches a plain transfer and hides the callback to the receiver.",
+      "evidence": "intent \"Confidential transfer\"; data field visible \"never\". Code: ERC7984Upgradeable._transferAndCall calls ERC7984Utils.checkOnTransferReceived(msg.sender, from, to, sent, data), then refunds on failure.",
+      "fix": "Use an intent like \"Confidential transfer and call\" so the signer knows the receiver contract runs code with hidden data.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 68,
+    "depth": 72
+   },
+   {
+    "key": "confidentialTransferAndCall(address to,bytes32 encryptedAmount,bytes inputProof,bytes data)",
+    "effects": [
+     "Up to the encrypted input amount of the signer's cTokens moves to `to`.",
+     "`to` is then called with the hidden data, with a best-effort refund if it returns false."
+    ],
+    "shown": "\"Confidential transfer of [Encrypted Amount] to <receiver>\"; the proof and callback data are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "confidentialTransferAndCall (proof) intent hides that the receiver contract is called with data.",
+      "evidence": "intent \"Confidential transfer\"; data visible \"never\"; ERC7984Upgradeable._transferAndCall performs the callback.",
+      "fix": "Use an intent like \"Confidential transfer and call\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 68,
+    "depth": 72
+   },
+   {
+    "key": "confidentialTransferFromAndCall(address from,address to,bytes32 amount,bytes data)",
+    "effects": [
+     "As operator of `from`, the signer moves up to `amount` of `from`'s cTokens to `to`.",
+     "`to` is then called with the hidden data, with a best-effort refund to `from` on failure."
+    ],
+    "shown": "\"Confidential transfer of [Encrypted Amount] from <holder> to <receiver>\"; the callback data is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "confidentialTransferFromAndCall intent hides the callback to the receiver.",
+      "evidence": "intent \"Confidential transfer\"; data visible \"never\"; ERC7984Upgradeable._transferAndCall.",
+      "fix": "Use an intent like \"Confidential transfer and call\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 68,
+    "depth": 72
+   },
+   {
+    "key": "confidentialTransferFromAndCall(address from,address to,bytes32 encryptedAmount,bytes inputProof,bytes data)",
+    "effects": [
+     "As operator of `from`, the signer moves up to the encrypted input amount of `from`'s cTokens to `to`.",
+     "`to` is then called with the hidden data, with a best-effort refund on failure."
+    ],
+    "shown": "\"Confidential transfer of [Encrypted Amount] from <holder> to <receiver>\"; the proof and data are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "confidentialTransferFromAndCall (proof) intent hides the callback to the receiver.",
+      "evidence": "intent \"Confidential transfer\"; data visible \"never\"; ERC7984Upgradeable._transferAndCall.",
+      "fix": "Use an intent like \"Confidential transfer and call\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 68,
+    "depth": 72
+   },
+   {
+    "key": "setOperator(address operator,uint48 until)",
+    "effects": [
+     "Until timestamp `until` (inclusive), `operator` can transfer any amount of the signer's whole confidential balance and unwrap it to any address. This replaces any earlier expiry for that operator.",
+     "`until` = 0, or any past time, revokes the operator."
+    ],
+    "shown": "\"Set <operator> authorization to expire on <date>\", with operator and date fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setOperator intent does not say the operator can move or unwrap the signer's whole confidential balance.",
+      "evidence": "intent \"Set operator authorization\"; ERC7984Upgradeable.isOperator returns true while block.timestamp <= _operators[holder][spender], and that gates confidentialTransferFrom* and _unwrap with no amount cap.",
+      "fix": "Use an intent like \"Allow {operator} to move all your confidential tokens until {until}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setOperator with until=0 shows a 1970 date instead of saying the operator is revoked.",
+      "evidence": "case 14 screen: \"Set 0x90F7… authorization to expire on 1970-01-01 00:00:00Z\"; _setOperator stores 0, so isOperator is false from now on.",
+      "fix": "Add a label or note that a past date revokes the operator, or a dedicated rendering for 0 such as \"Revoke\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "requestDiscloseEncryptedAmount(bytes32 encryptedAmount)",
+    "effects": [
+     "The given encrypted handle, which the signer must be allowed to use (for example their own balance), becomes publicly decryptable. Anyone can learn its value, and this cannot be undone."
+    ],
+    "shown": "\"Request public disclosure of [Encrypted Amount]\".",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "requestDiscloseEncryptedAmount cannot show which value (e.g. the signer's balance) the handle points to.",
+      "evidence": "ERC7984Upgradeable.requestDiscloseEncryptedAmount: FHE.makePubliclyDecryptable(encryptedAmount); case 15 shows \"[Encrypted Amount]\".",
+      "fix": "None in the descriptor; optionally say in the intent that disclosure is permanent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "discloseEncryptedAmount(bytes32 encryptedAmount,uint64 cleartextAmount,bytes decryptionProof)",
+    "effects": [
+     "No asset moves. The contract checks the decryption proof and publishes an event pairing the handle with cleartextAmount."
+    ],
+    "shown": "\"Disclose [Encrypted Amount] publicly as <amount> cUSDC\".",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.695,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 128,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "wrap(address to,uint256 amount)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "wrap shows the underlying amount as a raw integer with no token name or decimals.",
+   "comprehension": null
+  },
+  "unwrap(address from,address to,bytes32 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unwrap(address from,address to,bytes32 encryptedAmount,bytes inputProof)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "finalizeUnwrap(bytes32 unwrapRequestId,uint64 unwrapAmountCleartext,bytes decryptionProof)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "finalizeUnwrap labels the amount in the confidential token, while the underlying ERC-20 is what gets delivered.",
+   "comprehension": null
+  },
+  "confidentialTransfer(address to,bytes32 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "confidentialTransfer(address to,bytes32 encryptedAmount,bytes inputProof)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "confidentialTransferFrom(address from,address to,bytes32 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "confidentialTransferFrom(address from,address to,bytes32 encryptedAmount,bytes inputProof)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "confidentialTransferAndCall(address to,bytes32 amount,bytes data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "confidentialTransferAndCall(address to,bytes32 encryptedAmount,bytes inputProof,bytes data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "confidentialTransferFromAndCall(address from,address to,bytes32 amount,bytes data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "confidentialTransferFromAndCall(address from,address to,bytes32 encryptedAmount,bytes inputProof,bytes data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setOperator(address operator,uint48 until)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "setOperator intent does not say the operator can move or unwrap the signer's whole confidential balance.",
+   "comprehension": null
+  },
+  "requestDiscloseEncryptedAmount(bytes32 encryptedAmount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "discloseEncryptedAmount(bytes32 encryptedAmount,uint64 cleartextAmount,bytes decryptionProof)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 69,
+  "functions": "3A 9B 3C",
+  "incomplete": false,
+  "worst": "wrap shows the underlying amount as a raw integer with no token name or decimals."
+ }
+}

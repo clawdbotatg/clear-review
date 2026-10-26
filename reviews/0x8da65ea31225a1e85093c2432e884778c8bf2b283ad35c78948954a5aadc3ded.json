@@ -1,0 +1,203 @@
+{
+ "hash": "0x8da65ea31225a1e85093c2432e884778c8bf2b283ad35c78948954a5aadc3ded",
+ "file": "registry/morpho/calldata-b_protocol-reETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x70f796946ed919e4bc6cd506f8dacc45e4539771"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` WETH (Base 0x4200…0006) to the vault via transferFrom, which spends the signer's WETH allowance to the vault.",
+     "The vault supplies that WETH to Morpho Blue markets in its supply queue.",
+     "`receiver` gets reETH vault shares; the number is computed from the share price after fee accrual and has no minimum."
+    ],
+    "shown": "Intent 'Deposit', the WETH amount deposited, the share ticker reETH and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many reETH shares the receiver gets; the contract computes it from storage.",
+      "evidence": "MetaMorpho.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` The descriptor has no shares field, only 'Share ticker' raw `$.metadata.constants.vaultTicker`.",
+      "fix": "None in the descriptor. ERC4626 deposit has no minimum shares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' names no asset; the signer must read the fields to learn WETH leaves.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`; the asset is only in field 'Deposit asset' (tokenAmount, token underlyingToken).",
+      "fix": "Change the intent to \"Deposit WETH into reETH vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends WETH to the vault via transferFrom; the amount is computed (rounded up) from `shares` and the share price, with no maximum in the call.",
+     "The vault supplies that WETH to Morpho Blue markets.",
+     "`receiver` gets exactly `shares` reETH vault shares."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: WETH' as a raw ticker, the number of reETH shares minted and the address that receives them.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much WETH leaves the signer; the contract computes it with no cap.",
+      "evidence": "MetaMorpho.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` Descriptor shows only `\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"`.",
+      "fix": "None in the descriptor. Only the signer's WETH allowance bounds the amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint shows 'Deposit asset: WETH' with no amount, which can read as an incomplete amount field.",
+      "evidence": "descriptor mint format: field 'Deposit asset' with raw value `WETH` and no amount; the WETH amount is computed in MetaMorpho.sol mint.",
+      "fix": "Change the label to \"Pays with (amount set by vault price)\" or change the intent to \"Mint reETH shares, paid in WETH\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns reETH shares from `owner` (rounded up from `assets`); when owner is not the signer, it spends owner's share allowance to the signer.",
+     "The vault withdraws WETH from Morpho Blue markets.",
+     "`receiver` gets exactly `assets` WETH."
+    ],
+    "shown": "Intent 'Withdraw', the exact WETH amount, the receiver and the owner whose shares pay.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many reETH shares the owner burns; the contract computes it from storage.",
+      "evidence": "MetaMorpho.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` The descriptor has no shares field.",
+      "fix": "None in the descriptor. ERC4626 withdraw has no maximum shares parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` reETH from `owner`; when owner is not the signer, it spends owner's share allowance to the signer.",
+     "The vault withdraws WETH from Morpho Blue markets.",
+     "`receiver` gets WETH; the amount is computed (rounded down) from the share price, with no minimum."
+    ],
+    "shown": "Intent 'Redeem', the reETH shares burned, the receiver and the owner; nothing names the asset that the receiver gets.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names WETH as the asset the receiver gets, though mint and deposit show it.",
+      "evidence": "MetaMorpho.sol redeem → ERC4626._withdraw sends `asset()` (WETH) to `receiver`. Descriptor redeem fields: 'Shares to redeem', 'To', 'Owner' only; no `underlyingTicker` field as in mint.",
+      "fix": "Add a field `{\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}` or change the intent to \"Redeem reETH for WETH\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much WETH the receiver gets; the contract computes it with no minimum.",
+      "evidence": "MetaMorpho.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`",
+      "fix": "None in the descriptor. ERC4626 redeem has no minimum assets parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.361,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 50,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' names no asset; the signer must read the fields to learn WETH leaves.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint shows 'Deposit asset: WETH' with no amount, which can read as an incomplete amount field.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names WETH as the asset the receiver gets, though mint and deposit show it.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 58,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem never names WETH as the asset the receiver gets, though mint and deposit show it."
+ }
+}

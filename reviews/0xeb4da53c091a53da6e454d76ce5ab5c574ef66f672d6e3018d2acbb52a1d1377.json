@@ -1,0 +1,224 @@
+{
+ "hash": "0xeb4da53c091a53da6e454d76ce5ab5c574ef66f672d6e3018d2acbb52a1d1377",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakWBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef094333aedd535c130958c204e84f681fd9fa"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends `assets` WBTC to the vault (ERC4626._deposit does safeTransferFrom from msg.sender) and spends that much of the signer's WBTC allowance to the vault.",
+     "The vault mints steakWBTC shares to `receiver`; the count comes from storage totals after fee accrual, rounded down.",
+     "The vault supplies the WBTC to Morpho Blue markets; this does not change what the signer gets."
+    ],
+    "shown": "Intent \"Deposit\", the WBTC amount, a fixed \"Share ticker: steakWBTC\" line, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many steakWBTC shares the receiver gets; the vault price sets it.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. Case 0: signer receives 189979069214439 steakWBTC (0.000189979 shares), and the screen shows no share amount.",
+      "fix": "None in the descriptor: ERC4626 deposit has no minimum-shares parameter. The amount depends on the price in storage.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit shows the label \"Share ticker\" but does not say that these shares come to the receiver.",
+      "evidence": "descriptor deposit field `{\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}`; case 0 screen \"Share ticker: steakWBTC\".",
+      "fix": "Change the label to \"Receive shares in\" or \"You receive\", and add an interpolatedIntent such as \"Deposit {assets} for steakWBTC shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states the WBTC outflow (0.00019 WBTC) correctly. The screen names the steakWBTC share inflow and its receiver, but not the amount (0.000189979069214439); the reader saw that the amount was missing."
+     }
+    ],
+    "glance": 50,
+    "depth": 72
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` steakWBTC to `receiver`.",
+     "The signer pays WBTC to the vault. The amount comes from storage totals after fee accrual, rounded up, and no cap is in the calldata.",
+     "The payment spends the signer's WBTC allowance to the vault."
+    ],
+    "shown": "Intent \"Mint\", a fixed \"Deposit asset: WBTC\", the share amount in steakWBTC, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much WBTC leaves the signer; the vault price decides it with no cap.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. Descriptor shows only `\"Deposit asset\"` = `$.metadata.constants.underlyingTicker` (raw).",
+      "fix": "None in the descriptor: mint has no max-assets parameter. The WBTC amount comes from storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The mint intent \"Mint\" does not say that the signer pays WBTC for the shares.",
+      "evidence": "descriptor mint `\"intent\": \"Mint\"`, and the field `\"label\": \"Deposit asset\"` shows only the ticker \"WBTC\".",
+      "fix": "Change the intent to \"Deposit WBTC for vault shares\". Add an interpolatedIntent: \"Pay WBTC to mint {shares} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 62
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault sends exactly `assets` WBTC to `receiver`.",
+     "The vault burns steakWBTC shares from `owner`. The share count comes from storage totals after fee accrual, rounded up.",
+     "If `owner` is not the signer, the call spends the signer's share allowance from `owner`."
+    ],
+    "shown": "Intent \"Withdraw\", the exact WBTC amount, the receiver, and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many steakWBTC shares the owner burns; the vault price decides it.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); ... _withdraw(_msgSender(), receiver, owner, assets, shares);`",
+      "fix": "None in the descriptor: withdraw has no max-shares parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` steakWBTC from `owner`. If `owner` is not the signer, this spends the signer's allowance.",
+     "The vault sends WBTC to `receiver`. The amount comes from storage totals after fee accrual, rounded down, and no minimum is in the calldata."
+    ],
+    "shown": "Intent \"Redeem\", the steakWBTC share amount, the receiver, and the owner. The asset received is not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem never names WBTC as the asset the receiver gets back.",
+      "evidence": "descriptor redeem fields: only `shares` (tokenPath @.to), `receiver`, `owner`; intent \"Redeem\". Case 1: signer receives 19000 WBTC (0.00019), and nothing on the screen says WBTC.",
+      "fix": "Add a field `{\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}` and change the intent to \"Redeem shares for WBTC\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much WBTC the receiver gets; the vault price decides it.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. Case 1: the signer receives 19000 WBTC, and the screen has no amount.",
+      "fix": "None in the descriptor: ERC4626 redeem has no minimum-assets parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states the share burn (0.000189979069214439 steakWBTC from the signer) correctly. The WBTC inflow is not on the screen. The reader guessed WBTC from the vault name, but had no amount."
+     }
+    ],
+    "glance": 35,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.336,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 66,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The mint intent \"Mint\" does not say that the signer pays WBTC for the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names WBTC as the asset the receiver gets back.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 57,
+  "functions": "1B 3C",
+  "incomplete": false,
+  "worst": "The mint intent \"Mint\" does not say that the signer pays WBTC for the shares."
+ }
+}

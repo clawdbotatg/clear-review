@@ -1,0 +1,233 @@
+{
+ "hash": "0xa75c46e74775cccc26500ef4f2904e4e7699a389d24e028b6e1f172bf6580999",
+ "file": "registry/symbiotic/calldata-VaultV1-SWELL.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xfe53bca0df7ebe8e43cd1b976275ccce7c4a5eda"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls exactly `amount` of the vault collateral (SWELL, 0x0a6E…5676, set in the proxy's init data) from the signer to the vault via safeTransferFrom, which uses the signer's existing allowance.",
+     "Mints active vault shares (previewDeposit of the received amount) and credits them to `onBehalfOf`, not necessarily the signer; this stake then becomes slashable.",
+     "Reverts if onBehalfOf is zero, if the signer is not whitelisted while the whitelist is on, or if the deposit limit would be exceeded. Not payable."
+    ],
+    "shown": "Deposit 123.25 SWELL for the beneficiary address, with fields for the vault, the SWELL amount and the beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to the beneficiary is not shown; it comes from vault storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` depends on activeShares/activeStake in storage; the descriptor shows only #.amount and #.onBehalfOf.",
+      "fix": "None possible in the descriptor; the share price is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active shares, previewWithdraw(amount) rounded up; reverts if that is more than the signer holds.",
+     "Moves exactly `amount` SWELL of stake from active stake into the withdrawal queue of the next epoch (currentEpoch+1). No tokens move in this transaction.",
+     "Credits withdrawal shares for that epoch to `claimer`. Only the claimer can claim them later, after that epoch ends (7-day epochs). The queued amount stays slashable until then."
+    ],
+    "shown": "Request 2.5 SWELL withdrawal for the claim owner, with fields for the vault, the requested SWELL amount and the claim owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned, the claim delay and the slashing exposure of the queued amount are not shown.",
+      "evidence": "Vault.sol withdraw/_withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` and `uint256 epoch = currentEpoch() + 1;` plus onSlash reducing `withdrawals[currentEpoch_ + 1]`; all come from storage, not calldata.",
+      "fix": "None needed in fields. The intent already says 'Request'. A label like 'Requested assets (claimable after next epoch)' is optional.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns exactly `shares` of the signer's active vault shares; reverts if the signer holds fewer.",
+     "Converts them to SWELL at the current share price (previewRedeem) and queues that amount for the next epoch.",
+     "Credits withdrawal shares for that epoch to `claimer`, who alone can claim the SWELL after the epoch ends. No tokens move now."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claim owner, with fields for the vault, the raw share count and the claim owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: shares are shown as a raw 18-decimal integer, but a unit format could render them readably.",
+      "evidence": "descriptor redeem field `#.shares` format `raw` gives '987654321123456789' in case 2. ERC4626Math `_decimalsOffset()` returns 0, so shares use the same 18-decimal scale as SWELL.",
+      "fix": "Use format `unit` with params {\"base\":\"shares\",\"decimals\":18} for #.shares (displays ~0.9877 shares).",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the SWELL amount the shares queue is not shown; it depends on the vault's share price.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());` reads storage.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 65
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed. Reverts if the epoch has not ended, was already claimed or is empty.",
+     "Transfers the signer's whole withdrawal for that epoch, withdrawalsOf(epoch, msg.sender), in SWELL from the vault to `recipient`, who may be someone other than the signer."
+    ],
+    "shown": "Claim epoch 42 to the recipient, with fields for the vault, the raw epoch number and the recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claim: no part of the screen names the asset paid out (SWELL).",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);` collateral is SWELL (init data, metadata.constants.underlyingToken). The descriptor intent 'Claim withdrawal' and interpolatedIntent 'Claim epoch {epoch} to {recipient}' do not mention the token.",
+      "fix": "Name the asset in the intent, for example 'Claim SWELL withdrawal' and 'Claim SWELL from epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the SWELL amount sent to the recipient is not shown; it comes from vault storage.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);` computed from withdrawalSharesOf/withdrawals/withdrawalShares in storage.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawals for every listed epoch as claimed. Reverts if any epoch has not ended, was already claimed or is empty, or if the list is empty.",
+     "Transfers the sum of the signer's withdrawals for those epochs, in SWELL, from the vault to `recipient` in a single transfer."
+    ],
+    "shown": "Claim epochs 42 and 44 and 128 to the recipient, with one Epoch field per epoch and a Recipient field.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claimBatch: no part of the screen names the asset paid out (SWELL).",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);` The descriptor intent 'Claim withdrawals' and 'Claim epochs {epochs.[]} to {recipient}' do not name the token.",
+      "fix": "Use 'Claim SWELL withdrawals' and 'Claim SWELL from epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total SWELL sent to the recipient is not shown; it comes from storage.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` where _claim reads withdrawalsOf(epoch, msg.sender) from storage.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.374,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 92,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: shares are shown as a raw 18-decimal integer, but a unit format could render them readably.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: no part of the screen names the asset paid out (SWELL).",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: no part of the screen names the asset paid out (SWELL).",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 72,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: shares are shown as a raw 18-decimal integer, but a unit format could render them readably."
+ }
+}

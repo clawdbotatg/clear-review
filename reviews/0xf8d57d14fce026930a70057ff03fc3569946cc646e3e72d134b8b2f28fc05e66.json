@@ -1,0 +1,333 @@
+{
+ "hash": "0xf8d57d14fce026930a70057ff03fc3569946cc646e3e72d134b8b2f28fc05e66",
+ "file": "registry/lombard/calldata-lbtc-sepolia.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 11155111,
+   "address": "0x731efa688f3679688cf60a3993b8658138953ed6"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "approve(address spender, uint256 value)",
+    "effects": [
+     "Sets the signer's LBTC allowance for `spender` to `value`, replacing any earlier allowance (OZ ERC20Upgradeable.approve). At max uint256 the allowance never goes down."
+    ],
+    "shown": "Shows \"Approve\", the amount with the token resolved from the contract (\"Unlimited LBTC\" above the threshold), and the spender.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "approve has no interpolatedIntent, so the intent line names neither the amount nor the spender.",
+      "evidence": "descriptor.json display.formats approve: \"intent\": \"Approve\" and no interpolatedIntent. Case 0 screen intent is just \"Approve\".",
+      "fix": "Add interpolatedIntent \"Approve {spender} to spend {value}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 95
+   },
+   {
+    "key": "burn(uint256 amount)",
+    "effects": [
+     "Destroys `amount` of the signer's LBTC (StakedLBTC.burn calls _burn(_msgSender(), amount)). Nothing comes back: no BTC and no other token."
+    ],
+    "shown": "Shows \"Burn\" and the amount of LBTC to burn.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "burn's intent does not say the tokens are destroyed with nothing in return, unlike redeemForBtc.",
+      "evidence": "StakedLBTC.sol burn(uint256): `_burn(_msgSender(), amount);` with no payout. descriptor intent \"Burn\" sits next to \"Redeem\" and \"Redeem BTC\".",
+      "fix": "Use interpolatedIntent \"Burn {amount} (nothing is returned)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "mint(bytes rawPayload, bytes proof)",
+    "effects": [
+     "Anyone can call it. It forwards rawPayload and proof to the AssetRouter (StakedLBTC.mint → $.assetRouter.mint), which mints StakedLBTC to a recipient and amount encoded in the payload. The signer pays no tokens. The recipient and amount live in the payload, not with the signer.",
+     "What the router does could not be checked from the source here."
+    ],
+    "shown": "Shows \"Mint\" and then the payload and the consortium proof as raw hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "mint shows the stake payload as raw bytes, so the recipient and amount it mints cannot be read.",
+      "evidence": "descriptor.json mint: field rawPayload format \"raw\"; StakedLBTC.sol mint(bytes,bytes) natspec: \"rawPayload The message with the stake data\"; return value `recipient` comes from the payload.",
+      "fix": "The spec cannot slice the packed payload, so add an interpolatedIntent such as \"Mint staked LBTC for the deposit proven by this payload\" and hide the proof.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint shows the consortium signature as raw hex, which tells the signer nothing.",
+      "evidence": "descriptor.json mint: field proof label \"Proof\" format \"raw\" visible \"always\"; natspec: \"Signature of the consortium approving the mint\".",
+      "fix": "Set the proof field to visible \"never\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the recipient and amount are packed in the payload bytes, and no ERC-7730 format can decode them.",
+      "evidence": "StakedLBTC.sol mint(bytes,bytes) returns $.assetRouter.mint(rawPayload, proof); the AssetRouter source is not in the directory.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 20
+   },
+   {
+    "key": "permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Sets `owner`'s LBTC allowance for `spender` to `value` from owner's EIP-2612 signature, and uses up owner's nonce (ERC20PermitUpgradeable.permit). The signer only submits it; owner may be someone else."
+    ],
+    "shown": "Shows \"Permit\", then the owner, spender, allowance (\"Unlimited LBTC\" above the threshold) and the deadline as a date. The signature parts are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "permit's intent \"Permit\" does not say it sets the owner's allowance for the spender.",
+      "evidence": "descriptor.json permit: \"intent\": \"Permit\", no interpolatedIntent. Case 1 screen intent \"Permit\".",
+      "fix": "Add interpolatedIntent \"Allow {spender} to spend {value} of {owner}'s tokens until {deadline}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 92
+   },
+   {
+    "key": "redeem(uint256 amount)",
+    "effects": [
+     "Calls $.assetRouter.redeem(_msgSender(), address(this), amount). This most likely takes `amount` StakedLBTC from the signer and creates a redemption to another asset, minus a redeem fee set in the router (getRedeemFee). The router code is not in the directory, so what arrives, when, and to whom could not be checked."
+    ],
+    "shown": "Shows \"Redeem\" and the amount of LBTC to redeem.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem shows only the LBTC that leaves; it never says what the signer gets back or that a fee applies.",
+      "evidence": "StakedLBTC.sol redeem: `$.assetRouter.redeem(_msgSender(), address(this), amount);`; getRedeemFee() reads tokenConfig from the router. descriptor redeem: intent \"Redeem\" and one field \"Amount to Redeem\".",
+      "fix": "Name the asset received in the intent, e.g. \"Redeem {amount} staked LBTC for LBTC (fee applies)\", once the router behaviour is confirmed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the fee and exchange ratio come from the router's storage and cannot be shown.",
+      "evidence": "StakedLBTC.sol getRedeemFee(), ratio(), getRate() all read $.assetRouter.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 45
+   },
+   {
+    "key": "redeemForBtc(bytes scriptPubkey, uint256 amount)",
+    "effects": [
+     "Calls $.assetRouter.redeemForBtc(msg.sender, this, scriptPubkey, amount), which burns `amount` StakedLBTC from the signer and queues a BTC payout to `scriptPubkey` on Bitcoin. The payout is the amount less the redeem fee or commission and converted at the router's ratio. The router code is not in the directory."
+    ],
+    "shown": "Shows \"Redeem BTC\", the LBTC amount to burn, and the Bitcoin scriptPubkey as raw hex.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "redeemForBtc shows the BTC destination as raw scriptPubkey hex, which no ERC-7730 format can turn into an address.",
+      "evidence": "descriptor.json redeemForBtc: field scriptPubkey label \"ScriptPubKey (BTC)\" format \"raw\".",
+      "fix": "None today. A Bitcoin address format would be needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeemForBtc: the BTC received is the burned amount less a fee and ratio stored in the router, so the screen cannot state it.",
+      "evidence": "StakedLBTC.sol calcUnstakeRequestAmount natspec: \"amountAfterFee The amount that will be unstaked (after deducting the burn commission)\"; toNativeCommission() and getRedeemFee() read the router.",
+      "fix": "Say \"BTC received is net of the protocol fee\" in the intent or label.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 55
+   },
+   {
+    "key": "transfer(address to, uint256 value)",
+    "effects": [
+     "Moves `value` LBTC from the signer to `to` (OZ ERC20 transfer). It reverts when the contract is paused."
+    ],
+    "shown": "Shows \"Send\", the amount of LBTC and the recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transfer's recipient types allow only eoa and wallet, but the code accepts any address, contracts included.",
+      "evidence": "descriptor.json transfer: to params types [\"eoa\",\"wallet\"]; ERC20Upgradeable.transfer only rejects the zero address.",
+      "fix": "Add \"contract\" to the types or drop the types restriction.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 92
+   },
+   {
+    "key": "transferFrom(address from, address to, uint256 value)",
+    "effects": [
+     "Moves `value` LBTC from `from` to `to`, and lowers the signer's allowance from `from` by `value` unless that allowance is unlimited (OZ ERC20 transferFrom)."
+    ],
+    "shown": "Shows \"Transfer\", the amount, the from address and the recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transferFrom's from and recipient types allow only eoa and wallet, but contracts are valid parties.",
+      "evidence": "descriptor.json transferFrom: from and to params types [\"eoa\",\"wallet\"]; ERC20Upgradeable.transferFrom only rejects zero addresses.",
+      "fix": "Add \"contract\" to the types or drop the types restriction.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": [
+   "AssetRouter: StakedLBTC.mint(bytes,bytes), redeem(uint256) and redeemForBtc(bytes,uint256) send all their work to $.assetRouter, an address held in storage. Neither its source nor the IAssetRouter interface is in the directory, so I could not confirm which tokens these calls burn, mint or pay out, to whom, or the fee deducted."
+  ]
+ },
+ "cost": 0.393,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 79,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "approve(address spender, uint256 value)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "approve has no interpolatedIntent, so the intent line names neither the amount nor the spender.",
+   "comprehension": null
+  },
+  "burn(uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "burn's intent does not say the tokens are destroyed with nothing in return, unlike redeemForBtc.",
+   "comprehension": null
+  },
+  "mint(bytes rawPayload, bytes proof)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 22,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "mint shows the stake payload as raw bytes, so the recipient and amount it mints cannot be read.",
+   "comprehension": null
+  },
+  "permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 69,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "permit's intent \"Permit\" does not say it sets the owner's allowance for the spender.",
+   "comprehension": null
+  },
+  "redeem(uint256 amount)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem shows only the LBTC that leaves; it never says what the signer gets back or that a fee applies.",
+   "comprehension": null
+  },
+  "redeemForBtc(bytes scriptPubkey, uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transfer(address to, uint256 value)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transfer's recipient types allow only eoa and wallet, but the code accepts any address, contracts included.",
+   "comprehension": null
+  },
+  "transferFrom(address from, address to, uint256 value)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferFrom's from and recipient types allow only eoa and wallet, but contracts are valid parties.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 99,
+  "clarity": 62,
+  "functions": "6B 2C",
+  "incomplete": true,
+  "worst": "redeem shows only the LBTC that leaves; it never says what the signer gets back or that a fee applies."
+ }
+}

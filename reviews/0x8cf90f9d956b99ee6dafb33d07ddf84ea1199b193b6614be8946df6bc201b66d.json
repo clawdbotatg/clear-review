@@ -1,0 +1,199 @@
+{
+ "hash": "0x8cf90f9d956b99ee6dafb33d07ddf84ea1199b193b6614be8946df6bc201b66d",
+ "file": "registry/morpho/calldata-sky_money-skyMoneyUsdsFlagship-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe15fcc81118895b67b6647bbd393182df44e11e0"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDS to the vault (safeTransferFrom from msg.sender in enter).",
+     "The vault mints shares to `onBehalf`. The number of shares is previewDeposit(assets) at the current share price.",
+     "The vault may move the deposited USDS into its liquidity adapter. This does not change what the signer gets."
+    ],
+    "shown": "Deposit 1 USDS for the onBehalf address. Fields show the USDS amount, the share ticker as a constant, and 'Send shares to' onBehalf.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many vault shares onBehalf receives; the share price sets it.",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Descriptor field 'Share ticker' shows only the constant 'skyMoneyUsdsFlagship', with no amount.",
+      "fix": "None possible in calldata. The share count comes from the share price in storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit shows a raw 'Share ticker' constant and labels the amount 'Deposit asset'. This adds noise and no amount.",
+      "evidence": "descriptor deposit fields: {label 'Deposit asset', path assets} and {label 'Share ticker', format raw, value $.metadata.constants.vaultTicker}; case 0 screen shows 'Share ticker: skyMoneyUsdsFlagship'.",
+      "fix": "Rename 'Deposit asset' to 'Amount to deposit'. Remove the 'Share ticker' field, or merge it into the label 'Send skyMoneyUsdsFlagship shares to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1 USDS leaves the signer, as shown. The vault mints 1 share to 0xdead, which is not the signer, and the screen names that address as the share recipient. The reader understood that the shares go to the burn address."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns previewWithdraw(assets) shares from `onBehalf`. The share price sets this number.",
+     "If msg.sender is not onBehalf, the call spends the signer's share allowance from onBehalf by that share count.",
+     "The receiver gets exactly `assets` USDS from the vault."
+    ],
+    "shown": "Withdraw an exact amount of USDS to the receiver. Fields show the amount, 'To' receiver and 'Owner' onBehalf. The burned shares are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares it burns from the owner; the share price sets it.",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`; exit: `deleteShares(onBehalf, shares);`. Case 1: the vault burns 0.499881 skyMoneyUsdsFlagship from the signer, and no field shows this amount.",
+      "fix": "None possible in calldata. The function has no max-shares parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "The withdraw intent does not say that the vault burns vault shares from the Owner.",
+      "evidence": "interpolatedIntent 'Withdraw {#.assets} to {#.receiver}'. exit() takes shares from onBehalf and spends allowance when msg.sender != onBehalf.",
+      "fix": "Use 'Withdraw {#.assets} from {#.onBehalf} to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "0.5 USDS arrives exactly as shown. 0.49988 shares leave the signer. The reader inferred that shares leave but did not know the amount or the token."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` vault shares from onBehalf.",
+     "If msg.sender is not onBehalf, the call spends the signer's share allowance from onBehalf by `shares`.",
+     "The receiver gets previewRedeem(shares) USDS. The share price sets this amount, and the call has no minimum."
+    ],
+    "shown": "Redeem the share amount (vault token) to the receiver. Fields show the shares, 'To' receiver and 'Owner' onBehalf. The USDS amount and asset are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDS amount the receiver gets; the share price sets it with no minimum.",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. Case 2: the signer receives 80000.000260 USDS, and the screen shows no USDS amount.",
+      "fix": "None possible in calldata. The function has no minimum-assets parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "The redeem intent does not name USDS as the asset paid out, so readers must guess it.",
+      "evidence": "interpolatedIntent 'Redeem {#.shares} to {#.receiver}' renders 'Redeem 79981.00 skyMoneyUsdsFlagship to 0x9908…'. The case 2 reader was unsure which token is paid out. exit() always pays out `asset` (USDS, immutable).",
+      "fix": "Change interpolatedIntent to 'Redeem {#.shares} for USDS to {#.receiver}' and intent to 'Redeem shares for USDS'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "79981.0046 shares leave the signer, as shown. 80000.00026 USDS arrives. The screen shows neither that amount nor the token, and the reader only guessed USDS."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.375,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 99,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 94,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The redeem intent does not name USDS as the asset paid out, so readers must guess it.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 79,
+  "functions": "1A 2B",
+  "incomplete": false,
+  "worst": null
+ }
+}

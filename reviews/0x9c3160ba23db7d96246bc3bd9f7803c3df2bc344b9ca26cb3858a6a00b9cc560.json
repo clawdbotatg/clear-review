@@ -1,0 +1,158 @@
+{
+ "hash": "0x9c3160ba23db7d96246bc3bd9f7803c3df2bc344b9ca26cb3858a6a00b9cc560",
+ "file": "registry/tesseract/calldata-vault-deployer-WBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x55073cdf0b0e42c8b807a265eadff69973274a8d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deployVault(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee)",
+    "effects": [
+     "Pulls initialDeposit WBTC from the signer into the deployer (safeTransferFrom), using the signer's earlier approval of the deployer.",
+     "Deposits that WBTC into a newly cloned IPOR Fusion PlasmaVault and mints teWBTC vault shares to the signer (deposit(initialDeposit, msg.sender)).",
+     "Grants the signer WHITELIST_ROLE on the new vault.",
+     "Gives control of the vault to addresses set in storage, not the signer: OWNER and ATOMIST go to Tesseract's vaultOwner and atomist, plus ALPHA, GUARDIAN, FUSE_MANAGER and the rewards roles.",
+     "Sets the vault's performance and management fees from storage, paid to a feeRecipient set in storage. Each fee must be at or below the max the signer passed, or the call reverts.",
+     "Reverts when initialDeposit is below minInitialDeposit, which is set in storage."
+    ],
+    "shown": "\"Deploy Vault\", with the teWBTC share ticker, the initial deposit in WBTC, and the max management and performance fees as percentages.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deployVault intent \"Deploy Vault\" leaves out the WBTC deposit and the shares the signer receives.",
+      "evidence": "TesseractVaultDeployer.sol _deployVault: safeTransferFrom(msg.sender, address(this), initialDeposit); PlasmaVault(...).deposit(initialDeposit, msg.sender). Descriptor intent \"Deploy Vault\", no interpolatedIntent. Case 0: the reader was unsure whether the shares go to them.",
+      "fix": "Add an interpolatedIntent such as \"Deposit {initialDeposit} into a new Tesseract teWBTC vault and receive its shares\" and a fixed share-recipient line that says the shares go to you.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deployVault: \"Deploy Vault\" suggests the signer owns the new vault, but Tesseract addresses get every control role.",
+      "evidence": "_deployVault: grantRole(Roles.OWNER_ROLE, vaultOwner, 0); grantRole(Roles.ATOMIST_ROLE, atomist, 0); grantRole(Roles.ALPHA_ROLE, alpha, 0); the signer gets only WHITELIST_ROLE. Case 0 reader: \"I may become the vault's owner or creator\" and was unsure who controls the vault.",
+      "fix": "Say in the intent that the vault is managed by Tesseract, e.g. \"Deposit into a new Tesseract-managed vault\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deployVault: the share amount, actual fee rates, fee recipient and role holders come from storage or the vault.",
+      "evidence": "_deployVault reads managementFee, performanceFee, feeRecipient, vaultOwner, atomist and alpha from storage. Case 0 minted 19052100 teWBTC (10 decimals) to the signer, and no field shows that amount. The fee fields show only the caps the signer accepts (0.25% and 30%).",
+      "fix": "None in the descriptor. Only the caps are in calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.00190521 WBTC out is shown right. The 19052100 teWBTC shares in are not on the screen. The reader guessed shares would arrive but did not know the amount or whether they go to the signer. The WHITELIST_ROLE grant to the signer is not shown either."
+     }
+    ],
+    "glance": 45,
+    "depth": 62
+   },
+   {
+    "key": "deployVaultWithPermit(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Tries an EIP-2612 permit on WBTC for initialDeposit to the deployer. If the permit fails, it falls back to an existing allowance of at least initialDeposit, or reverts.",
+     "Pulls initialDeposit WBTC from the signer and deposits it into a newly cloned PlasmaVault. The vault mints teWBTC shares to the signer.",
+     "Grants the signer WHITELIST_ROLE on the new vault.",
+     "Gives OWNER, ATOMIST, ALPHA, GUARDIAN and the other roles to Tesseract addresses set in storage, not the signer.",
+     "Sets the vault's fees from storage, paid to the feeRecipient set in storage. Each fee must be at or below the max the signer passed, or the call reverts."
+    ],
+    "shown": "\"Deploy Vault (Permit)\", with the teWBTC ticker, the initial deposit in WBTC, the max fees, and a permit deadline date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deployVaultWithPermit: WBTC has no EIP-2612 permit, so the \"(Permit)\" wording and deadline field mean nothing.",
+      "evidence": "deployVaultWithPermit: try IERC20Permit(UNDERLYING_TOKEN).permit(...) {} catch { if (allowance(msg.sender, address(this)) < initialDeposit) revert PermitFailed(); }. UNDERLYING_TOKEN is WBTC 0x2260…C599, which has no permit function, so the call always uses an existing approval. Descriptor field \"Permit deadline\" and intent \"Deploy Vault (Permit)\".",
+      "fix": "Remove the deadline field and the \"(Permit)\" wording, or add a label saying a prior WBTC approval to the deployer is required.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deployVaultWithPermit intent leaves out the WBTC deposit, the shares received, and that Tesseract controls the vault.",
+      "evidence": "_deployVault: deposit(initialDeposit, msg.sender); grantRole(OWNER_ROLE, vaultOwner); grantRole(ATOMIST_ROLE, atomist). Descriptor intent \"Deploy Vault (Permit)\", no interpolatedIntent.",
+      "fix": "Add an interpolatedIntent such as \"Deposit {initialDeposit} into a new Tesseract-managed teWBTC vault and receive its shares\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deployVaultWithPermit: the share amount, actual fees, fee recipient and role holders come from storage.",
+      "evidence": "_deployVault reads managementFee, performanceFee, feeRecipient, vaultOwner, atomist and alpha from storage. The descriptor shows only the fee caps from calldata.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.308,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deployVault(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 56,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deployVault intent \"Deploy Vault\" leaves out the WBTC deposit and the shares the signer receives.",
+   "comprehension": 75
+  },
+  "deployVaultWithPermit(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee, uint256 deadline, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 38,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deployVaultWithPermit: WBTC has no EIP-2612 permit, so the \"(Permit)\" wording and deadline field mean nothing.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 47,
+  "functions": "2C",
+  "incomplete": false,
+  "worst": "deployVault intent \"Deploy Vault\" leaves out the WBTC deposit and the shares the signer receives."
+ }
+}

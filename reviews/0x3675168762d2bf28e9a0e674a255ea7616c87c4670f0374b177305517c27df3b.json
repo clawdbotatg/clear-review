@@ -1,0 +1,456 @@
+{
+ "hash": "0x3675168762d2bf28e9a0e674a255ea7616c87c4670f0374b177305517c27df3b",
+ "file": "registry/feral-file/calldata-feralfile-exhibition-v3-0.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x6e82e4b398ca4137007ba69ddd6ff699334d13b5"
+  },
+  {
+   "chainId": 1,
+   "address": "0x7e6c132b8cb00899d17750e0fd982ea122c6b0f2"
+  },
+  {
+   "chainId": 1,
+   "address": "0x8f30722dd16bd63cf2665c383c1aef5e307b0046"
+  },
+  {
+   "chainId": 1,
+   "address": "0xd74745721e3b9c3d784f15bfba2802fa2e9955d9"
+  },
+  {
+   "chainId": 1,
+   "address": "0xe46a41b840176b62983fc71162dc9faeac4d9bcb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "transferFrom(address from,address to,uint256 tokenId)",
+    "effects": [
+     "Moves NFT tokenId of this collection from `from` to `to`. The caller must be the owner, approved for the token, or an operator (ERC721.transferFrom, _isApprovedOrOwner).",
+     "Clears any single-token approval on tokenId (_transfer calls _approve(address(0), tokenId))."
+    ],
+    "shown": "Transfer token <collection #id> from <from> to <to>, with From, To and Artwork fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "safeTransferFrom(address from,address to,uint256 tokenId)",
+    "effects": [
+     "Moves NFT tokenId from `from` to `to` (ERC721.safeTransferFrom -> _safeTransfer -> _transfer).",
+     "Clears the token's single-token approval.",
+     "If `to` is a contract, calls its onERC721Received and reverts unless it accepts the token."
+    ],
+    "shown": "Safely transfer token <collection #id> to <to>, with From, To and Artwork fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "safeTransferFrom: interpolatedIntent leaves out the `from` address that the sibling transferFrom sentence includes.",
+      "evidence": "descriptor.json safeTransferFrom(address,address,uint256) interpolatedIntent \"Safely transfer token {tokenId} to {to}\". transferFrom uses \"Transfer token {tokenId} from {from} to {to}\". `from` is a field, so the sentence could carry it. An operator moving someone else's token cannot tell from the sentence whose token it is.",
+      "fix": "Use \"Transfer token {tokenId} from {from} to {to}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "safeTransferFrom(address from,address to,uint256 tokenId,bytes data)",
+    "effects": [
+     "Moves NFT tokenId from `from` to `to` (ERC721.safeTransferFrom -> _safeTransfer).",
+     "Clears the token's single-token approval.",
+     "If `to` is a contract, calls its onERC721Received with `data` and reverts unless it accepts the token."
+    ],
+    "shown": "Safely transfer token <collection #id> to <to>, with From, To and Artwork fields. The `data` bytes are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "safeTransferFrom with data: interpolatedIntent leaves out the `from` address.",
+      "evidence": "descriptor.json safeTransferFrom(address,address,uint256,bytes) interpolatedIntent \"Safely transfer token {tokenId} to {to}\". `from` is shown only as a separate field.",
+      "fix": "Use \"Transfer token {tokenId} from {from} to {to}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "safeTransferFrom with data: the callback `data` bytes are not shown. They move none of the signer's assets.",
+      "evidence": "ERC721._checkOnERC721Received passes `data` only to IERC721Receiver(to).onERC721Received. descriptor.json has no field for `data`.",
+      "fix": "None needed. Optionally add a raw `data` field with visible: optional.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 88
+   },
+   {
+    "key": "approve(address to,uint256 tokenId)",
+    "effects": [
+     "Sets `to` as the single approved address for tokenId and replaces any earlier approval (ERC721.approve -> _approve). The caller must be the owner or an operator.",
+     "Setting `to` to the zero address clears the token's approval."
+    ],
+    "shown": "Allow <to> to transfer token <collection #id>, with Operator and Artwork fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approve: approving the zero address revokes the token's approval, but the screen says 'Allow 0x0 to transfer'.",
+      "evidence": "ERC721._approve sets _tokenApprovals[tokenId] = to, so to = address(0) clears the approval. descriptor.json approve interpolatedIntent \"Allow {to} to transfer token {tokenId}\" has no special handling for the zero address.",
+      "fix": "Add a note or a label such as 'Approved address (zero = revoke)'. Wallets that support it can also map the zero address to 'none (revoke)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "setApprovalForAll(address operator,bool approved)",
+    "effects": [
+     "Grants (approved = true) or revokes (approved = false) `operator` the right to transfer, approve and burn every token of this collection the signer owns, now and in the future (ERC721._setApprovalForAll; burnEditions also accepts operators through _isApprovedOrOwner)."
+    ],
+    "shown": "\"true all tokens for <operator>\" with intent 'Set operator approval', and Operator and raw Approved fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "setApprovalForAll: the raw boolean makes the sentence read 'true all tokens for X', so grant or revoke is unclear.",
+      "evidence": "descriptor.json setApprovalForAll interpolatedIntent \"{approved} all tokens for {operator}\" with field approved format \"raw\". Case 4 renders \"true all tokens for Test Operator\". The intent 'Set operator approval' does not say that it grants control of every token in the collection.",
+      "fix": "Use intent 'Allow operator to manage all your artworks' and the sentence \"Allow {operator} to transfer all your artworks: {approved}\". Or map the bool to 'Grant'/'Revoke' and label the field 'Grant full access'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "setApprovalForAll: neither intent nor fields say the operator can also burn the signer's artworks.",
+      "evidence": "FeralfileExhibitionV3.burnEditions requires _isApprovedOrOwner(_msgSender(), id), and that check includes isApprovedForAll(owner, spender). descriptor.json intent \"Set operator approval\".",
+      "fix": "Say 'transfer or burn all your artworks' in the intent or the sentence.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "burnEditions(uint256[] editionIDs_)",
+    "effects": [
+     "Permanently burns each listed edition NFT. The caller must be the owner, approved for the token, or an operator, and the contract must have isBurnable set (FeralfileExhibitionV3.burnEditions -> _burn).",
+     "Deletes each edition's IPFS CID registration and edition record."
+    ],
+    "shown": "Permanently destroy selected editions, with each edition listed by name under 'Artworks'.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "authorizedTransfer((address from,address to,uint256 tokenID,uint256 expireTime,bytes32 r_,bytes32 s_,uint8 v_)[] transferParams_)",
+    "effects": [
+     "Only a trustee or the owner can call it (onlyAuthorized). For each element, it checks the owner's off-chain signature over (from, to, tokenID, expireTime) and the expiry, then safe-transfers tokenID from `from` to `to` (_authorizedTransfer -> _safeTransfer).",
+     "Clears each moved token's approval and calls onERC721Received on contract recipients."
+    ],
+    "shown": "Intent 'Authorize artwork transfer', sentence 'Execute authorized artwork transfers', with From, To, Artwork and expiry fields listed per element.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "authorizedTransfer: the intent says the signer authorizes, but the call executes transfers that owners already signed.",
+      "evidence": "FeralfileExhibitionV3.authorizedTransfer is onlyAuthorized and _authorizedTransfer moves tokens after isValidRequest checks the owner's signature. descriptor.json intent \"Authorize artwork transfer\" conflicts with interpolatedIntent \"Execute authorized artwork transfers\".",
+      "fix": "Set intent to 'Execute signed artwork transfers'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "authorizedTransfer: from, to, tokenID and expiry are shown as separate lists, so a batch's transfers cannot be paired.",
+      "evidence": "descriptor.json fields use paths transferParams_.[].from, transferParams_.[].to, transferParams_.[].tokenID and transferParams_.[].expireTime as four separate array fields.",
+      "fix": "Use one field group on path transferParams_.[] with from, to, tokenID and expireTime as nested fields, so each transfer renders together.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "createArtworks((string title,string artistName,string fingerprint,uint256 editionSize,uint256 AEAmount,uint256 PPAmount)[] artworks_)",
+    "effects": [
+     "Only a trustee or the owner can call it. It registers each artwork with ID keccak256(fingerprint), plus its title, artist, editionSize, AEAmount and PPAmount (_createArtwork).",
+     "The number of editions that can later be minted is editionSize + AEAmount + PPAmount (_mintArtwork's range check)."
+    ],
+    "shown": "'Create artworks', with Title, Artist and Edition size listed per artwork.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "createArtworks: AEAmount and PPAmount are hidden, but they raise the mintable supply above the 'Edition size' shown.",
+      "evidence": "FeralfileExhibitionV3._mintArtwork requires editionNumber_ < editionSize + AEAmount + PPAmount. descriptor.json createArtworks shows only artworks_.[].title, artistName and editionSize.",
+      "fix": "Add fields for artworks_.[].AEAmount ('Artist editions') and artworks_.[].PPAmount ('Printer proofs').",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "createArtworks: title, artist and size are shown as separate lists rather than grouped per artwork.",
+      "evidence": "descriptor.json fields artworks_.[].title, artworks_.[].artistName and artworks_.[].editionSize are separate array fields.",
+      "fix": "Use a field group on artworks_.[] with nested fields.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 60
+   },
+   {
+    "key": "batchMint((uint256 artworkID,uint256 edition,address artist,address owner,string ipfsCID)[] mintParams_)",
+    "effects": [
+     "Only a trustee or the owner can call it. For each element, it mints edition ID artworkID + edition to the `artist` address (_safeMint, which calls onERC721Received if artist is a contract).",
+     "If artist != owner, it then safe-transfers the new token from the artist to `owner`.",
+     "Registers the ipfsCID as the token's metadata and emits NewArtworkEdition."
+    ],
+    "shown": "'Batch mint editions', with Artwork ID (raw), Edition (raw) and Owner listed per mint.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "batchMint: the `artist` address, which first receives and is recorded as minter of each token, is hidden.",
+      "evidence": "FeralfileExhibitionV3._mintArtwork: _safeMint(artist_, editionID); if (artist_ != owner_) _safeTransfer(artist_, owner_, editionID, \"\"). descriptor.json batchMint has no field for mintParams_.[].artist.",
+      "fix": "Add a field mintParams_.[].artist labeled 'Artist' with format addressName.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "batchMint: the token minted (artworkID + edition) is not shown; Artwork ID is a raw keccak-sized integer.",
+      "evidence": "_mintArtwork sets uint256 editionID = artworkID_ + editionNumber_, and artworkID is keccak256(fingerprint) in _createArtwork. descriptor.json shows mintParams_.[].artworkID and .edition as raw, as separate lists.",
+      "fix": "Group the fields per mint on mintParams_.[]. If the hidden ipfsCID is kept, consider showing it with visible: optional.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "setRoyaltyPayoutAddress(address royaltyPayoutAddress_)",
+    "effects": [
+     "Only a trustee or the owner can call it. It sets the address royaltyInfo reports as receiver of secondary-sale royalties for every token (setRoyaltyPayoutAddress; the zero address reverts)."
+    ],
+    "shown": "'Set royalty payout address', with the new address.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "setTokenBaseURI(string baseURI_)",
+    "effects": [
+     "Only a trustee or the owner can call it. It replaces the base URI that tokenURI prefixes to every edition's IPFS CID. An empty string falls back to 'ipfs://'."
+    ],
+    "shown": "'Set token base URI', with the raw string.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "setTokenBaseURI: an empty base URI means the 'ipfs://' default, which the raw display does not say.",
+      "evidence": "FeralfileExhibitionV3.tokenURI: if (bytes(baseURI).length == 0) baseURI = \"ipfs://\". descriptor.json field baseURI_ format raw.",
+      "fix": "Optionally note in the label 'Base URI (empty = ipfs://)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "updateArtworkEditionIPFSCid(uint256 tokenId,string ipfsCID)",
+    "effects": [
+     "Only a trustee or the owner can call it. It replaces the IPFS CID (the metadata and artwork pointer) of edition tokenId, and frees the old CID's registration."
+    ],
+    "shown": "'Update edition IPFS CID', with the edition by name and the new CID raw.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": [
+   "Deployments 1:0xd74745721e3b9c3d784f15bfba2802fa2e9955d9 and 1:0xe46a41b840176b62983fc71162dc9faeac4d9bcb have no source directory under contracts/, although FORMATS.md says 'Unverified: none'. I assumed they run the same FeralfileExhibitionV3 code as the three verified deployments but could not confirm it."
+  ]
+ },
+ "cost": 0.654,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 148,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "transferFrom(address from,address to,uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "safeTransferFrom(address from,address to,uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 83,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "safeTransferFrom: interpolatedIntent leaves out the `from` address that the sibling transferFrom sentence includes.",
+   "comprehension": null
+  },
+  "safeTransferFrom(address from,address to,uint256 tokenId,bytes data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 81,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "safeTransferFrom with data: interpolatedIntent leaves out the `from` address.",
+   "comprehension": null
+  },
+  "approve(address to,uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "approve: approving the zero address revokes the token's approval, but the screen says 'Allow 0x0 to transfer'.",
+   "comprehension": null
+  },
+  "setApprovalForAll(address operator,bool approved)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "setApprovalForAll: the raw boolean makes the sentence read 'true all tokens for X', so grant or revoke is unclear.",
+   "comprehension": null
+  },
+  "burnEditions(uint256[] editionIDs_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "authorizedTransfer((address from,address to,uint256 tokenID,uint256 expireTime,bytes32 r_,bytes32 s_,uint8 v_)[] transferParams_)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "authorizedTransfer: the intent says the signer authorizes, but the call executes transfers that owners already signed.",
+   "comprehension": null
+  },
+  "createArtworks((string title,string artistName,string fingerprint,uint256 editionSize,uint256 AEAmount,uint256 PPAmount)[] artworks_)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "createArtworks: AEAmount and PPAmount are hidden, but they raise the mintable supply above the 'Edition size' shown.",
+   "comprehension": null
+  },
+  "batchMint((uint256 artworkID,uint256 edition,address artist,address owner,string ipfsCID)[] mintParams_)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "batchMint: the `artist` address, which first receives and is recorded as minter of each token, is hidden.",
+   "comprehension": null
+  },
+  "setRoyaltyPayoutAddress(address royaltyPayoutAddress_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setTokenBaseURI(string baseURI_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "updateArtworkEditionIPFSCid(uint256 tokenId,string ipfsCID)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 75,
+  "functions": "8A 2B 2C",
+  "incomplete": true,
+  "worst": "setApprovalForAll: the raw boolean makes the sentence read 'true all tokens for X', so grant or revoke is unclear."
+ }
+}

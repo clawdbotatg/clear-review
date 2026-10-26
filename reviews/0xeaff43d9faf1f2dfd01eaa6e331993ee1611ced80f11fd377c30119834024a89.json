@@ -1,0 +1,227 @@
+{
+ "hash": "0xeaff43d9faf1f2dfd01eaa6e331993ee1611ced80f11fd377c30119834024a89",
+ "file": "registry/symbiotic/calldata-VaultV1-wstUSR.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x821c65f4bdac61f4938d2cf0476f85614178fb72"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` wstUSR (collateral 0x1202F5C7…, set at initialization) to the vault with safeTransferFrom.",
+     "The vault credits active stake shares to `onBehalfOf`, not necessarily the signer. The share count comes from the vault's storage."
+    ],
+    "shown": "Deposit of the amount in wstUSR into the named vault, credited to the shown beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many vault shares the beneficiary receives; the count comes from storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...)`. The descriptor has no shares field, and shares are not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The vault burns the signer's active shares worth `amount` wstUSR, rounded up (previewWithdraw, Ceil).",
+     "The vault moves `amount` wstUSR out of the active stake into the withdrawal queue for the next epoch.",
+     "`claimer` receives withdrawal shares for that epoch, which is the right to claim the assets later. No tokens move in this call."
+    ],
+    "shown": "A request to withdraw the amount in wstUSR from the vault, with the claim owned by the shown claimer.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the shares burned, or that funds are claimable only after the next epoch.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` and _withdraw: `uint256 epoch = currentEpoch() + 1; withdrawalSharesOf[epoch][claimer] += mintedShares;`. Both values come from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The vault burns `shares` of the signer's active vault shares.",
+     "The vault queues the wstUSR worth those shares (previewRedeem from storage) for withdrawal in the next epoch.",
+     "`claimer` receives withdrawal shares for that epoch, which is the right to claim the assets later."
+    ],
+    "shown": "A request to queue a raw integer of vault shares for withdrawal, owned by the shown claimer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem shows the vault share amount as a raw 18-decimal integer, which is hard to read.",
+      "evidence": "descriptor redeem field `#.shares` has format \"raw\". Case 2 shows \"987654321123456789\". ERC4626Math._decimalsOffset returns 0, so shares use the 18-decimal scale of wstUSR.",
+      "fix": "Use format \"unit\" with params {\"base\":\"shares\",\"decimals\":18} for `#.shares`. Keep it in interpolatedIntent as \"Queue {shares} for {claimer}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the wstUSR amount that gets queued; the vault computes it from storage.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault marks the signer's withdrawal for `epoch` as claimed.",
+     "The vault sends the signer's full withdrawal amount for that epoch, in wstUSR, to `recipient`. The amount comes from storage."
+    ],
+    "shown": "A claim of the withdrawal for the shown epoch, sent to the shown recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim does not show the wstUSR amount sent to the recipient; it comes from storage.",
+      "evidence": "Vault.sol claim: `amount = _claim(epoch); IERC20(collateral).safeTransfer(recipient, amount);` with `_claim` returning `withdrawalsOf(epoch, msg.sender)`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "The claim intent does not name the asset wstUSR that goes to the recipient.",
+      "evidence": "descriptor claim intent \"Claim withdrawal\", interpolatedIntent \"Claim epoch {epoch} to {recipient}\". Vault.sol claim transfers `collateral` (wstUSR).",
+      "fix": "Change interpolatedIntent to \"Claim epoch {epoch} wstUSR to {recipient}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 62
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The vault marks the signer's withdrawal as claimed for every listed epoch.",
+     "The vault sends the sum of the signer's withdrawal amounts for those epochs, in wstUSR, to `recipient`. The amounts come from storage."
+    ],
+    "shown": "A claim of the withdrawals for each listed epoch, sent to the shown recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch does not show the total wstUSR sent to the recipient; it comes from storage.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]); ... IERC20(collateral).safeTransfer(recipient, amount);`",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "The claimBatch intent does not name the asset wstUSR that goes to the recipient.",
+      "evidence": "descriptor claimBatch intent \"Claim withdrawals\", interpolatedIntent \"Claim epochs {epochs.[]} to {recipient}\".",
+      "fix": "Change interpolatedIntent to \"Claim wstUSR for epochs {epochs.[]} to {recipient}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.383,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 60,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem shows the vault share amount as a raw 18-decimal integer, which is hard to read.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 70,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem shows the vault share amount as a raw 18-decimal integer, which is hard to read."
+ }
+}

@@ -1,0 +1,860 @@
+{
+ "hash": "0x4cf545b23521cad17fe09b11d5ed75649a4b1e7af641318a5107869abb2d297c",
+ "file": "registry/zkstables/calldata-zkhub.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x2a6568a96ca4967eb6e7bbfa46aa1bcd7edc50e1"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xc07055d40e8c341ebced313ae400aec203f28e5b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "changeControllerWithAuth(bytes32 epk, address newController, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Replaces the controller of ZK account `epk` with `newController`.",
+     "Uses up one nonce of the old controller's signed authorization (nonce, deadline, signature)."
+    ],
+    "shown": "\"Change controller (auth)\" with the ZK address as raw bytes32 and the new controller by name.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "changeControllerWithAuth does not show the old controller, because it comes from storage.",
+      "evidence": "ZKHub.sol changeControllerWithAuth: `address oldController = controllers[epk]; ... controllers[epk] = newController;` Descriptor shows only `#.epk` (raw) and `#.newController`.",
+      "fix": "None in the descriptor. The old controller comes from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "encryptedBurn(address zkemt, (uint256 x,uint256 y) epk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newBalance, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) tsCt, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcCt, bytes proof)",
+    "effects": [
+     "Destroys an encrypted (hidden) amount of `zkemt` from the encrypted balance of ZK account `epk`.",
+     "Overwrites that account's encrypted balance with `newBalance` and lowers the encrypted total supply."
+    ],
+    "shown": "\"Encrypted burn\" with the token and the two raw coordinates of the account key.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "encryptedBurn cannot show the burned amount, because the calldata only carries it as ciphertext.",
+      "evidence": "ZKHub.sol encryptedBurn: `IZKEMT(zkemt).executeEncryptedBurn(compressed, newBalance, tsCt, trcCt);` The amount only exists as ElGamal ciphertexts.",
+      "fix": "None. Optionally add a label that says the amount is encrypted.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "encryptedBurn shows the account as two raw coordinates, but the auth and freeze screens use the compressed bytes32.",
+      "evidence": "Descriptor encryptedBurn fields `epk.x.[0:32]` and `epk.y.[0:32]` are raw. setEncryptedBurnAuth and freezeEpk show `#.epk` as a bytes32 CompressedPoint (Grumpkin.sol compressPoint: `(yParity << 255) | point.x`).",
+      "fix": "Rename the x field to say it equals the ZK address without the parity bit, or keep only x with a label 'ZK account (x)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 45
+   },
+   {
+    "key": "encryptedMint(address zkemt, (uint256 x,uint256 y) epk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) mintCt, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) tsCt, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcCt, bytes proof)",
+    "effects": [
+     "Mints a hidden amount of `zkemt` into the encrypted balance of ZK account `epk`, and raises the encrypted total supply."
+    ],
+    "shown": "\"Encrypted mint\" with the token and the two raw coordinates of the recipient key.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "encryptedMint cannot show the minted amount, because the calldata only carries it as ciphertext.",
+      "evidence": "ZKHub.sol encryptedMint: `IZKEMT(zkemt).executeEncryptedMint(compressed, mintCt, tsCt, trcCt);` mintCt is an ElGamal ciphertext.",
+      "fix": "None.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "encryptedMint labels the recipient account 'Encryption key x/y' and does not say it is the recipient.",
+      "evidence": "Descriptor encryptedMint: label 'Encryption key x' on `epk.x.[0:32]`. In the code, epk is the account that receives the mint (`executeEncryptedMint(compressed, ...)`).",
+      "fix": "Rename the labels to 'Recipient ZK key x' and 'Recipient ZK key y'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 45
+   },
+   {
+    "key": "freezeAddress(address addr)",
+    "effects": [
+     "Blocks all public-layer sends and receipts of `addr` on every ZKEMT in the deployment."
+    ],
+    "shown": "\"Freeze {addr}\" with the address.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "freezeEpk(bytes32 epk)",
+    "effects": [
+     "Blocks all encrypted-layer movement of ZK account `epk` on every ZKEMT."
+    ],
+    "shown": "\"Freeze ZK address\" with the compressed key as raw bytes32.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "freezeEpk shows the ZK account only as raw bytes32. No name source exists for it.",
+      "evidence": "Descriptor freezeEpk: field `epk`, format raw. Grumpkin.sol: `type CompressedPoint is bytes32;`",
+      "fix": "None.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "initialize(address initialOwner, (uint256 x,uint256 y) trcPk_, (uint256 x,uint256 y) totalSupplyPk_)",
+    "effects": [
+     "Sets the owner of the hub.",
+     "Sets the compliance key trcPk and the total-supply key, which decide who can decrypt compliance and supply ciphertexts."
+    ],
+    "shown": "\"Initialize\" with only the initial owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "initialize hides trcPk_ and totalSupplyPk_, the keys that decide who decrypts compliance and supply data.",
+      "evidence": "ZKHub.sol initialize: `trcPk = trcPk_; ... totalSupplyPk = totalSupplyPk_;` Descriptor initialize shows only `#.initialOwner`.",
+      "fix": "Add raw fields for `trcPk_.x`, `trcPk_.y`, `totalSupplyPk_.x` and `totalSupplyPk_.y`, as setTrcPk does.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 50
+   },
+   {
+    "key": "pause()",
+    "effects": [
+     "Sets the global pause flag. This stops every user operation on every ZKEMT, and also hub mint, burn and EPK registration."
+    ],
+    "shown": "\"Pause all transfers\".",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "pauseZkemt(address zkemt)",
+    "effects": [
+     "Pauses every user operation on one ZKEMT."
+    ],
+    "shown": "\"Pause {zkemt}\" with the token.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "publicBurn(address zkemt, address burnFrom, uint256 amount)",
+    "effects": [
+     "Destroys `amount` public `zkemt` tokens held by `burnFrom`."
+    ],
+    "shown": "\"Burn {amount} from {burnFrom}\" with the amount in the token.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "publicMint(address zkemt, address to, uint256 amount)",
+    "effects": [
+     "Mints `amount` of `zkemt` to `to`. The token contract does this (executePublicMint), and that source is not in the directory."
+    ],
+    "shown": "\"Mint {amount} to {to}\" with the amount in the token.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "registerEpk((uint256 x,uint256 y) epk, address controller, bytes proof)",
+    "effects": [
+     "Binds ZK account `epk` to `controller` for good. Only a signed change can move it later."
+    ],
+    "shown": "\"Register account\" with the key coordinates raw and the controller by name.",
+    "findings": [],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "registerZkemt(address zkemt)",
+    "effects": [
+     "Adds `zkemt` to the hub registry, which enables mint, burn, seize and pause on it."
+    ],
+    "shown": "\"Register token\" with the token address.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "renounceOwnership()",
+    "effects": [
+     "Removes the owner for good. Nobody can call owner functions after this: roles, upgrades, key rotation."
+    ],
+    "shown": "\"Renounce ownership\".",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "rotateTotalSupplyKey((uint256 x,uint256 y) newTsPk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C)[] newTotalSupplies, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C)[] expectedOldTotalSupplies)",
+    "effects": [
+     "Replaces the total-supply key.",
+     "Overwrites the encrypted total-supply counter of every registered ZKEMT with the new ciphertexts."
+    ],
+    "shown": "\"Rotate total supply key\" with the new key coordinates raw.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "rotateTotalSupplyKey hides the new supply ciphertexts. They cannot be shown in readable form.",
+      "evidence": "ZKHub.sol rotateTotalSupplyKey: `IZKEMT(zkemtList[i]).executeRotateTotalSupplyKey(newTotalSupplies[i], expectedOldTotalSupplies[i]);` Descriptor shows only `newTsPk.x` and `newTsPk.y`.",
+      "fix": "None.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "seizeEncrypted(address zkemt, (uint256 x,uint256 y) epk, address to, uint256 amount)",
+    "effects": [
+     "Subtracts `amount` from the encrypted balance of frozen ZK account `epk`, with no balance check.",
+     "Credits `amount` of `zkemt` as public ERC-20 tokens to `to`."
+    ],
+    "shown": "\"Seize (encrypted)\" with the amount in the token, the source key coordinates raw, and the recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "seizeEncrypted intent does not say the seized amount arrives as public tokens at `to`.",
+      "evidence": "ZKHub.sol seizeEncrypted natspec: 'Drain `amount` from a frozen EPK's encrypted balance on `zkemt` and credit it as public ERC-20 to `to`.' Descriptor intent: \"Seize (encrypted)\".",
+      "fix": "Add an interpolatedIntent \"Seize {amount} from ZK account to {to}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "seizeEncrypted does not check the balance, so a seize above it corrupts the encrypted balance.",
+      "evidence": "ZKHub.sol seizeEncrypted natspec: 'Over-seizing produces a ciphertext that no longer decrypts to a value in [0, 2^64)'.",
+      "fix": "Optionally add a label that says the amount is not checked against the balance.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "seizePublic(address zkemt, address from, address to, uint256 amount)",
+    "effects": [
+     "Moves `amount` public `zkemt` tokens from frozen `from` to `to` by force."
+    ],
+    "shown": "\"Seize {amount} from {from} to {to}\".",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 90
+   },
+   {
+    "key": "setEncryptedBurnAuth(address burner, bytes32 epk, bool enabled)",
+    "effects": [
+     "Grants or revokes the right of `burner` to burn from the encrypted balance of ZK account `epk` on every ZKEMT."
+    ],
+    "shown": "\"Set encrypted burn permission\" with the burner, the ZK address raw, and Enabled true/false.",
+    "findings": [],
+    "cases": [],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "setFreezer(address freezer, bool enabled)",
+    "effects": [
+     "Grants or revokes the freezer role for `freezer`."
+    ],
+    "shown": "\"Set freezer\" with the address and Enabled true/false.",
+    "findings": [],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "setMinter(address minter, bool enabled)",
+    "effects": [
+     "Grants or revokes the minter role for `minter`, on every ZKEMT and in both layers."
+    ],
+    "shown": "\"Set minter\" with the address and Enabled true/false.",
+    "findings": [],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "setPauser(address pauser, bool enabled)",
+    "effects": [
+     "Grants or revokes the pauser role for `pauser`."
+    ],
+    "shown": "\"Set pauser\" with the address and Enabled true/false.",
+    "findings": [],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "setPublicBurnAuth(address burner, address burnFrom, bool enabled)",
+    "effects": [
+     "Grants or revokes the right of `burner` to burn the public tokens of `burnFrom` on every ZKEMT."
+    ],
+    "shown": "\"Set public burn permission\" with the burner, the burn-from address, and Enabled true/false.",
+    "findings": [],
+    "cases": [],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "setSanctionsList(address newList)",
+    "effects": [
+     "Replaces the sanctions oracle for all ZKEMTs. The zero address turns screening off."
+    ],
+    "shown": "\"Set sanctions list\" with the new list address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setSanctionsList shows the zero address literally. In the code it turns sanctions screening off.",
+      "evidence": "ZKHub.sol: 'Pass `address(0)` to disable screening.' isAddressSanctioned: `if (list == address(0) || addr == address(0)) return false;` Descriptor field `#.newList` is addressName with no special value.",
+      "fix": "Add a label or note that the zero address turns screening off, for example a 'New list (0 = screening off)' label.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "setSeizer(address seizer, bool enabled)",
+    "effects": [
+     "Grants or revokes the seizer role for `seizer`. The role can move frozen balances by force."
+    ],
+    "shown": "\"Set seizer\" with the address and Enabled true/false.",
+    "findings": [],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "setTrcPk((uint256 x,uint256 y) pk)",
+    "effects": [
+     "Replaces the compliance key used to encrypt every later compliance ciphertext."
+    ],
+    "shown": "\"Set TRC key\" with the key coordinates raw.",
+    "findings": [],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   },
+   {
+    "key": "transferOwnership(address newOwner)",
+    "effects": [
+     "Moves hub ownership to `newOwner` at once, in one step."
+    ],
+    "shown": "\"Transfer ownership to {newOwner}\".",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "unfreezeAddress(address addr)",
+    "effects": [
+     "Removes the public-layer freeze from `addr`."
+    ],
+    "shown": "\"Unfreeze {addr}\".",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "unfreezeEpk(bytes32 epk)",
+    "effects": [
+     "Removes the encrypted-layer freeze from ZK account `epk`."
+    ],
+    "shown": "\"Unfreeze ZK address\" with the key raw.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "unpause()",
+    "effects": [
+     "Clears the global pause flag. Tokens paused one by one stay paused."
+    ],
+    "shown": "\"Unpause all transfers\".",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "unpauseZkemt(address zkemt)",
+    "effects": [
+     "Clears the pause flag of one ZKEMT."
+    ],
+    "shown": "\"Unpause {zkemt}\".",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "upgradeToAndCall(address newImplementation, bytes data)",
+    "effects": [
+     "Replaces the hub implementation.",
+     "Runs `data` through the new implementation in the hub's own context, with msg.value."
+    ],
+    "shown": "\"Upgrade contract\" with the new implementation, the native value, and the follow-up call decoded against the hub.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "upgradeToAndCall decodes 'Then call' with the current hub descriptor, but the new implementation runs it.",
+      "evidence": "Descriptor: field `data` format calldata with `calleePath: \"@.to\"`. UUPS upgradeToAndCall delegatecalls `data` into `newImplementation`.",
+      "fix": "None.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "upgradeZkemt(address zkemt, address newImpl, bytes data)",
+    "effects": [
+     "Replaces the implementation of token `zkemt`.",
+     "Sends msg.value to the token and runs `data` there through the new implementation."
+    ],
+    "shown": "\"Upgrade token\" with the token, the new implementation, the native value, and the follow-up call decoded against the token.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "upgradeZkemt 'Value' label does not say the native value goes to the token contract.",
+      "evidence": "ZKHub.sol upgradeZkemt: `IZKEMT(zkemt).upgradeToAndCall{value: msg.value}(newImpl, data);` Descriptor label: 'Value'.",
+      "fix": "Rename the label to 'Value sent to token'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": [
+   "The ZKEMT token implementation is not in the directory. It holds executePublicMint, executePublicBurn, executeSeizePublic, executeSeizeEncrypted, executeEncryptedMint, executeEncryptedBurn and its own upgradeToAndCall. Without it I could not confirm where minted or seized tokens arrive (a possible autoEncrypt redirect) or what the token does with forwarded native value."
+  ]
+ },
+ "cost": 0.677,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 117,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "changeControllerWithAuth(bytes32 epk, address newController, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "encryptedBurn(address zkemt, (uint256 x,uint256 y) epk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newBalance, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) tsCt, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcCt, bytes proof)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "encryptedBurn shows the account as two raw coordinates, but the auth and freeze screens use the compressed bytes32.",
+   "comprehension": null
+  },
+  "encryptedMint(address zkemt, (uint256 x,uint256 y) epk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) mintCt, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) tsCt, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcCt, bytes proof)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "encryptedMint labels the recipient account 'Encryption key x/y' and does not say it is the recipient.",
+   "comprehension": null
+  },
+  "freezeAddress(address addr)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "freezeEpk(bytes32 epk)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "initialize(address initialOwner, (uint256 x,uint256 y) trcPk_, (uint256 x,uint256 y) totalSupplyPk_)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "initialize hides trcPk_ and totalSupplyPk_, the keys that decide who decrypts compliance and supply data.",
+   "comprehension": null
+  },
+  "pause()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "pauseZkemt(address zkemt)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "publicBurn(address zkemt, address burnFrom, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "publicMint(address zkemt, address to, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "registerEpk((uint256 x,uint256 y) epk, address controller, bytes proof)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "registerZkemt(address zkemt)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "renounceOwnership()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "rotateTotalSupplyKey((uint256 x,uint256 y) newTsPk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C)[] newTotalSupplies, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C)[] expectedOldTotalSupplies)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "seizeEncrypted(address zkemt, (uint256 x,uint256 y) epk, address to, uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "seizeEncrypted intent does not say the seized amount arrives as public tokens at `to`.",
+   "comprehension": null
+  },
+  "seizePublic(address zkemt, address from, address to, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setEncryptedBurnAuth(address burner, bytes32 epk, bool enabled)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setFreezer(address freezer, bool enabled)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setMinter(address minter, bool enabled)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setPauser(address pauser, bool enabled)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setPublicBurnAuth(address burner, address burnFrom, bool enabled)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setSanctionsList(address newList)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setSanctionsList shows the zero address literally. In the code it turns sanctions screening off.",
+   "comprehension": null
+  },
+  "setSeizer(address seizer, bool enabled)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setTrcPk((uint256 x,uint256 y) pk)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferOwnership(address newOwner)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unfreezeAddress(address addr)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unfreezeEpk(bytes32 epk)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unpause()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unpauseZkemt(address zkemt)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "upgradeToAndCall(address newImplementation, bytes data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "upgradeZkemt(address zkemt, address newImpl, bytes data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 77,
+  "functions": "12A 15B 4C",
+  "incomplete": true,
+  "worst": "initialize hides trcPk_ and totalSupplyPk_, the keys that decide who decrypts compliance and supply data."
+ }
+}

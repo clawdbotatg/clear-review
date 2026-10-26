@@ -1,0 +1,253 @@
+{
+ "hash": "0xca1b4b4abc7a3b88057d04678b93eed7797d7d9388fd3306b5b685e42d6691f0",
+ "file": "registry/symbiotic/calldata-VaultV1-weETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5c493fcb2017d0a644526cfca29eef7ab22f5b8b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` weETH (collateral 0xCd5f…7ee) from their wallet to the vault through safeTransferFrom.",
+     "The vault credits newly minted active vault shares to `onBehalfOf`, not necessarily the signer; the number of shares comes from the vault's state."
+    ],
+    "shown": "Deposit 123.25 weETH for the beneficiary address, with the vault, amount and beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the number of vault shares credited to onBehalfOf; the vault's state sets it.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...)`. The descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "fix": "None needed. The share count is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "Synthetic case with no mined tx. Judged from the code. The amount in weETH and the beneficiary are both shown correctly."
+     }
+    ],
+    "glance": 90,
+    "depth": 92
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The vault burns some of the signer's active shares, rounded up, to remove `amount` weETH from the signer's active stake.",
+     "The vault queues `amount` weETH for the next epoch and credits the withdrawal shares to `claimer`, who alone can claim them later.",
+     "No tokens move in this call. The queued amount stays slashable until the claim."
+    ],
+    "shown": "Request 2.5 weETH withdrawal for the claim owner, with the vault, requested assets and claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the shares burned, and the queued amount can be slashed before the claim.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());`. onSlash reduces `withdrawals[currentEpoch_ + 1]`.",
+      "fix": "None needed. The burned shares and any slashing come from the vault's state.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "No mined tx. The amount in weETH and the claim owner, who receives the claim right, are both shown."
+     }
+    ],
+    "glance": 82,
+    "depth": 88
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The vault burns `shares` of the signer's active vault shares.",
+     "The vault converts them to weETH at the current rate, queues that amount for the next epoch, and credits the withdrawal right to `claimer`."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claim owner, with the shares in raw form.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem shows the vault shares as a raw 18-decimal integer that is hard to read.",
+      "evidence": "Descriptor redeem: field `#.shares` uses format `raw` with label 'Vault shares (raw)'. Case 2 shows '987654321123456789'. ERC4626Math `_decimalsOffset()` returns 0, so the shares use the 18 decimals of weETH.",
+      "fix": "Use `{\"format\":\"unit\",\"params\":{\"base\":\"shares\",\"decimals\":18}}` for `#.shares`. Keep it in interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the weETH amount queued for the claimer; the vault's exchange rate decides it.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "fix": "None needed. The amount depends on the vault's state.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "No mined tx. Shares and the claim owner are shown, but the shares are raw."
+     }
+    ],
+    "glance": 65,
+    "depth": 62
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault marks the signer's withdrawal for `epoch` as claimed.",
+     "The vault sends the signer's full withdrawal for that epoch to `recipient`, in weETH. The vault's state sets the amount."
+    ],
+    "shown": "Claim epoch 42 to the recipient. No asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim does not show the weETH amount sent to the recipient; it comes from the vault's state.",
+      "evidence": "Vault.sol claim: `amount = _claim(epoch); IERC20(collateral).safeTransfer(recipient, amount);`. _claim uses `withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "Optionally name the asset in the intent, as in 'Claim weETH withdrawal'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "No mined tx. The recipient and epoch are shown. The amount is from the vault's state, and the asset is not named."
+     }
+    ],
+    "glance": 72,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The vault marks the signer's withdrawals for every listed epoch as claimed.",
+     "The vault sends the sum of those withdrawals, in weETH, to `recipient` in one transfer."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient, with each epoch as its own field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch does not show the total weETH sent to the recipient; it comes from the vault's state.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]); ... IERC20(collateral).safeTransfer(recipient, amount);`",
+      "fix": "Optionally name the asset in the intent, as in 'Claim weETH withdrawals'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "No mined tx. All epochs and the recipient are shown."
+     }
+    ],
+    "glance": 72,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.381,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 48,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 91,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem shows the vault shares as a raw 18-decimal integer that is hard to read.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 75,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem shows the vault shares as a raw 18-decimal integer that is hard to read."
+ }
+}

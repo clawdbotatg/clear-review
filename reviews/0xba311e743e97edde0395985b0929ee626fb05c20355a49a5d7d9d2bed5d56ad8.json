@@ -1,0 +1,243 @@
+{
+ "hash": "0xba311e743e97edde0395985b0929ee626fb05c20355a49a5d7d9d2bed5d56ad8",
+ "file": "registry/morpho/calldata-felix-feHYPEv2-v2-999.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 999,
+   "address": "0xbd3163135ca16c088b92b000ebc8c20a449c349e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` WHYPE from the signer into the vault, using the signer's WHYPE allowance to the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints feHYPEv2 shares to `onBehalf`. The amount is previewDeposit(assets), set by the vault's share price, and the calldata has no minimum.",
+     "The signer must pass the sendAssetsGate and onBehalf must pass the receiveSharesGate, or the call reverts. The vault may then move the deposit into its liquidity adapter; that is a vault-internal move."
+    ],
+    "shown": "Deposit 0.1 WHYPE for <onBehalf>, with the share ticker feHYPEv2 and the share recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of feHYPEv2 shares received is not shown and has no bound in the calldata.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets);` uses the vault price, and there is no minShares parameter. Case 0: the signer receives 0.1 feHYPEv2 (signer in), but the screen shows only 'Share ticker: feHYPEv2'.",
+      "fix": "No calldata value exists to show. A label such as 'Shares (at current vault price)' would explain why no number appears.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.1 WHYPE out is shown exactly. For the 0.1 feHYPEv2 in, the asset and recipient are shown but no amount can be. The reader got the asset and recipient right and was unsure of the amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns feHYPEv2 shares from `onBehalf`. The amount is previewWithdraw(assets), rounded up, and the calldata has no maximum.",
+     "When the signer is not `onBehalf`, the burned shares are taken from onBehalf's share allowance to the signer (allowance[onBehalf][msg.sender] -= shares).",
+     "Sends exactly `assets` WHYPE from the vault to `receiver`.",
+     "Can pull liquidity out of the liquidity adapter. That is internal to the vault."
+    ],
+    "shown": "Withdraw 264 WHYPE to <receiver>, with the receiver and the owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of feHYPEv2 shares burned is not shown and has no bound in the calldata.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets);` then exit() -> deleteShares(onBehalf, shares). Case 2: 263.941002268529009464 feHYPEv2 burned from the signer (signer out). No field shows it.",
+      "fix": "No calldata value can bound it. See the clarity finding about naming the share token.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: the screen never says that feHYPEv2 vault shares are burned from the Owner.",
+      "evidence": "descriptor withdraw fields: 'Withdraw exactly', 'To', 'Owner'. None of them names feHYPEv2, while deposit shows `$.metadata.constants.vaultTicker`. Case 2 reader: 'Whether any shares or other tokens are burned ... is not shown'.",
+      "fix": "Add a constant field such as 'Shares burned' = $.metadata.constants.vaultTicker, and relabel 'Owner' to 'Burn shares from'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 264 WHYPE in to the signer is shown exactly. For the 263.94 feHYPEv2 burned, the reader understood the position shrinks but did not know it is a feHYPEv2 share burn."
+     }
+    ],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` feHYPEv2 from `onBehalf`. When the signer is not onBehalf, this spends onBehalf's share allowance to the signer.",
+     "Sends WHYPE to `receiver`. The amount is previewRedeem(shares), set by the vault's share price, and the calldata has no minimum."
+    ],
+    "shown": "Redeem 0.1 feHYPEv2 to <receiver>, with the shares, the receiver and the owner as fields. The asset paid out is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the WHYPE paid out to the receiver is never named on the screen.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets);` where asset is WHYPE (immutable 0x5555...). Case 3: the signer receives 0.100000000000787918 WHYPE (signer in). The descriptor redeem fields have only shares, To and Owner. The reader guessed 'probably HYPE'.",
+      "fix": "Add a constant field 'Receive asset' = $.metadata.constants.underlyingTicker (as mint does), and say it in the intent: 'Redeem {#.shares} for WHYPE to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the amount of WHYPE received is set by the vault price and has no minimum in the calldata.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);` and there is no minAssets parameter. Case 3 received 0.100000000000787918 WHYPE.",
+      "fix": "Nothing in the calldata can show it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.1 feHYPEv2 out is shown exactly. For the WHYPE in, the recipient is shown but not the asset or the amount. The reader guessed HYPE."
+     }
+    ],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Pulls WHYPE from the signer, using the signer's WHYPE allowance to the vault. The amount is previewMint(shares), rounded up and set by the vault price, and the calldata has no maximum.",
+     "Mints exactly `shares` feHYPEv2 to `onBehalf`."
+    ],
+    "shown": "Mint 1 feHYPEv2 for <onBehalf>, with 'Deposit asset: WHYPE' but no WHYPE amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the WHYPE taken from the signer has no amount on screen and no maximum in the calldata.",
+      "evidence": "VaultV2.sol mint(): `uint256 assets = previewMint(shares);` then enter() -> safeTransferFrom(asset, msg.sender, address(this), assets). Case 1: 1 WHYPE left the signer (signer out). The screen shows only 'Deposit asset: WHYPE'.",
+      "fix": "No calldata value exists. A label such as 'Pays WHYPE (amount set by vault price)' would make the open cost explicit.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint {shares}' does not say the signer pays WHYPE for the shares.",
+      "evidence": "descriptor mint interpolatedIntent: 'Mint {#.shares} for {#.onBehalf}'. Case 1: 1 WHYPE left the signer. The payment appears only in a raw constant field, 'Deposit asset: WHYPE'.",
+      "fix": "Use an interpolatedIntent such as 'Deposit WHYPE to mint {#.shares} for {#.onBehalf}' and the intent 'Deposit WHYPE for shares'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The WHYPE out is named but its amount (1 WHYPE) is not shown. The reader saw that WHYPE leaves, without the amount. The shares went to 0xdead, which is not the signer, and the screen shows that correctly."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.476,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 88,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the screen never says that feHYPEv2 vault shares are burned from the Owner.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the WHYPE paid out to the receiver is never named on the screen.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint {shares}' does not say the signer pays WHYPE for the shares.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 67,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the WHYPE paid out to the receiver is never named on the screen."
+ }
+}

@@ -1,0 +1,327 @@
+{
+ "hash": "0x091cd7f3aba26b1baf05a5489991337566d51453c0a0ca7110e61915143232b8",
+ "file": "registry/ondo-finance/calldata-GMTokenLimitOrder.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf0bc39fc911f6437c84d16188dd8294f7110f451"
+  },
+  {
+   "chainId": 56,
+   "address": "0x96b525b1a93f31e65f4aaf18c53842ed28525d48"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "createBuyOrderExactIn(address gmToken, address quoteToken, uint256 quoteAmount, uint256 limitPrice, uint256 expiry)",
+    "effects": [
+     "Stores an ACTIVE buy order for the signer. No tokens move in this transaction (LimitOrderLib.createOrder only pushes to s().orders).",
+     "Lets an executor later pull exactly quoteAmount of quoteToken from the signer, using the signer's existing allowance (executeBuy: safeTransferFrom(order.user, this, quoteAmount)).",
+     "If the order fills, the signer gets quote.quantity of gmToken. The fill price must be at most limitPrice USD per GM token (validateExecution: quote.price > limitPrice reverts).",
+     "The order can fill only until expiry. The signer can cancel it with cancelOrder."
+    ],
+    "shown": "Limit buy of the named GM token, spending the quoteAmount of the quote token, with max price in USD and expiry date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "createBuyOrderExactIn: 'Max Price' does not say it is per GM token, so it reads like a total.",
+      "evidence": "descriptor field limitPrice label 'Max Price', unit base USD. LimitOrderLib.validateExecution compares quote.price (per-unit, 18 dec) to limitPrice. Case 0 shows 'Max Price 449.123849357071046643USD' next to a spend of 898.247698 USDC.",
+      "fix": "Label it 'Max Price per GM Token' and say 'per token' in the interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "createBuyOrderExactIn: the sentence says 'up to {quoteAmount}', but a fill-or-kill fill spends exactly that amount.",
+      "evidence": "interpolatedIntent 'Buy {gmToken} for up to {quoteAmount} ...'. LimitOrderLib.executeOrder uses order.exactAmount as quoteAmount for EXACT_QUOTE, and executeBuy pulls the full amount.",
+      "fix": "Use 'Buy {gmToken} with {quoteAmount} at max {limitPrice} per token'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createBuyOrderExactIn: the GM amount received is not shown. It is set at fill time by the attestation quote.",
+      "evidence": "LimitOrderLib.executeBuy: safeTransfer(order.user, quote.quantity). For EXACT_QUOTE BUY, validateExecution does not check quantity. The only bound is quoteAmount / limitPrice, through GMTokenManager.",
+      "fix": "None in ERC-7730. The bound is implied by Spend Amount and Max Price.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "createBuyOrderExactIn: Max Price shows 18 decimals with no space before USD.",
+      "evidence": "Case 0 screen 'Max Price' = '449.123849357071046643USD'. Field format unit, decimals 18, base USD.",
+      "fix": "Wallet rendering issue. No descriptor fix beyond the unit format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined: no token movement or approval. Only an order record is created. The reader correctly saw a limit order and that USDC leaves only when it fills."
+     },
+     {
+      "index": 2,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined on BSC: no movements. The reader understood a limit order with up to 105 USDT."
+     }
+    ],
+    "glance": 78,
+    "depth": 75
+   },
+   {
+    "key": "createBuyOrderExactOut(address gmToken, address quoteToken, uint256 gmAmount, uint256 limitPrice, uint256 expiry)",
+    "effects": [
+     "Stores an ACTIVE buy order for the signer. No tokens move in this transaction.",
+     "If the order fills, the signer receives exactly gmAmount of gmToken (fill-or-kill: quote.quantity must equal exactAmount).",
+     "At fill, an executor pulls quoteToken from the signer: quantity x price, rounded up. Because price must be at most limitPrice, this is at most gmAmount x limitPrice (calculateQuoteAmount, executeBuy).",
+     "The order can fill only until expiry. The signer can cancel it."
+    ],
+    "shown": "Limit buy of an exact GM amount, paid with the named quote token, with max price in USD and expiry.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createBuyOrderExactOut: the most quote token that can be spent is not shown, only gmAmount and the per-token max price.",
+      "evidence": "LimitOrderLib.calculateQuoteAmount: quantity*price*10^dec/1e36, rounded up, pulled in executeBuy. Case 4 reader: 'Exact USDC amount that will be taken; screen only shows the max price per token, not a total.'",
+      "fix": "ERC-7730 cannot multiply two fields. A label like 'Max Price per GM Token' helps the signer work it out.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "createBuyOrderExactOut: 'Max Price' does not say it is per GM token.",
+      "evidence": "limitPrice label 'Max Price'. Case 4 reader unsure 'Whether the 100USD max price is per whole MSFTon token or a total.'",
+      "fix": "Label it 'Max Price per GM Token'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined: no movements. The reader understood a limit order for 0.001 MSFTon paid in USDC, and worked out about 0.1 USDC at max price."
+     }
+    ],
+    "glance": 72,
+    "depth": 70
+   },
+   {
+    "key": "createSellOrderExactIn(address gmToken, address quoteToken, uint256 gmAmount, uint256 limitPrice, uint256 expiry)",
+    "effects": [
+     "Stores an ACTIVE sell order for the signer. No tokens move in this transaction.",
+     "At fill, an executor pulls exactly gmAmount of gmToken from the signer, using the signer's existing allowance (executeSell, with quantity == exactAmount enforced).",
+     "The signer receives quoteToken equal to gmAmount x price, rounded down, with price at least limitPrice. So they get at least gmAmount x limitPrice.",
+     "The order can fill only until expiry. The signer can cancel it."
+    ],
+    "shown": "Limit sell of an exact GM amount for the named receive token, with min price in USD and expiry.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "createSellOrderExactIn: 'Min Price' is per GM token, but the reader took it as possibly total proceeds.",
+      "evidence": "limitPrice label 'Min Price'. validateExecution: quote.price < order.limitPrice reverts (per unit). Case 1 reader unsure: 'Whether the 198.51 is the total minimum proceeds or a per-token price'. The reader's 'arrives' line says 'At least 198.508790985784036875 USD worth of USDC'.",
+      "fix": "Label it 'Min Price per GM Token' and add 'per token' to the interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "createSellOrderExactIn: case 3 targets the BSC deployment and BSC USDT with chainId 1, so it never resolves.",
+      "evidence": "cases/3.json input chainId 1, to 0x96b525b1... (a chain 56 deployment), quoteToken 0x55d39832... (BSC USDT). The description says 'on BSC'. minedError 'tx not found'.",
+      "fix": "Set chainId 56 for case 3.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined: no movements. The reader got the order right but misread the min price as possibly total proceeds."
+     }
+    ],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "createSellOrderExactOut(address gmToken, address quoteToken, uint256 quoteAmount, uint256 limitPrice, uint256 expiry)",
+    "effects": [
+     "Stores an ACTIVE sell order for the signer. No tokens move in this transaction.",
+     "At fill, an executor pulls quote.quantity of gmToken from the signer. This is capped at quoteAmount / limitPrice, rounded up (calculateMaxGM, QuantityTooHigh).",
+     "The signer receives exactly quoteAmount of quoteToken (executeSell). Any redemption surplus above quoteAmount stays in the limit order contract.",
+     "The order can fill only until expiry. The signer can cancel it."
+    ],
+    "shown": "Limit sell of the named GM token to receive an exact amount of the quote token, with min price in USD and expiry.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createSellOrderExactOut: the most GM tokens that can be taken is not shown, only the receive amount and min price.",
+      "evidence": "LimitOrderLib.validateExecution: maxGM = calculateMaxGM(exactAmount, limitPrice, quoteToken), and executeSell pulls quote.quantity. Case 5 reader unsure 'How many MSFTon I'm selling.'",
+      "fix": "ERC-7730 cannot divide fields. A label like 'Min Price per GM Token' lets the signer derive it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createSellOrderExactOut: redemption proceeds above quoteAmount stay in the contract, not with the signer.",
+      "evidence": "LimitOrderLib.executeSell: redeemWithAttestation(..., quoteAmount) as minAmountOut, then safeTransfer(order.user, quoteAmount). The surplus is recoverable only through retrieveTokens (TOKEN_RETRIEVER_ROLE).",
+      "fix": "None in the descriptor. The receive amount shown is exact.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "createSellOrderExactOut: 'Min Price' does not say it is per GM token.",
+      "evidence": "limitPrice label 'Min Price'. Case 5 reader: 'Whether 1 USDC at 100 USD min means I'm selling about 0.01 MSFTon. I can't confirm that.'",
+      "fix": "Label it 'Min Price per GM Token'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined: no movements. The reader understood a sell order receiving 1 USDC but could not tell how much MSFTon would be taken."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "cancelOrder(uint256 orderId)",
+    "effects": [
+     "Sets the signer's own ACTIVE order orderId to CANCELLED. It reverts if the signer is not the order maker or the order is not active.",
+     "No tokens move, because orders hold no escrow. The signer's token allowance to the contract is not changed."
+    ],
+    "shown": "Cancel limit order with the raw order ID.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "cancelOrder: the order ID stands for terms (token, side, amount) the calldata does not carry.",
+      "evidence": "GMTokenLimitOrder.cancelOrder(uint256 orderId). Terms are in storage s().orders[orderId]. Case 6 reader unsure 'What tokens or amounts order 3903 involves'.",
+      "fix": "None in ERC-7730.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined: no movements. The reader correctly saw only a cancellation, though unsure about refunds. There is no escrow, so nothing is refunded."
+     }
+    ],
+    "glance": 85,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.581,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 304,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "createBuyOrderExactIn(address gmToken, address quoteToken, uint256 quoteAmount, uint256 limitPrice, uint256 expiry)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "createBuyOrderExactIn: 'Max Price' does not say it is per GM token, so it reads like a total.",
+   "comprehension": null
+  },
+  "createBuyOrderExactOut(address gmToken, address quoteToken, uint256 gmAmount, uint256 limitPrice, uint256 expiry)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "createBuyOrderExactOut: 'Max Price' does not say it is per GM token.",
+   "comprehension": null
+  },
+  "createSellOrderExactIn(address gmToken, address quoteToken, uint256 gmAmount, uint256 limitPrice, uint256 expiry)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "createSellOrderExactIn: case 3 targets the BSC deployment and BSC USDT with chainId 1, so it never resolves.",
+   "comprehension": null
+  },
+  "createSellOrderExactOut(address gmToken, address quoteToken, uint256 quoteAmount, uint256 limitPrice, uint256 expiry)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "createSellOrderExactOut: 'Min Price' does not say it is per GM token.",
+   "comprehension": null
+  },
+  "cancelOrder(uint256 orderId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 98,
+  "clarity": 69,
+  "functions": "1A 4B",
+  "incomplete": false,
+  "worst": "createSellOrderExactIn: case 3 targets the BSC deployment and BSC USDT with chainId 1, so it never resolves."
+ }
+}

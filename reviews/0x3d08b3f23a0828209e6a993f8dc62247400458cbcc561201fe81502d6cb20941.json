@@ -1,0 +1,230 @@
+{
+ "hash": "0x3d08b3f23a0828209e6a993f8dc62247400458cbcc561201fe81502d6cb20941",
+ "file": "registry/morpho/calldata-b_protocol-recbBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb9c9158ab81f90996cad891ffbadfbaad733c8c6"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` cbBTC from the signer into the vault (ERC4626._deposit: safeTransferFrom(_asset, caller, address(this), assets)).",
+     "Mints vault shares (recbBTC) to `receiver`. The number of shares comes from the vault's stored totals (deposit: _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Floor)), and there is no minimum.",
+     "The vault then supplies the cbBTC to Morpho Blue markets. This is the vault's own transfer and does not change what the signer gets."
+    ],
+    "shown": "\"Deposit\", with the cbBTC amount, the share ticker recbBTC and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent \"Deposit\" has no interpolatedIntent naming the amount, the asset or the share recipient.",
+      "evidence": "descriptor.json deposit format: \"intent\": \"Deposit\" and no interpolatedIntent. Case 0: the reader was unsure \"Which contract receives the cbBTC\".",
+      "fix": "Add an interpolatedIntent, e.g. \"Deposit {assets} into the recbBTC vault, shares to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no minimum, because it comes from the vault's price.",
+      "evidence": "MetaMorpho.sol deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Floor). Case 0: the signer received 15200000000000 recbBTC, but the screen shows only the ticker.",
+      "fix": "None from calldata. The ERC4626 deposit has no minShares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The cbBTC out (0.0000152) matches the screen. The recbBTC in has its asset and recipient on screen but no amount, because the amount comes from the vault's storage."
+     }
+    ],
+    "glance": 50,
+    "depth": 82
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` vault shares (recbBTC) to `receiver`.",
+     "Takes cbBTC from the signer. The amount is computed from the vault's stored totals and rounded up (mint: _convertToAssetsWithTotals(shares, ..., Ceil)). It is not in the calldata, and only the signer's allowance caps it."
+    ],
+    "shown": "\"Mint\", with a fixed line \"Deposit asset: cbBTC\", the share amount and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the cbBTC amount taken from the signer is not shown and has no maximum in the calldata.",
+      "evidence": "MetaMorpho.sol mint: assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); then _deposit runs safeTransferFrom(_asset, caller, ...). The descriptor field 'Deposit asset' shows only the constant \"cbBTC\".",
+      "fix": "None from calldata. The ERC4626 mint has no maxAssets parameter. A label like 'Pays in (amount set by vault price)' would make this clear.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent \"Mint\" does not say that cbBTC leaves the signer, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", interpolatedIntent absent. The cbBTC payment appears only as a raw constant field 'Deposit asset'.",
+      "fix": "Use an intent like \"Deposit cbBTC to mint shares\" and an interpolatedIntent \"Mint {shares} for {receiver}, paid in cbBTC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Sends exactly `assets` cbBTC to `receiver`.",
+     "Burns from `owner` the shares needed to cover `assets`, rounded up (withdraw: _convertToSharesWithTotals(assets, ..., Ceil)).",
+     "When the signer is not `owner`, spends that many shares of the owner's allowance to the signer (ERC4626._withdraw: _spendAllowance(owner, caller, shares))."
+    ],
+    "shown": "\"Withdraw\", with the exact cbBTC amount, the recipient and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown, because it comes from the vault's price.",
+      "evidence": "MetaMorpho.sol withdraw: shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _burn(owner, shares).",
+      "fix": "None from calldata. The ERC4626 withdraw has no maxShares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent \"Withdraw\" has no interpolatedIntent with the amount and the recipient.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", interpolatedIntent absent.",
+      "fix": "Add an interpolatedIntent \"Withdraw {assets} to {receiver} from {owner}'s shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 85
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares (recbBTC) from `owner`. When the signer is not the owner, it also spends the owner's allowance to the signer.",
+     "Sends cbBTC to `receiver`. The amount is computed from the vault's stored totals and rounded down (redeem: _convertToAssetsWithTotals(shares, ..., Floor)), and there is no minimum."
+    ],
+    "shown": "\"Redeem\", with the share amount, the recipient and the owner. Nothing names the asset that comes back.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says that cbBTC is the asset sent to the receiver.",
+      "evidence": "ERC4626._withdraw: SafeERC20.safeTransfer(_asset, receiver, assets). The descriptor's redeem fields are only shares, receiver and owner. The mint format does show the constant underlyingTicker, but redeem does not.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"} or say cbBTC in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the cbBTC amount received is not shown and has no minimum, because it comes from the vault's price.",
+      "evidence": "MetaMorpho.sol redeem: assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor).",
+      "fix": "None from calldata. The ERC4626 redeem has no minAssets parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent \"Redeem\" has no interpolatedIntent and does not say what comes back.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", interpolatedIntent absent.",
+      "fix": "Use an interpolatedIntent \"Redeem {shares} for cbBTC to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.305,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 63,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent \"Deposit\" has no interpolatedIntent naming the amount, the asset or the share recipient.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent \"Mint\" does not say that cbBTC leaves the signer, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent \"Withdraw\" has no interpolatedIntent with the amount and the recipient.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never says that cbBTC is the asset sent to the receiver.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 56,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem: the screen never says that cbBTC is the asset sent to the receiver."
+ }
+}

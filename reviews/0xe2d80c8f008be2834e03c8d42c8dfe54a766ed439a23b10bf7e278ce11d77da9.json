@@ -1,0 +1,214 @@
+{
+ "hash": "0xe2d80c8f008be2834e03c8d42c8dfe54a766ed439a23b10bf7e278ce11d77da9",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakUSDR.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x30881baa943777f92dc934d53d3bfdf33382cab3"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDR (0x7B43…C8f8) from their wallet to the vault by transferFrom, which spends the signer's USDR allowance to the vault.",
+     "The vault mints steakUSDR shares to `receiver`; the number is computed from the share price in storage (floor rounding), with no minimum in calldata.",
+     "Before the deposit, _accrueInterest may mint performance-fee shares to the fee recipient, which sets the share price the signer gets."
+    ],
+    "shown": "\"Deposit\" with the USDR amount, a fixed \"Share ticker: steakUSDR\" line, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many steakUSDR shares the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. The descriptor shows only `Share ticker: $.metadata.constants.vaultTicker`.",
+      "fix": "None possible in the descriptor. ERC-4626 deposit has no minimum-shares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit shows a bare 'Share ticker' line and the intent 'Deposit' does not name the asset.",
+      "evidence": "descriptor deposit: `{\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}` and `\"intent\": \"Deposit\"`.",
+      "fix": "Change the intent to \"Deposit USDR for steakUSDR shares\", or relabel the field \"Receive shares in\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends USDR to the vault. The amount is computed from `shares` and the share price in storage (ceil rounding), and calldata sets no maximum.",
+     "The vault mints exactly `shares` steakUSDR to `receiver`.",
+     "The transferFrom spends the signer's USDR allowance to the vault.",
+     "Before the mint, _accrueInterest may mint performance-fee shares to the fee recipient, which raises the USDR cost per share."
+    ],
+    "shown": "\"Mint\" with \"Deposit asset: USDR\" (ticker only), the exact steakUSDR shares minted, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDR leaves the signer; the vault computes it from storage.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` then `_deposit` does `safeTransferFrom(_asset, caller, address(this), assets)`. Case 0: the signer sends 2 raw units (0.000002) of USDR. The screen shows only `Deposit asset: USDR`.",
+      "fix": "None possible in the descriptor: ERC-4626 mint has no max-assets parameter. Relabel the field \"Pay with (amount set by vault)\" so the signer knows the amount is not fixed.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint shows 'Deposit asset: USDR' as a ticker with no amount, so it looks like a missing value.",
+      "evidence": "descriptor mint: `{\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}`. In case 0 the reader was unsure: \"The exact USDR amount that leaves my wallet.\"",
+      "fix": "Change the intent to \"Mint steakUSDR shares by paying USDR\" and relabel the field \"Pay with\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer sends 0.000002 USDR to the vault. The screen names USDR and the vault but no amount, because the amount is computed on chain. The 0.000000999 steakUSDR shares go to 0xdEaD, as shown. The fee shares minted to 0x255c… do not involve the signer."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns steakUSDR shares from `owner`. The number is computed from `assets` and the share price (ceil rounding), and calldata sets no maximum.",
+     "If the signer is not `owner`, the call spends the owner's steakUSDR allowance to the signer by that number of shares.",
+     "The vault sends exactly `assets` USDR to `receiver`."
+    ],
+    "shown": "\"Withdraw\" with the exact USDR amount, the recipient and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares the vault burns from the owner; storage sets the number.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` then ERC4626._withdraw: `_burn(owner, shares);`. The descriptor shows only `assets`, `receiver` and `owner`.",
+      "fix": "None possible in the descriptor. ERC-4626 withdraw has no max-shares parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` steakUSDR from `owner`.",
+     "If the signer is not `owner`, the call spends the owner's steakUSDR allowance to the signer by `shares`.",
+     "The vault sends USDR to `receiver`. The amount is computed from the share price (floor rounding), and calldata sets no minimum."
+    ],
+    "shown": "\"Redeem\" with the exact steakUSDR shares, the recipient and the owner. No USDR amount or asset is named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDR the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` then `safeTransfer(_asset, receiver, assets)`. The descriptor has no field for the received asset.",
+      "fix": "None possible for the amount. Add a raw field `{\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}` so the signer sees that USDR arrives.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem's intent and fields never say that USDR is the asset that arrives.",
+      "evidence": "descriptor redeem: `\"intent\": \"Redeem\"`, fields `Shares to redeem`, `To`, `Owner`. The mint format shows `$.metadata.constants.underlyingTicker`, but redeem does not.",
+      "fix": "Change the intent to \"Redeem steakUSDR shares for USDR\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.36,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 74,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 51,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 59,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": null
+ }
+}

@@ -1,0 +1,101 @@
+{
+ "hash": "0x5e4bea6b98d8e73f60dbcdebe6e294ced06d6367ebc52d0c93d7ad3772382042",
+ "file": "registry/tally/eip712-tally-arbitrum-arb-token.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42161,
+   "address": "0x912ce59144191c1204e64559fe8253a0e49e6548"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Delegation(address delegatee,uint256 nonce,uint256 expiry)",
+    "effects": [
+     "The signer's whole current ARB balance counts as voting power for `delegatee`, and future ARB the signer receives follows the same delegate.",
+     "The previous delegate of the signer loses the signer's voting power (the single delegate slot is replaced).",
+     "If `delegatee` is the zero address, the signer's delegation is removed and the signer's voting power goes to nobody.",
+     "The signer's shared permit/delegation nonce is used up, so a pending permit with the same nonce becomes invalid.",
+     "Anyone can submit the signature until `expiry`. No tokens move and no allowance changes."
+    ],
+    "shown": "The intent says \"Delegate ARB voting power\". It shows the delegatee as a raw address, the nonce as a raw number and the expiry as a raw integer timestamp.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Delegation shows expiry as a raw integer, not a date.",
+      "evidence": "descriptor.json, Delegation format: {\"path\": \"expiry\", \"label\": \"Expiry\", \"format\": \"raw\"}. ERC20VotesUpgradeable.delegateBySig: require(block.timestamp <= expiry, \"ERC20Votes: signature expired\"); so expiry is a unix timestamp.",
+      "fix": "Use {\"path\": \"expiry\", \"label\": \"Valid until\", \"format\": \"date\", \"params\": {\"encoding\": \"timestamp\"}}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Delegation shows the delegatee as a raw address instead of addressName.",
+      "evidence": "descriptor.json, Delegation format: {\"path\": \"delegatee\", \"label\": \"Delegatee\", \"format\": \"raw\"}. ERC20VotesUpgradeable._delegate: _delegates[delegator] = delegatee; the delegatee receives all of the signer's voting power.",
+      "fix": "Use {\"path\": \"delegatee\", \"label\": \"Delegate to\", \"format\": \"addressName\", \"params\": {\"types\": [\"eoa\", \"contract\"], \"sources\": [\"local\", \"ens\"]}}. Add an interpolatedIntent such as \"Delegate ARB voting power to {delegatee}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "Delegation to the zero address removes the delegation, but the screen shows it as a normal delegation.",
+      "evidence": "ERC20VotesUpgradeable._moveVotingPower: if (dst != address(0)) {...} so delegatee = 0 removes the signer's votes from every delegate. The intent \"Delegate ARB voting power\" does not cover this case.",
+      "fix": "The address formats have no way to label the zero address. Wallets can name the zero address when they render the delegatee.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "Delegation has no test case, including the zero-address undelegate path.",
+      "evidence": "FORMATS.md: Delegation(address delegatee,uint256 nonce,uint256 expiry) - cases: 0 (no tx).",
+      "fix": "Add an EIP-712 test with a normal delegatee and one with delegatee = 0x000…0.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.228,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 29,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "Delegation(address delegatee,uint256 nonce,uint256 expiry)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "Delegation has no test case, including the zero-address undelegate path.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 90,
+  "clarity": 60,
+  "functions": "1B",
+  "incomplete": false,
+  "worst": "Delegation has no test case, including the zero-address undelegate path."
+ }
+}

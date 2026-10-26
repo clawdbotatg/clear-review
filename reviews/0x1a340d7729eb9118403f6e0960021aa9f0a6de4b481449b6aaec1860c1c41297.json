@@ -1,0 +1,149 @@
+{
+ "hash": "0x1a340d7729eb9118403f6e0960021aa9f0a6de4b481449b6aaec1860c1c41297",
+ "file": "registry/flyingtulip/eip712-LeverageRfqEngine.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x8263a07504d93cb95e0a74f3627bb15faaf140e2"
+  },
+  {
+   "chainId": 146,
+   "address": "0x8263a07504d93cb95e0a74f3627bb15faaf140e2"
+  },
+  {
+   "chainId": 146,
+   "address": "0x8f143d84ebf0751e56437a62bab0528d1c8657bf"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "LeveragedOrder(uint8 action,address user,address sellToken,address buyToken,uint256 sellAmount,uint256 buyAmount,uint32 validTo,uint256 feeAmount)",
+    "effects": [
+     "Signing creates an off-chain order that any caller (the filler) can execute once before validTo; the digest is then marked filled.",
+     "Action Open (0): the engine borrows sellAmount + feeAmount of sellToken against the signer's position through PositionsManager.borrowFlashAndDepositFor, so the signer's debt grows by that amount; this uses the borrow allowance the signer gave the engine.",
+     "Action Open: sellAmount of the borrowed sellToken goes to the filler and feeAmount goes to the storage feeCollector.",
+     "Action Open: at least buyAmount of buyToken is deposited as collateral into the signer's position (onLeverageFlash reverts if delta < buyAmount; direct fills also require buyAmountIn >= buyAmount).",
+     "Action Close (1): sellAmount + feeAmount of sellToken collateral is withdrawn from the signer's position (withdrawFlashAndRepayFor); sellAmount goes to the filler and feeAmount to feeCollector.",
+     "Action Close: at least buyAmount of buyToken from the filler is used to repay the signer's debt; it does not reach the wallet.",
+     "Action Swap (2): sellAmount + feeAmount of sellToken collateral is withdrawn from the position (withdrawFlashAndDepositFor); sellAmount goes to the filler and feeAmount to feeCollector; at least buyAmount of buyToken is deposited as new collateral."
+    ],
+    "shown": "\"Sign spot order\" / \"Spot sell {sellAmount}\", plus fields for the action enum (Open/Close/Swap), Sell amount, Minimum buy, Fee in sellToken, User and Valid until.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "LeveragedOrder Open action borrows sellAmount+feeAmount as new debt; nothing on screen says borrow or debt.",
+      "evidence": "LeverageRfqEngine.sol _openLeverage: `uint256 totalBorrow = order.sellAmount + order.feeAmount; ... pm.borrowFlashAndDepositFor(user, order.sellToken, totalBorrow, ...)`. Descriptor: intent \"Sign spot order\", interpolatedIntent \"Spot sell {sellAmount}\", label \"Sell\"; enum label just \"Open\".",
+      "fix": "State the action-specific effect, e.g. an intent like \"Leveraged order: borrow and sell {sellAmount}\", and label the amount \"Borrow & sell\" with a note that the fee is borrowed too. Or split descriptors or text per action if the wallet supports that.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "LeveragedOrder Close action is shown as a spot sale; it withdraws position collateral and uses the bought token to repay debt.",
+      "evidence": "_closeLeverage: `pm.withdrawFlashAndRepayFor(user, order.sellToken, collateralAmount, order.buyToken, 0, ...)` with collateralAmount = sellAmount + feeAmount. Descriptor: \"Spot sell {sellAmount}\", label \"Minimum buy\" (reads as tokens received), enum label \"Close\".",
+      "fix": "Use an intent and labels that name the position: \"Sell collateral\" for sellAmount, \"Min. debt repaid with\" for buyAmount, and an enum label like \"Close (repay debt with collateral)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "LeveragedOrder Swap is a collateral swap inside the position, but the screen says spot sell.",
+      "evidence": "_swapCollateral: `pm.withdrawFlashAndDepositFor(user, order.sellToken, collateralAmount, order.buyToken, order.buyAmount, ...)`. Case 0 (action 2) shows \"Spot sell 1 USDC\" and \"Minimum buy 0.00025 WETH\". The USDC leaves the position's collateral, not the wallet, and the WETH becomes collateral.",
+      "fix": "Enum label \"Swap collateral\" and intent such as \"Leveraged order: {action} — sell {sellAmount} for at least {buyAmount}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "LeveragedOrder interpolatedIntent leaves out the action, the minimum buy and the fee.",
+      "evidence": "descriptor interpolatedIntent \"Spot sell {sellAmount}\". Case 0 renders \"Spot sell 1 USDC\", with no WETH bound and no hint that this is a leveraged-position action.",
+      "fix": "\"{action}: sell {sellAmount} for at least {buyAmount}, fee {feeAmount}\"",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "LeveragedOrder Fee is charged on top of Sell; the screen does not say the total debited is sellAmount + feeAmount.",
+      "evidence": "_openLeverage/_closeLeverage/_swapCollateral: `totalBorrow`/`collateralAmount = order.sellAmount + order.feeAmount`. onLeverageFlash: `sellToken.safeTransfer(feeCollector, order.feeAmount)`. Descriptor label \"Fee\".",
+      "fix": "Label it \"Fee (added to sell amount)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "LeveragedOrder user field limits address types to wallet/eoa, but the code accepts contract signers through ERC-1271.",
+      "evidence": "_isValidSig falls back to `signer.staticcall(abi.encodeCall(IERC1271.isValidSignature, ...))`. Descriptor user params types [\"wallet\",\"eoa\"].",
+      "fix": "Add \"contract\" to types, or drop the restriction.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "LeveragedOrder fee recipient and filler are not in the message; they come from storage and msg.sender.",
+      "evidence": "onLeverageFlash: `sellToken.safeTransfer(feeCollector, order.feeAmount)` and `sellToken.safeTransfer(f.fillTarget, order.sellAmount)`, where fillTarget = msg.sender or a caller-chosen target.",
+      "fix": "None possible in the descriptor; a static note that any filler may execute the order would help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "LeveragedOrder tests cover only action Swap; Open and Close, which change debt, have no case.",
+      "evidence": "cases/0.json message.action = 2. No case has action 0 or 1.",
+      "fix": "Add cases with action 0 (Open) and 1 (Close).",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 25,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": [
+   "PositionsManager 0xbe4050a73a7Fb384c65E885a15C33461A4B20055 (pm, a constructor argument) is not in the directory. Its borrowFlashAndDepositFor, withdrawFlashAndRepayFor and withdrawFlashAndDepositFor decide how the signer's debt and collateral change and how much buyToken is credited, beyond the engine's minimum check."
+  ]
+ },
+ "cost": 0.447,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 78,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "LeveragedOrder(uint8 action,address user,address sellToken,address buyToken,uint256 sellAmount,uint256 buyAmount,uint32 validTo,uint256 feeAmount)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 18,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 4,
+   "worst": "LeveragedOrder Open action borrows sellAmount+feeAmount as new debt; nothing on screen says borrow or debt.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 0,
+  "clarity": 18,
+  "functions": "1F",
+  "incomplete": true,
+  "worst": "LeveragedOrder Open action borrows sellAmount+feeAmount as new debt; nothing on screen says borrow or debt."
+ }
+}

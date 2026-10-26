@@ -1,0 +1,217 @@
+{
+ "hash": "0x5fece8554d48f0663743ce3873476612c4f93a8f214154c02572cc2d836eed16",
+ "file": "registry/morpho/calldata-felix-feUSDT0.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 999,
+   "address": "0xfc5126377f0efc0041c0969ef9ba903ce67d151e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "`assets` USD₮0 leave the signer for the vault, pulled with the signer's existing USD₮0 allowance to the vault (ERC4626._deposit: safeTransferFrom(_asset, caller, address(this), assets)).",
+     "feUSDT0 vault shares are minted to `receiver`. The amount is assets × (totalSupply + 10^offset) / (lastTotalAssets + 1), rounded down, after interest and fees accrue. There is no minimum in the calldata.",
+     "The vault supplies the deposited USD₮0 to Morpho markets. This moves none of the signer's assets beyond the deposit."
+    ],
+    "shown": "\"Deposit\", with the USD₮0 amount, a constant 'Share ticker: feUSDT0' and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the bare intent \"Deposit\" names neither the asset nor what comes back, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json display.formats deposit: \"intent\": \"Deposit\", no interpolatedIntent. The amount, token and receiver only appear in separate fields. Case 0 reader: 'recipient of funds not named on screen'.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into Felix feUSDT0 vault for shares to {receiver}\" and relabel 'Deposit asset' as 'Amount'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of feUSDT0 shares received is computed from vault storage, so it is neither shown nor bounded.",
+      "evidence": "MetaMorphoV1_1.sol deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Floor). There is no minShares parameter. Case 0: 5101 feUSDT0 in (5101000000000000000000), but the screen shows only the ticker.",
+      "fix": "None in the descriptor. The vault ABI has no minimum-shares parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "deposit: the 'Share ticker' field is a raw constant that does not say it is what the signer receives.",
+      "evidence": "descriptor.json deposit field {label: 'Share ticker', format: raw, value: $.metadata.constants.vaultTicker}",
+      "fix": "Fold the ticker into the receiver label ('Send feUSDT0 shares to') or into the interpolated intent, and drop the standalone field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USD₮0 5101 out to the vault is shown right. feUSDT0 5101 in to the signer shows the receiver and ticker but no amount, because storage sets it. The mined 'grant' approval (max USD₮0 to the vault) is an Approval event the token emitted while spending an existing allowance. The vault code makes no approve call for the signer, so I did not count it as a new effect."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Exactly `assets` USD₮0 is sent from the vault to `receiver`, after the vault pulls it from Morpho markets.",
+     "feUSDT0 shares are burned from `owner`. The amount is ceil(assets × (totalSupply + 10^offset) / (lastTotalAssets + 1)), and there is no maximum in the calldata.",
+     "If the caller is not `owner`, the caller spends `owner`'s feUSDT0 allowance by the number of shares burned (ERC4626._withdraw: _spendAllowance(owner, caller, shares))."
+    ],
+    "shown": "\"Withdraw\", with an exact USD₮0 amount, the receiver and the owner whose position is drawn down.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the feUSDT0 shares burned from the owner are never shown, because their amount comes from the vault's share price.",
+      "evidence": "MetaMorphoV1_1.sol withdraw: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Ceil); ERC4626._withdraw: _burn(owner, shares). There is no maxShares parameter. Case 1: 53953.924886887745312308 feUSDT0 out of the signer, not on screen.",
+      "fix": "The amount cannot be shown. The descriptor can still name the share burn: see the clarity finding.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent \"Withdraw\" does not say the owner's feUSDT0 vault shares are burned to pay out USD₮0.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", no interpolatedIntent. The 'Owner' label does not say that the owner's shares are spent. Case 1 reader was unsure 'whether any shares or receipt tokens are burned'.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from Felix feUSDT0 vault to {receiver}, burning shares of {owner}\" and relabel 'Owner' as 'Burn feUSDT0 shares of'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USD₮0 53959.272014 in to the signer (receiver) matches 'Withdraw exactly' and 'To'. feUSDT0 53953.92 burned from the signer (owner) is not on the screen. The reader only guessed that some share is burned, with no asset or amount."
+     }
+    ],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "`shares` feUSDT0 are burned from `owner`. If the caller is not the owner, the caller's share allowance from the owner is spent.",
+     "USD₮0 goes from the vault to `receiver`. The amount is floor(shares × (lastTotalAssets + 1) / (totalSupply + 10^offset)), with no minimum in the calldata."
+    ],
+    "shown": "\"Redeem\", with the feUSDT0 shares amount, a 'To' address and the owner. The token and amount paid out are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names USD₮0 as the asset paid out to the receiver.",
+      "evidence": "descriptor.json redeem fields: shares (tokenPath @.to), receiver 'To', owner 'Owner'. Nothing mentions the underlyingToken constant, which the other formats use. Case 2: 5068.380731 USD₮0 in to the signer. Reader: 'Which token is paid out; assumed USDT0 from the name'.",
+      "fix": "Add interpolatedIntent \"Redeem {shares} for USD₮0 to {receiver}\" or relabel 'To' as 'Receive USD₮0 at'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USD₮0 amount received comes from the vault's share price and has no minimum.",
+      "evidence": "MetaMorphoV1_1.sol redeem: assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Floor). There is no minAssets parameter. Case 2: 5068.380731 USD₮0 received, not on screen.",
+      "fix": "None in the descriptor.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent \"Redeem\" has no interpolatedIntent, and the 'To' and 'Owner' labels leave it unclear what moves where.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", labels 'To' and 'Owner'.",
+      "fix": "Use interpolatedIntent \"Redeem {shares} of {owner} for USD₮0 to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "feUSDT0 5067.83 out of the signer is shown right. USD₮0 5068.38 in shows only the 'To' party, with no asset or amount. The reader guessed the token correctly from the name."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.42,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 83,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the bare intent \"Deposit\" names neither the asset nor what comes back, and there is no interpolatedIntent.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent \"Withdraw\" does not say the owner's feUSDT0 vault shares are burned to pay out USD₮0.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never names USD₮0 as the asset paid out to the receiver.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 64,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names USD₮0 as the asset paid out to the receiver."
+ }
+}

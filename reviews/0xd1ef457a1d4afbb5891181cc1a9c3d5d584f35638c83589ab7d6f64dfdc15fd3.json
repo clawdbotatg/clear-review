@@ -1,0 +1,102 @@
+{
+ "hash": "0xd1ef457a1d4afbb5891181cc1a9c3d5d584f35638c83589ab7d6f64dfdc15fd3",
+ "file": "registry/lombard/eip712-network-fee-authorization-mainnet.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x8236a87084f8b84306f72007f36f2618a5634494"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "feeApproval(uint256 chainId,uint256 fee,uint256 expiry)",
+    "effects": [
+     "Signing lets a Lombard claimer call mintWithFee or batchMintWithFee to mint the signer's pending BTC deposit as LBTC and take a fee of up to `fee` LBTC (8 decimals) from the minted amount.",
+     "The fee goes to the Lombard treasury, which is a value in storage, not in the message.",
+     "The approval is valid only on the chain whose id equals block.chainid, and only until `expiry` (Actions.feeApproval reverts after it).",
+     "The signed message has no nonce and names no deposit, so the same signature covers every mint with fee for the signer until expiry.",
+     "No LBTC leaves the signer's existing balance; the fee only reduces what a future mint delivers."
+    ],
+    "shown": "The screen shows 'Lombard Network Fee Authorization' with Chain ID 1, Max Network Fee in LBTC and an Expiry date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "feeApproval intent does not say the fee comes out of the LBTC minted to the signer.",
+      "evidence": "descriptor.json feeApproval: \"intent\": \"Lombard Network Fee Authorization\", field label \"Max Network Fee\". StakedLBTC.mintWithFee: \"@notice Mint LBTC applying a commission to the amount ... @param feePayload Contents of the fee approval signed by the user\" and the call to $.assetRouter.mintWithFee(mintPayload, proof, feePayload, userSignature).",
+      "fix": "Change the intent to \"Approve fee taken from your LBTC mint\" and the label to \"Max fee per mint\". Add an interpolatedIntent like \"Allow Lombard to take up to {fee} from minted LBTC until {expiry}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "feeApproval reads as one fee, but the signature has no nonce and covers every mint until expiry.",
+      "evidence": "Actions.sol: keccak256(\"feeApproval(uint256 chainId,uint256 fee,uint256 expiry)\") has no nonce and no deposit id. Actions.feeApproval only checks `block.timestamp > expiry` and `fee == 0`. BaseLBTC.getFeeDigest hashes only block.chainid, fee and expiry.",
+      "fix": "Change the label of `expiry` to \"Valid for all mints until\" and say \"per mint\" in the fee label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "feeApproval: the fee recipient (treasury) and any router cap come from storage, not the message.",
+      "evidence": "StakedLBTC.getTreasury returns _getStakedLBTCStorage().treasury. The fee is applied inside IAssetRouter.mintWithFee, whose source is not in this directory.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "feeApproval test case signs a 3,000,000 LBTC fee, not a realistic value.",
+      "evidence": "cases/0.json: message fee \"300000000000000\" renders as \"Max Network Fee\": \"3000000 LBTC\". StakedLBTC.decimals returns 8. The value looks like it was picked for 18 decimals.",
+      "fix": "Use a realistic fee in the test, for example 30000 (0.0003 LBTC).",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "IAssetRouter.mintWithFee / batchMintWithFee (address held in StakedLBTC storage, source not in the directory) applies the signed fee: how much is deducted (the signed fee or a lower cap), who receives it, and whether a signature can be reused across mints could not be confirmed."
+  ]
+ },
+ "cost": 0.44,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 64,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "feeApproval(uint256 chainId,uint256 fee,uint256 expiry)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "feeApproval intent does not say the fee comes out of the LBTC minted to the signer.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 48,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": "feeApproval intent does not say the fee comes out of the LBTC minted to the signer."
+ }
+}

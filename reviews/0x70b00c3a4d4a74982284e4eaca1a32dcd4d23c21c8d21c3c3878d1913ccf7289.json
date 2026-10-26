@@ -1,0 +1,169 @@
+{
+ "hash": "0x70b00c3a4d4a74982284e4eaca1a32dcd4d23c21c8d21c3c3878d1913ccf7289",
+ "file": "registry/flyingtulip/calldata-MintAndRedeem-dev.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 146,
+   "address": "0xb9b23b0555b8066f3d5954ea6c679a02339f78dc"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "mint(address collateralToken, uint256 collateralAmount, uint256 txDeadline, uint256 minFtUSDOut)",
+    "effects": [
+     "The contract takes exactly collateralAmount of collateralToken from the signer (safeTransferFrom in _executeMintWithRelayerFee) and deposits it in the yield wrapper.",
+     "ftUSD is minted at the oracle price, capped by the per-collateral hardcap. The mint fee is kept by the contract, and the net amount goes to the signer (msg.sender). The call reverts if the net amount is below minFtUSDOut.",
+     "When payoutRouter is set, the net ftUSD goes through the rate-limited router, router.payout(recipient,...). The router may pay the signer later instead of in this transaction.",
+     "The call reverts after txDeadline. A txDeadline of 0 means no deadline."
+    ],
+    "shown": "Buy ftUSD: pay {collateralAmount} {collateralToken}, receive at least {minFtUSDOut} ftUSD, with a deadline date. The interpolated intent is 'Buy {minFtUSDOut}'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint interpolatedIntent 'Buy {minFtUSDOut}' states the minimum as the amount bought and omits the payment.",
+      "evidence": "descriptor.json mint interpolatedIntent \"Buy {minFtUSDOut}\". Case 0 renders \"Buy 4.968328 ftUSD\", but the signer received 4.993295 ftUSD and paid 4.994694 USDC, which the sentence does not mention.",
+      "fix": "Use \"Buy at least {minFtUSDOut} for {collateralAmount}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "mint: the rate-limited payout router can delay ftUSD delivery, and nothing on screen says so.",
+      "evidence": "MintAndRedeem.sol _executeMintWithRelayerFee: `if (address(router) != address(0)) { ...safeTransfer(address(router), netFtUSDAmount); router.payout(recipient, netToRecipient, executor, relayerFeeFtUSDAmount); }`. The MintQueued event exists. In case 0 the ftUSD went through router 0xf69d82e2… before reaching the signer.",
+      "fix": "Rename the 'Minimum receive' label, or add a note, to say that ftUSD may be queued when rate limits apply.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "mint deadline: a txDeadline of 0 means 'no deadline' but would render as a 1970 date.",
+      "evidence": "MintAndRedeem.sol _enforceDeadline: `if (txDeadline == 0) return;`. descriptor.json field txDeadline uses format date with no special case for 0.",
+      "fix": "Show 'No deadline' when txDeadline is 0, if the spec allows it, or explain it in the label.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "The signer paid 4.994694 USDC, shown exactly as Pay. The signer received 4.993295 ftUSD, which is at least the shown minimum of 4.968328 ftUSD. The mint fee was 0 here. The ftUSD passed through the payout router 0xf69d… before reaching the signer."
+     }
+    ],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "redeem(address collateralToken, uint256 ftUSDAmount, uint256 txDeadline, uint256 minCollateralOut)",
+    "effects": [
+     "The contract takes exactly ftUSDAmount ftUSD from the signer (safeTransferFrom in _executeRedeemWithRelayerFee). The redeem fee in ftUSD is kept by the contract, and the rest is burned.",
+     "The collateral amount is computed from the oracle price, capped by the average-mint and NAV rates, and must be at least minCollateralOut.",
+     "The collateral is released by yieldWrapper.withdraw(collateralToRecipient, signer). The wrapper is rate-limited and returns a queueId, so the collateral may be queued and not delivered to the signer in this transaction.",
+     "The call reverts after txDeadline. A txDeadline of 0 means no deadline."
+    ],
+    "shown": "Sell ftUSD: pay {ftUSDAmount} ftUSD, receive at least {minCollateralOut} {collateralToken}, with a deadline date. The interpolated intent is 'Sell {ftUSDAmount}'.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "hidden-effect",
+      "title": "redeem says 'Minimum receive' collateral, but the collateral went to a queue address, not to the signer.",
+      "evidence": "Case 1 mined: the signer's only effect is −8438969 ftUSD. The 8440233 USDC left wrapper 0x8eaf42f3… for 0x5f19315b…, not the signer 0x07f963bb…. MintAndRedeem.sol _executeRedeemWithRelayerFee: `queueIdTo = wrapper.withdraw(collateralToRecipient, p.recipient);` with the comment 'it handles rate limiting of collateral outflows'. redeem returns (collateralAmount, queueId). The descriptor's minCollateralOut field is labelled 'Minimum receive', which implies the signer gets the collateral now.",
+      "fix": "Change the label and intent to say the collateral may be queued for a later claim, for example 'Minimum collateral (may be queued)' and 'Sell {ftUSDAmount} for at least {minCollateralOut}, possibly queued'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem interpolatedIntent 'Sell {ftUSDAmount}' omits the collateral asset and its minimum.",
+      "evidence": "descriptor.json redeem interpolatedIntent \"Sell {ftUSDAmount}\". Case 1 renders \"Sell 8.438969 ftUSD\", with no USDC in the sentence.",
+      "fix": "Use \"Sell {ftUSDAmount} for at least {minCollateralOut}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem deadline: a txDeadline of 0 means 'no deadline' but would render as a 1970 date.",
+      "evidence": "MintAndRedeem.sol _enforceDeadline: `if (txDeadline == 0) return;`. The descriptor's txDeadline field is a plain date.",
+      "fix": "Show 'No deadline' when txDeadline is 0, or explain it in the label.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The ftUSD out (8.438969) was shown and understood correctly. The reader also expected at least 8.398031 USDC to arrive, but none reached the signer in this transaction: 8.440233 USDC went from the wrapper to 0x5f19…, which looks like a rate-limit queue. The screen led the reader to expect funds this call did not deliver."
+     }
+    ],
+    "glance": 50,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": [
+   "The yield wrapper 0x8eaf42f3c8c06f4dcf2270d83eb5f443e3fa9ce9 (IftYieldWrapperV2.withdraw) is not in the directory. It decides whether redeem collateral reaches the signer now or is queued (case 1 sent it to 0x5f19315ba3b54f3641c10d21006ef95f7b5f2cc6).",
+   "The payout router 0xf69d82e2f647f92821c2d2520726c4ee7660ece5 (IMintPayoutRouter.payout) is not in the directory. It decides when and how much minted ftUSD the signer receives.",
+   "The ftUSD core 0xf02f09f82b1d725d823ee2deac1995dcef8e0787 (core.mint/core.burn) is not in the directory."
+  ]
+ },
+ "cost": 0.566,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 102,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "mint(address collateralToken, uint256 collateralAmount, uint256 txDeadline, uint256 minFtUSDOut)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 80,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "mint: the rate-limited payout router can delay ftUSD delivery, and nothing on screen says so.",
+   "comprehension": 100
+  },
+  "redeem(address collateralToken, uint256 ftUSDAmount, uint256 txDeadline, uint256 minCollateralOut)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 2,
+   "worst": "redeem says 'Minimum receive' collateral, but the collateral went to a queue address, not to the signer.",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 58,
+  "clarity": 75,
+  "functions": "1A 1F",
+  "incomplete": true,
+  "worst": "redeem says 'Minimum receive' collateral, but the collateral went to a queue address, not to the signer."
+ }
+}

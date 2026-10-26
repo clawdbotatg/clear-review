@@ -1,0 +1,231 @@
+{
+ "hash": "0x860f9e8a57ab1dc8146bffefe7209dced07555b4c7c663ea465f213bdf82a973",
+ "file": "registry/symbiotic/calldata-VaultV1Tokenized-LsETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xea0f2ea61998346ad39dddef7513ae90915afb3c"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Moves `amount` LsETH (the vault collateral 0x8c1B…6549) from the signer to the vault through transferFrom, using up the signer's LsETH allowance to the vault.",
+     "Mints vault shares (rLsETH, the vault's own ERC20) to `onBehalfOf`. The number of shares is worked out from the vault's active stake and shares at the time of the call."
+    ],
+    "shown": "Deposit 123.25 LsETH into the vault, with the shares credited to the beneficiary address that is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of rLsETH shares minted to the beneficiary is not shown, because it comes from storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)`. VaultTokenized.deposit emits `Transfer(address(0), onBehalfOf, mintedShares)`. The descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "fix": "None needed. The shares depend on the vault's state, not on the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active rLsETH shares, enough to cover `amount` (previewWithdraw rounds up).",
+     "Queues `amount` LsETH in next epoch's withdrawals and gives the right to claim it to `claimer`, not to the signer. The queued amount can be slashed until it is claimed.",
+     "Nothing is paid out now. The LsETH can be claimed only after the next epoch ends (epochs are 7 days)."
+    ],
+    "shown": "Request a withdrawal of 2.5 LsETH from the vault, claimable by the 'Claim owner' address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of rLsETH shares burned from the signer is not shown, because it comes from storage.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`. VaultTokenized._withdraw emits `Transfer(msg.sender, address(0), burnedShares)`.",
+      "fix": "None. The amount comes from the vault's state.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "withdraw: the requested LsETH can be slashed before it is claimed, so the claimer may receive less.",
+      "evidence": "Vault.sol onSlash lowers `withdrawals[currentEpoch_ + 1]` and `withdrawals[currentEpoch_]`. withdrawalsOf then prices the claim from the reduced `withdrawals[epoch]`.",
+      "fix": "Optionally add 'subject to slashing' to the label of the requested amount.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` rLsETH vault shares from the signer's active balance.",
+     "Queues the matching amount of LsETH (worked out from storage) in next epoch's withdrawals and gives the right to claim it to `claimer`. The amount can be slashed until it is claimed."
+    ],
+    "shown": "Queue 0.987654321123456789 rLsETH of vault shares for withdrawal, claimable by the 'Claim owner' address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the LsETH amount queued for the claimer is not shown, because it comes from storage.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())`, then `_withdraw(claimer, withdrawnAssets, shares)`.",
+      "fix": "None. The amount depends on the vault's state.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 78
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Uses up the signer's withdrawal claim for `epoch` (it is marked as claimed).",
+     "Sends the signer's whole matured withdrawal for that epoch, in LsETH, from the vault to `recipient`. The amount comes from storage."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 to the recipient address that is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: no part of the screen names the asset paid out (LsETH).",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount)`. Descriptor intent 'Claim withdrawal' and interpolatedIntent 'Claim epoch {epoch} to {recipient}'. No field names a token.",
+      "fix": "Name the asset in the intent, e.g. 'Claim LsETH withdrawal' and 'Claim LsETH from epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the LsETH amount sent to the recipient is not shown, because it comes from storage.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender)`, which is priced from withdrawalSharesOf, withdrawals and withdrawalShares in storage.",
+      "fix": "None. The amount is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 68
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Uses up the signer's withdrawal claim for every epoch listed.",
+     "Sends the total of the signer's matured withdrawals for those epochs, in LsETH, from the vault to `recipient` in one transfer. The amount comes from storage."
+    ],
+    "shown": "Claim the withdrawals for epochs 42, 44 and 128 to the recipient address that is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimBatch: no part of the screen names the asset paid out (LsETH).",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount)`. Descriptor intent 'Claim withdrawals' and interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}'. No field names a token.",
+      "fix": "Name the asset in the intent, e.g. 'Claim LsETH withdrawals' and 'Claim LsETH from epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total LsETH sent to the recipient is not shown, because it comes from storage.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i])`. _claim reads `withdrawalsOf(epoch, msg.sender)` from storage.",
+      "fix": "None. The amount is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 68
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.354,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 59,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: no part of the screen names the asset paid out (LsETH).",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: no part of the screen names the asset paid out (LsETH).",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 74,
+  "functions": "2A 3B",
+  "incomplete": false,
+  "worst": null
+ }
+}

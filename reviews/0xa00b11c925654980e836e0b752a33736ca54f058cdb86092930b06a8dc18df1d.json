@@ -1,0 +1,198 @@
+{
+ "hash": "0xa00b11c925654980e836e0b752a33736ca54f058cdb86092930b06a8dc18df1d",
+ "file": "registry/morpho/calldata-apostro-aprUSR.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xc484d83f667b779cc9907248101214235642258b"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USR (0x35E5…a4b9) to the vault; the vault supplies it to Morpho markets.",
+     "The vault mints aprUSR shares to `receiver`; the share count is computed at the vault rate, rounded down.",
+     "Interest accrues first and the fee recipient gets fee shares; this sets the rate the signer gets."
+    ],
+    "shown": "Intent 'Deposit', with the USR amount deposited, a constant 'Share ticker: aprUSR' line and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many aprUSR shares the receiver gets; the vault rate decides it.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` The function has no minShares parameter, so no field can bound it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' does not name the USR asset or the aprUSR vault.",
+      "evidence": "descriptor deposit format: \"intent\": \"Deposit\"; the asset and the share ticker show only in the fields.",
+      "fix": "Change the intent to \"Deposit USR into aprUSR vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends USR to the vault in an amount the vault computes from `shares`, rounded up; the allowance the signer gave is the only bound.",
+     "The vault mints exactly `shares` aprUSR to `receiver`.",
+     "Interest accrues first and fee shares are minted to the fee recipient, which sets the USR price."
+    ],
+    "shown": "Intent 'Mint', with a raw 'Deposit asset: USR' line, the share amount minted and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint shows the USR asset but no amount; the vault rate decides how much USR leaves.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` then `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets)` in ERC4626._deposit. The descriptor field 'Deposit asset' is the constant `$.metadata.constants.underlyingTicker`. There is no maxAssets parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint intent 'Mint' does not say that USR leaves the wallet to buy the shares.",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\".",
+      "fix": "Change the intent to \"Deposit USR to mint aprUSR shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns aprUSR shares from `owner`; the share count is computed from `assets`, rounded up.",
+     "If the signer is not `owner`, the call spends the signer's share allowance from `owner` by that share count.",
+     "The vault takes exactly `assets` USR out of Morpho markets and sends it to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', with the exact USR amount, the recipient 'To' and the share 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many aprUSR shares it burns from the owner; the vault rate decides it.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` then `_burn(owner, shares)` in ERC4626._withdraw. There is no maxShares parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` aprUSR from `owner`; if the signer is not `owner`, this spends the signer's allowance from `owner`.",
+     "The vault sends USR to `receiver`; the amount is computed from `shares`, rounded down, with no minimum."
+    ],
+    "shown": "Intent 'Redeem', with the share amount redeemed, the recipient 'To' and the share 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USR amount the receiver gets; the vault rate decides it, with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` then `SafeERC20.safeTransfer(_asset, receiver, assets)`. There is no minAssets parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem shows no field or intent that names USR as the asset the receiver gets.",
+      "evidence": "descriptor redeem format: \"intent\": \"Redeem\"; its fields are shares, receiver and owner. The mint format adds a constant underlyingTicker line, but redeem does not.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}, or change the intent to \"Redeem aprUSR for USR\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.289,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 53,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 64,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": null
+ }
+}

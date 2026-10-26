@@ -1,0 +1,208 @@
+{
+ "hash": "0xf85ace06fe5142a50905c9672e77a220a84e1cdac970d687430bd77649667a8d",
+ "file": "registry/morpho/calldata-clearstar-CSCOREETH-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xbca4e2e24a7cfa776e4282cc8eb06f04738b71da"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` WETH from the signer into the vault, using the signer's existing WETH allowance (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints vault shares to `onBehalf`. The amount is previewDeposit(assets), worked out on chain after interest and fee accrual, with no minimum.",
+     "The deposited WETH may be moved on into the liquidity adapter. That is internal to the vault and does not change what the signer gets."
+    ],
+    "shown": "Deposit 1 WETH for <onBehalf>, with fields for the WETH amount, a fixed share ticker 'CSCOREETH' and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the 'Share ticker' constant CSCOREETH does not match the vault token's on-chain symbol CSRETH.",
+      "evidence": "descriptor.json metadata.constants.vaultTicker = \"CSCOREETH\", shown as 'Share ticker: CSCOREETH'. In case 0 the minted shares (asset 0xbca4…71da) have symbol \"CSRETH\". VaultV2.sol has setSymbol(), so the symbol can change.",
+      "fix": "Set vaultTicker to the token's current symbol (CSRETH), or drop the constant and show the share token by @.to.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is computed on chain and not shown.",
+      "evidence": "VaultV2.deposit: shares = previewDeposit(assets) after accrueInterest(). The calldata has no shares or minimum parameter. Case 0 minted 0.982497580176030018 shares to the signer, and no amount appears on screen.",
+      "fix": "None possible from calldata alone.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "1 WETH out is shown exactly. Shares arrive at the signer, which matches 'Send shares to', but no amount is shown, and the ticker shown (CSCOREETH) differs from the on-chain symbol CSRETH."
+     }
+    ],
+    "glance": 85,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns shares from `onBehalf`. The amount is previewWithdraw(assets), rounded up and computed on chain.",
+     "If the caller is not `onBehalf`, the caller's share allowance from `onBehalf` drops by the shares burned.",
+     "Sends exactly `assets` WETH from the vault to `receiver`. If idle funds are short, the vault first pulls liquidity back from its liquidity adapter."
+    ],
+    "shown": "Withdraw 4 WETH to <receiver>, with fields for the exact WETH amount, the receiver and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "withdraw: the shares burned belong to a token whose symbol is CSRETH, not the CSCOREETH the descriptor uses elsewhere.",
+      "evidence": "Case 1 burns 3.928151571057047257 shares of 0xbca4…71da with symbol \"CSRETH\". descriptor.json vaultTicker = \"CSCOREETH\".",
+      "fix": "Align vaultTicker with the on-chain symbol.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is computed on chain and not shown.",
+      "evidence": "VaultV2.withdraw: shares = previewWithdraw(assets), then exit → deleteShares(onBehalf, shares). Case 1 burned 3.928151571057047257 shares, and the screen shows only 4 WETH.",
+      "fix": "None possible from calldata. The descriptor could add a note that vault shares worth this amount are burned from the Owner.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "4 WETH in to the signer is shown exactly. The reader understood shares leave but did not know how many."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf`. If the caller is not `onBehalf`, the caller's share allowance drops by that amount.",
+     "Sends WETH to `receiver`. The amount is previewRedeem(shares), computed on chain with no minimum."
+    ],
+    "shown": "Redeem <shares> CSCOREETH to <receiver>, with fields for the share amount, the receiver and the owner. Nothing names the asset that arrives.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says that WETH is what the receiver gets.",
+      "evidence": "VaultV2.exit: SafeERC20Lib.safeTransfer(asset, receiver, assets), where asset is WETH 0x4200…0006. Case 2: 0.017581794865634027 WETH in to the signer. The fields are only 'Shares to redeem', 'To' and 'Owner', and the constant underlyingTicker is never used in this format. The reader was unsure whether the asset was ETH, WETH or something else.",
+      "fix": "Add a field such as 'Receive' with value $.metadata.constants.underlyingTicker, or say 'for WETH' in the interpolatedIntent ('Redeem {shares} for WETH to {receiver}').",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WETH amount received is computed on chain, with no minimum in the calldata.",
+      "evidence": "VaultV2.redeem: assets = previewRedeem(shares) after accrueInterest(). There is no minimum-assets parameter.",
+      "fix": "None possible from calldata.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem: the shares are shown as CSCOREETH, but the vault token's on-chain symbol is CSRETH.",
+      "evidence": "Case 2 screen shows '0.017250431352952531 CSCOREETH'. The mined burn of 0xbca4…71da has symbol \"CSRETH\". descriptor.json vaultTicker = \"CSCOREETH\".",
+      "fix": "Align vaultTicker and the token metadata with the on-chain symbol.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The share amount burned is shown exactly. WETH arrives at the signer, but neither the asset nor the amount is on screen, so the reader guessed 'ETH/WETH-type'."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.38,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 67,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the 'Share ticker' constant CSCOREETH does not match the vault token's on-chain symbol CSRETH.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the shares burned belong to a token whose symbol is CSRETH, not the CSCOREETH the descriptor uses elsewhere.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never says that WETH is what the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 50,
+  "clarity": 75,
+  "functions": "3D",
+  "incomplete": false,
+  "worst": "deposit: the 'Share ticker' constant CSCOREETH does not match the vault token's on-chain symbol CSRETH."
+ }
+}

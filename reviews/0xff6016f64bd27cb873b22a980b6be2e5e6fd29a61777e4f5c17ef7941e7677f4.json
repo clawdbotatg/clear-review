@@ -1,0 +1,115 @@
+{
+ "hash": "0xff6016f64bd27cb873b22a980b6be2e5e6fd29a61777e4f5c17ef7941e7677f4",
+ "file": "registry/hyperliquid/eip712-withdraw.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x0000000000000000000000000000000000000000"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x0000000000000000000000000000000000000000"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "HyperliquidTransaction:Withdraw(string hyperliquidChain,string destination,string amount,uint64 time)",
+    "effects": [
+     "Debits `amount` USDC (a decimal string) from the signer's withdrawable balance on Hyperliquid L1.",
+     "Sends USDC to `destination` on Arbitrum through the Hyperliquid bridge, after the validators process the withdrawal.",
+     "Hyperliquid's protocol takes a withdrawal fee of about 1 USDC. As far as I know it comes out of the amount, so `destination` gets amount minus the fee. I could not check this from source.",
+     "`time` is the nonce: the signature is good for this one withdrawal on the network named in `hyperliquidChain` (Mainnet or Testnet)."
+    ],
+    "shown": "The intent 'Withdraw from Hyperliquid' with the recipient address, the amount labelled 'USDC amount', and the Hyperliquid network ('Mainnet') labelled 'Chain'. The time nonce is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Withdraw: the 'Chain' label shows 'Mainnet', which reads as Ethereum mainnet, but funds arrive on Arbitrum.",
+      "evidence": "descriptor.json field {path: hyperliquidChain, label: 'Chain', format: raw}. Case 0 shows 'Chain: Mainnet'. The value names the Hyperliquid network (Mainnet/Testnet). The bridge pays out on Arbitrum, and the intent 'Withdraw from Hyperliquid' never says where funds land.",
+      "fix": "Rename the label to 'Hyperliquid network' and state the destination chain in the intent: 'Withdraw USDC from Hyperliquid to Arbitrum'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Withdraw: the intent leaves out the asset, the amount and the recipient, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json intent 'Withdraw from Hyperliquid', interpolatedIntent null. Amount and destination appear only as separate fields.",
+      "fix": "Add interpolatedIntent 'Withdraw {amount} USDC from Hyperliquid to {destination} on Arbitrum'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Withdraw: the 1 USDC withdrawal fee is not mentioned, so the recipient may get less than 'USDC amount'.",
+      "evidence": "descriptor.json field {path: amount, label: 'USDC amount'}. Hyperliquid L1 charges a fixed withdrawal fee of about 1 USDC, which I believe comes out of the withdrawn amount. Case 0 withdraws '1'. The fee is applied by Hyperliquid's off-EVM logic, which is not in the directory, so this is not confirmed from source. It would be critical if confirmed.",
+      "fix": "Label the field 'Amount debited (incl. ~1 USDC fee)', or add the fee to the intent text.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "Withdraw: the constant usdcToken is declared but no field uses it.",
+      "evidence": "descriptor.json metadata.constants.usdcToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831 (Arbitrum USDC). `amount` is a string, so tokenAmount cannot apply and the constant is never referenced.",
+      "fix": "Remove the unused constant, or keep it only as documentation.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "Withdraw: the effect runs on Hyperliquid L1 and the verifying contract is the zero address, so no source can be checked.",
+      "evidence": "The deployment is 0x0000000000000000000000000000000000000000 on chains 1 and 42161, and meta.json shows no match. The domain and types match Hyperliquid's published HyperliquidSignTransaction scheme, but the processing logic is off-EVM.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.153,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 43,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "HyperliquidTransaction:Withdraw(string hyperliquidChain,string destination,string amount,uint64 time)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "Withdraw: the 1 USDC withdrawal fee is not mentioned, so the recipient may get less than 'USDC amount'.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 45,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "Withdraw: the 1 USDC withdrawal fee is not mentioned, so the recipient may get less than 'USDC amount'."
+ }
+}

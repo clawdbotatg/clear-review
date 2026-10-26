@@ -1,0 +1,181 @@
+{
+ "hash": "0x72a324a1fbc7d06edc3d6e75626cad455db20e899e4d7222322cc4516270d5a7",
+ "file": "registry/morpho/calldata-stake_dao-sdFRXUSDv2-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xce13e39534082fcf8f13f6d84e6d95414d14271e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` frxUSD from the signer and sends it to the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints sdFRXUSDv2 shares to `onBehalf`. The amount comes from previewDeposit at the current share price and has no minimum.",
+     "Spends the signer's existing frxUSD allowance to the vault by `assets`."
+    ],
+    "shown": "Deposit X frxUSD into the vault; sdFRXUSDv2 shares go to the onBehalf address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown because the vault's share price sets it.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The descriptor shows only a constant 'Share ticker' sdFRXUSDv2. Case 0 minted 1e18 shares to 0xdEaD.",
+      "fix": "None possible from calldata. A label such as 'Receive sdFRXUSDv2 shares (amount set by vault price)' could set expectations.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1 frxUSD out to the vault is shown exactly. The shares went to 0xdEaD (signer null), and the screen shows that recipient. The reader understood both."
+     }
+    ],
+    "glance": 88,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns the sdFRXUSDv2 shares of `onBehalf` (the signer when onBehalf = signer). The amount comes from previewWithdraw and has no maximum.",
+     "Sends exactly `assets` frxUSD from the vault to `receiver`.",
+     "When msg.sender != onBehalf, spends the shares allowance that onBehalf gave the signer."
+    ],
+    "shown": "Withdraw exactly X frxUSD to the receiver, taken from the Owner's position.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is not shown, and the screen never names sdFRXUSDv2.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` → `deleteShares(onBehalf, shares)`. In case 1, 1999.991247 sdFRXUSDv2 left the signer. The screen shows only 'Withdraw exactly 2000 frxUSD' plus To/Owner.",
+      "fix": "The amount cannot be shown from calldata. A constant field such as 'Shares burned from: sdFRXUSDv2' (vaultTicker), labelled to match the Owner, would name the asset that leaves.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "frxUSD in (2000) is shown exactly with the right recipient. The sdFRXUSDv2 burn is not on the screen. The reader inferred it but did not know the amount."
+     }
+    ],
+    "glance": 78,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` sdFRXUSDv2 from `onBehalf`.",
+     "Sends frxUSD to `receiver`. The amount comes from previewRedeem and has no minimum.",
+     "When msg.sender != onBehalf, spends the shares allowance that onBehalf gave the signer."
+    ],
+    "shown": "Redeem X sdFRXUSDv2 shares, with the payout sent to the receiver from the Owner's position. Nothing names the asset paid out.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says the payout is frxUSD, although the descriptor has that constant.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)` with asset = frxUSD (constructor arg). The descriptor fields are only shares/receiver/onBehalf. metadata.constants.underlyingTicker = 'frxUSD' is unused here. In case 2 the signer received 8004.5458 frxUSD, and the reader wrote 'The screen shows no token or amount.'",
+      "fix": "Add a field such as {label: 'Receive asset', format: raw, value: $.metadata.constants.underlyingTicker}. Or name frxUSD in the intent: 'Redeem {#.shares} for frxUSD to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the frxUSD amount received is set by the vault price and has no minimum to show.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. The calldata has no min-out. Case 2 received 8004.545852 frxUSD.",
+      "fix": "None from calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out (7999.96 sdFRXUSDv2) are shown exactly. frxUSD in is not named. The reader guessed 'probably frxUSD-related' and had no amount."
+     }
+    ],
+    "glance": 62,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.322,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 100,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says the payout is frxUSD, although the descriptor has that constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 80,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says the payout is frxUSD, although the descriptor has that constant."
+ }
+}

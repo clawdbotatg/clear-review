@@ -1,0 +1,244 @@
+{
+ "hash": "0x1540d491a03f4b8461c4fd78c2d873da8f38dbc0992736d7a3022be2dbf0aa8d",
+ "file": "registry/kiln/calldata-Vault-USDe-Euler-Yield-USDE.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x370522edff79fca69e38f42c378531ba71d09678"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` USDe from the signer into the vault, using the signer's existing USDe allowance to the vault.",
+     "Mints vault shares (symbol keeyUSDE on chain) to `receiver`. The share count is computed from the share price after a deposit fee read from storage is taken off and partial shares are rounded down.",
+     "The vault deposits the USDe into Euler through a connector it delegatecalls. This does not touch the signer directly."
+    ],
+    "shown": "\"Deposit\" with the USDe amount, a constant share ticker \"kEulerUSDe\" and the share receiver. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the constant 'Share ticker' kEulerUSDe does not match the share token's on-chain symbol keeyUSDE.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"kEulerUSDe\", shown as raw field 'Share ticker'. Constructor args in contracts/1-0x3705.../meta.json set the symbol to \"keeyUSDE\". Case 0 mined: signer 'in' 999645922547422113 of asset 0x3705... with symbol keeyUSDE.",
+      "fix": "Set vaultTicker to \"keeyUSDE\", or drop the constant and name the share token in a label or in interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown. It depends on the share price and a deposit fee in storage.",
+      "evidence": "Vault.sol deposit -> _previewDeposit: depositFeeAmount = assets.mulDiv($._depositFee, ...); shares = _roundDownPartialShares(_convertToShares(assets - depositFeeAmount, ...)). Case 0: signer received 0.9996 shares for 1 USDe and the reader was unsure how many.",
+      "fix": "Nothing in calldata bounds the share amount. A label such as 'Receive shares (after deposit fee)' could set expectations.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent \"Deposit\" names neither the asset nor the vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor deposit intent \"Deposit\", interpolatedIntent absent. Reader case 0 was unsure where the USDe goes: \"the screen names no recipient for it\".",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into Kiln Euler USDe vault for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 1 USDe out is shown right. The share inflow names the receiver but shows no amount and labels the token kEulerUSDe instead of keeyUSDE. The USDe Approval event to 0 is the allowance spent by transferFrom, part of the USDe outflow."
+     }
+    ],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` vault shares to `receiver`. The amount must be a multiple of 10^offset or the call reverts.",
+     "Pulls USDe from the signer. The amount is computed from the share price, rounded up, with a deposit fee added on top. No maximum is given in calldata.",
+     "The vault deposits the USDe into Euler through the connector."
+    ],
+    "shown": "\"Mint\" with the label 'Deposit asset' set to the constant \"USDe\", the share amount and the share receiver. No USDe amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDe amount taken from the signer is not shown and has no bound in calldata.",
+      "evidence": "Vault.sol mint -> _previewMint: assets = _scaledRawAssetValue.mulDiv(_MAX_PERCENT, _adjustedMaxPercent, Ceil), which includes the deposit fee; _deposit does safeTransferFrom(caller, this, assets). The descriptor field 'Deposit asset' is raw constant underlyingTicker only.",
+      "fix": "No calldata value carries the cost. Relabel the field 'Pay with (amount set by share price + deposit fee)' so the signer knows the cost is not fixed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent \"Mint\" does not say that USDe is spent to mint vault shares.",
+      "evidence": "descriptor mint intent \"Mint\", no interpolatedIntent. The ticker sits in a separate raw constant field.",
+      "fix": "Use interpolatedIntent \"Mint {shares} vault shares for {receiver}, paid in USDe\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns shares from `owner`. The count is computed from `assets` at the current share price, rounded up and then rounded down to whole partial units.",
+     "If the signer is not `owner`, spends the signer's share allowance from `owner`.",
+     "Withdraws `assets` USDe from Euler through the connector and sends the USDe received to `receiver`."
+    ],
+    "shown": "\"Withdraw\" with the exact USDe amount, the receiver and the owner. The shares burned are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown. It is computed from the share price.",
+      "evidence": "Vault.sol withdraw: _shares = _convertToShares(assets, Ceil, _accrueRewardFee(), totalSupply()); _withdraw burns _shares from owner.",
+      "fix": "No calldata bound exists. A label such as 'Shares burned at current price' could be noted in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent \"Withdraw\" names no asset or vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor withdraw intent \"Withdraw\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from Kiln Euler USDe vault to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `owner`. If the signer is not `owner`, the signer's share allowance from owner is spent.",
+     "Sends USDe to `receiver`. The amount is computed from the share price, rounded down, with no minimum in calldata."
+    ],
+    "shown": "\"Redeem\" with the share amount, the receiver and the owner. The asset received and its amount are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names USDe as the asset the receiver gets.",
+      "evidence": "Vault.sol _withdraw: SafeERC20.safeTransfer(IERC20(asset()), receiver, ...). The descriptor redeem fields are only shares, receiver and owner, while the mint format shows underlyingTicker. Case 1 mined: signer 'in' 1.028573162306233105 USDe; the reader only guessed USDe 'from the share name'.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} or an interpolatedIntent \"Redeem {shares} for USDe to {receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDe amount received is computed from the share price and has no minimum in calldata.",
+      "evidence": "Vault.sol redeem: _assets = _convertToAssets(shares, Floor, _newTotalAssets, _newTotalSupply). Case 1: 1.0286 USDe received, which the screen does not show.",
+      "fix": "Nothing in calldata carries it. A label could say the amount follows the share price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The share burn amount and owner are shown right (labelled kEulerUSDe, on-chain symbol keeyUSDE). For the USDe inflow the reader knew it would arrive but did not know the asset for sure or the amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": [
+   "The ConnectorRegistry and the Euler connector that Vault delegatecalls in _deposit and _withdraw are not in the directory. The connector's withdraw decides the USDe amount sent to the receiver (balance delta) in withdraw and redeem. It also runs in the vault's context during deposit. Case 1 matched the expected behaviour, but the code could not be read."
+  ]
+ },
+ "cost": 0.552,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 91,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the constant 'Share ticker' kEulerUSDe does not match the share token's on-chain symbol keeyUSDE.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDe as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 75,
+  "clarity": 60,
+  "functions": "1B 1C 2D",
+  "incomplete": true,
+  "worst": "deposit: the constant 'Share ticker' kEulerUSDe does not match the share token's on-chain symbol keeyUSDE."
+ }
+}

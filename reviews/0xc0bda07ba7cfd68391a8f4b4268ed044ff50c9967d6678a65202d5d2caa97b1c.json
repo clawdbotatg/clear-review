@@ -1,0 +1,234 @@
+{
+ "hash": "0xc0bda07ba7cfd68391a8f4b4268ed044ff50c9967d6678a65202d5d2caa97b1c",
+ "file": "registry/morpho/calldata-gauntlet-bitmxnbp-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x08cc279532f159bdb450ebc0baf6562f585ded58"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` MXNB from the signer into the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints vault shares (bitmxnbp) to `onBehalf`. The amount is previewDeposit(assets) at the current share price, after fees accrue. There is no minimum-shares bound.",
+     "May forward the deposited MXNB to the vault's liquidity adapter. That moves vault funds, not the signer's."
+    ],
+    "shown": "Deposit 71.443394 MXNB, with bitmxnbp shares going to the onBehalf address; the share amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is computed on chain and has no minimum bound in calldata.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. There is no minShares parameter. Case 0 mined: 35.089061229351870846 bitmxnbp in, and the screen has no share amount (only 'Share ticker: bitmxnbp').",
+      "fix": "None possible from calldata. Could add a note that the share amount depends on the current share price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states MXNB out with the right amount. The share recipient and ticker are right, but the share amount cannot be shown."
+     }
+    ],
+    "glance": 85,
+    "depth": 82
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns vault shares from `onBehalf`. The amount is previewWithdraw(assets), rounded up, with no maximum-shares bound.",
+     "If the signer is not `onBehalf`, spends the signer's share allowance from `onBehalf` by that share amount.",
+     "Sends exactly `assets` MXNB from the vault to `receiver`."
+    ],
+    "shown": "Withdraw exactly 500 MXNB to the receiver, from the Owner's position; the shares burned are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are computed on chain, with no maximum bound in calldata.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` and exit: `deleteShares(onBehalf, shares)`. Case 2 mined: 245.913818489720655383 bitmxnbp out from the signer. The screen shows no share amount or share ticker.",
+      "fix": "None from calldata. Could add the vault share ticker as a constant field so the signer knows bitmxnbp shares are burned.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The reader got the MXNB received right. They knew vault shares leave but not the amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 78
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` bitmxnbp from `onBehalf`, spending the signer's share allowance when the signer is not the owner.",
+     "Sends previewRedeem(shares) MXNB from the vault to `receiver`. There is no minimum-assets bound."
+    ],
+    "shown": "Redeem 568.38 bitmxnbp shares to the receiver from the Owner; it never says MXNB is received or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names MXNB as the asset received, though deposit and mint show it.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. Case 3 mined: 1157.374204 MXNB in to the signer. The descriptor's redeem fields are only shares/receiver/onBehalf. The underlyingTicker constant is used in mint but not here. The reader said: 'The screen doesn't say which asset or how much.'",
+      "fix": "Add a field `{\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}` and say 'for MXNB' in the interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem: 'Redeem {shares} to {receiver}' reads as if the shares go to the receiver.",
+      "evidence": "descriptor interpolatedIntent \"Redeem {#.shares} to {#.receiver}\". Case 3 screen: 'Redeem 568.382020412210141021 bitmxnbp to 0x71cb...'. In the mined tx the shares are burned and MXNB goes to the receiver.",
+      "fix": "Use \"Redeem {#.shares} for MXNB to {#.receiver}\" and label the receiver field 'Send MXNB to'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the MXNB amount received is computed on chain, with no minimum bound in calldata.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. There is no minAssets parameter. Case 3 mined: 1157.374204 MXNB in, and no amount is on screen.",
+      "fix": "None from calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The reader got the shares burned right. They knew something arrives but not that it is MXNB or how much."
+     }
+    ],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Pulls previewMint(shares) MXNB from the signer, rounded up, with no maximum-assets bound.",
+     "Mints exactly `shares` bitmxnbp to `onBehalf`.",
+     "May forward the deposited MXNB to the liquidity adapter. That moves vault funds, not the signer's."
+    ],
+    "shown": "Mint 1 bitmxnbp to the onBehalf address, paid in MXNB; the MXNB amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the MXNB taken from the signer is computed on chain, with no maximum bound in calldata.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. There is no maxAssets parameter. Case 1 mined: 1.998999 MXNB out from the signer. The screen shows only 'Deposit asset: MXNB'.",
+      "fix": "None from calldata. Could relabel to 'Pays in' and add a note that the amount depends on the share price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The screen names MXNB as the asset paid but not the amount. The shares went to 0xdEaD, which the screen shows plainly and the reader understood."
+     }
+    ],
+    "glance": 72,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.359,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 79,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never names MXNB as the asset received, though deposit and mint show it.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 69,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names MXNB as the asset received, though deposit and mint show it."
+ }
+}

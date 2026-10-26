@@ -1,0 +1,215 @@
+{
+ "hash": "0x68b73fbc9ed35aa2a6e816a007a7be4c7baf4fababec8bfc98249c389cba573c",
+ "file": "registry/morpho/calldata-steakhouse_financial-csUSDL.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeefc01767ed5086f35decb6c00e6c12bc7476c1"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The vault takes exactly `assets` wUSDL from the signer with transferFrom, which spends the signer's wUSDL allowance to the vault.",
+     "The vault mints csUSDL shares to `receiver`; the number comes from the vault's exchange rate (floor), and the call has no minimum.",
+     "Before the deposit, the vault accrues the performance fee and mints fee shares to the fee recipient. This sets the share price the signer gets."
+    ],
+    "shown": "Intent 'Deposit', the wUSDL amount, a fixed 'Share ticker: csUSDL' line, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many csUSDL shares the receiver gets; the vault rate sets the number.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` No calldata parameter holds the shares or a minimum. The descriptor shows only the 'Share ticker' constant 'csUSDL'.",
+      "fix": "None in the descriptor. The share count depends on storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit shows a standalone 'Share ticker' raw line with no amount, which reads like a setting.",
+      "evidence": "descriptor deposit field: {\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}",
+      "fix": "Rename the label to 'Receive shares in' (or 'You receive') so it reads as the token that arrives.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` csUSDL to `receiver`.",
+     "The vault takes from the signer a wUSDL amount that it computes from the exchange rate (ceil). No calldata parameter bounds this amount; only the signer's allowance limits it.",
+     "Before the mint, the vault accrues the performance fee and mints fee shares to the fee recipient."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: wUSDL' with no amount, the exact number of csUSDL shares minted, and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much wUSDL leaves the signer; the vault computes it from storage.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` The descriptor shows only {\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}.",
+      "fix": "None in the descriptor. ERC-4626 mint has no maximum-assets parameter to show.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent 'Mint' does not say that the signer pays wUSDL into the vault.",
+      "evidence": "descriptor mint: \"intent\": \"Mint\". ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);`",
+      "fix": "Change the intent to 'Deposit wUSDL for csUSDL shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault sends exactly `assets` wUSDL to `receiver`.",
+     "The vault burns from `owner` the csUSDL shares that it computes from the exchange rate (ceil). The call has no maximum.",
+     "When the caller is not `owner`, the vault spends the caller's csUSDL allowance from owner by the burned shares.",
+     "Before the withdrawal, the vault accrues the performance fee and mints fee shares to the fee recipient."
+    ],
+    "shown": "Intent 'Withdraw', 'Withdraw exactly' with the wUSDL amount, the recipient 'To', and the 'Owner' of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many csUSDL shares it burns from the owner; the vault rate sets the number.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` ERC4626._withdraw: `_burn(owner, shares);`",
+      "fix": "None in the descriptor. The share count depends on storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` csUSDL from `owner`. When the caller is not owner, this spends the caller's allowance.",
+     "The vault sends to `receiver` a wUSDL amount that it computes from the exchange rate (floor). The call has no minimum.",
+     "Before the redemption, the vault accrues the performance fee and mints fee shares to the fee recipient. This lowers the assets per share."
+    ],
+    "shown": "Intent 'Redeem', 'Shares to redeem' in csUSDL, the recipient 'To' and the 'Owner'. Nothing names the token that arrives.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names wUSDL as the token the receiver gets, though mint shows the underlying ticker.",
+      "evidence": "Case 0: the signer receives ('in') 41.581762467197354957 wUSDL from the vault. The screen has only 'Shares to redeem 40.88… csUSDL', 'To', 'Owner'. ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);` The mint format has {\"label\": \"Deposit asset\", \"value\": \"$.metadata.constants.underlyingTicker\"}; redeem has no such field. The blind reader wrote 'What token and how much I get back; not shown'.",
+      "fix": "Add {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"} and change the intent to 'Redeem csUSDL for wUSDL'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem cannot show the wUSDL amount received; the vault computes it, and the call has no minimum.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` Case 0: the signer receives 41.581762467197354957 wUSDL, and the screen shows no amount for it.",
+      "fix": "None in the descriptor. ERC-4626 redeem has no minimum-assets parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows 40.884964857035617932 csUSDL burned from the owner, which matches. The signer receives 41.58 wUSDL, but the screen names neither the token nor the amount. The reader expected 'underlying vault asset', which is partial."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.378,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 63,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names wUSDL as the token the receiver gets, though mint shows the underlying ticker.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 60,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never names wUSDL as the token the receiver gets, though mint shows the underlying ticker."
+ }
+}

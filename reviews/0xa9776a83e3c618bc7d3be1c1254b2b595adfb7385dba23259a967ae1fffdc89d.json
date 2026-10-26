@@ -1,0 +1,233 @@
+{
+ "hash": "0xa9776a83e3c618bc7d3be1c1254b2b595adfb7385dba23259a967ae1fffdc89d",
+ "file": "registry/morpho/calldata-rockawayx-roxpUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5f829b1b473cba86838e1b7bb7e144dbde228e21"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDC to the vault (safeTransferFrom in enter).",
+     "The vault mints previewDeposit(assets) roxpUSDC shares to `onBehalf`. The exchange rate in storage sets the share count, and the signer sets no minimum.",
+     "Interest and fees accrue first (accrueInterest), so fee shares are minted to the fee recipients before the share price is computed."
+    ],
+    "shown": "Deposit 4 USDC for the recipient address, with roxpUSDC named as the share ticker and the share recipient shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many roxpUSDC shares the recipient receives; the vault rate sets it.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The function has no minShares parameter. Case 0: the signer receives 4 roxpUSDC (4e18), and the screen shows only 'Share ticker: roxpUSDC'.",
+      "fix": "No descriptor fix exists. The share count comes from storage, and calldata carries no bound.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out (4) is shown right. The roxpUSDC shares that arrive are shown by ticker and recipient but not by amount, because the amount comes from storage."
+     }
+    ],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns previewWithdraw(assets) roxpUSDC shares from `onBehalf`, rounded up. The exchange rate sets the count, and the signer sets no maximum.",
+     "When the caller is not `onBehalf`, the caller's share allowance from `onBehalf` drops by the shares burned.",
+     "The vault sends exactly `assets` USDC to `receiver`. It first pulls USDC from the liquidity adapter when idle USDC is not enough."
+    ],
+    "shown": "Withdraw exactly N USDC to the receiver, with the owner whose shares are used shown as its own field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many roxpUSDC shares are burned; the vault rate sets it.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);`. exit calls `deleteShares(onBehalf, shares)`. Case 2: the signer loses 1,879,083.02 roxpUSDC, and no screen field states a share amount.",
+      "fix": "No descriptor fix exists. The share count comes from storage, and calldata carries no bound.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDC in (1,880,000) to the signer is shown right. The reader guessed that shares leave but had no amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` roxpUSDC from `onBehalf`. When the caller is not `onBehalf`, it spends the caller's share allowance.",
+     "The vault sends previewRedeem(shares) USDC to `receiver`. The exchange rate sets the amount, and the signer sets no minimum."
+    ],
+    "shown": "Redeem X roxpUSDC to the receiver, with the owner shown. Nothing names the asset that the receiver gets.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDC as the asset the receiver gets; the sibling mint format shows it.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The redeem format fields are 'Shares to redeem', 'To' and 'Owner', with no underlying asset. The mint format has `{\"label\":\"Deposit asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}`. Case 3: the signer receives 1,608,640.904533 USDC, and the reader was unsure whether the payout is USDC.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}. Change interpolatedIntent to \"Redeem {#.shares} for USDC to {#.receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem cannot show how much USDC the receiver gets; the vault rate sets it, with no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. The function has no minAssets parameter.",
+      "fix": "No descriptor fix exists. The amount comes from storage.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Shares out (1,607,537.0995 roxpUSDC) are shown right. The USDC that arrives has no asset name and no amount on screen. The reader guessed USDC with no amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer sends previewMint(shares) USDC to the vault, rounded up. The exchange rate sets the amount, and the signer sets no maximum.",
+     "The vault mints exactly `shares` roxpUSDC to `onBehalf`."
+    ],
+    "shown": "Mint 1 roxpUSDC for the recipient address, with 'Deposit asset: USDC' but no USDC amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent and sentence omit that the signer pays USDC; only a separate ticker field hints at it.",
+      "evidence": "Descriptor mint: intent \"Mint\", interpolatedIntent \"Mint {#.shares} for {#.onBehalf}\". VaultV2.sol enter: `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets);`. Case 1: 1 USDC leaves the signer, and the sentence reads 'Mint 1 roxpUSDC for 0x...dEaD'.",
+      "fix": "Change interpolatedIntent to \"Pay USDC to mint {#.shares} for {#.onBehalf}\" and intent to \"Deposit USDC to mint shares\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint cannot show how much USDC leaves the signer; the vault rate sets it, with no maximum.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. The function has no maxAssets parameter. Case 1: 1 USDC leaves the signer, and the screen shows 'Deposit asset: USDC' with no amount.",
+      "fix": "No descriptor fix exists. The amount comes from storage.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "USDC out (1 USDC) is named by ticker only, with no amount. The minted shares go to 0x...dEaD (not the signer), and the screen shows that right."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.46,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 131,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset the receiver gets; the sibling mint format shows it.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent and sentence omit that the signer pays USDC; only a separate ticker field hints at it.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 68,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never names USDC as the asset the receiver gets; the sibling mint format shows it."
+ }
+}

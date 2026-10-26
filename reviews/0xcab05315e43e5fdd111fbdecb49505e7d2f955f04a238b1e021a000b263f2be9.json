@@ -1,0 +1,484 @@
+{
+ "hash": "0xcab05315e43e5fdd111fbdecb49505e7d2f955f04a238b1e021a000b263f2be9",
+ "file": "registry/flare/calldata-ClaimSetupManager-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0xd56c0ea37b848939b59e6f5cda119b3fa473b5eb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "setClaimExecutors(address[] _executors)",
+    "effects": [
+     "Replaces the signer's whole claim-executor list with _executors; old executors lose the right to claim for the signer.",
+     "Each listed executor gains the right to claim the signer's rewards to the signer, the signer's delegation account or an allowed recipient.",
+     "Pays each newly added registered executor its current fee in native FLR out of msg.value (fee read from storage).",
+     "Refunds msg.value minus the total fees paid back to the signer; reverts if msg.value is below the total."
+    ],
+    "shown": "\"Set claim executors\" with the executor addresses and the FLR sent, labelled as max executor fees with the excess refunded.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "setClaimExecutors: the fee each executor actually receives comes from storage and cannot be shown.",
+      "evidence": "ClaimSetupManager.sol _setClaimExecutors: `uint256 executorFee = getExecutorCurrentFeeValue(executor); ... executor.call{value: executorFee}(\"\")`; the descriptor only shows @.value as 'Max executor fees, excess refunded'.",
+      "fix": "None needed; the label already says the value is an upper bound and the rest is refunded.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 82
+   },
+   {
+    "key": "setAllowedClaimRecipients(address[] _recipients)",
+    "effects": [
+     "Replaces the signer's allowed claim-recipient list with _recipients.",
+     "The signer's claim executors can then send the signer's claimed rewards to any of these addresses, besides the signer and the signer's delegation account."
+    ],
+    "shown": "\"Set allowed claim recipients\" with the recipient addresses.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setAllowedClaimRecipients: the intent does not say executors may send the signer's rewards to these addresses.",
+      "evidence": "ClaimSetupManager.sol checkExecutorAndAllowedRecipient: `ownerAllowedClaimRecipientSet[_claimFor].index[_recipient] != 0` lets an executor claim the owner's rewards to that recipient; descriptor intent is only \"Set allowed claim recipients\".",
+      "fix": "Use an intent like \"Allow executors to send your rewards to these addresses\" and label the field 'Reward recipients'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 78
+   },
+   {
+    "key": "setAutoClaiming(address[] _executors, bool _enableDelegationAccount)",
+    "effects": [
+     "Replaces the signer's whole claim-executor list with _executors, and pays each newly added registered executor its current fee in native FLR from msg.value.",
+     "Refunds any excess msg.value to the signer.",
+     "If _enableDelegationAccount is true, creates a personal delegation account owned by the signer if none exists and enables it, so auto-claimed rewards go to it."
+    ],
+    "shown": "\"Enable automatic claiming\" with the executors, a raw true/false flag labelled 'Delegation Account', and the FLR sent as max executor fees.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setAutoClaiming: the delegation-account flag shows as a raw 'true'/'false' under a label that does not say what it does.",
+      "evidence": "descriptor field {\"label\": \"Delegation Account\", \"format\": \"raw\", \"path\": \"#._enableDelegationAccount\"}; case 2 screen shows 'Delegation Account: true'. Code: `if (_enableDelegationAccount) { _createOrEnableDelegationAccount(); }`.",
+      "fix": "Relabel it 'Create/enable delegation account (rewards go there)', or use an enum mapping true to 'Yes, rewards go to delegation account' and false to 'No change'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "enableDelegationAccount()",
+    "effects": [
+     "Creates a personal delegation account clone owned by the signer if none exists.",
+     "Enables it, so auto-claimed airdrop and FTSO rewards go to the delegation account instead of the signer's wallet."
+    ],
+    "shown": "\"Enable delegation account\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 72,
+    "depth": 75
+   },
+   {
+    "key": "disableDelegationAccount()",
+    "effects": [
+     "Disables the signer's delegation account, so auto-claimed rewards go to the signer's wallet again.",
+     "Withdraws the delegation account's whole WFLR balance to the signer (amount read from storage)."
+    ],
+    "shown": "\"Disable delegation account, withdraw WFLR\" with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "disableDelegationAccount: the WFLR amount withdrawn is the whole balance, read on chain and not shown.",
+      "evidence": "ClaimSetupManager.sol disableDelegationAccount: `uint256 amount = wNat.balanceOf(address(delegationAccount)); if (amount > 0) { delegationAccount.withdraw(wNat, amount); }`.",
+      "fix": "Optionally write \"withdraw all WFLR\" in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 82,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 _amount)",
+    "effects": [
+     "Moves _amount WFLR from the signer's delegation account to the signer's wallet."
+    ],
+    "shown": "\"Withdraw funds\" with the amount in WFLR.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw: \"Withdraw funds\" does not name the delegation account as the source or WFLR as the asset.",
+      "evidence": "ClaimSetupManager.sol withdraw: `_getDelegationAccount(msg.sender).withdraw(wNat, _amount);`; descriptor intent \"Withdraw funds\".",
+      "fix": "Use an intent like \"Withdraw WFLR from delegation account\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "transferExternalToken(address _token, uint256 _amount)",
+    "effects": [
+     "Moves _amount of the ERC-20 _token from the signer's delegation account to the signer (reverts for WNat)."
+    ],
+    "shown": "\"Recover external token\" with the token and the amount in that token.",
+    "findings": [],
+    "cases": [],
+    "glance": 68,
+    "depth": 85
+   },
+   {
+    "key": "delegate(address _to, uint256 _bips)",
+    "effects": [
+     "Sets the share of the delegation account's WFLR vote power delegated to _to to _bips/100 percent; this is not cumulative, it replaces the earlier share, and 0 revokes it."
+    ],
+    "shown": "\"Set FTSO delegation share\" with the provider and the share as a percentage.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "delegate: the screen does not say it delegates the delegation account's vote power, not the wallet's own WFLR.",
+      "evidence": "ClaimSetupManager.sol delegate: `_getDelegationAccount(msg.sender).delegate(wNat, _to, _bips);`; intent \"Set FTSO delegation share\".",
+      "fix": "Use an intent like \"Set delegation account's FTSO delegation share\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "batchDelegate(address[] _delegatees, uint256[] _bips)",
+    "effects": [
+     "Revokes all existing percentage delegations of the delegation account's WFLR vote power.",
+     "Then delegates _bips[i]/100 percent to each _delegatees[i]."
+    ],
+    "shown": "\"Replace all FTSO delegations\" with provider and share pairs.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 88
+   },
+   {
+    "key": "undelegateAll()",
+    "effects": [
+     "Revokes every FTSO vote-power delegation of the signer's delegation account."
+    ],
+    "shown": "\"Undelegate FTSO vote power\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "revokeDelegationAt(address _who, uint256 _blockNumber)",
+    "effects": [
+     "Revokes the delegation account's delegation to _who only for cached vote-power reads at the past block _blockNumber; ongoing delegation is not stopped."
+    ],
+    "shown": "\"Revoke delegation at block\" with the delegate and the block number.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "revokeDelegationAt: the intent can read as stopping the delegation, but it affects only one past block's cached reads.",
+      "evidence": "ClaimSetupManager.sol revokeDelegationAt notice: \"Only affects the reads via votePowerOfAtCached() in the block _blockNumber... To stop delegating use delegate with value of 0 or undelegateAll.\"; intent \"Revoke delegation at block\", label 'Who'.",
+      "fix": "Use an intent like \"Revoke vote power at past block only (delegation stays)\" and label the field 'Delegate'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 72
+   },
+   {
+    "key": "delegateGovernance(address _to)",
+    "effects": [
+     "Delegates all the delegation account's governance vote power to _to, replacing any previous governance delegate."
+    ],
+    "shown": "\"Delegate governance VP\" with the recipient address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "delegateGovernance: the intent uses the jargon 'VP' and leaves out that it is the delegation account's whole vote power.",
+      "evidence": "ClaimSetupManager.sol delegateGovernance: `_getDelegationAccount(msg.sender).delegateGovernance(governanceVP, _to);`; intent \"Delegate governance VP\", label 'To'.",
+      "fix": "Use an intent like \"Delegate all governance votes of delegation account\" and label the field 'Delegate'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 78
+   },
+   {
+    "key": "undelegateGovernance()",
+    "effects": [
+     "Removes the governance vote-power delegate of the signer's delegation account."
+    ],
+    "shown": "\"Undelegate governance VP\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "registerExecutor(uint256 _feeValue)",
+    "effects": [
+     "Sends msg.value, which must equal the registration fee (1000 FLR), to the burn address 0x…dEaD.",
+     "Registers the signer as a claim executor.",
+     "Sets the fee the signer charges each user who adds them: _feeValue from the current epoch, or scheduled after the offset if they were registered before."
+    ],
+    "shown": "\"Register as claim executor\" with the executor fee in FLR and the FLR sent, labelled as a burned registration fee.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 88
+   },
+   {
+    "key": "updateExecutorFeeValue(uint256 _feeValue)",
+    "effects": [
+     "Schedules the signer's executor fee to become _feeValue at the current reward epoch plus 3, or overwrites the last scheduled value."
+    ],
+    "shown": "\"Schedule executor fee update\" with the new fee in FLR.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "unregisterExecutor()",
+    "effects": [
+     "Removes the signer from the registered executors.",
+     "Schedules the signer's executor fee to drop to 0 after the update offset."
+    ],
+    "shown": "\"Unregister as claim executor\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 82,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": [
+   "The DelegationAccount library (libraryAddress, cloned for each user) is not in the directory. withdraw, transferExternalToken, disableDelegationAccount, delegate, batchDelegate, undelegateAll, revokeDelegationAt, delegateGovernance and undelegateGovernance all call into it, so the recipient of withdrawn WFLR and external tokens (assumed to be the owner) could not be checked in code."
+  ]
+ },
+ "cost": 0.47,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 93,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "setClaimExecutors(address[] _executors)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setAllowedClaimRecipients(address[] _recipients)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAllowedClaimRecipients: the intent does not say executors may send the signer's rewards to these addresses.",
+   "comprehension": null
+  },
+  "setAutoClaiming(address[] _executors, bool _enableDelegationAccount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAutoClaiming: the delegation-account flag shows as a raw 'true'/'false' under a label that does not say what it does.",
+   "comprehension": null
+  },
+  "enableDelegationAccount()": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "disableDelegationAccount()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 81,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 _amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: \"Withdraw funds\" does not name the delegation account as the source or WFLR as the asset.",
+   "comprehension": null
+  },
+  "transferExternalToken(address _token, uint256 _amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "delegate(address _to, uint256 _bips)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "delegate: the screen does not say it delegates the delegation account's vote power, not the wallet's own WFLR.",
+   "comprehension": null
+  },
+  "batchDelegate(address[] _delegatees, uint256[] _bips)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "undelegateAll()": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "revokeDelegationAt(address _who, uint256 _blockNumber)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "revokeDelegationAt: the intent can read as stopping the delegation, but it affects only one past block's cached reads.",
+   "comprehension": null
+  },
+  "delegateGovernance(address _to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "delegateGovernance: the intent uses the jargon 'VP' and leaves out that it is the delegation account's whole vote power.",
+   "comprehension": null
+  },
+  "undelegateGovernance()": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "registerExecutor(uint256 _feeValue)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "updateExecutorFeeValue(uint256 _feeValue)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unregisterExecutor()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 81,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 74,
+  "functions": "5A 10B 1C",
+  "incomplete": true,
+  "worst": "revokeDelegationAt: the intent can read as stopping the delegation, but it affects only one past block's cached reads."
+ }
+}

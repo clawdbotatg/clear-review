@@ -1,0 +1,252 @@
+{
+ "hash": "0x4a5acdf9309c0a7a22bc536a56d3318ac6e149ef6f43033e430dbac5fde1fa24",
+ "file": "registry/morpho/calldata-gauntlet-gtmsETHc-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x43cd00de63485618a5ceebe0de364cd6cbeb26e7"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` msETH to the vault. This uses up the signer's msETH allowance to the vault.",
+     "The vault mints gtmsETHc shares to `receiver`. The share count comes from the share price after fees accrue (floor rounding), and the signer sets no minimum.",
+     "The vault supplies the msETH to Morpho Blue markets in its supply queue. Nothing of the signer's moves in that step."
+    ],
+    "shown": "Deposit: 0.0218 msETH, share ticker gtmsETHc, shares sent to the receiver address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of gtmsETHc shares received is not shown because the contract computes it from storage.",
+      "evidence": "MetaMorpho.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor)`. Case 0: signer in 21121905537879011 gtmsETHc. The screen only has 'Share ticker: gtmsETHc'.",
+      "fix": "No calldata value carries the share amount. Keep the ticker field, or use a label like 'Receive gtmsETHc shares (amount set by vault price)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit: no interpolatedIntent, so the bare intent 'Deposit' names neither the amount nor the vault.",
+      "evidence": "descriptor display.formats deposit: \"intent\": \"Deposit\", no interpolatedIntent.",
+      "fix": "Add an interpolatedIntent such as 'Deposit {assets} into gtmsETHc vault for {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "The msETH out amount is shown right. gtmsETHc in shows the asset and the recipient but not the amount (computed on chain). The spent msETH allowance is implied by a deposit and not stated, and the reader was unsure about it."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer pays msETH to the vault. The amount comes from the share price after fees accrue (ceil rounding), and the calldata sets no maximum. This uses up the signer's msETH allowance to the vault.",
+     "The vault mints exactly `shares` gtmsETHc to `receiver`.",
+     "The vault supplies the msETH to Morpho Blue markets."
+    ],
+    "shown": "Mint: deposit asset msETH (no amount), 0.000000001 gtmsETHc minted to 0x...dEaD.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the msETH the signer pays is not shown because the contract derives it from the share price.",
+      "evidence": "MetaMorpho.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil)`. Case 1: signer out 1026192852 msETH. The screen shows only 'Deposit asset: msETH'.",
+      "fix": "No calldata bound exists. Change the label to say the msETH cost is set by the vault price, e.g. 'Pay with (amount set by vault price)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the bare intent 'Mint' does not say that msETH is paid to get the shares.",
+      "evidence": "descriptor mint: \"intent\": \"Mint\", no interpolatedIntent. The cost in msETH is the signer's main effect.",
+      "fix": "Use the intent 'Deposit msETH for shares' and add an interpolatedIntent 'Mint {shares} for {receiver}, paid in msETH'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer paid 1026192852 wei of msETH. The screen names msETH but no amount, so the reader saw the asset but not how much. The minted shares went to 0xdead, not to the signer, and the screen showed this correctly."
+     }
+    ],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns gtmsETHc shares from `owner`. The count comes from the share price (ceil rounding), with no maximum in the calldata. When owner is not the caller, the caller's share allowance from owner is spent.",
+     "The vault withdraws liquidity from Morpho Blue and sends exactly `assets` msETH to `receiver`. The call reverts if liquidity is short."
+    ],
+    "shown": "Withdraw exactly 0.033 msETH to the receiver, from the owner address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the gtmsETHc shares burned from the owner are not shown and cannot be bounded from calldata.",
+      "evidence": "MetaMorpho.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil)`. Case 2: signer out 31799242829850452 gtmsETHc. No field on the screen names gtmsETHc.",
+      "fix": "Label the owner field 'Burn gtmsETHc shares from' so the share asset is named.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw: no interpolatedIntent, and the bare intent 'Withdraw' omits the amount and the recipient.",
+      "evidence": "descriptor withdraw: \"intent\": \"Withdraw\", no interpolatedIntent.",
+      "fix": "Add 'Withdraw {assets} to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 0.033 msETH in is shown right. The gtmsETHc burned is not on the screen. The reader knew the position shrinks but not which token or how much."
+     }
+    ],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtmsETHc from `owner`. When owner is not the caller, the caller's share allowance from owner is spent.",
+     "The vault withdraws from Morpho Blue and sends msETH to `receiver`. The amount comes from the share price (floor rounding), and the calldata sets no minimum."
+    ],
+    "shown": "Redeem 0.0000979 gtmsETHc shares, sent to the receiver, from the owner address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names msETH, the asset the signer receives.",
+      "evidence": "Case 3: signer in 101562344793467 msETH. The redeem fields are only 'Shares to redeem', 'To' and 'Owner'. The mint format already shows `$.metadata.constants.underlyingTicker`, but redeem does not. The reader listed 'Which asset I get back' as unsure.",
+      "fix": "Add a field {label:'Receive asset', format:'raw', value:'$.metadata.constants.underlyingTicker'}, or name msETH in the intent ('Redeem shares for msETH').",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the msETH amount received is computed on chain and has no minimum in the calldata.",
+      "evidence": "MetaMorpho.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor)`. Case 3: 101562344793467 msETH in, not on the screen.",
+      "fix": "No descriptor change can show the amount. State that it is set by the vault price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The gtmsETHc out is shown right. The msETH in shows neither the asset nor the amount. The reader only guessed 'some form of ETH'."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.528,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 131,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 56,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 49,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names msETH, the asset the signer receives.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 60,
+  "functions": "1B 2C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names msETH, the asset the signer receives."
+ }
+}

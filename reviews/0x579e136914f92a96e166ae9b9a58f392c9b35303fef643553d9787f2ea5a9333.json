@@ -1,0 +1,192 @@
+{
+ "hash": "0x579e136914f92a96e166ae9b9a58f392c9b35303fef643553d9787f2ea5a9333",
+ "file": "registry/morpho/calldata-9summits-9SUSR.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x00b6f2c15e4439749f192d10c70f65354848cf4b"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The vault takes exactly `assets` USR from the signer through transferFrom, spending the signer's USR allowance to the vault.",
+     "The vault mints 9SUSR shares to `receiver`. The share count is floor(assets × supply / totalAssets) after interest and fee accrual.",
+     "The vault supplies the USR to its Morpho Blue markets. This does not change the signer's balances directly."
+    ],
+    "shown": "The intent is \"Deposit\". Fields show the USR amount deposited, the share ticker 9SUSR and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many 9SUSR shares the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorphoV1_1.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. The descriptor shows only the 'Share ticker' raw constant \"9SUSR\".",
+      "fix": "None possible in the descriptor. The share amount depends on the vault's exchange rate in storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent \"Deposit\" names neither the asset nor the vault.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`. The amount and token appear only in the 'Deposit asset' field.",
+      "fix": "Change the intent to \"Deposit USR into 9Summits vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault takes USR from the signer. The amount is ceil(shares × totalAssets / supply), computed from storage, and it spends the signer's USR allowance to the vault.",
+     "The vault mints exactly `shares` 9SUSR to `receiver`."
+    ],
+    "shown": "The intent is \"Mint\". Fields show the deposit asset ticker \"USR\" without an amount, the number of shares minted and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show the USR amount taken from the signer; the vault derives it from shares.",
+      "evidence": "MetaMorphoV1_1.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. The descriptor's 'Deposit asset' field is the raw constant \"USR\" with no amount.",
+      "fix": "None possible in the descriptor. The amount is not in the calldata, and the cap comes from the signer's allowance.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent \"Mint\" does not say that it takes USR from the signer.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`. The fact that USR leaves the wallet appears only in the 'Deposit asset' field.",
+      "fix": "Change the intent to \"Deposit USR to mint 9SUSR shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns 9SUSR shares from `owner`. The count is ceil(assets × supply / totalAssets), computed from storage.",
+     "If the signer is not `owner`, the call spends `owner`'s 9SUSR allowance to the signer.",
+     "The vault sends exactly `assets` USR to `receiver`."
+    ],
+    "shown": "The intent is \"Withdraw\". Fields show the exact USR amount withdrawn, the recipient 'To' and the 'Owner' whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many 9SUSR shares it burns from the owner.",
+      "evidence": "MetaMorphoV1_1.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. No field shows the share amount.",
+      "fix": "None possible in the descriptor. The share count depends on the exchange rate in storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` 9SUSR from `owner`. If the signer is not `owner`, the call spends `owner`'s allowance to the signer.",
+     "The vault sends USR to `receiver`. The amount is floor(shares × totalAssets / supply), computed from storage."
+    ],
+    "shown": "The intent is \"Redeem\". Fields show the 9SUSR shares redeemed, the recipient 'To' and the 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USR amount the receiver gets, or that the payout is in USR.",
+      "evidence": "MetaMorphoV1_1.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. The descriptor has no field naming USR as the asset received.",
+      "fix": "Add a raw field such as `{\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}` to name USR. The amount cannot be shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.265,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 44,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 64,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": null
+ }
+}

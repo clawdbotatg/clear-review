@@ -1,0 +1,230 @@
+{
+ "hash": "0x478aa6dc33edde4f18e2132cd2699747e11c26741d5c222c31c5c8030af1dec6",
+ "file": "registry/symbiotic/calldata-VaultV1Tokenized-cbETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb8fd82169a574eb97251bf43e443310d33ff056c"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Takes `amount` cbETH (the vault's collateral, 0xBe98…9704) from the signer through transferFrom, which uses up the signer's cbETH allowance to the vault.",
+     "Mints vault shares (gtrcbETH) to `onBehalfOf`. The share count comes from the current share price. There is no minimum-shares check."
+    ],
+    "shown": "Deposit 123.25 cbETH into the vault, with the shares credited to the beneficiary address. Vault, amount and beneficiary are all shown as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of gtrcbETH shares minted to onBehalfOf is not shown.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)`. The share count comes from vault storage, not calldata, and the descriptor has no field for it.",
+      "fix": "None possible in ERC-7730. The intent could say that vault shares are received, e.g. \"Deposit {amount} for {onBehalfOf} in exchange for vault shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's gtrcbETH shares worth `amount` cbETH (previewWithdraw rounds up). Reverts if the signer holds too few.",
+     "Moves `amount` cbETH out of active stake into next epoch's withdrawal queue, credited to `claimer`. Only `claimer` can claim it after the epoch ends, and it can still be slashed until then."
+    ],
+    "shown": "Request a 2.5 cbETH withdrawal for the claim-owner address. Vault, requested assets and claim owner are shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the gtrcbETH shares burned from the signer are not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`. _withdraw: `_activeSharesOf[msg.sender].push(..., activeSharesOf(msg.sender) - burnedShares)`. The share count is derived from storage.",
+      "fix": "None possible for the number. The intent could say the signer's vault shares are burned, e.g. \"Burn shares to request {amount} withdrawal claimable by {claimer}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` gtrcbETH from the signer. Reverts if the signer holds fewer.",
+     "Queues cbETH worth those shares (previewRedeem) into next epoch's withdrawals, credited to `claimer`, who can claim it after the epoch ends. The amount can be slashed until then."
+    ],
+    "shown": "Queue 0.987654321123456789 gtrcbETH for the claim-owner address. The share amount, vault and claim owner are shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the cbETH amount queued for the claimer is not shown, only the shares burned.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())`. The amount is computed from storage, and the descriptor shows only `#.shares` with tokenPath @.to.",
+      "fix": "None possible for the number. The wording could make the conversion clear, e.g. \"Burn {shares} for a cbETH withdrawal claimable by {claimer}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "redeem: \"Queue {shares}\" does not say the shares are burned and turned into a cbETH claim.",
+      "evidence": "descriptor redeem interpolatedIntent \"Queue {shares} for {claimer}\". VaultTokenized._withdraw emits `Transfer(msg.sender, address(0), burnedShares)`.",
+      "fix": "Use \"Redeem {shares} into a cbETH withdrawal claimable by {claimer}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed.",
+     "Sends all cbETH the signer is owed for that epoch (withdrawalsOf(epoch, msg.sender)) to `recipient`."
+    ],
+    "shown": "Claim epoch 42 to the recipient address. Vault, epoch and recipient are shown. The asset and the amount are not.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim: the screen never names cbETH as the asset sent to the recipient.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount)`, where collateral is cbETH. Descriptor intent \"Claim withdrawal\" and interpolatedIntent \"Claim epoch {epoch} to {recipient}\" do not mention cbETH, although metadata.constants.underlyingToken is cbETH.",
+      "fix": "Use intent \"Claim cbETH withdrawal\" and interpolatedIntent \"Claim cbETH from epoch {epoch} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the cbETH amount sent comes from storage and cannot be shown.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender)`. The amount is not in calldata.",
+      "fix": "None. This needs a spec feature for computed values.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawal for each listed epoch as claimed.",
+     "Sends the total cbETH the signer is owed across those epochs to `recipient` in one transfer."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient address. Each epoch and the recipient are shown. The asset and the amount are not.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch: the screen never names cbETH as the asset sent to the recipient.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount)`. Descriptor intent \"Claim withdrawals\" and interpolatedIntent \"Claim epochs {epochs.[]} to {recipient}\" do not mention cbETH.",
+      "fix": "Use intent \"Claim cbETH withdrawals\" and interpolatedIntent \"Claim cbETH from epochs {epochs.[]} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total cbETH sent comes from storage and cannot be shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i])` with `_claim` reading `withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None. This needs a spec feature for computed values.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.356,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 61,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the screen never names cbETH as the asset sent to the recipient.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the screen never names cbETH as the asset sent to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "1A 4B",
+  "incomplete": false,
+  "worst": null
+ }
+}

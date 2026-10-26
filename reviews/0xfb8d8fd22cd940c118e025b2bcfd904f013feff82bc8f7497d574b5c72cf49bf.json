@@ -1,0 +1,214 @@
+{
+ "hash": "0xfb8d8fd22cd940c118e025b2bcfd904f013feff82bc8f7497d574b5c72cf49bf",
+ "file": "registry/symbiotic/calldata-VaultV1-osETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x9ec7175541948494db7831c95868dd97d2e0f742"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls exactly `amount` osETH (the vault collateral 0xf1C9…E38) from the signer to the vault via safeTransferFrom, using an allowance the signer already gave the vault.",
+     "Mints active vault shares for the deposited amount to `onBehalfOf`, not to the signer, unless onBehalfOf is the signer."
+    ],
+    "shown": "Deposit 123.25 osETH into the vault, with the shares credited to the named beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of vault shares minted to onBehalfOf is not shown.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)` depends on stored totals. The screen shows only 'Deposit amount' and 'Deposit beneficiary'.",
+      "fix": "None needed. The share count is decided by storage and cannot come from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns enough of the signer's active vault shares to cover `amount` osETH, rounded up.",
+     "Removes `amount` osETH from the signer's active stake and queues it as a withdrawal for the next epoch.",
+     "Gives the withdrawal shares for that epoch to `claimer`. Only the claimer can claim the osETH after the epoch ends, and the amount stays slashable until then."
+    ],
+    "shown": "Request a 2.5 osETH withdrawal, with the claim owned by the named claimer address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the burned share count and the delay (claimable after the next epoch, 7 days) are not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`. In _withdraw: `uint256 epoch = currentEpoch() + 1`. The epochDuration constructor arg is 0x93a80 (604800 s). The screen has no field for either.",
+      "fix": "Optionally put 'claimable after the epoch ends' in the intent. The burned shares come from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Converts them at the current rate into a withdrawal of osETH queued for the next epoch.",
+     "Gives that withdrawal claim to `claimer`. The claimer can claim the osETH after the epoch ends, and it stays slashable until then."
+    ],
+    "shown": "Queue a raw share amount (987654321123456789) for withdrawal, with the claim owned by the claimer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is shown as a raw 18-decimal integer in the intent and the field.",
+      "evidence": "descriptor redeem: field `#.shares` has format 'raw'. Case 2 shows 'Queue 987654321123456789 raw shares'. ERC4626Math._decimalsOffset() returns 0, so shares are on the same 18-decimal scale as osETH.",
+      "fix": "Use format 'unit' with params {decimals: 18, base: 'shares'} so the screen reads about 0.9877 shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the osETH amount that the shares turn into is not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())` reads stored totals.",
+      "fix": "None possible from calldata. The intent could say the amount is in vault shares of osETH.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Spends the signer's withdrawal claim for `epoch` (marks it claimed).",
+     "Sends the signer's full matured withdrawal for that epoch, in osETH, from the vault to `recipient`."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 and send it to the recipient address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the osETH amount paid out is not shown, and the asset is not named on the screen.",
+      "evidence": "Vault.sol claim: `amount = _claim(epoch)` uses `withdrawalsOf(epoch, msg.sender)` from storage, then `IERC20(collateral).safeTransfer(recipient, amount)`. The screen reads 'Claim epoch 42 to 0x2222…' with no token.",
+      "fix": "The amount cannot come from calldata. The intent could name the asset: 'Claim osETH withdrawal'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Spends the signer's withdrawal claims for every listed epoch.",
+     "Sends the sum of the signer's matured withdrawals for those epochs, in osETH, from the vault to `recipient` in one transfer."
+    ],
+    "shown": "Claim the withdrawals for the listed epochs (42, 44, 128) and send them to the recipient address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total osETH paid out is not shown, and the asset is not named on the screen.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i])` uses stored withdrawals, then `IERC20(collateral).safeTransfer(recipient, amount)`. The screen reads 'Claim epochs 42 and 44 and 128 to 0x2222…' with no token.",
+      "fix": "The amount cannot come from calldata. The intent could name the asset: 'Claim osETH withdrawals'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.341,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 63,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is shown as a raw 18-decimal integer in the intent and the field.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 67,
+  "functions": "2A 3C",
+  "incomplete": false,
+  "worst": "redeem: the share amount is shown as a raw 18-decimal integer in the intent and the field."
+ }
+}

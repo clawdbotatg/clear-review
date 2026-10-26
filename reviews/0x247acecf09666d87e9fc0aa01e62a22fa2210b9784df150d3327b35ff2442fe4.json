@@ -1,0 +1,171 @@
+{
+ "hash": "0x247acecf09666d87e9fc0aa01e62a22fa2210b9784df150d3327b35ff2442fe4",
+ "file": "registry/1inch/eip712-1inch-limit-order.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x119c71d3bbac22029622cbaec24854d3d32d2828"
+  },
+  {
+   "chainId": 10,
+   "address": "0x11431a89893025d2a48dca4eddc396f8c8117187"
+  },
+  {
+   "chainId": 56,
+   "address": "0x1e38eff998df9d3669e32f4ff400031385bf6362"
+  },
+  {
+   "chainId": 137,
+   "address": "0x94bc2a1c732bcad7343b25af48385fe76e08734f"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x7f069df72b7a39bce9806e3afaf579e54d8cf2b9"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Order(uint256 salt,address makerAsset,address takerAsset,address maker,address receiver,address allowedSender,uint256 makingAmount,uint256 takingAmount,bytes makerAssetData,bytes takerAssetData,bytes getMakerAmount,bytes getTakerAmount,bytes predicate,bytes permit,bytes interaction)",
+    "effects": [
+     "The signer (maker) lets any taker, or only allowedSender when it is non-zero, pull up to makingAmount of makerAsset from the maker through transferFrom.",
+     "The order can fill in parts when getMakerAmount/getTakerAmount are set. The rate per fill comes from those getter calls, which can be proportional or oracle-based (Chainlink singlePrice/doublePrice).",
+     "For each fill, the maker receives takerAsset at receiver, or at the maker when receiver is zero. With proportional getters the amount is takingAmount scaled to the fill size.",
+     "The predicate staticcall decides when the order can fill, for example timestampBelow as an expiry or a nonce check.",
+     "On the first fill, a non-empty permit runs token.permit with the maker's permit data, which sets an allowance for the maker.",
+     "A non-empty interaction calls notifyFillOrder on a target the maker chooses, between the two transfers.",
+     "makerAssetData and takerAssetData are appended to the transferFrom calldata. For proxy-style assets this changes what moves."
+    ],
+    "shown": "The intent is \"1inch Order\". Fields show the maker, 'Send' makingAmount of makerAsset, 'Receive minimum' takingAmount of takerAsset, the receiver ('Sender' when zero), the allowed sender as an address, and seven raw byte fields: asset data, getters, predicate, permit, interaction.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Order intent \"1inch Order\" does not say the signer offers to sell makerAsset for takerAsset.",
+      "evidence": "descriptor.json, Order format: \"intent\": \"1inch Order\". OrderMixin.fillOrderTo moves makerAsset from order.maker to the taker and takerAsset to the receiver.",
+      "fix": "Change the intent to \"Sign limit order to sell tokens\". Add an interpolatedIntent such as \"Sell {makingAmount} for at least {takingAmount}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "Order 'Receive minimum' shows the full-fill total, but partial fills pay proportionally less.",
+      "evidence": "OrderMixin.fillOrderTo: takingAmount = _callGetter(order.getTakerAmount, order.makingAmount, makingAmount, order.takingAmount); AmountCalculator.getTakerAmount returns swapMakerAmount * orderTakerAmount / orderMakerAmount. Cases 0 and 2 set proportional getters (0xf4a215c3…, 0x296637bf…). The descriptor labels takingAmount 'Receive minimum'.",
+      "fix": "Relabel takingAmount as 'Receive (full fill)' and makingAmount as 'Sell up to'. Or state the rate in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order getMakerAmount/getTakerAmount set the fill rate but appear only as raw calldata.",
+      "evidence": "OrderMixin._callGetter: address(this).functionStaticCall(abi.encodePacked(getter, amount)). The getter can call ChainlinkCalculator.singlePrice/doublePrice or AmountCalculator.arbitraryStaticCall. The descriptor shows 'Maker amount getter' and 'Taker amount getter' with format raw.",
+      "fix": "Decode the known getters with a calldata format against the verifying contract, or state that the order allows partial fills.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order predicate hides the expiry time inside raw bytes.",
+      "evidence": "Case 1 predicate 0x63592c2b…69f4d380 is timestampBelow(1777652608). PredicateHelper.timestampBelow returns block.timestamp < time. The descriptor shows 'Predicate' with format raw.",
+      "fix": "Decode the predicate as embedded calldata on the protocol, or add a label that explains it holds expiry and nonce conditions.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order permit sets an allowance on the first fill but appears only as raw bytes.",
+      "evidence": "OrderMixin.fillOrderTo: if (order.permit.length >= 20) { (address token, bytes memory permit) = order.permit.decodeTargetAndCalldata(); _permitMemory(token, permit); }. The descriptor shows 'Permit' with format raw.",
+      "fix": "Show the permit token and spender with slices, or use a label such as 'Token approval run on first fill'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order 'Allowed sender' shows the zero address literally, but zero means any taker can fill.",
+      "evidence": "OrderMixin.fillOrderTo: require(order.allowedSender == address(0) || order.allowedSender == msg.sender). Cases 0 and 2 render 'Allowed sender' as 0x0000000000000000000000000000000000000000.",
+      "fix": "Relabel the field 'Allowed taker (zero = anyone)', or map the zero address to 'Anyone'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Order shows seven raw byte fields that are mostly '0x' and add noise.",
+      "evidence": "descriptor.json: makerAssetData, takerAssetData, getMakerAmount, getTakerAmount, predicate, permit and interaction all use format raw with visible always. Cases 0-2 render most of them as '0x'.",
+      "fix": "Hide the empty byte fields with visible ifNotIn [\"0x\"], and keep the ones that are set.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order receiver zero renders as 'Sender', but the contract pays the maker, who may not be the signer.",
+      "evidence": "OrderMixin.fillOrderTo: order.receiver == address(0) ? order.maker : order.receiver. Case 2 renders 'To' as 'Sender'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Order interaction and asset data run maker-chosen calls that ERC-7730 cannot decode.",
+      "evidence": "OrderMixin.fillOrderTo: InteractiveNotificationReceiver(interactionTarget).notifyFillOrder(...). order.makerAssetData and order.takerAssetData are appended to the transferFrom calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "Order tests never set permit, interaction, asset data or an oracle getter.",
+      "evidence": "Cases 0-2: permit, interaction, makerAssetData and takerAssetData are all '0x'. The getters are only proportional or empty.",
+      "fix": "Add a case with a non-empty permit and a case with a Chainlink-based getter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 25,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.417,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 398,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "Order(uint256 salt,address makerAsset,address takerAsset,address maker,address receiver,address allowedSender,uint256 makingAmount,uint256 takingAmount,bytes makerAssetData,bytes takerAssetData,bytes getMakerAmount,bytes getTakerAmount,bytes predicate,bytes permit,bytes interaction)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 8,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 8,
+   "worst": "Order 'Receive minimum' shows the full-fill total, but partial fills pay proportionally less.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 80,
+  "clarity": 8,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "Order 'Receive minimum' shows the full-fill total, but partial fills pay proportionally less."
+ }
+}

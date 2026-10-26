@@ -1,0 +1,633 @@
+{
+ "hash": "0x212938ebac466df2f77dd4e8edaca2cacad82228f498728220310daf2d7ca84d",
+ "file": "registry/1inch/calldata-AggregationRouterV5.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x1111111254eeb25477b68fb85ed929f73a960582"
+  },
+  {
+   "chainId": 10,
+   "address": "0x1111111254eeb25477b68fb85ed929f73a960582"
+  },
+  {
+   "chainId": 56,
+   "address": "0x1111111254eeb25477b68fb85ed929f73a960582"
+  },
+  {
+   "chainId": 137,
+   "address": "0x1111111254eeb25477b68fb85ed929f73a960582"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x1111111254eeb25477b68fb85ed929f73a960582"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x1111111254eeb25477b68fb85ed929f73a960582"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:08Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "swap(address executor, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags) desc, bytes permit, bytes data)",
+    "effects": [
+     "If permit is non-empty, the router submits the signer's permit for srcToken, setting an allowance with the spender and amount inside the permit bytes.",
+     "desc.amount of srcToken is pulled from the signer to desc.srcReceiver, or, when srcToken is ETH (0x0 or 0xEeee), desc.amount of native ETH is sent as msg.value.",
+     "When the _REQUIRES_EXTRA_ETH flag (bit 1) is set, msg.value may be larger than desc.amount (or nonzero for token swaps), and all of it is forwarded to the executor.",
+     "The executor runs the hidden route in data with the signer's funds.",
+     "At least minReturnAmount of dstToken (router balance minus 1 wei) goes to dstReceiver, or to the signer when dstReceiver is the zero address.",
+     "When the _PARTIAL_FILL flag (bit 0) is set, unspent srcToken is refunded to the signer. The minimum is then only proportional: returnAmount*amount >= minReturnAmount*spentAmount."
+    ],
+    "shown": "\"Swap\" with Amount to Send (desc.amount in srcToken), Minimum to Receive (minReturnAmount in dstToken) and Beneficiary (dstReceiver). Executor, srcReceiver, flags, permit and data are hidden, and there is no msg.value field.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swap is payable and the extra-ETH flag lets msg.value exceed the shown amount; no value field exists",
+      "evidence": "AggregationRouterV5.sol GenericRouter.swap: `if (desc.flags & _REQUIRES_EXTRA_ETH != 0) { if (msg.value <= (srcETH ? desc.amount : 0)) revert ... }` and _execute forwards `callvalue()` to the executor. Descriptor: desc.flags is `visible: never` and there is no `@.value` field.",
+      "fix": "Add a field `{path: \"@.value\", label: \"Native value sent\", format: \"amount\"}`, or show desc.flags through an enum noting 'requires extra ETH'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swap labels minReturnAmount a hard minimum, but with partial fill it only bounds the rate",
+      "evidence": "GenericRouter.swap: `if (desc.flags & _PARTIAL_FILL != 0) { ... spentAmount -= unspentAmount; srcToken.uniTransfer(msg.sender, unspentAmount); ... if (returnAmount * desc.amount < desc.minReturnAmount * spentAmount) revert`. Descriptor: 'Minimum to Receive' on desc.minReturnAmount; desc.flags is `visible: never`.",
+      "fix": "Show desc.flags (bit 0 = partial fill allowed), or relabel the field 'Minimum to receive (pro rata if partially filled)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swap Beneficiary shows the zero address literally, though the code then pays the signer",
+      "evidence": "GenericRouter.swap: `address payable dstReceiver = (desc.dstReceiver == address(0)) ? payable(msg.sender) : desc.dstReceiver;`. Descriptor: field desc.dstReceiver uses the beneficiary definition (addressName) with no handling for zero.",
+      "fix": "Map addressAsNull to a 'Sender (you)' label, or add a note in the field label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "swap hides the executor route and the permit; the router's own check bounds the output",
+      "evidence": "Descriptor: executor, desc.srcReceiver, permit and data are `visible: never`. GenericRouter.swap pulls tokens to srcReceiver and checks `returnAmount < desc.minReturnAmount` before paying dstReceiver.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swap intent is a bare 'Swap' with no tokens or amounts",
+      "evidence": "Descriptor: `\"intent\": \"Swap\"`, no interpolatedIntent.",
+      "fix": "Add interpolatedIntent such as 'Swap {desc.amount} for at least {desc.minReturnAmount} to {desc.dstReceiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "17 USDC left the signer, matching Amount to Send. 9074.23 MYTH arrived at the signer, above the shown minimum of 8936.2 MYTH, and the Beneficiary is the signer. Flags = 4, so neither partial fill nor extra ETH applied. msg.value was 0."
+     }
+    ],
+    "glance": 40,
+    "depth": 70
+   },
+   {
+    "key": "unoswap(address srcToken, uint256 amount, uint256 minReturn, uint256[] pools)",
+    "effects": [
+     "amount of srcToken is pulled from the signer to the first pool, or, when srcToken is 0, msg.value equal to amount is wrapped to WETH and sent to the first pool.",
+     "The swap runs through the UniV2-style pairs packed in pools; the output token comes from the last pair.",
+     "At least minReturn of the output token goes to the signer, unwrapped to native ETH when the WETH bit of the last pool is set."
+    ],
+    "shown": "\"Swap\" with Amount to Send (amount in srcToken), Minimum to Receive (minReturn with no token), Beneficiary (the signer) and Last pool (the raw packed pool word).",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unoswap Minimum to Receive has no token, because the output token is set by the last pool",
+      "evidence": "Descriptor: minReturn uses minReceiveAmount with no tokenPath. The spec says to show the raw value with an 'Unknown token' warning. UnoswapRouter._unoswap derives the output from the pair, and an ETH or WETH output depends on `and(rawPair, _WETH_MASK)`.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "unoswap Last pool formats a packed uint256 (flags and numerator) as an address",
+      "evidence": "UnoswapRouter: `_REVERSE_MASK`, `_WETH_MASK` and `_NUMERATOR_MASK` occupy the high bits of each pools word. Descriptor: field `pools.[-1]` uses lastPool (addressName) with no slice.",
+      "fix": "Use path `pools.[-1].[-20:]`, or drop the field: a pool address tells the signer little.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "unoswap intent is a bare 'Swap' with no amounts",
+      "evidence": "Descriptor: `\"intent\": \"Swap\"`, no interpolatedIntent.",
+      "fix": "Add interpolatedIntent 'Swap {amount} for at least {minReturn}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "unoswapTo(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools)",
+    "effects": [
+     "amount of srcToken is pulled from the signer to the first pool, or msg.value equal to amount is wrapped when srcToken is 0.",
+     "At least minReturn of the output token (set by the last pool, possibly unwrapped to ETH) goes to recipient."
+    ],
+    "shown": "\"Swap\" with Amount to Send (amount in srcToken), Minimum to Receive (raw, no token), Beneficiary (recipient) and Last pool (raw packed word).",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unoswapTo Minimum to Receive has no token; the output token is derived from the pool",
+      "evidence": "Descriptor: minReturn has no tokenPath. UnoswapRouter._unoswap takes the output from the last pair, with the ETH unwrap set by `_WETH_MASK`.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "unoswapTo Last pool formats a packed uint256 as an address",
+      "evidence": "Descriptor: `pools.[-1]` uses lastPool (addressName) with no slice. UnoswapRouter packs reverse, WETH and numerator bits above the address.",
+      "fix": "Slice `pools.[-1].[-20:]` or remove the field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "unoswapTo intent 'Swap' does not say the output goes to another recipient",
+      "evidence": "Descriptor: `\"intent\": \"Swap\"`, no interpolatedIntent. The recipient is shown only as a field.",
+      "fix": "Add interpolatedIntent 'Swap {amount} for at least {minReturn} to {recipient}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "unoswapToWithPermit(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools, bytes permit)",
+    "effects": [
+     "The signer's permit for srcToken is submitted, setting an allowance with the spender and amount inside the permit bytes.",
+     "amount of srcToken is pulled from the signer to the first pool.",
+     "At least minReturn of the output token (set by the last pool, possibly unwrapped to ETH) goes to recipient."
+    ],
+    "shown": "\"Swap\" with Amount to Send (amount in srcToken), Minimum to Receive (raw, no token), Beneficiary (recipient) and Last pool. The permit is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "unoswapToWithPermit hides the permit, which may leave an allowance above the swap amount",
+      "evidence": "UnoswapRouter.unoswapToWithPermit: `srcToken.safePermit(permit);`. Descriptor: permit is `visible: never`. The signer signed this permit off-chain beforehand.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "unoswapToWithPermit Minimum to Receive has no token",
+      "evidence": "Descriptor: minReturn has no tokenPath. The output token comes from the pool.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "unoswapToWithPermit Last pool formats a packed uint256 as an address",
+      "evidence": "Descriptor: `pools.[-1]` uses addressName with no slice.",
+      "fix": "Slice `pools.[-1].[-20:]` or remove the field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "uniswapV3Swap(uint256 amount, uint256 minReturn, uint256[] pools)",
+    "effects": [
+     "When msg.value > 0, it must equal amount and is wrapped to WETH. Otherwise the first pool's input token is pulled from the signer via the callback.",
+     "The swap runs through the UniV3 pools; input and output tokens come from the pools.",
+     "At least minReturn of the output token goes to the signer, unwrapped to ETH when bit 253 of the last pool is set."
+    ],
+    "shown": "\"Swap\" with Amount to Send (raw, no token), Minimum to Receive (raw, no token), Beneficiary (the signer) and Last pool.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "uniswapV3Swap is payable and shows no native value; the ETH amount appears only as a raw, tokenless number",
+      "evidence": "UniswapV3Router._uniswapV3Swap: `bool wrapWeth = msg.value > 0; if (wrapWeth) { if (msg.value != amount) revert ...`. Descriptor: amount uses sendAmount with no tokenPath and there is no `@.value` field.",
+      "fix": "Add a field `{path: \"@.value\", label: \"Native value sent\", format: \"amount\"}`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "uniswapV3Swap names neither the token sent nor the token received; both come from pools",
+      "evidence": "Descriptor: amount and minReturn have no tokenPath. The callback reads token0()/token1() from the pool.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "uniswapV3Swap Last pool formats a packed uint256 (direction and unwrap bits) as an address",
+      "evidence": "UniswapV3Router: `_ONE_FOR_ZERO_MASK = 1 << 255`, `_WETH_UNWRAP_MASK = 1 << 253`. Descriptor: `pools.[-1]` uses addressName with no slice.",
+      "fix": "Slice `pools.[-1].[-20:]` or remove the field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "uniswapV3Swap intent is a bare 'Swap' and no field names an asset",
+      "evidence": "Descriptor: `\"intent\": \"Swap\"`, no interpolatedIntent.",
+      "fix": "Add interpolatedIntent 'Swap {amount} for at least {minReturn}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 30
+   },
+   {
+    "key": "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)",
+    "effects": [
+     "When msg.value > 0, it must equal amount and is wrapped to WETH. Otherwise the first pool's input token is pulled from the signer.",
+     "At least minReturn of the output token (from the pools, possibly unwrapped to ETH) goes to recipient."
+    ],
+    "shown": "\"Swap\" with Amount to Send (raw), Minimum to Receive (raw), Beneficiary (recipient) and Last pool.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "uniswapV3SwapTo is payable and shows no native value; the ETH amount is raw and tokenless",
+      "evidence": "UniswapV3Router._uniswapV3Swap: `if (msg.value != amount) revert`. Descriptor: amount has no tokenPath and there is no `@.value` field.",
+      "fix": "Add an `@.value` field with format `amount`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "uniswapV3SwapTo names neither the token sent nor the token received",
+      "evidence": "Descriptor: amount and minReturn have no tokenPath. The tokens come from pool token0()/token1().",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "uniswapV3SwapTo Last pool formats a packed uint256 as an address",
+      "evidence": "Descriptor: `pools.[-1]` uses addressName with no slice. High bits carry the direction and unwrap flags.",
+      "fix": "Slice `pools.[-1].[-20:]` or remove the field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 30
+   },
+   {
+    "key": "uniswapV3SwapToWithPermit(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools, bytes permit)",
+    "effects": [
+     "The signer's permit for srcToken is submitted, setting an allowance with the spender and amount inside the permit bytes.",
+     "amount of the first pool's input token is pulled from the signer via the callback. srcToken is used only for the permit.",
+     "At least minReturn of the output token goes to recipient."
+    ],
+    "shown": "\"Swap\" with Amount to Send (amount labelled with srcToken), Minimum to Receive (raw), Beneficiary (recipient) and Last pool. The permit is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "uniswapV3SwapToWithPermit labels the amount with srcToken, but the token pulled comes from the pool",
+      "evidence": "UniswapV3Router.uniswapV3SwapToWithPermit: `srcToken.safePermit(permit); return _uniswapV3Swap(recipient, amount, minReturn, pools);`. srcToken is never passed to the swap, and the callback pays `token0()`/`token1()` of the pool. Descriptor: amount uses `tokenPath: srcToken`.",
+      "fix": "Label the field 'Amount to send (token of first pool)', or note that srcToken is the permit token.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "uniswapV3SwapToWithPermit hides the permit grant",
+      "evidence": "Descriptor: permit is `visible: never`. The code runs `srcToken.safePermit(permit)`.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "uniswapV3SwapToWithPermit Minimum to Receive has no token",
+      "evidence": "Descriptor: minReturn has no tokenPath. The output token comes from the last pool.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "uniswapV3SwapToWithPermit Last pool formats a packed uint256 as an address",
+      "evidence": "Descriptor: `pools.[-1]` uses addressName with no slice.",
+      "fix": "Slice `pools.[-1].[-20:]` or remove the field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 45
+   },
+   {
+    "key": "clipperSwap(address clipperExchange, address srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)",
+    "effects": [
+     "inputAmount of srcToken is sent from the signer directly to clipperExchange. ETH srcToken sends msg.value = inputAmount, and WETH is pulled and unwrapped first.",
+     "clipperExchange is asked to send outputAmount of dstToken to the signer. ETH output is wrapped to WETH when dstToken is WETH.",
+     "The router never checks the amount received."
+    ],
+    "shown": "\"Swap\" with Amount to Send (inputAmount in srcToken), Minimum to Receive (outputAmount in dstToken), Beneficiary (the signer) and Expiration time. clipperExchange is hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "wrong-party",
+      "title": "clipperSwap sends the signer's tokens to a calldata-chosen clipperExchange that is hidden",
+      "evidence": "ClipperRouter.clipperSwapTo: `srcToken.safeTransferFrom(msg.sender, address(clipperExchange), inputAmount);`, then `return outputAmount;` with no balance check. Descriptor: `{label: \"Clipper Exchange\", path: \"clipperExchange\", visible: \"never\"}`.",
+      "fix": "Show clipperExchange as an addressName field (types contract) labelled 'Counterparty (Clipper exchange)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "clipperSwap labels the router-unchecked outputAmount 'Minimum to Receive'",
+      "evidence": "ClipperRouter.clipperSwapTo passes outputAmount to the exchange and returns it without measuring what arrived. Descriptor: outputAmount uses minReceiveAmount ('Minimum to Receive').",
+      "fix": "Label it 'Amount to receive (quoted by Clipper)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "clipperSwap intent is a bare 'Swap'",
+      "evidence": "Descriptor: `\"intent\": \"Swap\"`, no interpolatedIntent.",
+      "fix": "Add interpolatedIntent 'Swap {inputAmount} for {outputAmount}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 65
+   },
+   {
+    "key": "clipperSwapTo(address clipperExchange, address recipient, address srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)",
+    "effects": [
+     "inputAmount of srcToken (or ETH via msg.value, or unwrapped WETH) is sent from the signer to clipperExchange.",
+     "clipperExchange is asked to send outputAmount of dstToken to recipient, with no check by the router."
+    ],
+    "shown": "\"Swap\" with Amount to Send, Minimum to Receive (outputAmount in dstToken), Beneficiary (recipient) and Expiration time. clipperExchange is hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "wrong-party",
+      "title": "clipperSwapTo sends the signer's tokens to a hidden, calldata-chosen clipperExchange",
+      "evidence": "ClipperRouter.clipperSwapTo: `srcToken.safeTransferFrom(msg.sender, address(clipperExchange), inputAmount);` with no output check. Descriptor: clipperExchange is `visible: never`.",
+      "fix": "Show clipperExchange as an addressName field labelled 'Counterparty (Clipper exchange)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "clipperSwapTo labels the router-unchecked outputAmount 'Minimum to Receive'",
+      "evidence": "ClipperRouter.clipperSwapTo: `return outputAmount;` with no balance check. Descriptor: minReceiveAmount label.",
+      "fix": "Label it 'Amount to receive (quoted by Clipper)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "clipperSwapTo intent 'Swap' omits the amounts and the recipient",
+      "evidence": "Descriptor: `\"intent\": \"Swap\"`, no interpolatedIntent.",
+      "fix": "Add interpolatedIntent 'Swap {inputAmount} for {outputAmount} to {recipient}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 65
+   },
+   {
+    "key": "clipperSwapToWithPermit(address clipperExchange, address recipient, address srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs, bytes permit)",
+    "effects": [
+     "The signer's permit for srcToken is submitted, setting an allowance with the spender and amount inside the permit bytes.",
+     "inputAmount of srcToken is sent from the signer to clipperExchange.",
+     "clipperExchange is asked to send outputAmount of dstToken to recipient, with no check by the router."
+    ],
+    "shown": "\"Swap\" with Amount to Send, Minimum to Receive, Beneficiary (recipient) and Expiration time. clipperExchange and the permit are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "wrong-party",
+      "title": "clipperSwapToWithPermit sends the signer's tokens to a hidden, calldata-chosen clipperExchange",
+      "evidence": "ClipperRouter.clipperSwapToWithPermit calls clipperSwapTo, which runs `srcToken.safeTransferFrom(msg.sender, address(clipperExchange), inputAmount)` with no output check. Descriptor: clipperExchange is `visible: never`.",
+      "fix": "Show clipperExchange as an addressName field labelled 'Counterparty (Clipper exchange)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "clipperSwapToWithPermit hides the permit grant",
+      "evidence": "ClipperRouter.clipperSwapToWithPermit: `srcToken.safePermit(permit);`. Descriptor: permit is `visible: never`.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "clipperSwapToWithPermit labels the router-unchecked outputAmount 'Minimum to Receive'",
+      "evidence": "ClipperRouter.clipperSwapTo: `return outputAmount;` with no balance check. Descriptor: minReceiveAmount label.",
+      "fix": "Label it 'Amount to receive (quoted by Clipper)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.769,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [
+  "swap(address executor, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags) desc, bytes permit, bytes data)",
+  "unoswap(address srcToken, uint256 amount, uint256 minReturn, uint256[] pools)",
+  "unoswapTo(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools)",
+  "uniswapV3Swap(uint256 amount, uint256 minReturn, uint256[] pools)",
+  "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)",
+  "clipperSwap(address clipperExchange, address srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)",
+  "clipperSwapTo(address clipperExchange, address recipient, address srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)"
+ ],
+ "seconds": 353,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "swap(address executor, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags) desc, bytes permit, bytes data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "swap is payable and the extra-ETH flag lets msg.value exceed the shown amount; no value field exists",
+   "comprehension": 100
+  },
+  "unoswap(address srcToken, uint256 amount, uint256 minReturn, uint256[] pools)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 38,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 2,
+   "worst": "unoswap takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "unoswapTo(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 38,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 2,
+   "worst": "unoswapTo takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "unoswapToWithPermit(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools, bytes permit)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "unoswapToWithPermit Last pool formats a packed uint256 as an address",
+   "comprehension": null
+  },
+  "uniswapV3Swap(uint256 amount, uint256 minReturn, uint256[] pools)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 17,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 3,
+   "worst": "uniswapV3Swap takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 22,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 2,
+   "worst": "uniswapV3SwapTo takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "uniswapV3SwapToWithPermit(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools, bytes permit)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "uniswapV3SwapToWithPermit labels the amount with srcToken, but the token pulled comes from the pool",
+   "comprehension": null
+  },
+  "clipperSwap(address clipperExchange, address srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "clipperSwap sends the signer's tokens to a calldata-chosen clipperExchange that is hidden",
+   "comprehension": null
+  },
+  "clipperSwapTo(address clipperExchange, address recipient, address srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "clipperSwapTo sends the signer's tokens to a hidden, calldata-chosen clipperExchange",
+   "comprehension": null
+  },
+  "clipperSwapToWithPermit(address clipperExchange, address recipient, address srcToken, address dstToken, uint256 inputAmount, uint256 outputAmount, uint256 goodUntil, bytes32 r, bytes32 vs, bytes permit)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "clipperSwapToWithPermit sends the signer's tokens to a hidden, calldata-chosen clipperExchange",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 32,
+  "clarity": 41,
+  "functions": "2C 8F",
+  "incomplete": false,
+  "worst": "swap is payable and the extra-ETH flag lets msg.value exceed the shown amount; no value field exists"
+ }
+}

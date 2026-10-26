@@ -1,0 +1,124 @@
+{
+ "hash": "0x56f3b7442708d90be7ee67c67b630fc3860d3616d8e8c2cdb2b1724a557e8f93",
+ "file": "registry/gondi/eip712-RenegotiationOffer.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf65b99ce6dc5f6c556172bcc0ff27d3665a7d9a8"
+  },
+  {
+   "chainId": 1,
+   "address": "0xf41b389e0c1950dc0b16c9498eae77131cc08a56"
+  },
+  {
+   "chainId": 999,
+   "address": "0x6ad675624ec8320e5806858cd5db101a0b927fd9"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x0e79e08e9e35388382b7febb26bc73f80465e2fb"
+  },
+  {
+   "chainId": 1,
+   "address": "0xe365ff3cad44d19cb7aba81df8ffd6818a66ac0a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "RenegotiationOffer(uint256 renegotiationId,uint256 loanId,address lender,uint256 fee,uint256[] trancheIndex,uint256 principalAmount,uint256 aprBps,uint256 expirationTime,uint256 duration)",
+    "effects": [
+     "The signer (the lender) signs an offer that the borrower can execute with refinanceFull or addNewTranche. No funds move when the signer signs.",
+     "When the borrower calls addNewTranche, principalAmount minus fee leaves the signer's wallet to the borrower, in the loan's principal token.",
+     "When the borrower calls refinanceFull, up to principalAmount minus fee leaves the signer's wallet. It goes first to the old tranche lenders (principal plus accrued interest), and the rest goes to the borrower.",
+     "The signer also pays a protocol fee to the protocol fee recipient. It is fee × protocolFee, plus in refinanceFull the protocol share of accrued interest. Both rates come from storage.",
+     "The signer receives a new tranche worth principalAmount at aprBps. The loan duration resets to duration from now, and the old loanId is replaced by a new one.",
+     "The offer is valid until expirationTime. The signer can cancel it through renegotiationId."
+    ],
+    "shown": "Make renegotiation offer / Offer new terms on loan N. Fields show the loan ID, principal and fee as raw integers, APR in %, duration, lender, expiry and tranche index.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "RenegotiationOffer intent does not say the signer funds the loan from their wallet",
+      "evidence": "descriptor: \"intent\": \"Make renegotiation offer\", \"interpolatedIntent\": \"Offer new terms on loan {loanId}\". MultiSourceLoan.sol addNewTranche: safeTransferFrom(_renegotiationOffer.lender, _loan.borrower, principalAmount - fee); refinanceFull: safeTransferFrom(_renegotiationOffer.lender, _loan.borrower, netNewLender)",
+      "fix": "Set the intent to \"Offer to lend on loan\". Set the interpolatedIntent to \"Lend at {aprBps} for {duration} on loan {loanId}\". Label principalAmount \"You lend (units)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "RenegotiationOffer 'Fee' label does not say the borrower pays the fee to the signer",
+      "evidence": "descriptor field fee, label \"Fee (units)\". MultiSourceLoan.sol refinanceFull: uint256 netNewLender = _renegotiationOffer.principalAmount - _renegotiationOffer.fee; the lender's tranche keeps principalAmount",
+      "fix": "Change the label to \"Borrower fee, kept from principal (units)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "RenegotiationOffer principal and fee have no token: the loan asset is not in the message",
+      "evidence": "descriptor: principalAmount 'Principal (units)' raw, fee 'Fee (units)' raw. MultiSourceLoan.sol addNewTranche: ERC20(_loan.principalAddress).safeTransferFrom(...). principalAddress comes from the stored Loan struct, not from RenegotiationOffer. Case 1 shows 7000000000000000000.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "RenegotiationOffer does not show the protocol fee the signer pays, because its rate is in storage",
+      "evidence": "MultiSourceLoan.sol addNewTranche: safeTransferFrom(_renegotiationOffer.lender, _protocolFee.recipient, _renegotiationOffer.fee.mulDivUp(_loan.protocolFee, _PRECISION)); _processOldTranchesFull: _handleProtocolFeeForFee(..., _renegotiationOffer.lender, lenderFee, _protocolFee.recipient)",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "RenegotiationOffer: the borrower picks full refinance or new tranche, and the screen cannot say which",
+      "evidence": "MultiSourceLoan.sol refinanceFull checks only trancheIndex.length == _loan.tranche.length. addNewTranche requires trancheIndex[0] == _loan.tranche.length. In refinanceFull, _processOldTranche pays old lenders from the signer: asset.safeTransferFrom(_lender, _tranche.lender, oldLenderDebt). The descriptor shows 'Tranche index' raw.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.654,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 150,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "RenegotiationOffer(uint256 renegotiationId,uint256 loanId,address lender,uint256 fee,uint256[] trancheIndex,uint256 principalAmount,uint256 aprBps,uint256 expirationTime,uint256 duration)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "RenegotiationOffer intent does not say the signer funds the loan from their wallet",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 42,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "RenegotiationOffer intent does not say the signer funds the loan from their wallet"
+ }
+}

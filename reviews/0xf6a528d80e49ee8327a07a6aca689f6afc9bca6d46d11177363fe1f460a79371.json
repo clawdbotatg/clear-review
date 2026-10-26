@@ -1,0 +1,241 @@
+{
+ "hash": "0xf6a528d80e49ee8327a07a6aca689f6afc9bca6d46d11177363fe1f460a79371",
+ "file": "registry/morpho/calldata-gauntlet-gtUSDAcore.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x125d41a6e5dbf455cd9df8f80bcc6fd172d52cc6"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` of the underlying token (agUSD, 0x0000206329…3274) to the vault, which supplies it to Morpho Blue markets.",
+     "The vault mints gtUSDAcore shares to `receiver`; the share count comes from the vault's share price at execution (rounded down).",
+     "Pending performance fee shares are minted to the fee recipient before the deposit; this sets the share price but takes nothing from the signer directly."
+    ],
+    "shown": "Intent \"Deposit\" with the exact underlying amount, a constant \"Share ticker gtUSDAcore\" and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the receiver gets; the share price in storage sets it.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` Descriptor shows only `Share ticker` raw `$.metadata.constants.vaultTicker`.",
+      "fix": "No calldata value holds the share count. Optionally change the label to \"Receive shares (gtUSDAcore)\" so it does not read as an amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent \"Deposit\" does not name the asset or the vault shares received.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`; the field `Share ticker` is a raw constant with no amount.",
+      "fix": "Change the intent to \"Deposit agUSD for gtUSDAcore shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends the underlying token (agUSD) to the vault. The amount comes from the share price and is rounded up; no calldata value caps it.",
+     "The vault mints exactly `shares` gtUSDAcore to `receiver`.",
+     "Pending fee shares are minted to the fee recipient first."
+    ],
+    "shown": "Intent \"Mint\", a constant \"Deposit asset USDA\" with no amount, the exact share amount and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint shows no amount for the agUSD the signer pays; the share price in storage sets it.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` Case 0: 1069510215 agUSD leaves the signer; screen shows only `Deposit asset: USDA`.",
+      "fix": "No calldata value holds the asset amount. Change the label to \"Pay with (amount set by share price)\" so the signer knows an amount leaves.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "mint shows the underlying ticker \"USDA\", but the token's on-chain symbol is agUSD.",
+      "evidence": "descriptor metadata.constants: `\"underlyingTicker\": \"USDA\"`; mint field `Deposit asset` raw `$.metadata.constants.underlyingTicker`. Case 0 mined effect: asset 0x0000206329…3274 `\"symbol\": \"agUSD\"`.",
+      "fix": "Set `underlyingTicker` to \"agUSD\" to match the token, which deposit and withdraw show via tokenAmount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent \"Mint\" and the ticker-only \"Deposit asset\" field do not say that tokens leave the wallet.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`, field `Deposit asset` = `USDA`. Case 0 reader: \"How much USDA is taken; the screen shows no deposit amount\".",
+      "fix": "Change the intent to \"Deposit agUSD to mint gtUSDAcore\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "1069510215 wei agUSD leaves the signer. The screen names the asset only, as \"USDA\", with no amount. The reader saw that USDA leaves but not how much. Shares go to 0x…01, which the screen shows."
+     }
+    ],
+    "glance": 45,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns shares from `owner`. The count comes from the share price and is rounded up.",
+     "When the signer is not `owner`, the vault spends the signer's share allowance from `owner`.",
+     "The vault sends exactly `assets` of agUSD to `receiver` after it withdraws the amount from Morpho markets."
+    ],
+    "shown": "Intent \"Withdraw\" with the exact agUSD amount, the recipient and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares it burns from the owner; the share price sets it.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _withdraw(_msgSender(), receiver, owner, assets, shares);`",
+      "fix": "No calldata value holds the share count; nothing to change.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent \"Withdraw\" does not say that it burns vault shares for agUSD.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`.",
+      "fix": "Change the intent to \"Withdraw agUSD from gtUSDAcore vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtUSDAcore from `owner`. When the signer is not `owner`, it spends the signer's allowance.",
+     "The vault sends agUSD to `receiver`. The amount comes from the share price and is rounded down; no minimum is enforced."
+    ],
+    "shown": "Intent \"Redeem\" with the exact share amount, the recipient and the owner. It shows no output token and no output amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem shows no token or amount for the agUSD the receiver gets; the share price sets it.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` Case 1: the signer receives 2153471524257941538 agUSD; the screen shows no field for it.",
+      "fix": "Add a constant field, such as \"Receive: agUSD\" from `underlyingTicker`, so the signer at least sees the output asset.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem intent \"Redeem\" does not name the asset the signer receives.",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"`. Case 1 reader: \"the screen does not show the amount or token\".",
+      "fix": "Change the intent to \"Redeem gtUSDAcore for agUSD\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The share burn of 1.999999999954124119 gtUSDAcore is shown and understood. The 2.1535 agUSD received has no asset and no amount on the screen. The reader guessed a USD stablecoin arrives."
+     }
+    ],
+    "glance": 50,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.328,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 59,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent \"Deposit\" does not name the asset or the vault shares received.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "D",
+   "truth": 0,
+   "clarity": 44,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "mint shows the underlying ticker \"USDA\", but the token's on-chain symbol is agUSD.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent \"Withdraw\" does not say that it burns vault shares for agUSD.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem intent \"Redeem\" does not name the asset the signer receives.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 75,
+  "clarity": 56,
+  "functions": "3B 1D",
+  "incomplete": false,
+  "worst": "mint shows the underlying ticker \"USDA\", but the token's on-chain symbol is agUSD."
+ }
+}

@@ -1,0 +1,164 @@
+{
+ "hash": "0xb36fa3ffdd70cfdc19ab22a45d979418a8f0674dcf221686897aa22a5a074d97",
+ "file": "registry/walletconnect/calldata-wct.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 10,
+   "address": "0xef4461891dfb3ac8572ccf7c794664a8dd927945"
+  },
+  {
+   "chainId": 1,
+   "address": "0xef4461891dfb3ac8572ccf7c794664a8dd927945"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xef4461891dfb3ac8572ccf7c794664a8dd927945"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xef4461891dfb3ac8572ccf7c794664a8dd927945"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "transfer(address to, uint256 value)",
+    "effects": [
+     "The signer's WCT balance drops by `value` and `to` gets exactly `value` WCT. There is no fee or burn: ERC20Upgradeable.transfer -> _transfer -> _update.",
+     "Voting power moves too. ERC20VotesUpgradeable._update moves `value` votes from the signer's delegate to the recipient's delegate, if either has one.",
+     "On Optimism (L2WCT), the call reverts while transfer restrictions are on and neither the sender nor the recipient is whitelisted. No funds move in that case."
+    ],
+    "shown": "\"Send\" with Amount (value as tokenAmount of the called token) and To (recipient address). The case screen shows the amount as a raw integer with no ticker.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "transfer: the screen shows the amount as a raw 18-decimal integer without the WCT ticker",
+      "evidence": "cases/0.json screen: Amount \"8262522497866777030611\". descriptor field value: format tokenAmount, tokenPath \"@.to\". metadata.token gives WCT with 18 decimals but the rendered value has no decimals and no symbol.",
+      "fix": "Make sure the tokenAmount renders against the called contract, e.g. add an explicit \"token\" constant or rely on metadata.token, so the screen reads \"8,262.52 WCT\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transfer: the `to` field allows only type eoa, but the code accepts any recipient, including contracts",
+      "evidence": "descriptor transfer field `to`: addressName types [\"eoa\"]. ERC20Upgradeable.transfer(address to, ...) has no such restriction.",
+      "fix": "Use types [\"eoa\",\"contract\"] or drop the types restriction.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "transfer: the intent \"Send\" names neither the token nor the recipient, and there is no interpolatedIntent",
+      "evidence": "descriptor transfer intent \"Send\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent \"Send {value} to {to}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "transfer: the voting power that moves with the tokens (ERC20Votes) is not stated",
+      "evidence": "ERC20VotesUpgradeable._update calls _transferVotingUnits(from, to, value), which moves delegated votes from the signer's delegate.",
+      "fix": "None needed; this is implied by moving the tokens.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "approve(address spender, uint256 value)",
+    "effects": [
+     "Sets the signer's WCT allowance for `spender` to exactly `value`, replacing the previous allowance. This is ERC20Upgradeable.approve -> _approve(owner, spender, value, true). No tokens move."
+    ],
+    "shown": "\"Approve\" with Spender (address) and Amount (value as tokenAmount of the called token, with a threshold of 2^255 but no \"Unlimited\" message). The case screen shows the max uint256 as a raw integer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "approve: an unlimited allowance appears as a 78-digit raw number with no ticker and no 'Unlimited' label",
+      "evidence": "descriptor approve value params: threshold \"0x8000...\" with no \"message\". cases/1.json screen Amount \"115792089237316195423570985008687907853269984665640564039457584007913129639935\". mined approval of WCT for the max amount.",
+      "fix": "Add \"message\": \"Unlimited\" next to the threshold, per registry convention, and make sure the WCT ticker and decimals render.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "approve: the screen does not name the token being approved, so the blind reader was unsure which asset it was",
+      "evidence": "cases/1.json reader.unsure: \"Which token this approval is for; the screen doesn't name it\". The screen has only Spender and a raw Amount. The descriptor intent is just \"Approve\" and has no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Approve {spender} to spend {value}\" and make sure the WCT ticker renders in the amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "Mined: the signer granted 0x40aa958d...cd7f an unlimited WCT allowance. The screen shows the right spender and the raw max amount, but not the token. The reader understood the spender and that it was unlimited, but did not know the token."
+     }
+    ],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.319,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 63,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "transfer(address to, uint256 value)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "transfer: the screen shows the amount as a raw 18-decimal integer without the WCT ticker",
+   "comprehension": null
+  },
+  "approve(address spender, uint256 value)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "approve: an unlimited allowance appears as a 78-digit raw number with no ticker and no 'Unlimited' label",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 49,
+  "functions": "2C",
+  "incomplete": false,
+  "worst": "transfer: the screen shows the amount as a raw 18-decimal integer without the WCT ticker"
+ }
+}

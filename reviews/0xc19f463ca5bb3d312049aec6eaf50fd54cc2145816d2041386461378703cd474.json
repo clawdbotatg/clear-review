@@ -1,0 +1,153 @@
+{
+ "hash": "0xc19f463ca5bb3d312049aec6eaf50fd54cc2145816d2041386461378703cd474",
+ "file": "registry/ophis/calldata-Ophis-CoWSwapEthFlow.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 10,
+   "address": "0x764fe4aa1ff493cf39931c7923c8ff5837596504"
+  },
+  {
+   "chainId": 130,
+   "address": "0x38c03729153bccf6a281daf41d7c6a14c543f1d7"
+  },
+  {
+   "chainId": 4663,
+   "address": "0xc1ee77e8a1b85d5eed702a9bb435f434408a4d29"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "createOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)",
+    "effects": [
+     "The signer sends native ETH equal to sellAmount + feeAmount to the EthFlow contract, which holds it until settlement; the code reverts if msg.value differs (createOrder: `if (msg.value != order.sellAmount + order.feeAmount) revert IncorrectEthAmount()`).",
+     "An order owned by the signer is recorded (orders[orderHash] = {msg.sender, validTo}): the signer can cancel it and get a refund via invalidateOrder.",
+     "On settlement, sellAmount (as wrapped native token) is sold for at least buyAmount of buyToken, pro rata if partially fillable, and the proceeds go to `receiver`; feeAmount goes to the protocol.",
+     "The order can only be settled until validTo; after that anyone can trigger the refund, which goes to the signer."
+    ],
+    "shown": "Intent 'Deposit ETH for swap order', with the ETH to sell, the minimum of the buy token received if fully filled, the fee deposit (when nonzero), the recipient, the expiry date and the partial-fill flag.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "createOrder has no interpolatedIntent; the intent names neither the token bought nor the amounts.",
+      "evidence": "descriptor.json createOrder: \"intent\": \"Deposit ETH for swap order\", no interpolatedIntent; FORMATS.md 'interpolatedIntent: null'. The swap terms (0.5 ETH -> min 1200 USDC to 0xd8dA…, cases 0/3) appear only in fields.",
+      "fix": "Add interpolatedIntent \"Swap {order.sellAmount} for at least {order.buyAmount} to {order.receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createOrder hides appData, a hash of off-chain order metadata (partner fees, hooks) the descriptor cannot decode.",
+      "evidence": "descriptor.json createOrder field order.appData \"visible\": \"never\"; EthFlowOrder.sol toCoWSwapOrder passes order.appData into the CoW order. The limit price buyAmount still bounds what the receiver gets.",
+      "fix": "None possible today; the hash cannot be resolved on-device.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createOrder shows partiallyFillable as raw 'true'/'false'.",
+      "evidence": "descriptor.json definitions.partiallyFillable \"format\": \"raw\"; case 3 shows 'Partial fills: true'.",
+      "fix": "Optionally use an enum-like label such as 'Allowed'/'Fill or kill' if the spec allows bool mapping.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "invalidateOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)",
+    "effects": [
+     "The order matching these terms is marked invalidated (owner set to INVALIDATED_OWNER), so it can no longer be settled.",
+     "The unfilled ETH, sellAmount - filledAmount plus the unused share of feeAmount, is sent to the stored order owner. That is the signer if they created the order; when the order has expired and the signer is someone else, the refund still goes to the owner.",
+     "No assets leave the signer; the call is non-payable."
+    ],
+    "shown": "Intent 'Cancel and refund owner', with the order's sell amount, minimum buy amount, fee (when nonzero), swap recipient, partial-fill flag and raw app data, which together identify the order being cancelled.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "invalidateOrder does not show the refund amount or the refund recipient; both come from storage.",
+      "evidence": "CoWSwapEthFlow.sol _invalidateOrder: `filledAmount = cowSwapSettlement.filledAmount(orderUid)`; `refundAmount = sellAmount - filledAmount + feeRefundAmount`; `payable(orderData.owner).call{value: refundAmount}`. Descriptor labels 'Order max to sell' / 'Order max fee' describe the order, not the refund.",
+      "fix": "A label such as 'Refund up to (unfilled part of)' on order.sellAmount would hint at the ceiling; the exact amount and the owner cannot be shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "invalidateOrder shows appData as a raw 32-byte hex value.",
+      "evidence": "descriptor.json invalidateOrder field order.appData \"format\": \"raw\"; case 1 shows 'App data: 0xeaeb…15d8'. It is part of the order hash, so it tells apart orders with the same terms (case 2), but a reader cannot interpret it.",
+      "fix": "Keep it for order identity, or relabel it 'Order app data (identifier)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "invalidateOrder has no interpolatedIntent naming the order being cancelled.",
+      "evidence": "descriptor.json invalidateOrder: \"intent\": \"Cancel and refund owner\", interpolatedIntent null.",
+      "fix": "Add interpolatedIntent \"Cancel order selling {order.sellAmount} for {order.buyAmount} and refund owner\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 78
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.355,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [
+  "createOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)"
+ ],
+ "seconds": 74,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "createOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "createOrder takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "invalidateOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 62,
+  "clarity": 76,
+  "functions": "1B 1F",
+  "incomplete": false,
+  "worst": "createOrder takes ETH but never shows how much (@.value)"
+ }
+}

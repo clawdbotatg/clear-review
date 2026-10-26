@@ -1,0 +1,862 @@
+{
+ "hash": "0x5076f6b514e96431c00152d8b2da42d854e8250b07e0f33c5b9fb4d7b21566ee",
+ "file": "registry/lens/eip712-lens-lenshub.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 137,
+   "address": "0xdb46d1dc155634fbc732f92e853b10b288ad5a1d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Act(uint256 publicationActedProfileId,uint256 publicationActedId,uint256 actorProfileId,uint256[] referrerProfileIds,uint256[] referrerPubIds,address actionModuleAddress,bytes actionModuleData,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Runs the action module `actionModuleAddress` on publication (publicationActedProfileId, publicationActedId) for actorProfileId, with the signer as transactionExecutor (LensHub.actWithSig -> ActionLib.act).",
+     "The module can pull the signer's ERC-20 tokens, for example a collect fee whose currency and amount sit in actionModuleData (case 0 encodes USDC and 1,000,000), and can mint a collect NFT.",
+     "Referrer profiles and publications can receive a share of that payment.",
+     "Uses up one nonce of the signer."
+    ],
+    "shown": "The intent \"Act\" and three raw profile and publication ids; the module, its data and the referrers are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Act hides the action module and its data, which decide what the signer pays and to whom.",
+      "evidence": "descriptor Act: {\"path\":\"actionModuleAddress\",\"visible\":\"never\"}, {\"path\":\"actionModuleData\",\"visible\":\"never\"}; LensHub.actWithSig passes transactionExecutor: signature.signer to ActionLib.act; case 0 actionModuleData encodes 0x2791…4174 (USDC) and 0xf4240.",
+      "fix": "Show actionModuleAddress as an addressName field labelled \"Action module\". Decode the known collect-module payloads or show actionModuleData with a clear label. Change the intent to \"Act on publication (may pay a fee)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Act hides the referrer profiles and publications that can receive part of the payment.",
+      "evidence": "descriptor Act: referrerProfileIds.[] and referrerPubIds.[] are visible: never; MetaTxLib.validateActSignature signs both arrays.",
+      "fix": "Show referrerProfileIds.[] and referrerPubIds.[] labelled \"Referrer profile\" and \"Referrer publication\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Act uses the bare word \"Act\" and camelCase raw labels that a normal signer cannot read.",
+      "evidence": "descriptor Act: \"intent\": \"Act\"; labels \"actorProfileId\", \"publicationActedId\", \"publicationActedProfileId\".",
+      "fix": "Use labels \"Acting profile\", \"Publication author\" and \"Publication id\", and add an interpolatedIntent such as \"Act on publication {publicationActedId} of profile {publicationActedProfileId}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 10,
+    "depth": 15
+   },
+   {
+    "key": "ChangeDelegatedExecutorsConfig(uint256 delegatorProfileId,address[] delegatedExecutors,bool[] approvals,uint64 configNumber,bool switchToGivenConfig,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Sets approved or revoked for each listed executor in executor config number configNumber of the signer's profile.",
+     "Approved executors can then post, follow, act and change modules for the profile on the owner's behalf.",
+     "When switchToGivenConfig is true, that config becomes the active one; executors of the old active config lose their access."
+    ],
+    "shown": "The raw intent \"ChangeDelegatedExecutorsConfig\", the profile id, a list of executor addresses, a separate list of true/false values, the config number, the switch flag and the nonce.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "ChangeDelegatedExecutorsConfig shows executors and approvals as two unpaired lists, so a grant cannot be matched to its address.",
+      "evidence": "case 1 screen: three \"Delegated Executors\" rows, then three \"Approvals\" rows \"true\", \"false\", \"true\"; ProfileLib._changeDelegatedExecutorsConfig sets isApproved[configNumber][delegatedExecutors[i]] = approvals[i].",
+      "fix": "Label the lists \"Executor\" and \"Grant (true) / revoke (false)\" and show the executors with addressName. Change the intent to \"Grant or revoke profile managers\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "ChangeDelegatedExecutorsConfig does not explain that switching config drops every executor of the current config.",
+      "evidence": "ProfileLib._prepareStorageToApplyChangesUnderGivenConfig: _delegatedExecutorsConfig.configNumber = nextAvailableConfigNumber when switchToGivenConfig; descriptor label \"switchToGivenConfig\" raw.",
+      "fix": "Relabel switchToGivenConfig as \"Replace current managers with this set\" and configNumber as \"Manager set number\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "ChangeDelegatedExecutorsConfig intent is the raw type name and does not say that profile control is delegated.",
+      "evidence": "descriptor: \"intent\": \"ChangeDelegatedExecutorsConfig\".",
+      "fix": "Use intent \"Change who can manage your Lens profile\" and add an interpolatedIntent naming delegatorProfileId.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 15,
+    "depth": 45
+   },
+   {
+    "key": "Comment(uint256 profileId,string contentURI,uint256 pointedProfileId,uint256 pointedPubId,uint256[] referrerProfileIds,uint256[] referrerPubIds,bytes referenceModuleData,address[] actionModules,bytes[] actionModulesInitDatas,address referenceModule,bytes referenceModuleInitData,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Creates a comment by profileId with contentURI on publication (pointedProfileId, pointedPubId).",
+     "Runs the pointed publication's reference module processComment with referenceModuleData and the referrers, with the signer as transactionExecutor.",
+     "Initializes each action module of actionModules on the new comment with its init data, for example a collect module that sets price and fee recipient.",
+     "Initializes referenceModule on the new comment, which decides who can comment, mirror or quote it."
+    ],
+    "shown": "The intent \"Comment\", the profile id, the content URI, the pointed profile and publication ids and the nonce; all modules, init data and referrers are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Comment hides the action modules and init data installed on the signer's new comment.",
+      "evidence": "descriptor Comment: actionModules and actionModulesInitDatas visible: never; PublicationLib line 529 calls IPublicationActionModule(params.actionModules[i]).initializePublicationAction(..., params.transactionExecutor, ...); case 2 sets two action modules that the screen does not show.",
+      "fix": "Show actionModules.[] with addressName labelled \"Action module\", and show the init data or decode known modules.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Comment hides the reference module that controls who can reply to or mirror the new comment.",
+      "evidence": "descriptor Comment: referenceModule visible: never; PublicationLib line 560 calls IReferenceModule(params.referenceModule).initializeReferenceModule; case 2 sets referenceModule 0xA0b8…eB48.",
+      "fix": "Show referenceModule with addressName labelled \"Reply rules module\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Comment hides the referrer ids and referenceModuleData passed to the pointed publication's reference module.",
+      "evidence": "descriptor Comment: referrerProfileIds, referrerPubIds, referenceModuleData visible: never; PublicationLib._processCommentIfNeeded passes them to processComment.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 35
+   },
+   {
+    "key": "Follow(uint256 followerProfileId,uint256[] idsOfProfilesToFollow,uint256[] followTokenIds,bytes[] datas,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "The signer's profile followerProfileId follows each profile in idsOfProfilesToFollow (LensHub.followWithSig -> FollowLib.follow).",
+     "For each profile the follow module of that profile processes the follow with datas[i]; a fee module can take a fee from the signer as transactionExecutor.",
+     "followTokenIds[i] = 0 mints a new follow token; another value reuses that existing follow token."
+    ],
+    "shown": "The intent \"Follow\", the follower id, the profiles to follow, the follow token ids, the module data as hex, the nonce and the expiry date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Follow shows follow-module data as raw hex, so a follow fee in it cannot be read.",
+      "evidence": "descriptor Follow: {\"path\":\"datas.[]\",\"label\":\"Follow Module Data\",\"format\":\"raw\"}; LensHub.followWithSig passes datas and transactionExecutor: signature.signer to FollowLib.follow.",
+      "fix": "Keep the field but label it \"Follow module data (may hold a fee)\", and say in the intent that a follow can cost a fee.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Follow shows followTokenIds 0 literally, but 0 means a new follow token is minted.",
+      "evidence": "case 3 screen: \"Follow Token\" \"0\" twice; descriptor follow token field has format raw.",
+      "fix": "Label the field \"Existing follow token (0 = new)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Follow does not show any follow fee, which the followed profile's module stores.",
+      "evidence": "LensHub.followWithSig delegates to FollowLib.follow and the follow module; the fee is stored in the module, not in the Follow message.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "follow_with_sign(uint256 followerProfileId,uint256 signatureDeadline)",
+    "effects": [
+     "LensHub verifies no type named follow_with_sign; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"follow_with_sign\" with a raw profile id and a raw unix deadline, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "follow_with_sign is not a type LensHub verifies, yet the screen presents it as a LensHub follow.",
+      "evidence": "Typehash.sol has only ACT, CHANGE_DELEGATED_EXECUTORS_CONFIG, COLLECT_LEGACY, COMMENT, FOLLOW, MIRROR, POST, QUOTE, SET_BLOCK_STATUS, SET_FOLLOW_MODULE, SET_PROFILE_METADATA_URI, UNFOLLOW; the descriptor binds follow_with_sign to domain \"Lens Protocol Profiles\" at 0xdb46…5a1d.",
+      "fix": "Remove this format, or bind it to the contract that really verifies it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "follow_with_sign shows signatureDeadline as a raw unix number.",
+      "evidence": "case 4 screen: \"signatureDeadline\" \"1776643200\".",
+      "fix": "Use format date with encoding timestamp.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "link(uint256 handle_id,uint256 profile_id)",
+    "effects": [
+     "LensHub verifies no type named link; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"link\" with a raw handle id and profile id, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "link is not a type LensHub verifies, so the screen states a handle link that LensHub never performs.",
+      "evidence": "Typehash.sol lists no link type; LensHub has no linkWithSig; descriptor binds link to the LensHub domain at 0xdb46…5a1d.",
+      "fix": "Remove this format, or move it to the descriptor of the handle registry that verifies it, with its real type.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "link_with_sig(uint256 handle_id,uint256 profile_id,uint256 signatureDeadline)",
+    "effects": [
+     "LensHub verifies no type named link_with_sig; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"link_with_sig\" with raw handle id, profile id and unix deadline, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "link_with_sig is not a type LensHub verifies, yet it is bound to the LensHub domain.",
+      "evidence": "Typehash.sol lists no link_with_sig type; descriptor domain \"Lens Protocol Profiles\" version 2 at 0xdb46…5a1d.",
+      "fix": "Remove this format, or bind it to the contract that verifies it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "mint(uint256 to,uint256 profile_id,uint256 profile_id_pointed,uint256 pubid_pointed)",
+    "effects": [
+     "LensHub verifies no type named mint; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"mint\" with a raw \"to\" number and three raw ids, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "mint is not a type LensHub verifies, so the screen states a mint that never happens.",
+      "evidence": "Typehash.sol lists no mint type; descriptor binds mint to the LensHub domain at 0xdb46…5a1d.",
+      "fix": "Remove this format.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint labels a uint256 as \"to\", which reads as a recipient address.",
+      "evidence": "descriptor mint: {\"path\":\"to\",\"label\":\"to\",\"format\":\"raw\"}; case 7 shows \"to\" \"1845210\".",
+      "fix": "Remove the format or relabel the field to what it holds.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "Mirror(uint256 profileId,string metadataURI,uint256 pointedProfileId,uint256 pointedPubId,uint256[] referrerProfileIds,uint256[] referrerPubIds,bytes referenceModuleData,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Creates a mirror by profileId of publication (pointedProfileId, pointedPubId) with metadataURI.",
+     "Runs the pointed publication's reference module processMirror with referenceModuleData and the referrers, with the signer as transactionExecutor."
+    ],
+    "shown": "The intent \"mirror\", the profile id, metadata URI, pointed profile id and nonce; the publication id is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Mirror hides pointedPubId, so the signer sees the author but not which publication is mirrored.",
+      "evidence": "descriptor Mirror: {\"label\":\"Pointed Pub Id\",\"path\":\"pointedPubId\",\"visible\":\"never\"}; MetaTxLib.validateMirrorSignature signs mirrorParams.pointedPubId.",
+      "fix": "Make pointedPubId visible, labelled \"Publication id\", and add an interpolatedIntent \"Mirror publication {pointedPubId} of profile {pointedProfileId}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Mirror hides the referrers and referenceModuleData passed to the reference module.",
+      "evidence": "descriptor Mirror: referrerProfileIds, referrerPubIds, referenceModuleData visible: never; PublicationLib._processMirrorIfNeeded passes them.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "Mirror uses camelCase raw labels and shows the nonce, which a normal signer cannot use.",
+      "evidence": "descriptor Mirror labels \"profileId\", \"metadataURI\", \"pointedProfileId\", \"nonce\".",
+      "fix": "Use plain labels and hide the nonce.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 35
+   },
+   {
+    "key": "mirror_with_sig(uint256 profile_id,uint256 profile_id_pointed,uint256 pubid_pointed,uint256 signatureDeadline)",
+    "effects": [
+     "LensHub verifies no type named mirror_with_sig; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"mirror_with_sig\" with raw ids and a raw unix deadline, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "mirror_with_sig is not the Mirror type LensHub verifies, so the stated mirror never happens.",
+      "evidence": "Typehash.MIRROR = keccak256('Mirror(uint256 profileId,string metadataURI,...)'); no mirror_with_sig type exists in Typehash.sol.",
+      "fix": "Remove this format; the Mirror format covers the real type.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "Post(uint256 profileId,string contentURI,address[] actionModules,bytes[] actionModulesInitDatas,address referenceModule,bytes referenceModuleInitData,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Creates a post by profileId with contentURI.",
+     "Initializes each action module of actionModules on the new post with its init data, for example a collect module that sets price and fee recipient.",
+     "Initializes referenceModule on the new post, which decides who can comment, mirror or quote it."
+    ],
+    "shown": "The intent \"Post\", the profile id, the post URI and the nonce; all modules and init data are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Post hides the action modules and init data installed on the signer's new post.",
+      "evidence": "descriptor Post: actionModules and actionModulesInitDatas visible: never; PublicationLib line 529 IPublicationActionModule(params.actionModules[i]).initializePublicationAction(..., params.transactionExecutor, ...).",
+      "fix": "Show actionModules.[] with addressName labelled \"Action module\", and show or decode the init data.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Post hides the reference module that controls who can reply to or mirror the post.",
+      "evidence": "descriptor Post: referenceModule visible: never; case 10 sets referenceModule 0x2791…4174 and the screen shows nothing of it.",
+      "fix": "Show referenceModule with addressName labelled \"Reply rules module\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 40
+   },
+   {
+    "key": "post_with_sign(uint256 profile_id,uint256 signatureDeadline)",
+    "effects": [
+     "LensHub verifies no type named post_with_sign; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"post_with_sign\" with a raw profile id and a raw unix deadline, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "post_with_sign is not a type LensHub verifies, yet the screen presents it as a LensHub post.",
+      "evidence": "Typehash.POST is 'Post(uint256 profileId,string contentURI,...)'; no post_with_sign type exists in Typehash.sol.",
+      "fix": "Remove this format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "Quote(uint256 profileId,string contentURI,uint256 pointedProfileId,uint256 pointedPubId,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "The format's type is not LensHub's Quote type; LensHub never accepts a signature on it.",
+     "A real Quote that LensHub verifies also signs referrers, referenceModuleData, actionModules with init data, and referenceModule with init data, and installs those modules on the quote."
+    ],
+    "shown": "The intent \"Quote\", profile id, content URI, pointed ids, nonce and a raw unix deadline.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "Quote format type differs from the Quote type LensHub verifies; real quotes get no clear signing.",
+      "evidence": "Typehash.QUOTE = keccak256('Quote(uint256 profileId,string contentURI,uint256 pointedProfileId,uint256 pointedPubId,uint256[] referrerProfileIds,uint256[] referrerPubIds,bytes referenceModuleData,address[] actionModules,bytes[] actionModulesInitDatas,address referenceModule,bytes referenceModuleInitData,uint256 nonce,uint256 deadline)'); descriptor key 'Quote(uint256 profileId,string contentURI,uint256 pointedProfileId,uint256 pointedPubId,uint256 nonce,uint256 deadline)'.",
+      "fix": "Change the key to the full Quote type from Typehash.sol and add fields like the Comment format, showing the action modules and reference module.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Quote shows the deadline as a raw unix number.",
+      "evidence": "case 12 screen: \"deadline\" \"1779321600\".",
+      "fix": "Use format date with encoding timestamp, or hide it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 10,
+    "depth": 10
+   },
+   {
+    "key": "quote_with_sign(uint256 profile_id,uint256 profile_id_pointed,uint256 pubid_pointed,uint256 signatureDeadline)",
+    "effects": [
+     "LensHub verifies no type named quote_with_sign; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"quote_with_sign\" with raw ids and a raw unix deadline, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "quote_with_sign is not a type LensHub verifies, so the stated quote never happens.",
+      "evidence": "No quote_with_sign type in Typehash.sol; descriptor binds it to the LensHub domain at 0xdb46…5a1d.",
+      "fix": "Remove this format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "set_block_status(uint256 byProfileId,uint256 signatureDeadline)",
+    "effects": [
+     "LensHub verifies no type named set_block_status; a signature on this message does nothing on LensHub.",
+     "The real SetBlockStatus type, which blocks profiles and can force them to unfollow, has no format."
+    ],
+    "shown": "The intent \"set_block_status\" with a raw profile id and a raw unix deadline, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "set_block_status is not the SetBlockStatus type LensHub verifies and omits the profiles and statuses.",
+      "evidence": "Typehash.SET_BLOCK_STATUS = keccak256('SetBlockStatus(uint256 byProfileId,uint256[] idsOfProfilesToSetBlockStatus,bool[] blockStatus,uint256 nonce,uint256 deadline)'); descriptor key 'set_block_status(uint256 byProfileId,uint256 signatureDeadline)'.",
+      "fix": "Replace it with a SetBlockStatus format that shows idsOfProfilesToSetBlockStatus.[] and blockStatus.[] with clear labels.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "SetProfileMetadataURI(uint256 profileId,string metadataURI,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Replaces the metadata URI of profile profileId with metadataURI (ProfileLib.setProfileMetadataURI)."
+    ],
+    "shown": "The intent \"SetProfileMetadataURI\", the profile id, the new metadata URI and the nonce.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "SetProfileMetadataURI uses the raw type name as intent and camelCase labels.",
+      "evidence": "descriptor: \"intent\": \"SetProfileMetadataURI\"; labels \"profileId\", \"metadataURI\", \"nonce\".",
+      "fix": "Use intent \"Update profile metadata\", labels \"Profile\" and \"New metadata\", and hide the nonce.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   },
+   {
+    "key": "set_block_status_with_sig(uint256 byProfileId,uint256 signatureDeadline)",
+    "effects": [
+     "LensHub verifies no type named set_block_status_with_sig; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"set_block_status_with_sig\" with a raw profile id and a raw unix deadline, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "set_block_status_with_sig is not a type LensHub verifies, yet it is bound to the LensHub domain.",
+      "evidence": "No set_block_status_with_sig type in Typehash.sol; the real one is SetBlockStatus(uint256 byProfileId,uint256[] idsOfProfilesToSetBlockStatus,bool[] blockStatus,uint256 nonce,uint256 deadline).",
+      "fix": "Remove this format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "SetFollowModule(uint256 profileId,address followModule,bytes followModuleInitData,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Replaces the follow module of profile profileId with followModule (ProfileLib.setFollowModule).",
+     "Initializes the module with followModuleInitData, which sets the follow rules, for example a follow fee amount, its currency and its recipient."
+    ],
+    "shown": "The intent \"Set Follow Module\", the profile id, the module address raw and the nonce; the init data is hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "SetFollowModule hides the init data that sets the follow fee and who receives it.",
+      "evidence": "descriptor: {\"label\":\"Follow Module Init Data\",\"path\":\"followModuleInitData\",\"visible\":\"never\"}; ProfileLib._initFollowModule calls IFollowModule(followModule).initializeFollowModule(profileId, transactionExecutor, followModuleInitData).",
+      "fix": "Show followModuleInitData, or decode it for known fee modules into amount, currency and recipient.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "SetFollowModule shows the module as a raw address with no name.",
+      "evidence": "descriptor: {\"path\":\"followModule\",\"label\":\"followModule\",\"format\":\"raw\"}.",
+      "fix": "Use format addressName labelled \"Follow module\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 30
+   },
+   {
+    "key": "set_profile_metadata_with_sign(uint256 profileId,uint256 signatureDeadline)",
+    "effects": [
+     "LensHub verifies no type named set_profile_metadata_with_sign; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"set_profile_metadata_with_sign\" with a raw profile id and a raw unix deadline, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "set_profile_metadata_with_sign is not a type LensHub verifies and omits the new metadata.",
+      "evidence": "Typehash.SET_PROFILE_METADATA_URI = keccak256('SetProfileMetadataURI(uint256 profileId,string metadataURI,uint256 nonce,uint256 deadline)'); no set_profile_metadata_with_sign type exists.",
+      "fix": "Remove this format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   },
+   {
+    "key": "Unfollow(uint256 unfollowerProfileId,uint256[] idsOfProfilesToUnfollow,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "The signer's profile unfollowerProfileId unfollows each profile in idsOfProfilesToUnfollow (FollowLib.unfollow)."
+    ],
+    "shown": "The intent \"Unfollow\", the unfollower id, the profiles to unfollow, the nonce and a raw unix deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Unfollow shows the deadline as a raw unix number.",
+      "evidence": "descriptor Unfollow: {\"path\":\"deadline\",\"label\":\"deadline\",\"format\":\"raw\"}.",
+      "fix": "Use format date with encoding timestamp, or hide it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "unfollow_with_sign(uint256 unfollowerProfileId,uint256 signatureDeadline)",
+    "effects": [
+     "LensHub verifies no type named unfollow_with_sign; a signature on this message does nothing on LensHub."
+    ],
+    "shown": "The intent \"unfollow_with_sign\" with a raw profile id and a raw unix deadline, owner LensHub.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "unfollow_with_sign is not a type LensHub verifies and omits which profiles are unfollowed.",
+      "evidence": "Typehash.UNFOLLOW = keccak256('Unfollow(uint256 unfollowerProfileId,uint256[] idsOfProfilesToUnfollow,uint256 nonce,uint256 deadline)'); no unfollow_with_sign type exists.",
+      "fix": "Remove this format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   }
+  ],
+  "couldNotCheck": [
+   "ActionLib.sol is not in the directory. LensHub.actWithSig calls ActionLib.act, and the exact token movements from the signer in Act could not be traced.",
+   "FollowLib.sol is not in the directory. LensHub.followWithSig and unfollowWithSig call FollowLib, and any follow fee taken from the signer could not be traced.",
+   "The publication action modules and follow modules that LensHub calls (chosen by actionModuleAddress, actionModules and followModule) have no source here, so what they pull from the signer could not be checked."
+  ]
+ },
+ "cost": 1.032,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 230,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "Act(uint256 publicationActedProfileId,uint256 publicationActedId,uint256 actorProfileId,uint256[] referrerProfileIds,uint256[] referrerPubIds,address actionModuleAddress,bytes actionModuleData,uint256 nonce,uint256 deadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 7,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 2,
+   "worst": "Act hides the action module and its data, which decide what the signer pays and to whom.",
+   "comprehension": null
+  },
+  "ChangeDelegatedExecutorsConfig(uint256 delegatorProfileId,address[] delegatedExecutors,bool[] approvals,uint64 configNumber,bool switchToGivenConfig,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 15,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "ChangeDelegatedExecutorsConfig shows executors and approvals as two unpaired lists, so a grant cannot be matched to its address.",
+   "comprehension": null
+  },
+  "Comment(uint256 profileId,string contentURI,uint256 pointedProfileId,uint256 pointedPubId,uint256[] referrerProfileIds,uint256[] referrerPubIds,bytes referenceModuleData,address[] actionModules,bytes[] actionModulesInitDatas,address referenceModule,bytes referenceModuleInitData,uint256 nonce,uint256 deadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "Comment hides the action modules and init data installed on the signer's new comment.",
+   "comprehension": null
+  },
+  "Follow(uint256 followerProfileId,uint256[] idsOfProfilesToFollow,uint256[] followTokenIds,bytes[] datas,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "Follow shows follow-module data as raw hex, so a follow fee in it cannot be read.",
+   "comprehension": null
+  },
+  "follow_with_sign(uint256 followerProfileId,uint256 signatureDeadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 0,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "follow_with_sign is not a type LensHub verifies, yet the screen presents it as a LensHub follow.",
+   "comprehension": null
+  },
+  "link(uint256 handle_id,uint256 profile_id)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "link is not a type LensHub verifies, so the screen states a handle link that LensHub never performs.",
+   "comprehension": null
+  },
+  "link_with_sig(uint256 handle_id,uint256 profile_id,uint256 signatureDeadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "link_with_sig is not a type LensHub verifies, yet it is bound to the LensHub domain.",
+   "comprehension": null
+  },
+  "mint(uint256 to,uint256 profile_id,uint256 profile_id_pointed,uint256 pubid_pointed)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 0,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "mint is not a type LensHub verifies, so the screen states a mint that never happens.",
+   "comprehension": null
+  },
+  "Mirror(uint256 profileId,string metadataURI,uint256 pointedProfileId,uint256 pointedPubId,uint256[] referrerProfileIds,uint256[] referrerPubIds,bytes referenceModuleData,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "Mirror hides pointedPubId, so the signer sees the author but not which publication is mirrored.",
+   "comprehension": null
+  },
+  "mirror_with_sig(uint256 profile_id,uint256 profile_id_pointed,uint256 pubid_pointed,uint256 signatureDeadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "mirror_with_sig is not the Mirror type LensHub verifies, so the stated mirror never happens.",
+   "comprehension": null
+  },
+  "Post(uint256 profileId,string contentURI,address[] actionModules,bytes[] actionModulesInitDatas,address referenceModule,bytes referenceModuleInitData,uint256 nonce,uint256 deadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "Post hides the action modules and init data installed on the signer's new post.",
+   "comprehension": null
+  },
+  "post_with_sign(uint256 profile_id,uint256 signatureDeadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "post_with_sign is not a type LensHub verifies, yet the screen presents it as a LensHub post.",
+   "comprehension": null
+  },
+  "Quote(uint256 profileId,string contentURI,uint256 pointedProfileId,uint256 pointedPubId,uint256 nonce,uint256 deadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "Quote format type differs from the Quote type LensHub verifies; real quotes get no clear signing.",
+   "comprehension": null
+  },
+  "quote_with_sign(uint256 profile_id,uint256 profile_id_pointed,uint256 pubid_pointed,uint256 signatureDeadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "quote_with_sign is not a type LensHub verifies, so the stated quote never happens.",
+   "comprehension": null
+  },
+  "set_block_status(uint256 byProfileId,uint256 signatureDeadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "set_block_status is not the SetBlockStatus type LensHub verifies and omits the profiles and statuses.",
+   "comprehension": null
+  },
+  "SetProfileMetadataURI(uint256 profileId,string metadataURI,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "SetProfileMetadataURI uses the raw type name as intent and camelCase labels.",
+   "comprehension": null
+  },
+  "set_block_status_with_sig(uint256 byProfileId,uint256 signatureDeadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "set_block_status_with_sig is not a type LensHub verifies, yet it is bound to the LensHub domain.",
+   "comprehension": null
+  },
+  "SetFollowModule(uint256 profileId,address followModule,bytes followModuleInitData,uint256 nonce,uint256 deadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 27,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "SetFollowModule hides the init data that sets the follow fee and who receives it.",
+   "comprehension": null
+  },
+  "set_profile_metadata_with_sign(uint256 profileId,uint256 signatureDeadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "set_profile_metadata_with_sign is not a type LensHub verifies and omits the new metadata.",
+   "comprehension": null
+  },
+  "Unfollow(uint256 unfollowerProfileId,uint256[] idsOfProfilesToUnfollow,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "Unfollow shows the deadline as a raw unix number.",
+   "comprehension": null
+  },
+  "unfollow_with_sign(uint256 unfollowerProfileId,uint256 signatureDeadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "unfollow_with_sign is not a type LensHub verifies and omits which profiles are unfollowed.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 42,
+  "clarity": 17,
+  "functions": "5C 16F",
+  "incomplete": true,
+  "worst": "Act hides the action module and its data, which decide what the signer pays and to whom."
+ }
+}

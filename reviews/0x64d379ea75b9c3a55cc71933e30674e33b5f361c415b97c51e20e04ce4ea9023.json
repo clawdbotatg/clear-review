@@ -1,0 +1,249 @@
+{
+ "hash": "0x64d379ea75b9c3a55cc71933e30674e33b5f361c415b97c51e20e04ce4ea9023",
+ "file": "registry/morpho/calldata-waterline-infinifiUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeeff75262b2ec16a3c62a807f02ee7627654931"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends `assets` USDC from their wallet to the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "The vault mints previewDeposit(assets) shares to `onBehalf`. The share amount comes from the share price in storage, and the code sets no minimum.",
+     "accrueInterest runs first. It may mint fee shares to the fee recipients and may book losses, which changes the share price the signer gets."
+    ],
+    "shown": "The screen says it deposits the stated USDC amount and sends infinifiUSDC shares to `onBehalf`. It does not say how many shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit shows the share ticker 'infinifiUSDC', but the vault token's on-chain symbol is 'bbqUSDCinfinifi'.",
+      "evidence": "descriptor.json metadata.constants.vaultTicker = \"infinifiUSDC\", shown as the 'Share ticker' field. In case 0 the minted share transfer reads symbol \"bbqUSDCinfinifi\" from the vault 0xbeeff…4931. VaultV2.sol has `string public symbol;`, which the owner sets.",
+      "fix": "Set vaultTicker to the on-chain symbol \"bbqUSDCinfinifi\", or remove the raw ticker field and name the vault in the intent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the signer receives, and the code sets no minimum.",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The share count comes from storage. In case 0 the signer received 0.01 shares, and no field states this.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit adds a fixed 'Share ticker' raw field that holds no transaction data.",
+      "evidence": "descriptor deposit field {\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}. Case 0 renders 'Share ticker: infinifiUSDC'.",
+      "fix": "Fold the ticker into the label, for example 'Send infinifiUSDC shares to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.01 USDC out is shown right. The shares in go to the signer (onBehalf), but the amount is not shown, and the ticker differs from the on-chain symbol bbqUSDCinfinifi."
+     }
+    ],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer pays previewMint(shares) USDC from their wallet to the vault. The amount comes from the share price in storage, and the code sets no maximum.",
+     "The vault mints exactly `shares` vault shares to `onBehalf`.",
+     "accrueInterest runs first and may change the share price, which changes how much USDC the signer pays."
+    ],
+    "shown": "The screen says it mints the stated number of infinifiUSDC shares to `onBehalf`, and a 'Deposit asset: USDC' field names the token paid. It shows no USDC amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The mint intent and sentence do not say the signer pays USDC. Only a raw ticker field hints at it.",
+      "evidence": "descriptor mint: intent \"Mint\", interpolatedIntent \"Mint {#.shares} for {#.onBehalf}\". VaultV2.enter: `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets);`. In case 1 the signer pays 1.002188 USDC. The reader was unsure of the amount and thought the address looked like a burn.",
+      "fix": "Change the intent to \"Pay USDC to mint vault shares\" and the interpolatedIntent to \"Pay USDC to mint {#.shares} for {#.onBehalf}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show the USDC amount taken from the signer, and the code sets no maximum.",
+      "evidence": "VaultV2.mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. The amount is not in calldata. In case 1 the signer paid 1002188 USDC units (1.002188 USDC), and the screen shows only 'Deposit asset: USDC'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The screen names USDC as the asset paid but not the amount (1.002188 USDC). The shares go to 0x…dEaD, not to the signer."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns previewWithdraw(assets) shares from `onBehalf`. The share count comes from storage, and the code sets no maximum.",
+     "When the signer is not `onBehalf`, the call spends the signer's share allowance from `onBehalf`.",
+     "`receiver` gets exactly `assets` USDC from the vault."
+    ],
+    "shown": "The screen says it withdraws exactly the stated USDC amount to `receiver`, from the shares of the named Owner. It does not say how many shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares it burns from the owner, and the code sets no maximum.",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);` then `deleteShares(onBehalf, shares)`. In case 2 the call burns 24854.04 shares from the signer, and nothing on the screen states this.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The share burn (24854.04 bbqUSDCinfinifi out) is not shown, and the reader inferred only that their position goes down. The 24871 USDC in to the signer is shown right."
+     }
+    ],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` shares from `onBehalf`. When the signer is not `onBehalf`, this spends the signer's share allowance.",
+     "`receiver` gets previewRedeem(shares) USDC from the vault. The amount comes from the share price in storage, and the code sets no minimum.",
+     "accrueInterest runs first. A loss it books lowers the USDC paid out."
+    ],
+    "shown": "The screen says it redeems the stated number of shares to `receiver`, with the named Owner. It never says that USDC is paid out or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDC as the asset the receiver gets. The reader could not tell what arrives.",
+      "evidence": "descriptor redeem fields are only 'Shares to redeem', 'To' and 'Owner'. The interpolatedIntent is \"Redeem {#.shares} to {#.receiver}\". VaultV2.exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. In case 3 the signer received 170.174281 USDC, and the reader wrote 'Unknown asset and amount'.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}. Change the interpolatedIntent to \"Redeem {#.shares} for USDC to {#.receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount received, and the code sets no minimum.",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. The amount is not in calldata. In case 3 the signer received 170174281 USDC units (170.174281 USDC).",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 170.0877 shares out are shown right. The 170.174281 USDC in goes to the signer, as shown, but neither the asset nor the amount is shown."
+     }
+    ],
+    "glance": 50,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.494,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 97,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 74,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit shows the share ticker 'infinifiUSDC', but the vault token's on-chain symbol is 'bbqUSDCinfinifi'.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The mint intent and sentence do not say the signer pays USDC. Only a raw ticker field hints at it.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset the receiver gets. The reader could not tell what arrives.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 75,
+  "clarity": 65,
+  "functions": "1B 1C 2D",
+  "incomplete": false,
+  "worst": "deposit shows the share ticker 'infinifiUSDC', but the vault token's on-chain symbol is 'bbqUSDCinfinifi'."
+ }
+}

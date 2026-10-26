@@ -1,0 +1,190 @@
+{
+ "hash": "0xb6c213c8542b8719ffd46c0d6a1e042207a1a1064a1590b9ae78c71ae0ded397",
+ "file": "registry/morpho/calldata-hyperithm-hypercbBTCa-v2-143.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 143,
+   "address": "0xe09a93786275546690247d70f1767cf0b69e8ea0"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` cbBTC from the signer into the vault (SafeERC20Lib.safeTransferFrom in enter), which spends the signer's cbBTC allowance to the vault.",
+     "Mints hypercbBTCa vault shares to `onBehalf`. The share count is previewDeposit(assets), set by the current share price after accrueInterest.",
+     "The deposited cbBTC may then go to the liquidity adapter (allocateInternal). This is internal to the vault and does not touch the signer."
+    ],
+    "shown": "\"Deposit 0.000001 cbBTC for 0xdEaD\", with the cbBTC amount, a constant share ticker (hypercbBTCa) and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown because it depends on the vault's share price.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The calldata has no share or minimum-shares parameter, so no field can show it. The descriptor shows only the ticker: `\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"`.",
+      "fix": "Nothing to fix in the descriptor. The amount is decided on chain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the amount is labelled 'Deposit asset', and the shares appear only as a separate bare ticker field.",
+      "evidence": "descriptor deposit fields: `\"label\": \"Deposit asset\"` on `assets`, and a standalone `\"Share ticker\"` raw constant field. Case 0 screen: 'Deposit asset: 0.000001 cbBTC', 'Share ticker: hypercbBTCa'.",
+      "fix": "Label the amount 'Amount to deposit'. Fold the ticker into the recipient label or the intent, e.g. 'Deposit {assets} for hypercbBTCa shares to {onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The signer sent 100 units (0.000001) of cbBTC to the vault, and the screen shows that. The shares went to 0xdead, not to the signer, and the screen and the reader both state this correctly."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` cbBTC from the vault to `receiver` (safeTransfer in exit).",
+     "Burns previewWithdraw(assets) hypercbBTCa shares (rounded up) from `onBehalf` (deleteShares).",
+     "If the caller is not `onBehalf`, it spends the share allowance that `onBehalf` gave the caller."
+    ],
+    "shown": "\"Withdraw 0.000001 cbBTC to 0x63Fa…f340\", with the exact amount, the receiver and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown. They are computed from the share price.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`, and exit calls `deleteShares(onBehalf, shares)`. Case 1: the signer's hypercbBTCa went out (-1000000000000), and the screen states neither the amount nor that shares are burned. The reader was unsure: 'Whether any shares or tokens are burned, and how many, is not shown'.",
+      "fix": "The amount cannot come from calldata. Say in the intent that shares are spent, e.g. 'Withdraw {assets} to {receiver} by burning hypercbBTCa shares of {onBehalf}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows the 0.000001 cbBTC arriving at the signer exactly. The burn of 1e12 hypercbBTCa shares is shown only through the 'Owner' field, with no amount. The reader guessed that shares might be spent."
+     }
+    ],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` hypercbBTCa from `onBehalf` (deleteShares in exit).",
+     "If the caller is not `onBehalf`, it spends the share allowance that `onBehalf` gave the caller.",
+     "Sends previewRedeem(shares) cbBTC from the vault to `receiver`. The amount is set by the share price, and there is no minimum."
+    ],
+    "shown": "\"Redeem 0.0023 hypercbBTCa to 0x658E…C002\", with the shares, the receiver and the owner. The asset received and its amount are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names cbBTC as the asset the receiver gets.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. Case 2: 230000 cbBTC came in to the signer, but the screen fields are only 'Shares to redeem', 'To' and 'Owner'. The reader wrote 'Underlying asset (likely cbBTC, amount not shown)'. The descriptor already has the constant `underlyingTicker: cbBTC` and does not use it here.",
+      "fix": "Add a field or intent text using $.metadata.constants.underlyingTicker, e.g. interpolatedIntent 'Redeem {shares} for cbBTC to {receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the cbBTC amount received is computed on chain, and the function has no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. There is no minAssets parameter in the calldata.",
+      "fix": "No descriptor change can show the amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 0.0023 hypercbBTCa going out exactly. 0.0023 cbBTC came in to the signer. The reader guessed the asset correctly but had no amount, and the screen does not name the asset."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.342,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 65,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names cbBTC as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 80,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names cbBTC as the asset the receiver gets."
+ }
+}

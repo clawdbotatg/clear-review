@@ -1,0 +1,203 @@
+{
+ "hash": "0x89712eb50ad62aa6cf6176026b25d510c998a80e7da6a6febe284c1d5ffe2ab9",
+ "file": "registry/morpho/calldata-re7_labs-Re7wstETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe87ed29896b91421ff43f69257abf78300e40c7a"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` wstETH to the vault (safeTransferFrom from the caller).",
+     "The receiver gets newly minted Re7wstETH shares, computed from storage totals and rounded down.",
+     "The function spends the signer's wstETH allowance to the vault by `assets`."
+    ],
+    "shown": "Intent 'Deposit', the wstETH amount sent, the ticker 'Re7wstETH' as text, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the receiver gets; the code computes it from storage with no minimum.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` The descriptor shows only 'Share ticker' raw 'Re7wstETH', not an amount.",
+      "fix": "No descriptor change can show the computed share amount. Optionally rename 'Share ticker' to 'Receive shares in'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' names no asset or vault; the sentence carries no amount or receiver.",
+      "evidence": "descriptor deposit format: \"intent\": \"Deposit\", interpolatedIntent null.",
+      "fix": "Change the intent to \"Deposit wstETH into Re7 vault\" and add an interpolatedIntent \"Deposit {assets} for shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends wstETH to the vault, in an amount computed from storage totals (rounded up) and not in calldata.",
+     "The receiver gets exactly `shares` Re7wstETH shares.",
+     "The function spends the signer's wstETH allowance to the vault by the computed amount."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset' as the text 'wstETH', the exact shares minted, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much wstETH leaves the signer; the amount comes from storage with no maximum.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` then ERC4626._deposit `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);`. Descriptor shows only 'Deposit asset' = 'wstETH' (raw constant).",
+      "fix": "No descriptor change can show the computed amount. The wstETH allowance bounds it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint intent 'Mint' does not say that wstETH leaves the signer to mint vault shares.",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\", interpolatedIntent null.",
+      "fix": "Change the intent to \"Deposit wstETH to mint Re7 shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns shares from `owner`, in an amount computed from storage and rounded up.",
+     "If the signer is not `owner`, the function spends owner's share allowance to the signer.",
+     "The receiver gets exactly `assets` wstETH."
+    ],
+    "shown": "Intent 'Withdraw', the exact wstETH amount, the receiver 'To', and the 'Owner' whose shares burn.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many owner shares burn; the code computes it from storage with no maximum.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` then `_burn(owner, shares)` in ERC4626._withdraw. No shares field in the descriptor.",
+      "fix": "No descriptor change can show the computed share amount.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` Re7wstETH from `owner`.",
+     "If the signer is not `owner`, the function spends owner's share allowance to the signer.",
+     "The receiver gets wstETH in an amount computed from storage totals, rounded down."
+    ],
+    "shown": "Intent 'Redeem', the exact shares redeemed, the receiver 'To', and the 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much wstETH the receiver gets; the code computes it with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` then `SafeERC20.safeTransfer(_asset, receiver, assets);`. No field names wstETH.",
+      "fix": "Add a field that shows the asset received, e.g. {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem intent 'Redeem' does not say that shares burn for wstETH.",
+      "evidence": "descriptor redeem format: \"intent\": \"Redeem\", interpolatedIntent null.",
+      "fix": "Change the intent to \"Redeem Re7 shares for wstETH\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.278,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 49,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 60,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": null
+ }
+}

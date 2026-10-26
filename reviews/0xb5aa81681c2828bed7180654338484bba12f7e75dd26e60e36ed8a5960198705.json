@@ -1,0 +1,259 @@
+{
+ "hash": "0xb5aa81681c2828bed7180654338484bba12f7e75dd26e60e36ed8a5960198705",
+ "file": "registry/flyingtulip/calldata-PositionsManager.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbe4050a73a7fb384c65e885a15c33461a4b20055"
+  },
+  {
+   "chainId": 146,
+   "address": "0xbe4050a73a7fb384c65e885a15c33461a4b20055"
+  },
+  {
+   "chainId": 146,
+   "address": "0x82ffb119eeed117bae7a2cf38ce52eaba3871821"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address asset, uint256 amt)",
+    "effects": [
+     "Pulls exactly `amt` of `asset` from the signer's wallet into PositionsManager (safeTransferFrom), which puts it into the asset's yield wrapper.",
+     "Credits `amt` to the signer's available collateral balance for `asset` in PositionsManager.",
+     "Settles any pending FT supply rewards and credits them to the signer's FT collateral balance (a small side effect in the signer's favour)."
+    ],
+    "shown": "\"Deposit 5 USDC\": the token and the exact amount that leave the wallet as collateral.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(address asset, uint256 amt)",
+    "effects": [
+     "Debits `amt` from the signer's available collateral balance for `asset`.",
+     "Sends `amt` of `asset` to the signer, delivered by the yield wrapper's withdraw(amt, msg.sender).",
+     "Reverts if the signer's health factor ends up below the safe threshold.",
+     "Settles any pending FT supply rewards into the signer's FT collateral balance."
+    ],
+    "shown": "\"Withdraw 2 USDC\": the token and amount of collateral coming back to the wallet.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the yield wrapper code that delivers the tokens is not in the directory, so the amount received is unverified.",
+      "evidence": "PositionsManager.sol _withdrawTo -> _withdrawFromWrapper: IftYieldWrapper(wrapper).withdraw(amount, to). The wrapper source is not among the contracts provided.",
+      "fix": "Add the ftYieldWrapper source so the amount the signer receives can be checked.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 82
+   },
+   {
+    "key": "borrow(address asset, uint256 amt)",
+    "effects": [
+     "Mints debt shares to the signer for `amt` of `asset`. The debt is interest-bearing and owed by the signer.",
+     "Sends `amt` of `asset` to the signer from the yield wrapper.",
+     "Reverts if the signer's health factor ends up below the safe threshold."
+    ],
+    "shown": "\"Borrow 1 USDC\": the token and amount borrowed into the wallet. That this creates debt is implied by the word borrow.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "borrow: the yield wrapper code that delivers the borrowed tokens is not in the directory.",
+      "evidence": "PositionsManager.sol _borrowTo: _withdrawFromWrapper(c.ftYieldWrapper, amt, to). The wrapper source is not provided.",
+      "fix": "Add the ftYieldWrapper source.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "repay(address asset, uint256 amt)",
+    "effects": [
+     "Pulls up to `amt` of `asset` from the signer, capped at the full outstanding debt rounded up (`used`).",
+     "Burns the matching debt shares of the signer and so reduces the signer's debt in `asset`."
+    ],
+    "shown": "\"Repay 2 USDC\": the token and the most that can leave the wallet to pay down debt.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "repay: a repay-all sentinel (max uint) shows as a huge token amount instead of 'Full debt'.",
+      "evidence": "PositionsManager.sol _repay: `if (amt >= fullDebt) { sharesToBurn = userShares; }` and only `used` is pulled. The descriptor field `amt` tokenAmount has no threshold/message.",
+      "fix": "Add params threshold and message (for example 'Full debt') to the repay amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 78
+   },
+   {
+    "key": "approveBorrow(address delegate, address asset, uint256 borrowAllowance_)",
+    "effects": [
+     "Sets (overwrites) borrowAllowance[signer][delegate][asset] to `borrowAllowance_`.",
+     "An allowlisted engine `delegate` can then borrow up to that amount in the signer's name (borrowFlashAndDepositFor, engineBatch BORROW_TO_ENGINE). The debt goes on the signer's account and the borrowed tokens go to the delegate."
+    ],
+    "shown": "\"Borrow OK 0x1111…\" with fields for the delegate and an allowance of 10 USDC.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approveBorrow: 'Borrow OK {delegate}' doesn't say the delegate can create debt in your name.",
+      "evidence": "descriptor interpolatedIntent \"Borrow OK {delegate}\" and intent \"Approve borrowing\". PositionsManager.sol engineBatch BORROW_TO_ENGINE: _consumeBorrowAllowance(a.from,...); _borrowTo(a.from, a.asset, a.amount, msg.sender), so the debt is on the signer and the funds go to the engine.",
+      "fix": "Use an intent like \"Allow {delegate} to borrow up to {borrowAllowance_} against your account\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "approveBorrow: the interpolated intent leaves out the allowance amount and token.",
+      "evidence": "interpolatedIntent \"Borrow OK {delegate}\" omits {borrowAllowance_}. Case 4 shows the 10 USDC only in a field.",
+      "fix": "Include {borrowAllowance_} in the interpolated intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 72
+   },
+   {
+    "key": "approveEngine(address engine, address asset, uint256 debitAllowance)",
+    "effects": [
+     "Sets (overwrites) engineDebitAllowance[signer][engine][asset] to `debitAllowance`. The maximum value means unlimited.",
+     "An allowlisted `engine` can then move up to that amount of the signer's deposited collateral to any account (engineTransferAvail), place holds on it, or withdraw it to itself via withdrawFlashAndRepayFor/withdrawFlashAndDepositFor."
+    ],
+    "shown": "\"Engine OK 0x3333…\" with fields for the engine and an allowance of 10 USDC.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approveEngine: 'Engine OK {engine}' doesn't say the engine can move your deposited collateral to others.",
+      "evidence": "descriptor intent \"Approve engine debit\" and interpolatedIntent \"Engine OK {engine}\". PositionsManager.sol engineTransferAvail -> _consumeTransferAllowance(from,...) then collateral[from][asset].avail -= amt; collateral[to][asset].avail += amt.",
+      "fix": "Use an intent like \"Allow {engine} to spend up to {debitAllowance} of your deposited collateral\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "approveEngine: the interpolated intent leaves out the allowance amount and token.",
+      "evidence": "interpolatedIntent \"Engine OK {engine}\" omits {debitAllowance}. Case 5 shows the 10 USDC only in a field.",
+      "fix": "Include {debitAllowance} in the interpolated intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "ftYieldWrapper (IftYieldWrapper) source is missing. withdraw and borrow deliver the signer's tokens through wrapper.withdraw(amt, to), so the amount actually received can't be confirmed.",
+   "Deployment 146:0xbe4050a73a7fb384c65e885a15c33461a4b20055 has no source or meta in contracts/, so the code at that address can't be checked."
+  ]
+ },
+ "cost": 0.487,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 66,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(address asset, uint256 amt)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address asset, uint256 amt)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "borrow(address asset, uint256 amt)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "repay(address asset, uint256 amt)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "repay: a repay-all sentinel (max uint) shows as a huge token amount instead of 'Full debt'.",
+   "comprehension": null
+  },
+  "approveBorrow(address delegate, address asset, uint256 borrowAllowance_)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "approveBorrow: 'Borrow OK {delegate}' doesn't say the delegate can create debt in your name.",
+   "comprehension": null
+  },
+  "approveEngine(address engine, address asset, uint256 debitAllowance)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "approveEngine: 'Engine OK {engine}' doesn't say the engine can move your deposited collateral to others.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "3A 1B 2C",
+  "incomplete": true,
+  "worst": "approveBorrow: 'Borrow OK {delegate}' doesn't say the delegate can create debt in your name."
+ }
+}

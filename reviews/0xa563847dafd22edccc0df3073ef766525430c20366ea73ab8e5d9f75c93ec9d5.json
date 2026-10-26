@@ -1,0 +1,263 @@
+{
+ "hash": "0xa563847dafd22edccc0df3073ef766525430c20366ea73ab8e5d9f75c93ec9d5",
+ "file": "registry/morpho/calldata-kpk-KPK_USDT_Prime-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x870f0bf29a25a40e7cc087cd5c53e70c11f2c8a8"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDT from their wallet to the vault (safeTransferFrom(asset, msg.sender, this, assets) in enter).",
+     "The vault mints new shares (kpk_USDT_PrimeV2) to `onBehalf`. The number is previewDeposit(assets), set by the share price in storage, and the signer gets no minimum.",
+     "Before minting, accrueInterest may mint fee shares to the fee recipients, which changes the share price used."
+    ],
+    "shown": "Deposit 0.1 USDT for <onBehalf>, with fields for the USDT amount, a constant share ticker 'KPK_USDT_Prime' and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to onBehalf is not shown, and no minimum bounds it.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The price comes from storage and adapters' realAssets. The calldata has no minShares, so no descriptor can show the shares.",
+      "fix": "None in the descriptor. A label such as 'Shares (at current price) to' could hint at it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' constant KPK_USDT_Prime is not this vault's symbol kpk_USDT_PrimeV2 but the V1 vault's.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"KPK_USDT_Prime\". Case 0 effects: the share token 0x870f…c8a8 has symbol kpk_USDT_PrimeV2. Case 3 effects: another vault, 0xdad4…2065, has symbol kpk_USDT_Prime.",
+      "fix": "Set vaultTicker to \"kpk_USDT_PrimeV2\", or drop the raw constant field and rely on tokenPath @.to.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.1 USDT out matches the screen. Shares went to 0xdead (signer null), and the screen shows 0xdead as recipient."
+     }
+    ],
+    "glance": 85,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `assets` USDT is sent from the vault to `receiver` (safeTransfer(asset, receiver, assets) in exit).",
+     "Shares of `onBehalf` are burned. The number is previewWithdraw(assets), rounded up, with no maximum in the calldata.",
+     "If the caller is not onBehalf, the caller's share allowance from onBehalf is reduced by the shares burned.",
+     "accrueInterest may mint fee shares first, which changes the share price used."
+    ],
+    "shown": "Withdraw exactly 20000 USDT to <receiver>, with fields for amount, receiver and owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown, and no maximum bounds them.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` → `deleteShares(onBehalf, shares)`. Case 2: 19801.000279529412030929 kpk_USDT_PrimeV2 left the signer, and the screen does not state it.",
+      "fix": "None in the descriptor: the calldata has no maxShares.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "20000 USDT in to the signer is shown exactly. The 19801.0003 shares burned are not shown, and the reader knew shares leave but not how many."
+     }
+    ],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` vault shares of `onBehalf` are burned (deleteShares(onBehalf, shares)).",
+     "USDT equal to previewRedeem(shares), rounded down, is sent to `receiver`. There is no minimum in the calldata.",
+     "If the caller is not onBehalf, the caller's share allowance from onBehalf is reduced by `shares`.",
+     "accrueInterest may mint fee shares first, which lowers the price used."
+    ],
+    "shown": "Redeem 2260.1519 KPK_USDT_Prime to <receiver>, with fields for the shares, the receiver and the owner. The asset received is never named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT amount received is not shown, and no minimum bounds it.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. Case 3: the signer received 2270.091016 USDT, and the screen gives no amount.",
+      "fix": "None in the descriptor: the calldata has no minAssets.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the screen never says the signer receives USDT.",
+      "evidence": "descriptor redeem fields: shares, receiver, onBehalf only. The intent is 'Redeem {#.shares} to {#.receiver}'. Case 3 reader: 'Some underlying asset (probably USDT)… Which token is paid out; the screen only implies USDT'. The mint format already has a constant 'Deposit asset' field.",
+      "fix": "Add a constant field such as {label:'Receive asset', value:'$.metadata.constants.underlyingTicker'}, and word the intent as 'Redeem shares for USDT'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem: the shares show as 'KPK_USDT_Prime', the symbol of a different vault (the V1 vault).",
+      "evidence": "Case 3 screen: '2260.1519 KPK_USDT_Prime'. Case 3 effects: the burned token 0x870f…c8a8 is kpk_USDT_PrimeV2, and 0xdad4…2065 is a separate token, kpk_USDT_Prime. The descriptor constant vaultTicker = \"KPK_USDT_Prime\".",
+      "fix": "Set vaultTicker to the on-chain symbol kpk_USDT_PrimeV2.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "2260.1519 shares out is shown. The 2270.091016 USDT in is neither amounted nor named, and the reader guessed USDT."
+     }
+    ],
+    "glance": 62,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer pays USDT equal to previewMint(shares), rounded up, from their wallet to the vault. There is no maximum in the calldata.",
+     "Exactly `shares` vault shares are minted to `onBehalf`.",
+     "accrueInterest may mint fee shares first, which raises the cost."
+    ],
+    "shown": "Mint 0.9 KPK_USDT_Prime for <onBehalf>, with a constant 'Deposit asset: USDT' field but no USDT amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDT amount pulled from the signer is not shown, and no maximum bounds it.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` → `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: 0.906583 USDT left the signer, and the screen shows only 'USDT'.",
+      "fix": "None in the descriptor: the price is in storage and the calldata has no maxAssets.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' does not say the signer pays USDT.",
+      "evidence": "descriptor mint intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. USDT leaving the wallet appears only as a raw constant field, 'Deposit asset: USDT'.",
+      "fix": "Use an intent like 'Deposit USDT to mint shares' and an interpolatedIntent like 'Pay USDT to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the minted shares show as 'KPK_USDT_Prime', not this vault's symbol kpk_USDT_PrimeV2.",
+      "evidence": "Case 1 screen: '0.9 KPK_USDT_Prime'. Case 1 effects: the minted token 0x870f…c8a8 has symbol kpk_USDT_PrimeV2. The descriptor constant vaultTicker = \"KPK_USDT_Prime\" is the symbol of the separate V1 vault 0xdad4…2065.",
+      "fix": "Align vaultTicker with the on-chain symbol kpk_USDT_PrimeV2.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "0.906583 USDT out: the asset is named but the amount is not. The 0.9 shares to 0xdead are shown correctly (signer null)."
+     }
+    ],
+    "glance": 55,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.514,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 114,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the 'Share ticker' constant KPK_USDT_Prime is not this vault's symbol kpk_USDT_PrimeV2 but the V1 vault's.",
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never says the signer receives USDT.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 41,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "mint: the intent 'Mint' does not say the signer pays USDT.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 66,
+  "functions": "1A 1B 2C",
+  "incomplete": false,
+  "worst": "redeem: the screen never says the signer receives USDT."
+ }
+}

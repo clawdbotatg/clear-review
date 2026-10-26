@@ -1,0 +1,255 @@
+{
+ "hash": "0xeff4f14556526c04ad8c2f35a212e05fd4016f0e9088efefb934a6000fe3c090",
+ "file": "registry/feral-file/calldata-feralfile-english-auction-0.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xce85fa385a6d6f6c3b709cd7aa2db116d3e1ac6d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "placeBid(uint256 auctionID_)",
+    "effects": [
+     "The signer sends msg.value in ETH to the auction contract as their bid on auction auctionID_ (_placeBid(auctionID_, msg.sender, msg.value, false)).",
+     "The signer becomes the highest bidder. The ETH stays in escrow in the contract until a higher bid refunds it to the signer, or settlement sends it to the vault.",
+     "The previous crypto highest bidder is refunded from the contract (this is a third party, not the signer).",
+     "The auction end time may be extended by extendDuration if the bid lands inside extendThreshold."
+    ],
+    "shown": "\"Bid on auction 42\" with fields Auction ID 42 and Bid amount 0.1 ETH (msg.value).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "placeBid: the interpolated intent leaves out the ETH bid amount, which only appears as a field.",
+      "evidence": "descriptor placeBid interpolatedIntent \"Bid on auction {auctionID_}\". The @.value field 'Bid amount' exists. Case 0 shows \"Bid on auction 42\" while 0.1 ETH leaves the wallet.",
+      "fix": "Use \"Bid {@.value} on auction {auctionID_}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "placeBid: nothing says the ETH is escrowed and refunded automatically if the signer is outbid.",
+      "evidence": "FeralfileEnglishAuction._placeBid: `if (!highestBid_.fromFeralFile && highestBid_.amount > 0) payable(highestBid_.bidder).transfer(highestBid_.amount);` and _settleAuctionFund sends the winning bid to vaultAddr_.",
+      "fix": "Optionally reword the intent to \"Place refundable auction bid\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 88
+   },
+   {
+    "key": "placeSignedBid(uint256 auctionID_,address bidder_,uint256 amount_,uint256 expiryTime_,bytes32 r_,bytes32 s_,uint8 v_)",
+    "effects": [
+     "No asset of the signer moves. The function is not payable, and the bid of amount_ is recorded as paid off-chain (fromFeralFile = true) for bidder_.",
+     "bidder_ becomes the highest bidder of auctionID_. This requires a Feral File signer signature that is valid until expiryTime_.",
+     "The previous crypto highest bidder is refunded from the contract's escrow (a third party).",
+     "The auction end time may be extended."
+    ],
+    "shown": "\"Bid 0.5 ETH on auction 42 for Receiver\" with Auction ID, Bidder, Bid amount (ETH) and Signature expires.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "placeSignedBid: \"Bid 0.5 ETH\" suggests the signer pays ETH, but no ETH moves; the bid is recorded as paid off-chain.",
+      "evidence": "placeSignedBid is non-payable and calls _placeBid(auctionID_, bidder_, amount_, true). fromFeralFile=true means no on-chain funds. Case 1 screen: \"Bid 0.5 ETH on auction 42 for Receiver\", label 'Bid amount'.",
+      "fix": "Use intent \"Record Feral File-signed bid\" and interpolatedIntent \"Record {amount_} bid (paid off-chain) on auction {auctionID_} for {bidder_}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 72
+   },
+   {
+    "key": "registerAuctions((uint256 id,uint256 startAt,uint256 endAt,uint256 extendDuration,uint256 extendThreshold,uint256 minIncreaseFactor,uint256 minIncreaseAmount,uint256 minPrice,bool isSettled)[] auctions_)",
+    "effects": [
+     "As owner, the signer creates one new auction per entry, with its id, start and end times, minimum price, extension duration and threshold, minimum increase factor and amount, and isSettled flag.",
+     "No assets move."
+    ],
+    "shown": "\"Register auctions\" with, per auction, the ID, minimum price, start and end time.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "registerAuctions: the bid-increment, extension rules and isSettled flag of each auction are not shown.",
+      "evidence": "registerAuctions stores the whole struct: `auctions[auctions_[i].id] = auctions_[i];`. The descriptor has no fields for extendDuration, extendThreshold, minIncreaseFactor, minIncreaseAmount or isSettled. isSettled=true makes the auction refuse every bid (_validateNewBid requires !auction_.isSettled).",
+      "fix": "Add fields: extendDuration and extendThreshold (duration), minIncreaseFactor (raw, labelled percent), minIncreaseAmount (amount), and isSettled.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "registerAuctions: separate array fields cannot be paired per auction when several are registered, and there is no interpolated intent.",
+      "evidence": "The fields auctions_.[].id, auctions_.[].minPrice, auctions_.[].startAt and auctions_.[].endAt are flat lists over the array. interpolatedIntent is absent.",
+      "fix": "Group the fields per auction element (path auctions_.[] with sequential iteration) and add an interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "settleAuction(uint256 auctionID_,address tokenAddr_,address vaultAddr_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_,bytes32 r_,bytes32 s_,uint8 v_)",
+    "effects": [
+     "As owner, the signer marks auction auctionID_ as settled.",
+     "The winning crypto bid (the highestBids amount in storage) is sent from the contract's escrow to vaultAddr_.",
+     "tokenAddr_.buyArtworks(r_,s_,v_,saleData_) is called with no value. With payByVaultContract=true, the exhibition contract has the vault pay saleData_.price, delivers tokenIds to destination (which must be the highest bidder) and splits revenue by revenueShares.",
+     "None of the signer's own assets move."
+    ],
+    "shown": "\"Settle auction and deliver artworks\" with Auction ID, Exhibition contract, Vault, Winner, Sale price, Platform cost, Artworks, and revenue recipients and bps.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "settleAuction: the ETH sent to the vault is the stored highest bid, not the 'Sale price' shown.",
+      "evidence": "_settleAuctionFund: `payable(vaultAddr_).transfer(highestBid_.amount);`, where highestBid_ is read from storage. Nothing checks that saleData_.price equals highestBid_.amount. The screen shows 'Sale price' = saleData_.price.",
+      "fix": "Optionally relabel to \"Sale price (paid from vault)\". The escrow amount cannot be shown from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "settleAuction: revenue-share recipients and bps live in a nested array the runners do not iterate, and would show as unpaired lists.",
+      "evidence": "Descriptor paths saleData_.revenueShares.[].[].recipient and saleData_.revenueShares.[].[].bps. Case 4 has an empty revenueShares, so neither field renders.",
+      "fix": "Waits on runner support for nested arrays.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "settleAuction: the labels 'Platform cost' and 'deliver artworks' describe buyArtworks, whose code is in the exhibition contract and not in this directory.",
+      "evidence": "`IFeralfileExhibitionV4(tokenAddr_).buyArtworks(r_, s_, v_, saleData_);` is a call to an arbitrary tokenAddr_. Only an empty interface stub is in the source.",
+      "fix": "None needed for the signer's assets.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 68
+   },
+   {
+    "key": "settleAuctionFund(uint256 auctionID_,address vaultAddr_)",
+    "effects": [
+     "As owner, the signer marks auction auctionID_ as settled. After this, settleAuction for the same auction reverts.",
+     "The winning crypto bid (the stored highestBids amount) is sent from the contract's escrow to vaultAddr_.",
+     "No artworks are delivered, and none of the signer's own assets move."
+    ],
+    "shown": "\"Settle auction funds\" with Auction ID and Vault.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "settleAuctionFund: the ETH amount sent to the vault comes from storage and is not shown.",
+      "evidence": "_settleAuctionFund: `payable(vaultAddr_).transfer(highestBid_.amount);`, where highestBid_ = highestBids[auctionID_] is read from storage.",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "settleAuctionFund: the intent does not say the auction closes without delivering artworks, which blocks settleAuction later.",
+      "evidence": "_settleAuctionFund sets `auctions[auction_.id].isSettled = true;`. settleAuction then fails on `require(!auction_.isSettled)`. The intent reads only \"Settle auction funds\".",
+      "fix": "Use interpolatedIntent \"Close auction {auctionID_} and send winning bid to {vaultAddr_} (no artwork delivery)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.502,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 81,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "placeBid(uint256 auctionID_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "placeBid: the interpolated intent leaves out the ETH bid amount, which only appears as a field.",
+   "comprehension": null
+  },
+  "placeSignedBid(uint256 auctionID_,address bidder_,uint256 amount_,uint256 expiryTime_,bytes32 r_,bytes32 s_,uint8 v_)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "placeSignedBid: \"Bid 0.5 ETH\" suggests the signer pays ETH, but no ETH moves; the bid is recorded as paid off-chain.",
+   "comprehension": null
+  },
+  "registerAuctions((uint256 id,uint256 startAt,uint256 endAt,uint256 extendDuration,uint256 extendThreshold,uint256 minIncreaseFactor,uint256 minIncreaseAmount,uint256 minPrice,bool isSettled)[] auctions_)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "registerAuctions: the bid-increment, extension rules and isSettled flag of each auction are not shown.",
+   "comprehension": null
+  },
+  "settleAuction(uint256 auctionID_,address tokenAddr_,address vaultAddr_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_,bytes32 r_,bytes32 s_,uint8 v_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 69,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "settleAuctionFund(uint256 auctionID_,address vaultAddr_)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 56,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "settleAuctionFund: the intent does not say the auction closes without delivering artworks, which blocks settleAuction later.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 63,
+  "functions": "2B 3C",
+  "incomplete": false,
+  "worst": "registerAuctions: the bid-increment, extension rules and isSettled flag of each auction are not shown."
+ }
+}

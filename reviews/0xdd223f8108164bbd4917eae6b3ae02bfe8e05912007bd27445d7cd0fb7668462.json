@@ -1,0 +1,208 @@
+{
+ "hash": "0xdd223f8108164bbd4917eae6b3ae02bfe8e05912007bd27445d7cd0fb7668462",
+ "file": "registry/flyingtulip/calldata-PutManager-dev.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 146,
+   "address": "0xabd838e9977fc76430d637ed35eccfaf178ce071"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "invest(address token, uint256 amount, address recipient, uint256 proofAmount, bytes32[] proofWL)",
+    "effects": [
+     "Pulls `amount` of the collateral `token` from the signer into PutManager, which deposits it into the token's yield vault.",
+     "Mints a pFT put-position NFT to `recipient`. The NFT holds an FT allocation (ftOut) and a strike, both priced by the oracle at execution time.",
+     "When an ACL is set and proofAmount is not zero, uses up `amount` of the signer's (msg.sender's) whitelist allocation, capped at proofAmount."
+    ],
+    "shown": "Invest 0.195 wS: Collateral 0.195 wS, Recipient address, Whitelist cap as a raw integer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "invest: the screen never says a pFT put-position NFT is minted to Recipient",
+      "evidence": "PutManager.sol _invest: `id = pFT.mint(recipient, amount, ftOut, strike, token, ftPerUSD);` Case 0: NFT 0x1d8051c9… #177 minted to the signer (signer in). The screen has only 'Recipient' and the intent 'Invest {amount}'. The reader: 'Nothing is listed as arriving'.",
+      "fix": "Label recipient 'Position (pFT NFT) recipient' and set interpolatedIntent to 'Invest {amount} for a FT put position to {recipient}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "invest: interpolatedIntent leaves out the recipient, who may be someone other than the signer",
+      "evidence": "descriptor interpolatedIntent 'Invest {amount}'. _invest has payer = msg.sender and recipient = the parameter, so a third party can get the position.",
+      "fix": "Add {recipient} to interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "invest: Whitelist cap appears as a raw integer with no token decimals",
+      "evidence": "descriptor proofAmount format 'raw'. Case 0 screen 'Whitelist cap: 10000000000000000000000'. _invest calls `ftACL.invest(msg.sender, token, amount, proofAmount)`, which compares it with the amount in token units.",
+      "fix": "Use tokenAmount with tokenPath 'token' for proofAmount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "invest: the FT allocation and strike come from the oracle and are not in the calldata",
+      "evidence": "_invest: `(ftOut, strike, ftPerUSD) = getAssetFTPrice(token, amount, ...)` reads ftOracle at execution time.",
+      "fix": "None possible in the descriptor. The intent could say the FT amount is set at the oracle price.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "0.195 wS out is shown right. The pFT NFT #177 that arrives is shown only through the Recipient address. The reader expected some position but did not know it was an NFT, or how much FT it holds."
+     }
+    ],
+    "glance": 60,
+    "depth": 65
+   },
+   {
+    "key": "divest(uint256 id, uint256 amount_ft)",
+    "effects": [
+     "Reduces the FT allocation of put position `id` by amount_ft, which exercises the put on that part.",
+     "Withdraws collateral from the vault and sends it to the signer. The amount is amount_ft converted at the position's stored strike and ftPerUSD, in the position's collateral token."
+    ],
+    "shown": "Divest 0.003 FT from pFT NFT #137, with fields Position and FT amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "divest: the screen never says collateral comes back; 'FT amount' reads as FT leaving",
+      "evidence": "PutManager.sol divest: `_vault.withdraw(_capitalDivesting, msg.sender);` Case 1: the signer received 300 units of 0x29219dd4… (USDC), which the screen does not mention. The intent is 'Divest FT PUT', the field 'FT amount'. The reader: 'Arrives: Not stated on screen'.",
+      "fix": "Use an intent like 'Exercise put: give up {amount_ft} FT from {id}, receive collateral back' and label amount_ft 'FT given up'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "divest: collateral token and amount come from the position's stored strike and cannot be displayed",
+      "evidence": "divest: `(address token,,,,,, uint256 strike,, uint64 ftPerUSD) = pFT.puts(id); collateralFromFT(amount_ft, strike, ...)`",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "missed"
+      ],
+      "notes": "The signer received 0.0003 USDC of collateral. The screen shows only the 0.003 FT claim reduced, and the reader did not know what would arrive."
+     }
+    ],
+    "glance": 40,
+    "depth": 45
+   },
+   {
+    "key": "withdrawFT(uint256 id, uint256 amount)",
+    "effects": [
+     "Sends `amount` FT from PutManager to the signer.",
+     "Reduces position `id` by `amount` FT and permanently forfeits the matching collateral backing (the put right), which is booked to capitalDivesting for the msig."
+    ],
+    "shown": "Withdraw 1.109 FT from pFT NFT #143, with fields Position and FT amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdrawFT: the intent does not say the put protection for this amount is given up",
+      "evidence": "PutManager.sol withdrawFT, comment 'Withdraw FT (invalidating PUT position)'; `pFT.withdrawFT(msg.sender, id, amount, _capitalDivesting); capitalDivesting[token] += _capitalDivesting;` The intent is 'Withdraw FT from PUT'. The reader was unsure about 'lost put/redemption rights'.",
+      "fix": "Use an intent like 'Exit put: withdraw {amount} FT from {id} and give up its collateral redemption'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1.10937447955392 FT arrived to the signer, matching the screen."
+     }
+    ],
+    "glance": 65,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "The pFT position contract 0x1d8051c90076faa5b683a3551ee4369d00f99d67 (mint, divest, withdrawFT, puts) is not in the directory, so I could not check the position reduction or burn and the ownership checks.",
+   "The collateral vault (IftYieldWrapper, e.g. 0x62ebd646… / 0x0e959ea4…) is not in the directory. The withdraw path to the signer is confirmed only through the receipts."
+  ]
+ },
+ "cost": 0.41,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 104,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "invest(address token, uint256 amount, address recipient, uint256 proofAmount, bytes32[] proofWL)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "invest: the screen never says a pFT put-position NFT is minted to Recipient",
+   "comprehension": 75
+  },
+  "divest(uint256 id, uint256 amount_ft)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 12,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "divest: the screen never says collateral comes back; 'FT amount' reads as FT leaving",
+   "comprehension": 0
+  },
+  "withdrawFT(uint256 id, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdrawFT: the intent does not say the put protection for this amount is given up",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 50,
+  "functions": "1A 2C",
+  "incomplete": true,
+  "worst": "invest: the screen never says a pFT put-position NFT is minted to Recipient"
+ }
+}

@@ -1,0 +1,235 @@
+{
+ "hash": "0x552d8cb4f4cf20df66427036d1c601284bc477347ff6541aa5ea752cdf50e193",
+ "file": "registry/kiln/calldata-Vault-EURC-Morpho-Gauntlet-Core.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe69884a372571af24fcb94fb3f6948d1b0146533"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` EURC to the vault (safeTransferFrom from msg.sender).",
+     "The vault mints shares (kmgcEURC) to `receiver`. The number comes from the vault's share price, minus a deposit fee set in storage.",
+     "A deposit fee is cut from the deposited EURC (`depositFeeAmount`) before shares are computed. The fee is set in storage."
+    ],
+    "shown": "Intent 'Deposit', the EURC amount, the share ticker 'kmgcEURC' as a raw constant, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the share amount received or the deposit fee taken from the EURC.",
+      "evidence": "Vault.sol _previewDeposit: `depositFeeAmount = assets.mulDiv($._depositFee, ...); shares = _roundDownPartialShares(_convertToShares(assets - depositFeeAmount, ...))`. Case 0: signer receives 1000001 kmgcEURC (in). The screen shows only 'Share ticker: kmgcEURC'.",
+      "fix": "No calldata value holds the share amount, so no descriptor change can show it. Consider the label 'Receive shares (after fees)' on the ticker field.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' names no asset, vault or receiver, and there is no interpolatedIntent.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`. No interpolatedIntent.",
+      "fix": "Set intent to 'Deposit EURC into Kiln vault'. Add interpolatedIntent 'Deposit {assets} for kmgcEURC shares to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "EURC out 1.024238 is shown exactly. The kmgcEURC in (1.000001) shows the ticker and the recipient, but no amount. This is a limit of the spec."
+     }
+    ],
+    "glance": 50,
+    "depth": 72
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer pays EURC to the vault. The amount is computed from `shares` at the share price, plus the deposit fee. It is not in the calldata, and no maximum applies.",
+     "The vault mints exactly `shares` kmgcEURC to `receiver`.",
+     "A deposit fee is part of the EURC the signer pays. The fee is set in storage."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: EURC' as a ticker only, the exact share amount, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much EURC leaves the signer. There is no maximum in the calldata.",
+      "evidence": "Vault.sol mint: `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); _deposit(_msgSender(), receiver, _assets, shares, _depositFeeAmount);`. The descriptor field 'Deposit asset' is `$.metadata.constants.underlyingTicker` in raw format.",
+      "fix": "No descriptor change can show the amount. Relabel the ticker field 'Pay with (amount set by vault price)' so the signer knows the cost is variable.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint intent 'Mint' does not say that EURC is paid into the Kiln vault.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`. No interpolatedIntent.",
+      "fix": "Set intent to 'Mint vault shares with EURC'. Add interpolatedIntent 'Mint {shares} to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 45
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns shares from `owner`. The number is computed from `assets` at the share price and is not in the calldata.",
+     "If the signer is not `owner`, the call spends the share allowance that `owner` gave the signer.",
+     "The vault sends EURC to `receiver`, equal to the balance the connector withdraws (meant to be `assets`)."
+    ],
+    "shown": "Intent 'Withdraw', 'Withdraw exactly' with the EURC amount, the recipient, and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares are burned from the owner.",
+      "evidence": "Vault.sol withdraw: `_shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); ... _withdraw(...)` then `_burn(owner, shares)`.",
+      "fix": "No descriptor change can show the computed share amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent 'Withdraw' names no asset and does not say that vault shares are burned.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`.",
+      "fix": "Set intent to 'Withdraw EURC from Kiln vault'. Add interpolatedIntent 'Withdraw {assets} to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` kmgcEURC from `owner`. If the signer is not the owner, this spends the owner's allowance to the signer.",
+     "The vault sends EURC to `receiver`. The amount comes from the share price and the connector's withdrawal. It is not in the calldata, and no minimum applies."
+    ],
+    "shown": "Intent 'Redeem', the exact kmgcEURC shares, the recipient, and the owner. Nothing names the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names EURC as the asset the receiver gets. Mint shows the underlying ticker.",
+      "evidence": "Case 1: signer receives 1024235 EURC (in). The redeem screen fields are only 'Shares to redeem', 'To' and 'Owner'. The mint format shows `$.metadata.constants.underlyingTicker`. Vault.sol _withdraw: `SafeERC20.safeTransfer(IERC20(asset()), receiver, ...)`.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and set intent to 'Redeem shares for EURC'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much EURC arrives, and there is no minimum in the calldata.",
+      "evidence": "Vault.sol redeem: `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply);`. Case 1: 1.024235 EURC in, and no amount on the screen.",
+      "fix": "No descriptor change can show the computed amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out (1.000001 kmgcEURC) are shown exactly. The reader guessed EURC for the payout from the ticker name and did not know the amount."
+     }
+    ],
+    "glance": 40,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "Vault._deposit and Vault._withdraw delegatecall a connector contract taken from the ConnectorRegistry in storage. Its source is not in the directory. The EURC amount sent to the receiver in withdraw and redeem is the vault's balance change after this call, so the label 'Withdraw exactly' cannot be confirmed from the code. The two mined transactions show no extra effects on the signer."
+  ]
+ },
+ "cost": 0.48,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 86,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' names no asset, vault or receiver, and there is no interpolatedIntent.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say that EURC is paid into the Kiln vault.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent 'Withdraw' names no asset and does not say that vault shares are burned.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names EURC as the asset the receiver gets. Mint shows the underlying ticker.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 53,
+  "functions": "1B 2C 1D",
+  "incomplete": true,
+  "worst": "redeem never names EURC as the asset the receiver gets. Mint shows the underlying ticker."
+ }
+}

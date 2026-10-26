@@ -1,0 +1,111 @@
+{
+ "hash": "0x08ea6904aa38e23cb3ca37ce7ceefb39ae89b637acfc6facfaf9e0c91813ac36",
+ "file": "registry/rarible/eip712-rarible-exchange-v2-meta-tx.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 137,
+   "address": "0x7f19564c35c681099c0c857a7141836cf7edaa53"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "MetaTransaction(uint256 nonce,address from,bytes functionSignature)",
+    "effects": [
+     "The signature lets a relayer run the call encoded in functionSignature as if the signer (from) sent it, so the call's target logic acts in the signer's name. It can move tokens, set approvals or change orders, depending on the encoded call.",
+     "In the only test case, the encoded call is an ERC-20 transfer (selector 0xa9059cbb) of 250,000,000 base units to 0x1111111254eeb25477b68fb85ed929f73a960582.",
+     "The signed nonce is used up, so it replaces any other pending meta-transaction with the same nonce.",
+     "The bound deployment 0x7f19…aa53 on Polygon is a RoyaltiesRegistry. It has no meta-transaction entry point and no EIP-712 check, so this contract cannot verify or execute the signed message."
+    ],
+    "shown": "The screen shows only the intent \"Meta Transaction\", the signer address and the nonce. The encoded call that runs in the signer's name is hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "MetaTransaction hides functionSignature, the call that runs in the signer's name",
+      "evidence": "descriptor.json, MetaTransaction format: {\"label\": \"Function Signature\", \"path\": \"functionSignature\", \"visible\": \"never\"}; intent \"Meta Transaction\". Case 0 message.functionSignature = 0xa9059cbb…1111111254eeb25477b68fb85ed929f73a960582…0ee6b280, an ERC-20 transfer of 250,000,000 base units to the 1inch router. Case 0 screen fields show only 'User Address' and 'Meta Transaction Nonce'.",
+      "fix": "Show functionSignature with the `calldata` format, using the verifying contract as the callee, so the nested call is decoded. At the very least, make it visible and change the intent to say that it runs a hidden call as the signer. Add the decoded action to the interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "MetaTransaction is bound to a Polygon RoyaltiesRegistry that has no meta-transaction verification",
+      "evidence": "meta.json: fullyQualifiedName \"@rarible/royalties-registry/contracts/RoyaltiesRegistry.sol:RoyaltiesRegistry\"; abi.json has no executeMetaTransaction function and no EIP-712 domain. A grep for MetaTransaction|EIP712|ecrecover in the contracts finds nothing. descriptor.json binds context.eip712.deployments to 137:0x7f19564c35c681099c0c857a7141836cf7edaa53.",
+      "fix": "Bind the descriptor to the Rarible ExchangeV2 proxy on Polygon that actually verifies MetaTransaction. Check its domain fields (name, version, salt) against the source.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "MetaTransaction owner reads 'Rarible ExchangeV2', but the bound contract is RoyaltiesRegistry",
+      "evidence": "descriptor.json metadata.owner \"Rarible ExchangeV2\"; meta.json fullyQualifiedName RoyaltiesRegistry.",
+      "fix": "Bind to the ExchangeV2 deployment, or correct the owner to match the bound contract.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "MetaTransaction intent 'Meta Transaction' does not say that the signer authorizes a call in their name",
+      "evidence": "descriptor.json intent \"Meta Transaction\"; interpolatedIntent null.",
+      "fix": "Change the intent to \"Authorize a relayed call as you\" and describe the decoded call in the interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "MetaTransaction test sends an ERC-20 transfer but expects a screen that shows nothing of it",
+      "evidence": "cases/0.json: functionSignature encodes transfer(0x1111…0582, 250000000); the expected screen has only 'User Address' and 'Meta Transaction Nonce'.",
+      "fix": "Expect the decoded nested call in the test (the recipient and the amount) once functionSignature is shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 5,
+    "depth": 5
+   }
+  ],
+  "couldNotCheck": [
+   "The bound deployment 137:0x7f19564c35c681099c0c857a7141836cf7edaa53 is a RoyaltiesRegistry with no meta-transaction code. The Rarible ExchangeV2 contract that would verify and run MetaTransaction (its executeMetaTransaction and the functions that functionSignature can call) is not in the directory. So the effects of the forwarded call cannot be checked against source."
+  ]
+ },
+ "cost": 0.24,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 40,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "MetaTransaction(uint256 nonce,address from,bytes functionSignature)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 0,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "MetaTransaction hides functionSignature, the call that runs in the signer's name",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 0,
+  "clarity": 0,
+  "functions": "1F",
+  "incomplete": true,
+  "worst": "MetaTransaction hides functionSignature, the call that runs in the signer's name"
+ }
+}

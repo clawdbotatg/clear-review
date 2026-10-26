@@ -1,0 +1,211 @@
+{
+ "hash": "0xef9245ee127488373ebd97104f88625567e71be12d720ef45c04a8b5c4c02f44",
+ "file": "registry/morpho/calldata-waterline-reservoirUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeeff047c03714965a54b671a37c18bef6b96210"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` USDC from the signer into the vault (safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints vault shares to `onBehalf`. The number is previewDeposit(assets), computed from the vault's share price after accrueInterest, and the caller sets no minimum.",
+     "Accrues interest and may mint fee shares to the fee recipients first, which slightly dilutes the share price used for this deposit.",
+     "The deposited USDC may be forwarded to the liquidity adapter. This moves vault funds, not the signer's."
+    ],
+    "shown": "Deposit 0.01 USDC for <onBehalf>, with a constant 'Share ticker: reservoirUSDC' and 'Send shares to <onBehalf>'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no on-chain minimum.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The share price comes from storage, and the calldata has no minShares. Case 0: the signer received 10000000000000000 bbqSUDCreservoir and the screen shows no amount.",
+      "fix": "Nothing in the calldata bounds it. You could reword the label to 'Receive vault shares (amount set by the share price)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the 'Share ticker' constant reservoirUSDC differs from the token's on-chain symbol, bbqSUDCreservoir.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"reservoirUSDC\". Case 0, mined effect: a transfer of asset 0xbeeff047… with symbol \"bbqSUDCreservoir\" to the signer. The signer's wallet will list the shares under a different ticker than the screen shows.",
+      "fix": "Set vaultTicker to the token's on-chain symbol, or label the field 'Vault share token' and give the name and the address.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.01 USDC out is shown exactly. The shares in go to the signer as shown, but the screen gives no amount (none can be bound) and uses a ticker that differs from the on-chain symbol."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns vault shares from `onBehalf`. The number is previewWithdraw(assets), from the share price, with no maximum the caller sets.",
+     "If msg.sender != onBehalf, also spends that many shares of onBehalf's share allowance to the caller.",
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "May deallocate from the liquidity adapter to cover the withdrawal, and accrues interest and fees first."
+    ],
+    "shown": "Withdraw 27000 USDC to <receiver>, with fields 'Withdraw exactly', 'To' and 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is not shown and has no cap in the calldata.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)` → `deleteShares(onBehalf, shares)`. Case 0 index 1: the signer's 26994151178189272897968 bbqSUDCreservoir were burned, and the screen gives no share amount.",
+      "fix": "Nothing in the calldata bounds it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the screen never says that the Owner's vault shares are burned, or which share token.",
+      "evidence": "The withdraw fields are only assets/receiver/onBehalf ('Owner'). There is no share-ticker field, unlike deposit. Case 1 reader: 'Likely a Waterline position/deposit claim … (screen doesn't name it)' and unsure 'Whether any receipt token is burned'.",
+      "fix": "Rename 'Owner' to 'Burn shares from', and add the constant vault share ticker field that deposit uses.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 27000 USDC in to the signer is shown exactly. The burn of 26994.15 shares is only hinted at by the 'Owner' field, with no token or amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf`, and spends the share allowance if the caller is not onBehalf.",
+     "Sends USDC to `receiver`. The amount is previewRedeem(shares), from the share price, and the caller sets no minimum.",
+     "May deallocate from the liquidity adapter, and accrues interest and fees first."
+    ],
+    "shown": "Redeem <shares> reservoirUSDC to <receiver>, with fields 'Shares to redeem', 'To' and 'Owner'. The asset received is not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names USDC as the asset the receiver gets.",
+      "evidence": "The redeem fields show only the shares (tokenPath @.to), the receiver and onBehalf. metadata.constants.underlyingTicker \"USDC\" is not used. Case 2: the signer received 92696789907 USDC, and the reader wrote 'Some underlying asset (likely USDC)… does not state the amount or token'.",
+      "fix": "Add a constant field 'You receive: USDC (amount set by share price)', or put 'for USDC' in the interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown and has no minimum in the calldata.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);` from storage. There is no minAssets parameter. Case 2: 92696.789907 USDC received, with no amount on screen.",
+      "fix": "Nothing in the calldata bounds it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem: the shares appear as 'reservoirUSDC' while the on-chain symbol is bbqSUDCreservoir.",
+      "evidence": "Case 2 screen: '92686.348016590195217269 reservoirUSDC'. The mined burn of asset 0xbeeff047… has symbol 'bbqSUDCreservoir'.",
+      "fix": "Align the ticker the wallet shows with the token's on-chain symbol.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The exact share amount out is shown. The USDC in goes to the signer as shown, but neither the asset nor the amount appears on screen."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.377,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 91,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the 'Share ticker' constant reservoirUSDC differs from the token's on-chain symbol, bbqSUDCreservoir.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the screen never says that the Owner's vault shares are burned, or which share token.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never names USDC as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 67,
+  "clarity": 73,
+  "functions": "1B 2D",
+  "incomplete": false,
+  "worst": "deposit: the 'Share ticker' constant reservoirUSDC differs from the token's on-chain symbol, bbqSUDCreservoir."
+ }
+}

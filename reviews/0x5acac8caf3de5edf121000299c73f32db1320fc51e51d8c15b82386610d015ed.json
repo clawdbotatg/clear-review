@@ -1,0 +1,112 @@
+{
+ "hash": "0x5acac8caf3de5edf121000299c73f32db1320fc51e51d8c15b82386610d015ed",
+ "file": "registry/poap/calldata-PoapBridge.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x0bb4d3e88243f4a057db77341e6916b0e449b158"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "mintToken(uint256 eventId, uint256 tokenId, address receiver, uint256 expirationTime, bytes signature)",
+    "effects": [
+     "The signer sends all of msg.value in ETH to the bridge's feeReceiver (read from storage). msg.value must be at least migrationFee, and any extra is kept, not refunded.",
+     "POAP token `tokenId` of event `eventId` is minted by the POAP contract to `receiver`, who may not be the signer.",
+     "The off-chain mint signature is marked as used, so it cannot be replayed. The call reverts once block.timestamp reaches `expirationTime`."
+    ],
+    "shown": "\"Mint POAP\" with the token id (raw), the receiver, an 'Expiration Time' date and the ETH sent as 'Migration Fee'. The event id and signature are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mintToken: 'Expiration Time' is when the mint authorization expires, not when the POAP expires.",
+      "evidence": "PoapBridge.sol mintToken: `require(block.timestamp < expirationTime, \"Signature expired\");`. The value is only used as the signature deadline. descriptor: label \"Expiration Time\" on #.expirationTime. Case 0 shows 'Expiration Time 2026-01-09 14:27:15Z', which reads as if the minted token stops being valid at that time.",
+      "fix": "Rename the label to \"Mint valid until\" or \"Signature expires\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mintToken: eventId, which tells which event's POAP is minted, is hidden with visible: never.",
+      "evidence": "descriptor: {\"label\":\"Event Id\",\"path\":\"#.eventId\",\"visible\":\"never\"}. PoapBridge.sol mintToken: `return POAPToken.mintToken(eventId, tokenId, receiver);`. The event id decides which POAP collection the minted token belongs to. Case 0 has eventId 553 (0x229), and it is not on screen.",
+      "fix": "Make #.eventId visible as 'Event' (raw) so the signer can check which event's POAP is being minted.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mintToken: the intent 'Mint POAP' leaves out the receiver and the ETH paid. There is no interpolatedIntent.",
+      "evidence": "descriptor: \"intent\": \"Mint POAP\", no interpolatedIntent. PoapBridge.sol mintToken: `feeReceiver.transfer(msg.value);` and the mint goes to `receiver`, which can be a third party.",
+      "fix": "Add an interpolatedIntent such as \"Mint POAP #{tokenId} to {receiver} for {@.value}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mintToken: the ETH goes to feeReceiver, which comes from storage and cannot be shown. Overpayment is not refunded.",
+      "evidence": "PoapBridge.sol mintToken: `require(msg.value >= migrationFee, ...); feeReceiver.transfer(msg.value);`. feeReceiver and migrationFee are storage values (constructor fee 0.1 ETH). The full @.value is shown as 'Migration Fee', so the amount that leaves is stated.",
+      "fix": "None needed beyond the @.value field. A label like 'ETH paid (fee)' could make clear that the whole value is taken.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "mintToken: the only test case sends 0 ETH, so the fee field is never shown with a non-zero amount.",
+      "evidence": "cases/0.json: input.value \"0\", screen 'Migration Fee: 0 ETH'. The constructor set migrationFee to 100000000000000000 wei. Unless the fee was later lowered, this call would revert with 'Insufficient payment'.",
+      "fix": "Add a case with a value of at least migrationFee, for example 0.1 ETH.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": [
+   "The POAP token contract 0x22C1f6050E56d2876009903609a2cC3fEf83B415, which PoapBridge.mintToken calls to mint the NFT to the receiver, has no source in the directory. How it mints the token was not verified."
+  ]
+ },
+ "cost": 0.199,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 43,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "mintToken(uint256 eventId, uint256 tokenId, address receiver, uint256 expirationTime, bytes signature)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "mintToken: eventId, which tells which event's POAP is minted, is hidden with visible: never.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 58,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": "mintToken: eventId, which tells which event's POAP is minted, is hidden with visible: never."
+ }
+}

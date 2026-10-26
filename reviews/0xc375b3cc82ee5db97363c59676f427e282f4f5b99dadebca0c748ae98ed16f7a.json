@@ -1,0 +1,162 @@
+{
+ "hash": "0xc375b3cc82ee5db97363c59676f427e282f4f5b99dadebca0c748ae98ed16f7a",
+ "file": "registry/zkstables/calldata-ebswap.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x9d6eff1419a175adee372b6c5bc4513c2c4dd97c"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xc48eef148b8874fcaac4252cb38fa5f076fb58d5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "atomicPublicSwap((address publicToken,address encryptedToken,address publicPayer,address publicRecipient,(uint256 x,uint256 y) encryptedPayerEpk,(uint256 x,uint256 y) encryptedRecipientEpk,uint256 publicAmount,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) encryptedAmountCiphertext,uint256 expiry,uint256 intentSalt) intent, (uint256 validAfter,uint256 validBefore,bytes32 nonce,bytes signature) publicTransferAuth, (uint256 nonce,uint256 deadline,bytes signature) publicIntentAuth, (bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) encryptedParams, (bool clear,bool enabled) encryptedFlags, (uint256 nonce,uint256 deadline,bytes signature) encryptedIntentAuth, (uint256 nonce,uint256 deadline,bytes signature) encryptedTransferAuth)",
+    "effects": [
+     "publicAmount of publicToken is pulled from publicPayer into EBSwap with an EIP-3009 receiveWithAuthorization, then forwarded in full to publicRecipient.",
+     "An encrypted amount (a ciphertext) of encryptedToken moves from the balance of encryptedPayerEpk to encryptedRecipientEpk through ZKEMT.encryptedTransferWithCallerAuth.",
+     "The pending-balance flags (clear, enabled) of the encrypted payer's source key are applied after the transfer.",
+     "Intent-auth nonces of publicPayer and of the encrypted key's controller are consumed, and so is the EIP-3009 nonce. The call reverts after intent.expiry or after any auth deadline.",
+     "Nothing is payable and the caller's own funds are not touched."
+    ],
+    "shown": "Swap 21.37 USDC from Alice to Bob, for the token zkUSD, with a deadline. The encrypted leg's amount, its keys and the pending-balance flags are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "atomicPublicSwap interpolatedIntent reads as a plain transfer and leaves out the token received in return.",
+      "evidence": "descriptor interpolatedIntent \"Swap {intent.publicAmount} from {intent.publicPayer} to {intent.publicRecipient}\" renders \"Swap 21.37 USDC from Alice to Bob\" (case 0). EBSwap.atomicPublicSwap also runs _spendLeg(intent.encryptedToken, ...), and that token is only in the 'For token' field.",
+      "fix": "Use \"Swap {intent.publicAmount} from {intent.publicPayer} to {intent.publicRecipient} for {intent.encryptedToken}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "atomicPublicSwap hides encryptedFlags, which change the encrypted payer's pending-balance setting after the transfer.",
+      "evidence": "EBSwap._spendLeg: IZKEMT(token).encryptedTransferWithCallerAuth(params, flags, transferAuth). The NatSpec says the flags are 'the source's own pending-balance management' and are applied after the transfer. No field covers encryptedFlags.clear or encryptedFlags.enabled.",
+      "fix": "Add fields for encryptedFlags.enabled and encryptedFlags.clear, with labels such as 'Enable pending balance' and 'Clear pending balance'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "atomicPublicSwap cannot show the encrypted leg's amount or its payer and recipient keys.",
+      "evidence": "intent.encryptedAmountCiphertext is an ElGamal ciphertext. intent.encryptedPayerEpk and encryptedRecipientEpk are Grumpkin points, not addresses. _spendLeg moves the encrypted amount between those keys.",
+      "fix": "No ERC-7730 format can decrypt the amount or name an EPK. A label could say that the counter-amount is encrypted.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "atomicPublicSwap 'For token' implies the public payer receives the encrypted token, which the code does not enforce.",
+      "evidence": "The descriptor field intent.encryptedToken is labelled 'For token'. EBSwap._spendLeg sends the encrypted leg to intent.encryptedRecipientEpk, and nothing ties that key to publicPayer.",
+      "fix": "Use a label such as 'Encrypted token (counter-leg)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "atomicSwap((address tokenIn,address tokenOut,(uint256 x,uint256 y) takerEpk,(uint256 x,uint256 y) takerReceiveEpk,(uint256 x,uint256 y) makerReceiveEpk,(uint256 x,uint256 y) makerEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) amountInCiphertext,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) amountOutCiphertext,uint256 expiry,uint256 intentSalt) intent, (bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) takerParams, (bool clear,bool enabled) takerFlags, (uint256 nonce,uint256 deadline,bytes signature) takerIntentAuth, (uint256 nonce,uint256 deadline,bytes signature) takerTransferAuth, (bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) makerParams, (bool clear,bool enabled) makerFlags, (uint256 nonce,uint256 deadline,bytes signature) makerIntentAuth, (uint256 nonce,uint256 deadline,bytes signature) makerTransferAuth)",
+    "effects": [
+     "An encrypted amount (amountInCiphertext) of tokenIn moves from takerEpk to makerReceiveEpk.",
+     "An encrypted amount (amountOutCiphertext) of tokenOut moves from makerEpk to takerReceiveEpk.",
+     "The taker's and the maker's pending-balance flags (clear, enabled) are applied to their source keys after each transfer.",
+     "Intent-auth nonces of both key controllers are consumed. The call reverts after intent.expiry.",
+     "Nothing is payable and the caller's own funds are not touched."
+    ],
+    "shown": "Swap zkUSD for zkEUR before the deadline. Amounts, keys and the pending-balance flags are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "atomicSwap hides takerFlags and makerFlags, which change pending-balance settings on both source keys.",
+      "evidence": "EBSwap._spendLeg passes the flags to IZKEMT(token).encryptedTransferWithCallerAuth(params, flags, transferAuth). The NatSpec says the per-leg *Flags are applied after the transfer. The descriptor has no field for takerFlags or makerFlags.",
+      "fix": "Add fields for takerFlags.enabled/clear and makerFlags.enabled/clear, with plain labels.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "atomicSwap cannot show either leg's amount or the keys that pay and receive.",
+      "evidence": "intent.amountInCiphertext and amountOutCiphertext are ElGamal ciphertexts. takerEpk, makerEpk, takerReceiveEpk and makerReceiveEpk are Grumpkin points that _spendLeg uses as source and destination.",
+      "fix": "No format can decrypt the amounts. The intent or a label could say that the amounts are encrypted.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "atomicSwap 'From token'/'To token' reads from the taker's side and is reversed for a maker who submits.",
+      "evidence": "The descriptor labels intent.tokenIn 'From token' and intent.tokenOut 'To token'. In EBSwap.atomicSwap the maker pays tokenOut and receives tokenIn.",
+      "fix": "Use the labels 'Taker pays token' and 'Maker pays token'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 45
+   }
+  ],
+  "couldNotCheck": [
+   "The ZKEMT token's encryptedTransferWithCallerAuth (src/interfaces/IZKEMT.sol has only the interface, with no implementation in the directory). It moves the encrypted balances and applies the pending-balance flags in both formats.",
+   "ZKHub (the hub immutable) controllers() and isZkemt(): no source in the directory. They decide which signer authorizes each encrypted leg."
+  ]
+ },
+ "cost": 0.39,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 71,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "atomicPublicSwap((address publicToken,address encryptedToken,address publicPayer,address publicRecipient,(uint256 x,uint256 y) encryptedPayerEpk,(uint256 x,uint256 y) encryptedRecipientEpk,uint256 publicAmount,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) encryptedAmountCiphertext,uint256 expiry,uint256 intentSalt) intent, (uint256 validAfter,uint256 validBefore,bytes32 nonce,bytes signature) publicTransferAuth, (uint256 nonce,uint256 deadline,bytes signature) publicIntentAuth, (bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) encryptedParams, (bool clear,bool enabled) encryptedFlags, (uint256 nonce,uint256 deadline,bytes signature) encryptedIntentAuth, (uint256 nonce,uint256 deadline,bytes signature) encryptedTransferAuth)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "atomicPublicSwap hides encryptedFlags, which change the encrypted payer's pending-balance setting after the transfer.",
+   "comprehension": null
+  },
+  "atomicSwap((address tokenIn,address tokenOut,(uint256 x,uint256 y) takerEpk,(uint256 x,uint256 y) takerReceiveEpk,(uint256 x,uint256 y) makerReceiveEpk,(uint256 x,uint256 y) makerEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) amountInCiphertext,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) amountOutCiphertext,uint256 expiry,uint256 intentSalt) intent, (bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) takerParams, (bool clear,bool enabled) takerFlags, (uint256 nonce,uint256 deadline,bytes signature) takerIntentAuth, (uint256 nonce,uint256 deadline,bytes signature) takerTransferAuth, (bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) makerParams, (bool clear,bool enabled) makerFlags, (uint256 nonce,uint256 deadline,bytes signature) makerIntentAuth, (uint256 nonce,uint256 deadline,bytes signature) makerTransferAuth)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "atomicSwap hides takerFlags and makerFlags, which change pending-balance settings on both source keys.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 52,
+  "functions": "2C",
+  "incomplete": true,
+  "worst": "atomicPublicSwap hides encryptedFlags, which change the encrypted payer's pending-balance setting after the transfer."
+ }
+}

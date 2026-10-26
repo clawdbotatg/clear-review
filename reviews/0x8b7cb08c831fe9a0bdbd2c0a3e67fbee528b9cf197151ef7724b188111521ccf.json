@@ -1,0 +1,591 @@
+{
+ "hash": "0x8b7cb08c831fe9a0bdbd2c0a3e67fbee528b9cf197151ef7724b188111521ccf",
+ "file": "registry/cosmix/calldata-PredictionMarket.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42161,
+   "address": "0x7a72e7cefd61b82bbc8d76520b737a29b71aad0e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "buyShares(bytes32 marketId, uint8 option, uint256 amount)",
+    "effects": [
+     "The signer sends `amount` CSMXA (0x5e96…bC5) to the PredictionMarket contract through safeTransferFrom, which spends the signer's CSMXA allowance to this contract.",
+     "The signer gets `amount` shares on option `option` of market `marketId`, 1:1 with the CSMXA paid."
+    ],
+    "shown": "Bet 500 CSMXA on option 2, with the market id and the option index as raw values.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "buyShares shows the market as a raw bytes32 id and the option as a zero-based index with no name.",
+      "evidence": "PredictionMarket.sol buyShares: `require(option < m.optionCount, \"Invalid option\")`; option names are not stored on chain. Descriptor: `\"path\": \"option\", \"label\": \"Option index\", \"format\": \"raw\"`, `\"path\": \"marketId\", \"format\": \"raw\"`.",
+      "fix": "Nothing a descriptor can decode. Optionally relabel the field to 'Option index (starts at 0)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "Synthetic case, no mined tx. Token constant matches the immutable csmxaToken on Arbitrum. 500 CSMXA out to the contract and shares on option 2 are both shown."
+     }
+    ],
+    "glance": 88,
+    "depth": 85
+   },
+   {
+    "key": "claimWinnings(bytes32 marketId)",
+    "effects": [
+     "The signer receives CSMXA from the contract: their winning shares × totalPool / winningPool, minus the platform fee and the creator fee (both read from storage).",
+     "The claimed flag is set for the signer on this market, so they cannot claim again."
+    ],
+    "shown": "Claim CosmiX Predict winnings for a raw market id; no amount and no token.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimWinnings: the payout amount and the fee cut come from storage and cannot be shown.",
+      "evidence": "PredictionMarket.sol _calculateWinnings: `grossWin = (userShares * m.totalPool) / winningPool; ... netWin = grossWin - platformFee - creatorFee`; descriptor only shows `marketId` raw.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "claimWinnings intent does not name the CSMXA token that the signer receives.",
+      "evidence": "PredictionMarket.sol claimWinnings: `csmxaToken.safeTransfer(msg.sender, winAmount)`; descriptor intent \"Claim winnings\", interpolatedIntent \"Claim CosmiX Predict winnings\".",
+      "fix": "Change interpolatedIntent to \"Claim CSMXA winnings from CosmiX Predict\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic. The claim direction is shown; the amount is storage-derived and not shown."
+     }
+    ],
+    "glance": 82,
+    "depth": 70
+   },
+   {
+    "key": "refundBet(bytes32 marketId)",
+    "effects": [
+     "The signer receives CSMXA equal to the sum of all their shares across every option of the cancelled market.",
+     "All the signer's shares in the market are set to zero and the market is marked refunded for them."
+    ],
+    "shown": "Refund bet from a cancelled market, with a raw market id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "refundBet says 'Refund bet' but refunds every bet of the signer in that market at once.",
+      "evidence": "PredictionMarket.sol refundBet: `for (uint8 i = 0; i < m.optionCount; i++) { ... totalRefund += optShares; }` then `csmxaToken.safeTransfer(msg.sender, totalRefund)`; interpolatedIntent \"Refund bet from a cancelled market\".",
+      "fix": "Change interpolatedIntent to \"Refund all your CSMXA bets in a cancelled market\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic. Refund direction shown; amount is from storage."
+     }
+    ],
+    "glance": 82,
+    "depth": 72
+   },
+   {
+    "key": "withdrawFees(bytes32 marketId)",
+    "effects": [
+     "The contract sends the platform share of the market fees in CSMXA to the treasury (storage).",
+     "The contract sends the creator share in CSMXA to the market creator (storage); the signer receives it only when the signer is the creator.",
+     "The market's feesWithdrawn flag is set."
+    ],
+    "shown": "Withdraw market fees for a raw market id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdrawFees splits fees to treasury and creator from storage; the owner signer receives nothing itself.",
+      "evidence": "PredictionMarket.sol withdrawFees: `if (platformShare > 0) csmxaToken.safeTransfer(treasury, platformShare); if (creatorShare > 0) csmxaToken.safeTransfer(m.creator, creatorShare);`; interpolatedIntent \"Withdraw market fees\".",
+      "fix": "Optionally change interpolatedIntent to \"Send market fees to treasury and creator\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic. Recipients and amounts come from storage."
+     }
+    ],
+    "glance": 72,
+    "depth": 65
+   },
+   {
+    "key": "updateCreatorFee(bytes32 marketId, uint256 newFeeBps)",
+    "effects": [
+     "The creator fee of an active market the signer created changes to newFeeBps (max 500 bps); this fee is cut from winners' payouts and later goes to the signer as creator."
+    ],
+    "shown": "Set creator fee to 3% for a raw market id.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic. 300 bps renders 3%, correct."
+     }
+    ],
+    "glance": 90,
+    "depth": 88
+   },
+   {
+    "key": "createMarket(bytes32 marketId, address creator, string title, uint8 optionCount, uint256 endTime, uint256 creatorFeeBps)",
+    "effects": [
+     "A resolver or the owner creates a new market with the given id, creator, title, option count, end time and creator fee; no asset moves."
+    ],
+    "shown": "Create market \"<title>\" with id, creator, title, options, end date and creator fee %.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic. All parameters shown with right formats."
+     }
+    ],
+    "glance": 90,
+    "depth": 92
+   },
+   {
+    "key": "resolveMarket(bytes32 marketId, uint8 winningOption)",
+    "effects": [
+     "A resolver sets the market to Resolved with winningOption as winner and opens a 30-day claim window; this decides who receives the pool."
+    ],
+    "shown": "Resolve market: option N wins, with a raw market id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "resolveMarket shows the winning option as a zero-based index with no option name.",
+      "evidence": "PredictionMarket.sol resolveMarket: `require(winningOption < m.optionCount)`; descriptor `\"path\": \"winningOption\", \"format\": \"raw\"`. Option names are not on chain.",
+      "fix": "Optionally relabel the field to 'Winning option (index from 0)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic."
+     }
+    ],
+    "glance": 85,
+    "depth": 82
+   },
+   {
+    "key": "cancelMarket(bytes32 marketId)",
+    "effects": [
+     "A resolver sets an active market to Cancelled, which enables refunds for all bettors."
+    ],
+    "shown": "Cancel CosmiX Predict market, with a raw market id.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic."
+     }
+    ],
+    "glance": 88,
+    "depth": 80
+   },
+   {
+    "key": "expireUnclaimed(bytes32 marketId, address user)",
+    "effects": [
+     "Anyone can call it after the claim deadline: the contract sends the user's unclaimed net winnings in CSMXA to the treasury, and marks the user as claimed. Nothing of the signer's moves."
+    ],
+    "shown": "Expire unclaimed winnings of <user>, with a raw market id and the user address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "expireUnclaimed intent does not say the user's winnings go to the treasury.",
+      "evidence": "PredictionMarket.sol expireUnclaimed: `claimed[marketId][user] = true; ... csmxaToken.safeTransfer(treasury, winAmount);`; interpolatedIntent \"Expire unclaimed winnings of {user}\".",
+      "fix": "Change interpolatedIntent to \"Send unclaimed winnings of {user} to treasury\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 8,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Synthetic. No effect on the signer's assets; the forfeit of the user's winnings is named but the destination is not."
+     }
+    ],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "setPlatformFee(uint256 bps)",
+    "effects": [
+     "The owner sets the platform fee rate (max 500 bps) cut from every winning payout."
+    ],
+    "shown": "Set platform fee to 1%.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 9,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic. 100 bps renders 1%, correct."
+     }
+    ],
+    "glance": 92,
+    "depth": 92
+   },
+   {
+    "key": "setTreasury(address _treasury)",
+    "effects": [
+     "The owner sets the treasury that receives platform fees and expired winnings."
+    ],
+    "shown": "Set treasury to <address>.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 10,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic."
+     }
+    ],
+    "glance": 92,
+    "depth": 92
+   },
+   {
+    "key": "addResolver(address resolver)",
+    "effects": [
+     "The owner grants the resolver role: it can create, resolve and cancel markets."
+    ],
+    "shown": "Add resolver <address>.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 11,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "removeResolver(address resolver)",
+    "effects": [
+     "The owner revokes the resolver role of the address."
+    ],
+    "shown": "Remove resolver <address>.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 12,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic."
+     }
+    ],
+    "glance": 92,
+    "depth": 92
+   },
+   {
+    "key": "transferOwnership(address newOwner)",
+    "effects": [
+     "The owner hands contract ownership to newOwner in one step; the signer loses all owner rights (fees, treasury, resolvers, pause)."
+    ],
+    "shown": "Transfer ownership to <address>.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 13,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic."
+     }
+    ],
+    "glance": 92,
+    "depth": 92
+   },
+   {
+    "key": "pause()",
+    "effects": [
+     "The owner pauses the contract: createMarket and buyShares revert; claims and refunds still work."
+    ],
+    "shown": "Pause CosmiX Predict.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 14,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "unpause()",
+    "effects": [
+     "The owner unpauses the contract so markets can be created and bets placed again."
+    ],
+    "shown": "Unpause CosmiX Predict.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 15,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Synthetic."
+     }
+    ],
+    "glance": 92,
+    "depth": 92
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.407,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 71,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "buyShares(bytes32 marketId, uint8 option, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimWinnings(bytes32 marketId)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "refundBet(bytes32 marketId)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdrawFees(bytes32 marketId)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "updateCreatorFee(bytes32 marketId, uint256 newFeeBps)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "createMarket(bytes32 marketId, address creator, string title, uint8 optionCount, uint256 endTime, uint256 creatorFeeBps)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 91,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "resolveMarket(bytes32 marketId, uint8 winningOption)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "cancelMarket(bytes32 marketId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "expireUnclaimed(bytes32 marketId, address user)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "expireUnclaimed intent does not say the user's winnings go to the treasury.",
+   "comprehension": null
+  },
+  "setPlatformFee(uint256 bps)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setTreasury(address _treasury)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "addResolver(address resolver)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "removeResolver(address resolver)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferOwnership(address newOwner)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "pause()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unpause()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 85,
+  "functions": "12A 4B",
+  "incomplete": false,
+  "worst": null
+ }
+}

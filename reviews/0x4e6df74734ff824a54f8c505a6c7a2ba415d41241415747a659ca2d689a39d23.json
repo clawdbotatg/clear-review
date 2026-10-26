@@ -1,0 +1,177 @@
+{
+ "hash": "0x4e6df74734ff824a54f8c505a6c7a2ba415d41241415747a659ca2d689a39d23",
+ "file": "registry/opensea/eip712-opensea.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x7f268357a8c2552623316e2562d90e642bb538e5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Order(address exchange,address maker,address taker,uint256 makerRelayerFee,uint256 takerRelayerFee,uint256 makerProtocolFee,uint256 takerProtocolFee,address feeRecipient,uint8 feeMethod,uint8 side,uint8 saleKind,address target,uint8 howToCall,bytes calldata,bytes replacementPattern,address staticTarget,bytes staticExtradata,address paymentToken,uint256 basePrice,uint256 extra,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 nonce)",
+    "effects": [
+     "Signing lets anyone who holds a matching counter-order call atomicMatch_ until the order expires, is cancelled, or the maker's nonce is bumped.",
+     "Sell order: the signer's AuthenticatedProxy runs `calldata` on `target` (a Call, or a DelegateCall when howToCall=1). In the cases this is transferFrom(signer, taker, tokenId 1234) on BAYC, so the NFT leaves the signer.",
+     "Sell order: the signer receives the match price in paymentToken (WETH, or ETH when paymentToken is 0x0) from the buyer. That is basePrice for a fixed price, or basePrice minus extra×elapsed/duration for a Dutch auction.",
+     "Sell order with SplitFee as the maker side (feeRecipient set): makerRelayerFee bps of the price go from the signer to feeRecipient, and makerProtocolFee bps go to protocolFeeRecipient. With ETH these are taken out of the amount the signer receives. In every case 250 bps (2.5%) go to 0x5b32…0107.",
+     "Buy order: basePrice (Dutch auction: rising to basePrice+extra) in paymentToken is pulled from the signer through the TokenTransferProxy, plus makerRelayerFee and makerProtocolFee bps on top when the signer is the maker side.",
+     "When the signer's order is the taker side (feeRecipient = 0), the signer pays the counterparty's taker fees up to its own takerRelayerFee and takerProtocolFee caps.",
+     "With feeMethod = ProtocolFee (0), relayer fees are charged in the exchange token (WYV) from the signer, not in paymentToken.",
+     "replacementPattern lets the counterparty rewrite the masked bytes of the signer's calldata before it runs (for example the recipient or the tokenId).",
+     "staticTarget/staticExtradata add a static check after execution that must pass or the match reverts."
+    ],
+    "shown": "\"Sign Wyvern order\", plus side, sale kind, price and price change in the payment token, maker, taker, asset contract, execution mode, the asset call as raw hex, the rewrite mask as raw hex, and listing and expiry dates. Every fee, the fee recipient and the fee method are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Order: maker relayer and protocol fees taken from the signer are hidden, so the price shown is not what the signer nets or pays.",
+      "evidence": "WyvernExchangeWithBulkCancellations.sol executeFundsTransfer: `uint makerRelayerFee = SafeMath.div(SafeMath.mul(sell.makerRelayerFee, price), INVERSE_BASIS_POINT); ... receiveAmount = SafeMath.sub(receiveAmount, makerRelayerFee)` / `transferTokens(sell.paymentToken, sell.maker, sell.feeRecipient, makerRelayerFee)`; buy side `transferTokens(sell.paymentToken, buy.maker, buy.feeRecipient, makerRelayerFee)`. Descriptor: makerRelayerFee, makerProtocolFee and feeRecipient are `visible: never`. Cases 0-4: makerRelayerFee=250 (2.5%) to 0x5b3256965E7C3CF26E11FcAF296dFfC8807C0107. In case 0 the screen says 'Price 7.5 WETH' but the signer nets 7.3125 WETH.",
+      "fix": "Show makerRelayerFee and makerProtocolFee as fields (a bps/percentage label such as 'Maker fee (bps of price)'), and show feeRecipient as an addressName 'Fee recipient'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Order: the taker fee caps the signer pays when their order is the taker side are hidden.",
+      "evidence": "executeFundsTransfer, buy-side maker branch: `require(buy.takerRelayerFee <= sell.takerRelayerFee); ... transferTokens(sell.paymentToken, sell.maker, buy.feeRecipient, takerRelayerFee)`. Descriptor: takerRelayerFee and takerProtocolFee are `visible: never`. These matter when feeRecipient is 0x0; no case covers that.",
+      "fix": "Show takerRelayerFee and takerProtocolFee as 'Max taker fee (bps)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Order: hidden feeMethod decides whether fees are paid in the payment token or in the WYV exchange token.",
+      "evidence": "executeFundsTransfer: `else { chargeProtocolFee(sell.maker, sell.feeRecipient, sell.makerRelayerFee); }` and chargeProtocolFee: `transferTokens(exchangeToken, from, to, amount)`. Descriptor: feeMethod is `visible: never`. All cases use feeMethod=1 (SplitFee).",
+      "fix": "Show feeMethod as an enum {0: 'Fees in exchange token (WYV)', 1: 'Split fee in payment token'}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order: the asset call that moves the NFT shows as raw hex, so the token id and recipient can't be read.",
+      "evidence": "Descriptor field `calldata` format calldata with calleePath target. Cases 0-4 screen: 'Asset call' = '0x23b872dd…04d2', which is transferFrom(0xd8dA…6045, 0x742d…f44e, 1234) and is never decoded. atomicMatch: `require(proxy.proxy(sell.target, sell.howToCall, sell.calldata))`.",
+      "fix": "Provide a nested descriptor (or a decoded transferFrom/safeTransferFrom display) for common asset targets, so 'From', 'To' and 'Token ID' render.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order: DelegateCall shows as a bare enum, though it runs target code inside the signer's proxy.",
+      "evidence": "AuthenticatedProxy.proxy: `else if (howToCall == HowToCall.DelegateCall) { result = dest.delegatecall(calldata); }`; for a sell order the proxy is `registry.proxies(sell.maker)`, the signer's proxy, which holds their approvals. Case 1 screen: 'Execution mode: DelegateCall' with no further meaning, and the asset call is shown as a plain call on target.",
+      "fix": "Relabel the enum: 1 → 'DelegateCall: target code runs with your proxy's token approvals'. Consider a warning message for value 1.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order: replacementPattern shows as raw bytes, so the signer can't tell which calldata bytes the counterparty may rewrite.",
+      "evidence": "atomicMatch: `ArrayUtils.guardedArrayReplace(sell.calldata, buy.calldata, sell.replacementPattern)`. Descriptor: replacementPattern format raw. Case 1 screen: 'Rewritable bytes: 0xffff…ffff'.",
+      "fix": "Label it 'Counterparty-rewritable calldata mask', and add a message when it is non-empty (for example, a recipient left open).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Order: the generic intent 'Sign Wyvern order' omits side, asset and price, and there is no interpolatedIntent.",
+      "evidence": "Descriptor: `\"intent\": \"Sign Wyvern order\"`, no interpolatedIntent. Case 0 sells an NFT for 7.5 WETH and case 1 buys for 1.25 WETH, yet both have the same intent.",
+      "fix": "Add an interpolatedIntent such as '{side} order on {target} for {basePrice}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order: the zero-address taker shows literally instead of as 'Anyone'.",
+      "evidence": "ordersCanMatch: `(sell.taker == address(0) || sell.taker == buy.maker)`. Case 4 screen: 'Taker: 0x0000000000000000000000000000000000000000'.",
+      "fix": "Use addressName with senderAddress-style handling, or a label/message for 0x0: 'Any taker'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order: 'Price change' does not say the direction or that it is the total change reached at expiry.",
+      "evidence": "calculateFinalPrice: sell `SafeMath.sub(basePrice, diff)`, buy `SafeMath.add(basePrice, diff)`, with diff = extra×elapsed/duration. Case 3 screen: 'Price change 0.5 WETH' with no direction.",
+      "fix": "Relabel it 'Auction price drop (sell) / rise (buy) by expiry', or use separate start and end price wording.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order: expirationTime 0 means 'never expires' but would render as a 1970 date.",
+      "evidence": "canSettleOrder: `(expirationTime == 0 || now < expirationTime)`. Descriptor: expirationTime format date with encoding timestamp and no special-value handling.",
+      "fix": "Add a threshold/message so that 0 renders as 'Never'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Order: the protocol fee recipient comes from contract storage, not from the message.",
+      "evidence": "executeFundsTransfer: `transferTokens(sell.paymentToken, sell.maker, protocolFeeRecipient, makerProtocolFee)`, where protocolFeeRecipient is a storage variable.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "Order: no case covers a taker-side order, feeMethod ProtocolFee, expiry 0, or a non-zero replacement mask on a sell.",
+      "evidence": "Cases 0-4 all have feeRecipient=0x5b32…0107, feeMethod=1, expirationTime=1775174400. Case 1 is labelled 'Dutch auction' but has extra=0.",
+      "fix": "Add cases with feeRecipient=0x0, feeMethod=0, expirationTime=0, and a Dutch auction buy with extra>0.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 15,
+    "depth": 35
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.566,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 127,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "Order(address exchange,address maker,address taker,uint256 makerRelayerFee,uint256 takerRelayerFee,uint256 makerProtocolFee,uint256 takerProtocolFee,address feeRecipient,uint8 feeMethod,uint8 side,uint8 saleKind,address target,uint8 howToCall,bytes calldata,bytes replacementPattern,address staticTarget,bytes staticExtradata,address paymentToken,uint256 basePrice,uint256 extra,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 nonce)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 0,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 9,
+   "worst": "Order: maker relayer and protocol fees taken from the signer are hidden, so the price shown is not what the signer nets or pays.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 0,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "Order: maker relayer and protocol fees taken from the signer are hidden, so the price shown is not what the signer nets or pays."
+ }
+}

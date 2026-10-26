@@ -1,0 +1,194 @@
+{
+ "hash": "0xeaffe0c33cf31e7a9f0d5a0dd6418f316ff0a7be60d0b8c96df7582989686c12",
+ "file": "registry/morpho/calldata-re7_labs-Re7WETH-v2-10.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 10,
+   "address": "0x3d63934715b6d4c4dfbbc1a00fe2a2145079dd76"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The vault pulls exactly `assets` WETH (0x4200…0006) from the signer with safeTransferFrom, which spends the signer's WETH allowance to the vault.",
+     "The vault mints previewDeposit(assets) Re7WETH shares to `onBehalf`. The share price comes from storage after fees accrue.",
+     "accrueInterest first mints fee shares to the fee recipients. This dilutes the price, and previewDeposit already counts it.",
+     "The vault may move the deposited WETH to its liquidity adapter. This does not change the signer's balances."
+    ],
+    "shown": "\"Deposit 1.359 WETH for <onBehalf>\", plus a fixed \"Share ticker: Re7WETH\" field and \"Send shares to <onBehalf>\". No amount of shares is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many Re7WETH shares the signer receives; the vault price decides it.",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0: the signer received 1.353729687874573930 Re7WETH, and the screen shows only 'Share ticker: Re7WETH'.",
+      "fix": "Nothing in calldata holds the share amount, so no descriptor change can show it. Keep the 'Share ticker' field so the asset is named.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The WETH out amount (1.359072118262166441) and the vault are shown correctly. The screen names the Re7WETH shares coming in and their recipient (the signer), but not the amount (1.3537). The reader saw this correctly as an unknown amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault sends exactly `assets` WETH to `receiver`.",
+     "The vault burns previewWithdraw(assets) Re7WETH shares from `onBehalf`, rounded up. There is no maximum on shares burned.",
+     "If the signer is not `onBehalf`, the call spends the share allowance that `onBehalf` gave the signer.",
+     "accrueInterest runs first. It mints fee shares to the fee recipients and may realize losses, so it can raise the number of shares burned."
+    ],
+    "shown": "\"Withdraw 0.13 WETH to <receiver>\", with fields 'Withdraw exactly' (WETH amount), 'To' (receiver) and 'Owner' (onBehalf). The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many Re7WETH shares are burned from the owner; storage price decides it.",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);` and in exit `deleteShares(onBehalf, shares);`. Case 1: 0.129395214855309340 Re7WETH was burned from the signer, and no field states it.",
+      "fix": "Calldata holds no share amount or maximum, so the descriptor cannot show it. Leave as is, or add a note to the intent that vault shares are burned.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 0.13 WETH in to the signer exactly. The Re7WETH shares out (0.1294) are not on the screen. The reader guessed that shares leave but did not know the amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` Re7WETH from `onBehalf`. If the signer is not `onBehalf`, the call spends the signer's share allowance from `onBehalf`.",
+     "The vault sends previewRedeem(shares) WETH to `receiver`. The price comes from storage and the call has no minimum assets received.",
+     "accrueInterest runs first and mints fee shares to the fee recipients. If the signer is a fee recipient, they receive Re7WETH."
+    ],
+    "shown": "\"Redeem 0.1516 Re7WETH to <receiver>\", with fields 'Shares to redeem', 'To' and 'Owner'. Nothing names WETH as the asset received or states its amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names WETH as the asset the receiver gets; only the shares burned are shown.",
+      "evidence": "VaultV2.exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` where asset = 0x4200…0006 (WETH). Descriptor redeem fields: 'Shares to redeem', 'To', 'Owner', and interpolatedIntent 'Redeem {#.shares} to {#.receiver}'. Case 2: the signer received 0.152377721509106219 WETH. The reader was unsure which token is paid out.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}. Also change interpolatedIntent to \"Redeem {#.shares} for WETH to {#.receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem shows no amount or minimum of WETH received; the vault price in storage decides it.",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. The devdoc says 'The share price can go down if the vault incurs some losses. Users might want to perform slippage checks'. Case 2: 0.152377721509106219 WETH in, and the screen shows no amount.",
+      "fix": "Calldata holds no amount, so the descriptor cannot show it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: accrueInterest minted fee shares to the signer as fee recipient, and the screen does not show it.",
+      "evidence": "VaultV2.accrueInterest: `if (performanceFeeShares != 0) createShares(performanceFeeRecipient, performanceFeeShares);`. Case 2: 0.000234012271490169 Re7WETH minted to the signer 0x93db…923e.",
+      "fix": "Storage decides this, so no descriptor change can show it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "The screen shows the Re7WETH shares out (0.1516) correctly. It shows neither the asset nor the amount of the WETH in (0.1524); the reader guessed WETH. The reader missed the fee shares in (0.000234 Re7WETH)."
+     }
+    ],
+    "glance": 65,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.42,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 79,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 33,
+   "clarity": 54,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names WETH as the asset the receiver gets; only the shares burned are shown.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 78,
+  "clarity": 69,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem never names WETH as the asset the receiver gets; only the shares burned are shown."
+ }
+}

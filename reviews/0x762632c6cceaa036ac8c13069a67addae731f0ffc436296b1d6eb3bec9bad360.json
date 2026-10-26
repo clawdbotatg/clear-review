@@ -1,0 +1,169 @@
+{
+ "hash": "0x762632c6cceaa036ac8c13069a67addae731f0ffc436296b1d6eb3bec9bad360",
+ "file": "registry/symbiotic/calldata-RewardsV2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xa13e65ca0fefa52ccb9615108ff400ef4806866b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "claimRewards(address recipient,address token,bytes data)",
+    "effects": [
+     "Sends the signer's unclaimed rewards in `token` from the Rewards V2 contract to `recipient`. The type is Vault snapshot or Cumulative Merkle, set by the first 8 bytes of `data`.",
+     "Snapshot type: claims the signer's share of the distributions of the vault inside `data` for the network inside `data`, and moves the signer's claim index forward.",
+     "Merkle type: pays the cumulative amount inside `data`, less what was already claimed, after a Merkle proof check, and records the new claimed total.",
+     "No native value and no approval. Inferred from the calldata layout and the test descriptions only: the implementation source is not in the directory."
+    ],
+    "shown": "\"Claim {token} to {recipient}\", with the contract, recipient, reward token, the reward type taken from data[0:8], the network from data[20:40], and the full claim data as a raw hex blob.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimRewards: the snapshot vault and the Merkle cumulative amount appear only inside the raw claim data.",
+      "evidence": "Cases 5–7: the vault (e.g. 0xc10a7f0a…) sits at data[52:72]. Case 4: the cumulative amount 0x0bebc200 (200 USDC) sits at data[136:168]. In snapshot cases, data[136:168] holds rewardsToClaim instead. Descriptor: only `#.data.[0:8]`, `#.data.[20:40]` and `#.data` (raw) are fields.",
+      "fix": "The data layout depends on the reward type, and ERC-7730 has no conditional fields, so no single slice can be labeled correctly for both types. Ask the contract to expose separate typed entry points, or wait for conditional display in the spec.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "claimRewards: 'Claim data' shows 200–330 bytes of hex that a signer cannot read.",
+      "evidence": "descriptor.json claimRewards field `#.data` label 'Claim data' format raw visible always. Case 2's screen shows a 0x0000000000000001…aaaa…bbbb blob.",
+      "fix": "Set `visible: never` on the raw blob, or move it to an optional field. Keep the decoded type and network fields.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "claimRewards: the reward-type and network slice offsets could not be checked against the implementation.",
+      "evidence": "meta.json constructor `_logic` = 0xa73501536B35DeF71C3B68273f6FAff83c01630f, which has no source in contracts/. Descriptor slices `#.data.[0:8]` as the enum and `#.data.[20:40]` as the network.",
+      "fix": "Verify the implementation on Sourcify so that the decoding of `data` can be confirmed.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 50
+   },
+   {
+    "key": "claimCuratorFees(address recipient,address vault,address token)",
+    "effects": [
+     "Sends the curator fees accrued to the signer (the vault's curator) for `vault` in `token` from the Rewards V2 contract to `recipient`. The amount comes from contract storage.",
+     "No native value and no approval. Inferred only: the implementation source is not in the directory."
+    ],
+    "shown": "\"Claim {token} fees to {recipient}\", with the contract, vault, fee token and recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimCuratorFees: the fee amount comes from storage and cannot be shown.",
+      "evidence": "The calldata has only recipient, vault and token (cases 8 and 9). No amount parameter exists.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "claimVaultSnapshotRewards(address recipient,address network,address token,address vault,uint256 lastUnclaimedRewards,uint256 firstRewardToClaim,uint256 rewardsToClaim,bytes[] activeSharesHints)",
+    "effects": [
+     "Sends the signer's share of up to `rewardsToClaim` reward distributions in `token`, for `network` on `vault`, from the Rewards V2 contract to `recipient`. The amount is computed from snapshots of the signer's stake.",
+     "Moves the signer's claimed-rewards index forward; `lastUnclaimedRewards` and `firstRewardToClaim` guard where the claim starts.",
+     "The `activeSharesHints` are only lookup hints. No native value and no approval. Inferred only: the implementation source is not in the directory."
+    ],
+    "shown": "\"Claim {token} rewards to {recipient}\", with the contract, vault, network, reward token, recipient, the expected index and requested start as raw numbers, and the max distribution count (max value = all). The hints are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimVaultSnapshotRewards: the reward amount is computed from storage snapshots and cannot be shown.",
+      "evidence": "No amount parameter in the signature. Cases 10 and 11 show only indices and counts.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "claimVaultSnapshotRewards: the max-uint distribution count shows as a 78-digit number.",
+      "evidence": "Case 11: 'Max distributions (max value = all)' = 115792089237316195423570985008687907853269984665640564039457584007913129639935.",
+      "fix": "The label already explains the value. A raw format has no threshold, so this is cosmetic.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": [
+   "Implementation 0xa73501536B35DeF71C3B68273f6FAff83c01630f behind the TransparentUpgradeableProxy at 1:0xa13e65ca0fefa52ccb9615108ff400ef4806866b has no source in the directory, and meta.json reports proxyResolution isProxy=false. None of the claim effects (who is paid, the amounts, how `data` is decoded, curator checks) can be checked against code."
+  ]
+ },
+ "cost": 0.413,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 83,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "claimRewards(address recipient,address token,bytes data)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimRewards: 'Claim data' shows 200–330 bytes of hex that a signer cannot read.",
+   "comprehension": null
+  },
+  "claimCuratorFees(address recipient,address vault,address token)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimVaultSnapshotRewards(address recipient,address network,address token,address vault,uint256 lastUnclaimedRewards,uint256 firstRewardToClaim,uint256 rewardsToClaim,bytes[] activeSharesHints)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 69,
+  "functions": "1A 1B 1C",
+  "incomplete": true,
+  "worst": "claimRewards: 'Claim data' shows 200–330 bytes of hex that a signer cannot read."
+ }
+}

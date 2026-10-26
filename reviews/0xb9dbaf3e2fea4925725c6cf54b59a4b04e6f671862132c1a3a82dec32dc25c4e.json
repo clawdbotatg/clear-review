@@ -1,0 +1,271 @@
+{
+ "hash": "0xb9dbaf3e2fea4925725c6cf54b59a4b04e6f671862132c1a3a82dec32dc25c4e",
+ "file": "registry/ethos/calldata-EthosVouchV2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x8b5ef9c00152cadbfeda4f59212edb6e2e45de11"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "vouchWithPermit(string target, uint256 amount, string metadata, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Signs an EIP-2612 permit that lets the Vouch contract spend amount + entry fee WHUF from the signer (try/catch: if the permit fails, an existing allowance of at least that size is used).",
+     "Pulls amount + entry fee WHUF from the signer to the Vouch contract. The fee is amount × entryFeeBps / 10000, rounded up, and burned.",
+     "Creates a new vouch position owned by the signer for `target` with balance = amount. It counts toward the signer's slashable active balance and is credited in EthosRewards.",
+     "Stores the opaque `metadata` string on the new vouch."
+    ],
+    "shown": "Vouch {amount} WHUF for {target} plus an entry fee of unstated size, with the permit expiry; the permit amount, fee size and metadata are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "vouchWithPermit: the entry fee and the total WHUF taken (amount + fee) are not shown as numbers.",
+      "evidence": "EthosVouchV2.vouchWithPermit: `uint256 fee = _entryFee(amount); uint256 required = amount + fee;` with the rate read from the entryFeeBps storage. Case 0: signer out 1.01 WHUF and permit grant 1.01 WHUF; the screen shows '1 WHUF' with 'plus entry fee'.",
+      "fix": "The rate is set by the admin in storage, so the descriptor cannot compute it. The wording already says a fee is added. Optionally note the 10% combined fee cap (MAX_TOTAL_FEES) in the label.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "vouchWithPermit: the label 'Amount, fee added' can read as a total that already includes the fee.",
+      "evidence": "descriptor field amount label 'Amount, fee added'. Case 0 reader: \"'Amount, fee added: 1 WHUF' may mean 1 WHUF total including fee\". Code: the vouch balance is `amount`, and the fee is charged on top (`gross = amount + fee`).",
+      "fix": "Label it 'Stake (entry fee charged on top)' or 'Vouch amount, before entry fee'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "vouchWithPermit: the permit spender and the permit amount are not shown, only the expiry.",
+      "evidence": "vouchWithPermit calls `permit(msg.sender, address(this), required, deadline, v, r, s)`. Case 0: approval effect of 1.01 WHUF to 0x8b5e…de11. The fields show only 'Permit expires'.",
+      "fix": "The spender is the called contract and the allowance is used up in the same call. A label like 'Permit for amount + fee to Ethos Vouch' would help.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 0,
+      "reader": [
+       "partial",
+       "partial"
+      ],
+      "notes": "Grant of 1.01 WHUF: the reader knew a permit was signed but not its amount. Out 1.01 WHUF: the screen shows 1 WHUF plus a fee of unknown size, and the reader was unsure whether the fee was included."
+     }
+    ],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "increaseVouchWithPermit(uint256 vouchId, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Signs an EIP-2612 permit that lets the Vouch contract spend amount + entry fee WHUF from the signer.",
+     "Pulls amount + entry fee WHUF from the signer. The fee (entryFeeBps, rounded up) is burned.",
+     "Increases the signer's own vouch `vouchId` by `amount` (it reverts if the signer is not the author or the vouch is archived). This raises the slashable active balance and the rewards credit."
+    ],
+    "shown": "Increase vouch {vouchId} by {amount} WHUF plus an entry fee of unstated size, with the permit expiry.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "increaseVouchWithPermit: the entry fee and the total WHUF taken are not shown as numbers.",
+      "evidence": "EthosVouchV2.increaseVouchWithPermit: `required = amount + _entryFee(amount)`. Case 1: signer out 15.15 WHUF and permit grant 15.15 WHUF; the screen shows '15 WHUF', 'plus entry fee'.",
+      "fix": "The fee rate is in storage and cannot be computed. The wording already discloses the fee.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "increaseVouchWithPermit: the label 'Amount, fee added' is unclear about whether the fee is on top.",
+      "evidence": "descriptor amount label 'Amount, fee added'. Code `_increaseVouch`: `gross = amount + fee`, and the balance grows by `amount`.",
+      "fix": "Label it 'Added stake (entry fee charged on top)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "increaseVouchWithPermit: the vouch ID is raw and the target being vouched for is not shown.",
+      "evidence": "field vouchId 'Vouch ID' raw. The target hash is in storage (`vouches[vouchId].targetHash`). Case 1 reader: 'Whether you own vouch 1001803 or who it vouches for'.",
+      "fix": "Not fixable from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 0,
+      "reader": [
+       "partial",
+       "partial"
+      ],
+      "notes": "The reader got 'about 15 WHUF, possibly slightly more' and knew a permit was signed, but did not know the 15.15 WHUF total or the permit amount."
+     }
+    ],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "decreaseVouch(uint256 vouchId, uint256 amount)",
+    "effects": [
+     "Reduces the signer's vouch `vouchId` by `amount` (gross). It reverts if the remaining balance would fall below the minimum or if the account is frozen.",
+     "Sends amount - exit fee WHUF to the signer. The exit fee (exitFeeBps, rounded up) is burned.",
+     "Lowers the signer's slashable active balance and debits their rewards credit by `amount`."
+    ],
+    "shown": "Withdraw {amount} WHUF from vouch {vouchId}, minus an exit fee of unstated size; the amount field is labelled 'Amount, fee deducted'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "decreaseVouch: the label 'Amount, fee deducted' reads as the net received, but it is the gross amount.",
+      "evidence": "descriptor amount label 'Amount, fee deducted'. Code: `uint256 payout = amount - fee; token.safeTransfer(msg.sender, payout);`. Case 2: screen 0.6408 WHUF, signer in 0.634392 WHUF. The reader believed 0.6408 was the amount 'with the fee already deducted'.",
+      "fix": "Label it 'Withdraw amount (exit fee taken from it)' or 'Gross amount, before exit fee'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "decreaseVouch: the exit fee and the net payout are not shown as numbers.",
+      "evidence": "`uint256 fee = _exitFee(amount);` uses the exitFeeBps storage. Case 2: 0.006408 WHUF burned, 0.634392 WHUF received.",
+      "fix": "The rate is in storage. The interpolated intent already says 'minus exit fee'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "wrong"
+      ],
+      "notes": "The signer received 0.634392 WHUF. The 'fee deducted' label led the reader to take 0.6408 as the net amount received."
+     }
+    ],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "unvouch(uint256 vouchId)",
+    "effects": [
+     "Closes (archives) the signer's vouch `vouchId` and removes it from their active vouches. The vouch for that target ends.",
+     "Sends the whole vouch balance minus the exit fee, in WHUF, to the signer. The fee is burned.",
+     "Lowers the signer's slashable active balance and debits their rewards credit by the full balance."
+    ],
+    "shown": "Unvouch {vouchId}, with the exit fee deducted from the payout; neither the payout asset nor the amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "unvouch: the screen never says the payout is in WHUF, so the reader guessed ETH.",
+      "evidence": "descriptor intent 'Unvouch {vouchId}, exit fee deducted from payout', with only the vouchId field. Code `_unvouch`: `token.safeTransfer(msg.sender, payout)`, where token is WHUF. Case 3: signer in 254.260908 WHUF. Reader: 'How much you get back and in what asset (likely ETH, not shown)'.",
+      "fix": "interpolatedIntent: 'Unvouch {vouchId}: your WHUF stake is returned, minus the exit fee'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "unvouch: the payout amount comes from the vouch balance in storage and cannot be shown.",
+      "evidence": "`uint256 balance = v.balance; uint256 payout = balance - fee;`. Case 3: 254.260908 WHUF received and 2.568292 WHUF burned. The screen shows only the vouch ID.",
+      "fix": "No calldata path exists. A wallet could show previewUnvouchPayout off-chain.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The reader expected a payout minus a fee but did not know the asset (guessed ETH) or the amount (254.26 WHUF)."
+     }
+    ],
+    "glance": 60,
+    "depth": 40
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.535,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 92,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "vouchWithPermit(string target, uint256 amount, string metadata, uint256 deadline, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "vouchWithPermit: the label 'Amount, fee added' can read as a total that already includes the fee.",
+   "comprehension": 50
+  },
+  "increaseVouchWithPermit(uint256 vouchId, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 51,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "increaseVouchWithPermit: the label 'Amount, fee added' is unclear about whether the fee is on top.",
+   "comprehension": 50
+  },
+  "decreaseVouch(uint256 vouchId, uint256 amount)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 21,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "decreaseVouch: the label 'Amount, fee deducted' reads as the net received, but it is the gross amount.",
+   "comprehension": 0
+  },
+  "unvouch(uint256 vouchId)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "unvouch: the screen never says the payout is in WHUF, so the reader guessed ETH.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 42,
+  "functions": "4C",
+  "incomplete": false,
+  "worst": "vouchWithPermit: the label 'Amount, fee added' can read as a total that already includes the fee."
+ }
+}

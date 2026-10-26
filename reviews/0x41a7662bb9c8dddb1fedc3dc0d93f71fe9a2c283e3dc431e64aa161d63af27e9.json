@@ -1,0 +1,199 @@
+{
+ "hash": "0x41a7662bb9c8dddb1fedc3dc0d93f71fe9a2c283e3dc431e64aa161d63af27e9",
+ "file": "registry/morpho/calldata-waterline-m1USDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xab5955eb671d150527f8e61a42b703832f86616c"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDC from their wallet to the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "The vault mints m1USDC shares to `onBehalf`. previewDeposit sets the share count from the vault's total assets and supply in storage.",
+     "The vault may pass the deposited USDC on to its liquidity adapter. This moves vault funds, not the signer's."
+    ],
+    "shown": "Deposit 1.5 USDC for <onBehalf>, with a constant 'Share ticker: m1USDC' field and 'Send shares to' <onBehalf>. The number of shares minted is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many m1USDC shares are minted; storage sets the count",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets);` uses accrueInterestView() and totalSupply. Descriptor shows only 'Share ticker' = $.metadata.constants.vaultTicker (raw). Case 0: 1.5 m1USDC in to signer, amount not on screen.",
+      "fix": "No descriptor fix exists. The share count comes from storage and the function has no minimum-shares parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit interpolated intent does not say the signer receives m1USDC vault shares",
+      "evidence": "interpolatedIntent \"Deposit {#.assets} for {#.onBehalf}\". The shares appear only as a separate raw constant field 'Share ticker'.",
+      "fix": "Change the intent to say what arrives, for example \"Deposit {#.assets} for m1USDC shares to {#.onBehalf}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "1.5 USDC out is shown exactly. The m1USDC shares in are shown by ticker and recipient, but not by amount (1.5 m1USDC). The amount comes from storage."
+     }
+    ],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns m1USDC shares from `onBehalf`. previewWithdraw sets the count from storage and rounds it up.",
+     "If the signer is not `onBehalf`, the call spends the share allowance that `onBehalf` gave the signer.",
+     "`receiver` gets exactly `assets` USDC from the vault (safeTransfer(asset, receiver, assets))."
+    ],
+    "shown": "Withdraw exactly <assets> USDC to <receiver>, with Owner <onBehalf>. The screen does not say that m1USDC shares are burned, or how many.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw never says that m1USDC shares are burned from the Owner",
+      "evidence": "VaultV2.exit: `deleteShares(onBehalf, shares);`. Descriptor field 'Owner' (onBehalf), intent \"Withdraw\". Case 1: the signer burns 1476.019 m1USDC. Reader: \"Likely no tokens from my wallet\" and \"Whether any shares or receipt tokens are burned ... is not shown\".",
+      "fix": "Rename the 'Owner' label to 'Burn m1USDC shares from'. Change the interpolated intent to \"Withdraw {#.assets} to {#.receiver}, burning m1USDC shares of {#.onBehalf}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw cannot show how many m1USDC shares are burned; storage sets the count",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets);` and there is no maximum-shares parameter. Case 1: 1476.019240613187597064 m1USDC leave the signer and the screen has no amount for them.",
+      "fix": "No descriptor fix exists for the amount. Name the burned asset, as the warning above says.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "1476.019 m1USDC out: no field states it. The reader only guessed that the position shrinks by about 1501 USDC worth and thought no tokens leave the wallet. 1501.170843 USDC in to the signer is shown exactly."
+     }
+    ],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` m1USDC from `onBehalf`. If the signer is not `onBehalf`, the call spends the share allowance `onBehalf` gave the signer.",
+     "`receiver` gets USDC from the vault. previewRedeem(shares) sets the amount from storage, and there is no minimum."
+    ],
+    "shown": "Redeem <shares> m1USDC to <receiver>, with Owner <onBehalf>. Neither the asset received (USDC) nor its amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDC as the asset the receiver gets",
+      "evidence": "VaultV2.exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` where asset is USDC. Descriptor: intent \"Redeem\", interpolatedIntent \"Redeem {#.shares} to {#.receiver}\", and no field names USDC. Case 2: the signer receives 2308.155716 USDC. Reader: \"Unknown asset and amount\".",
+      "fix": "Change the interpolated intent to \"Redeem {#.shares} for USDC to {#.receiver}\". Add a field 'Receive' with value $.metadata.constants.underlyingTicker.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem cannot show how much USDC arrives: no minimum, and storage sets the amount",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares);` with no minimum-assets parameter. Case 2: 2308.155716 USDC in, with no amount or bound on screen.",
+      "fix": "No descriptor fix exists for the amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "2269.990203710456346569 m1USDC out is shown exactly. 2308.155716 USDC in: the screen shows only the recipient, not the asset or the amount. The reader could not name what arrives."
+     }
+    ],
+    "glance": 55,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.421,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 82,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw never says that m1USDC shares are burned from the Owner",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset the receiver gets",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 71,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem never names USDC as the asset the receiver gets"
+ }
+}

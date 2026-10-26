@@ -1,0 +1,82 @@
+{
+ "hash": "0x531ac0a45bd3bd81251b7d66a80ae8a41b9c15de034b07c91de0b5619c0075a3",
+ "file": "registry/symbiotic/eip712-VaultV2Permit-KPK_USDC_LL.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x8bcd746976885b5832bad07b4921e3f2dd1d3703"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Once anyone submits the signature, the vault (0x8BcD…3703) sets the allowance of spender over owner's KPK_USDC_LL vault shares to exactly value. This replaces any earlier allowance and does not add to it.",
+     "The allowance has no expiry. The deadline only limits when the signature can be submitted (ERC2612ExpiredSignature if block.timestamp > deadline).",
+     "The owner's permit nonce is used up, so any other pending permit signed with the same nonce becomes invalid.",
+     "With the allowance, spender can transferFrom the owner's shares, or call redeem/withdraw with owner set to the signer, which burns the shares and sends the USDC to any receiver spender picks. A value of 2^256-1 is never reduced when spent."
+    ],
+    "shown": "\"Approve {value} KPK_USDC_LL for {spender} until {deadline}\". The fields show the owner, the spender, the allowance (in share decimals, with \"Unlimited\" at max uint), the signature deadline as a date, and the nonce.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Permit interpolatedIntent says 'until {deadline}', which suggests the allowance expires, but it never does.",
+      "evidence": "descriptor.json interpolatedIntent \"Approve {value} for {spender} until {deadline}\". ERC20PermitUpgradeable.permit: `if (block.timestamp > deadline) revert ERC2612ExpiredSignature(deadline);` then `_approve(owner, spender, value);`. The deadline only limits when the signature can be submitted, and the allowance set by _approve has no expiry. Case 3 screen: \"Approve Unlimited KPK_USDC_LL for 0x5619… until 2030-01-01\".",
+      "fix": "Change to \"Approve {spender} to spend {value} (signature valid until {deadline})\", or drop the deadline from the interpolated intent. The 'Signature deadline' field already shows it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Permit always shows the raw nonce, which tells a normal signer nothing.",
+      "evidence": "descriptor.json field `#.nonce` label 'Nonce', format raw, visible always. Cases 0-3 show 'Nonce: 7/8/0'.",
+      "fix": "Set the nonce field to visible: never, or leave it out.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.213,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 36,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "Permit interpolatedIntent says 'until {deadline}', which suggests the allowance expires, but it never does.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 73,
+  "functions": "1B",
+  "incomplete": false,
+  "worst": "Permit interpolatedIntent says 'until {deadline}', which suggests the allowance expires, but it never does."
+ }
+}

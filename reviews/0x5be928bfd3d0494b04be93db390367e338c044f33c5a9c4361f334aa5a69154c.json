@@ -1,0 +1,231 @@
+{
+ "hash": "0x5be928bfd3d0494b04be93db390367e338c044f33c5a9c4361f334aa5a69154c",
+ "file": "registry/morpho/calldata-gauntlet-gtAUSDc.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x1b4cd53a1a8e5f50ab6320ef34e5fb4d3df7b6f6"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` AUSD from the signer into the vault (ERC4626._deposit safeTransferFrom(_asset, caller, this, assets)), using the signer's AUSD allowance to the vault.",
+     "Mints gtAUSDc vault shares to `receiver`. The number of shares is set by the vault's share price after fees accrue (_convertToSharesWithTotals, rounded down), and there is no minimum.",
+     "The vault supplies the AUSD to Morpho Blue markets in its supply queue (_supplyMorpho). That is internal to the vault and doesn't change the signer's position beyond the shares."
+    ],
+    "shown": "A bare 'Deposit' with the AUSD amount, a fixed 'Share ticker: gtAUSDc' line and the share receiver.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent is a bare 'Deposit' with no interpolatedIntent naming the amount, the asset or the vault shares.",
+      "evidence": "descriptor.json display.formats deposit: \"intent\": \"Deposit\", and there is no interpolatedIntent.",
+      "fix": "Add an interpolatedIntent such as \"Deposit {assets} for gtAUSDc shares to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the screen can't show how many shares arrive. The vault computes them from storage and there is no minimum.",
+      "evidence": "MetaMorpho.sol deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor). There is no minShares parameter.",
+      "fix": "None in the descriptor. A router with a slippage parameter would be needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "deposit: the 'Share ticker' field is a fixed constant with no amount, so it adds a line but no information about this transaction.",
+      "evidence": "descriptor.json deposit field {\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}",
+      "fix": "Fold the ticker into the intent or into the receiver label, e.g. 'Send gtAUSDc shares to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Pulls AUSD from the signer into the vault. The amount is computed from `shares` at the current share price, rounded up (_convertToAssetsWithTotals(..., Ceil)), and there is no maximum. It is bounded only by the signer's AUSD allowance and balance.",
+     "Mints exactly `shares` gtAUSDc to `receiver`.",
+     "The vault supplies the AUSD to its Morpho Blue markets. This is internal to the vault."
+    ],
+    "shown": "A bare 'Mint' with 'Deposit asset: AUSD' (no amount), the number of gtAUSDc shares minted and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the screen shows no AUSD amount paid. The vault computes it from storage and there is no cap.",
+      "evidence": "MetaMorpho.sol mint: assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); then _deposit pulls `assets` from the caller. Case 0: 1 AUSD unit (0.000001 AUSD) left the signer, while the screen shows only 'Deposit asset: AUSD'.",
+      "fix": "None in the descriptor. Show the AUSD allowance as the effective cap, or use a router with a maxAssets parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint' with no interpolatedIntent does not tell a non-expert that AUSD will be paid from their wallet.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", and there is no interpolatedIntent. Case 0 reader: 'How much AUSD is deposited; the screen doesn't show it'.",
+      "fix": "Use the intent \"Deposit AUSD for shares\" and an interpolatedIntent such as \"Pay AUSD to mint {shares} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer sent 1 AUSD unit (0.000001 AUSD) to the vault. The screen names AUSD but no amount. The 1e9 shares went to 0x...01 (not the signer), and the screen shows that correctly as 0.000000001 gtAUSDc. The reader got the direction and the asset but not the amount."
+     }
+    ],
+    "glance": 30,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns gtAUSDc shares from `owner`. The number of shares is computed from `assets` at the current share price, rounded up, and there is no maximum.",
+     "If the signer is not `owner`, the call spends the signer's gtAUSDc allowance from `owner` by the burned share amount (_spendAllowance).",
+     "Sends exactly `assets` AUSD from the vault to `receiver`, after the vault pulls liquidity from its Morpho markets."
+    ],
+    "shown": "A bare 'Withdraw' with 'Withdraw exactly' the AUSD amount, the recipient and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the screen can't show the number of shares burned from the owner. It is computed from the vault's share price, with no maximum.",
+      "evidence": "MetaMorpho.sol withdraw: shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); ERC4626._withdraw: _burn(owner, shares).",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the bare 'Withdraw' intent omits the amount, the asset and the fact that gtAUSDc shares are burned.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", and there is no interpolatedIntent.",
+      "fix": "Add the interpolatedIntent \"Withdraw {assets} to {receiver} by burning gtAUSDc shares of {owner}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` gtAUSDc from `owner`. If the signer is not `owner`, this spends the signer's allowance from `owner`.",
+     "Sends AUSD from the vault to `receiver`. The amount is computed from `shares` at the current share price, rounded down, and there is no minimum.",
+     "The vault pulls liquidity from its Morpho markets. The call reverts if that liquidity is not enough."
+    ],
+    "shown": "A bare 'Redeem' with the gtAUSDc shares to redeem, the recipient and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the screen can't show the AUSD amount received. The vault computes it and there is no minimum.",
+      "evidence": "MetaMorpho.sol redeem: assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor); ERC4626._withdraw: safeTransfer(_asset, receiver, assets).",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the bare 'Redeem' intent does not say that the shares are exchanged for AUSD sent to the receiver.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", and there is no interpolatedIntent. The underlying asset AUSD appears nowhere on this screen.",
+      "fix": "Use the intent \"Redeem shares for AUSD\" and an interpolatedIntent such as \"Redeem {shares} for AUSD to {receiver}\", or add a field for the underlying ticker.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.32,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 70,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent is a bare 'Deposit' with no interpolatedIntent naming the amount, the asset or the vault shares.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' with no interpolatedIntent does not tell a non-expert that AUSD will be paid from their wallet.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the bare 'Withdraw' intent omits the amount, the asset and the fact that gtAUSDc shares are burned.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the bare 'Redeem' intent does not say that the shares are exchanged for AUSD sent to the receiver.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 52,
+  "functions": "4C",
+  "incomplete": false,
+  "worst": "deposit: the intent is a bare 'Deposit' with no interpolatedIntent naming the amount, the asset or the vault shares."
+ }
+}

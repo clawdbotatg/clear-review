@@ -1,0 +1,246 @@
+{
+ "hash": "0x346c875ca9a486c360345408fb1b151178d58de86197c8776dfc2d516fb66952",
+ "file": "registry/morpho/calldata-keyrock-kUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x04422053addbc9bb2759b248b574e3fca76bc145"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer into the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "Mints kUSDC vault shares to `onBehalf`. The amount is previewDeposit(assets), worked out from vault state after interest and fee accrual, and has no minimum.",
+     "Accrues interest first, which may mint fee shares to the fee recipients. This dilutes the share price used for the signer's deposit, and the price is read from storage.",
+     "Moves the deposited USDC on to the liquidity adapter, which is vault-internal and does not touch the signer."
+    ],
+    "shown": "Deposit the exact USDC amount, the share ticker kUSDC, and the address that gets the shares; the number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of kUSDC shares received is not shown and has no minimum in calldata.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0: the signer received 47674221929364026 kUSDC (0.0477), which no field shows. The screen shows only 'Share ticker: kUSDC'.",
+      "fix": "None possible in the descriptor: the share amount comes from vault state and the function has no minShares parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the label 'Deposit asset' sits on an amount, and 'Share ticker' is a standalone constant line.",
+      "evidence": "descriptor deposit fields: label 'Deposit asset' on path assets (tokenAmount); label 'Share ticker' with value $.metadata.constants.vaultTicker (raw).",
+      "fix": "Use the label 'Deposit amount', and label the ticker line 'Receive shares (kUSDC)' or similar.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.05 USDC out is shown exactly. The kUSDC shares in go to the signer, and the asset and recipient are shown, but the amount is not."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "Burns kUSDC shares from `onBehalf`. The amount is previewWithdraw(assets), rounded up from vault state, and has no maximum.",
+     "If msg.sender != onBehalf, spends the caller's kUSDC share allowance from onBehalf by the number of shares burned.",
+     "Accrues interest and fee shares first; may pull USDC back from the liquidity adapter, which is vault-internal."
+    ],
+    "shown": "Withdraw the exact USDC amount to a receiver, with the owner whose position pays; the shares burned are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the kUSDC shares burned from the owner are not shown and have no maximum in calldata.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`, then `deleteShares(onBehalf, shares)` in exit. Case 2: 350000 kUSDC (350000000000000000000000) left the signer, which no field shows.",
+      "fix": "Cannot show the amount. Optionally add a constant field such as 'Shares burned: kUSDC (from Owner)' to name the asset.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The USDC in (350000 to the signer) is shown right. On the kUSDC burn, the reader only guessed their Keyrock balance would drop; neither the share asset nor the amount is on screen."
+     }
+    ],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` kUSDC from `onBehalf`; if msg.sender != onBehalf, spends the caller's share allowance.",
+     "Sends USDC to `receiver`. The amount is previewRedeem(shares), rounded down from vault state, and has no minimum.",
+     "Accrues interest and fee shares first; may deallocate from the liquidity adapter, which is vault-internal."
+    ],
+    "shown": "Redeem the exact kUSDC share amount to a receiver, with the owner; neither the asset received nor its amount is named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says USDC is received. The mint format names the underlying, redeem does not.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. Case 3: the signer received 4454.343708 USDC, but the fields are only 'Shares to redeem', 'To' and 'Owner'. The reader wrote 'likely USDC, not stated on screen'. The mint format shows $.metadata.constants.underlyingTicker.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and an intent like 'Redeem {#.shares} for USDC to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received comes from vault state and has no minimum in calldata.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. Case 3 USDC in: 4454343708, not shown.",
+      "fix": "None possible: the function has no minAssets parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The kUSDC burn is shown exactly. For the USDC received, the reader guessed the asset, and the amount is not shown."
+     }
+    ],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes USDC from the signer. The amount is previewMint(shares), rounded up from vault state, with no maximum in calldata; only the signer's USDC allowance limits it.",
+     "Mints exactly `shares` kUSDC to `onBehalf`.",
+     "Accrues interest and fee shares first; allocates the deposit to the liquidity adapter, which is vault-internal."
+    ],
+    "shown": "Mint the exact kUSDC share amount to an address, with a line saying the deposit asset is USDC; the USDC amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken from the signer is not shown and has no maximum in calldata.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` and enter: `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: 1039688 USDC (1.039688) left the signer; the screen shows only 'Deposit asset: USDC'.",
+      "fix": "None possible: the amount comes from vault state. Optionally note in a label that the USDC cost depends on the share price.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' and its sentence do not say the signer pays USDC.",
+      "evidence": "descriptor mint: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. Case 1 screen: 'Mint 1 kUSDC for 0x...dEaD', while 1.039688 USDC left the signer.",
+      "fix": "Use intent 'Deposit USDC for shares' and interpolatedIntent 'Pay USDC to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The USDC out is named as an asset but its amount is not shown. The 1 kUSDC going to 0xdead is not the signer's, and the screen shows that recipient correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.404,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 98,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says USDC is received. The mint format names the underlying, redeem does not.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' and its sentence do not say the signer pays USDC.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 66,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says USDC is received. The mint format names the underlying, redeem does not."
+ }
+}

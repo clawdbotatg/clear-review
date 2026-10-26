@@ -1,0 +1,155 @@
+{
+ "hash": "0x6a6d0d00acbd029bad588f6bc78d5e13af2d947a0648e2cbb9ea93a7396a7a40",
+ "file": "registry/morpho/calldata-hyperithm-hyperUSDTc-v2-988.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 988,
+   "address": "0x461ef73f640456138242398a39ab48a557a49293"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` of USDT0 (0x779Ded…3736, the vault's immutable asset) to the vault via safeTransferFrom.",
+     "`onBehalf` receives newly minted hyperUSDTc shares; the number is previewDeposit(assets), set by the share price in storage after fees accrue.",
+     "The vault spends the signer's USDT0 allowance to the vault by `assets`."
+    ],
+    "shown": "Deposit 0.1 USDT0 for the onBehalf address, with a constant 'Share ticker: hyperUSDTc' field and 'Send shares to' naming the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares are minted; the vault's share price in storage decides it.",
+      "evidence": "VaultV2.sol deposit: `accrueInterest(); uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The descriptor shows only `assets` and `onBehalf`. Calldata has no minimum-shares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit shows a constant 'Share ticker' field with no amount, and labels the amount 'Deposit asset'.",
+      "evidence": "descriptor deposit fields: {\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"} and {\"path\":\"assets\",\"label\":\"Deposit asset\"}. Case 0 screen: 'Share ticker: hyperUSDTc'.",
+      "fix": "Rename 'Deposit asset' to 'Deposit amount'. Fold the ticker into the intent, e.g. \"Deposit {#.assets} into hyperUSDTc for {#.onBehalf}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 82
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "`receiver` receives exactly `assets` of USDT0 from the vault.",
+     "The vault burns previewWithdraw(assets) hyperUSDTc shares, rounded up, from `onBehalf`. The share price in storage sets the number.",
+     "If the signer is not `onBehalf`, the burned shares come out of onBehalf's share allowance to the signer, unless that allowance is unlimited."
+    ],
+    "shown": "Withdraw exactly 1 USDT0 to the receiver, with the Owner (onBehalf) whose shares are burned shown as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares it burns from Owner; the share price in storage decides it.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);` and exit: `deleteShares(onBehalf, shares);`. Calldata has no maximum-shares parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 82,
+    "depth": 85
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` hyperUSDTc from `onBehalf`.",
+     "`receiver` receives previewRedeem(shares) USDT0, rounded down. The share price in storage sets the amount.",
+     "If the signer is not `onBehalf`, onBehalf's share allowance to the signer goes down by `shares`, unless it is unlimited."
+    ],
+    "shown": "Redeem 49.98 hyperUSDTc to the receiver, with the Owner whose shares are burned. Nothing on the screen says which asset arrives.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDT0 as the asset the receiver gets; only the burned shares appear.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` (asset = 0x779Ded…3736 USDT0). descriptor redeem interpolatedIntent \"Redeem {#.shares} to {#.receiver}\". Its fields show only shares, To and Owner. Case 2 screen: 'Redeem 49.976928666646728254 hyperUSDTc to 0x1745…'.",
+      "fix": "Change interpolatedIntent to \"Redeem {#.shares} for USDT0 to {#.receiver}\" or add a field that shows `$.metadata.constants.underlyingTicker` labelled 'Receive asset'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDT0 is received; the share price in storage decides it, with no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. Calldata has no minimum-assets parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.352,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 55,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDT0 as the asset the receiver gets; only the burned shares appear.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 97,
+  "clarity": 79,
+  "functions": "2A 1B",
+  "incomplete": false,
+  "worst": "redeem never names USDT0 as the asset the receiver gets; only the burned shares appear."
+ }
+}

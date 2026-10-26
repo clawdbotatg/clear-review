@@ -1,0 +1,240 @@
+{
+ "hash": "0x7ded885c85ccf6630141d0274da0b6145312df057a00c601b90d94022f2078cf",
+ "file": "registry/morpho/calldata-hakutora-hUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x974c8fbf4fd795f66b85b73ebc988a51f1a040a9"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Exactly `assets` USDC moves from the signer to the vault, using up the signer's USDC allowance to the vault.",
+     "Vault shares (hUSDC) are minted to `receiver`. The contract works out the number from the exchange rate after accruing interest, rounded down.",
+     "The vault supplies the USDC to Morpho Blue markets in its supply queue. This does not change the signer's balances directly."
+    ],
+    "shown": "Deposit: the USDC amount, a constant 'hUSDC' share ticker and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of hUSDC shares received is not shown because the contract computes it.",
+      "evidence": "MetaMorphoV1_1.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor). There is no min-shares parameter in the calldata. The screen shows only 'Share ticker: hUSDC'.",
+      "fix": "No descriptor fix. The shares are not in the calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "deposit: the only test case is a reverted transaction, so no effect is checked on chain.",
+      "evidence": "cases/0.json mined.status = 0, effects = [] (tx 0xa643899c…).",
+      "fix": "Use a deposit transaction that succeeded as the test case.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent is the bare word 'Deposit' with no interpolatedIntent naming the amount or vault.",
+      "evidence": "descriptor.json deposit intent \"Deposit\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent such as \"Deposit {assets} into Hakutora hUSDC vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The transaction reverted (status 0), so there were no effects. The screen matches the calldata: 0.001 USDC, with shares to the signer."
+     }
+    ],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Exactly `shares` hUSDC vault shares are minted to `receiver`.",
+     "USDC leaves the signer. The contract computes the amount from the exchange rate, rounded up, and it uses up the signer's USDC allowance to the vault. No maximum is set in the calldata."
+    ],
+    "shown": "Mint: the deposit asset as a constant 'USDC' with no amount, the hUSDC amount minted, and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken from the signer is not shown and has no bound in the calldata.",
+      "evidence": "MetaMorphoV1_1.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares). The 'Deposit asset' field shows only the raw constant 'USDC'.",
+      "fix": "No calldata path holds the amount. The USDC allowance granted to the vault is the only cap on what can leave.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say that USDC is paid in exchange for vault shares.",
+      "evidence": "descriptor.json mint intent \"Mint\", interpolatedIntent absent.",
+      "fix": "Use an intent such as \"Deposit USDC for shares\" with interpolatedIntent \"Mint {shares} by depositing USDC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Exactly `assets` USDC is sent from the vault to `receiver`.",
+     "hUSDC shares are burned from `owner`. The contract computes the number, rounded up.",
+     "If the caller is not `owner`, the caller's share allowance from `owner` is spent."
+    ],
+    "shown": "Withdraw: exactly the USDC amount, the recipient address and the owner address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of hUSDC shares burned from the owner is not shown because the contract computes it.",
+      "evidence": "MetaMorphoV1_1.sol withdraw(): shares = _convertToSharesWithTotals(assets, …, Math.Rounding.Ceil). In case 1 the signer burned 9381.887183446658420327 hUSDC, and no field shows a share amount.",
+      "fix": "No descriptor fix. The shares are not in the calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 10000 USDC arriving at the signer is shown exactly. The 9381.89 hUSDC burned is not shown. The reader expected their position to drop by about 10000 USDC worth, without the share amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Exactly `shares` hUSDC are burned from `owner`. If the caller is not `owner`, the caller's share allowance is spent.",
+     "USDC is sent from the vault to `receiver`. The contract computes the amount, rounded down, and the calldata sets no minimum."
+    ],
+    "shown": "Redeem: the hUSDC share amount, the recipient and the owner. Neither the asset received nor its amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says that USDC is the asset paid out, though the mint format shows it.",
+      "evidence": "descriptor.json redeem fields: only shares/receiver/owner. Case 2: the signer received 4.499398 USDC, and the reader marked 'Which token is paid out; assumed USDC from the name'.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}, or use an interpolatedIntent such as \"Redeem {shares} for USDC\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is computed by the vault and has no minimum in the calldata.",
+      "evidence": "MetaMorphoV1_1.sol redeem(): assets = _convertToAssetsWithTotals(shares, …, Math.Rounding.Floor). In case 2 the signer received 4.499398 USDC, which no field shows.",
+      "fix": "No descriptor fix. The amount is not in the calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 4.221 hUSDC burned is shown exactly. The 4.499398 USDC received is shown neither as an asset nor as an amount. The reader guessed USDC with no amount."
+     }
+    ],
+    "glance": 50,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.286,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 108,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says that USDC is the asset paid out, though the mint format shows it.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 65,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says that USDC is the asset paid out, though the mint format shows it."
+ }
+}

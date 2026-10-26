@@ -1,0 +1,355 @@
+{
+ "hash": "0x86080e5d6d72f1cef73c14c0be9180c1c94e0e229b8a31ec9b3660ac4c4a6f22",
+ "file": "registry/zkstables/calldata-parswappool-base.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x0a8cdd1b39f476cdde606a7e4c330b3ddb04314e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addLiquidity(uint256 amount0, uint256 amount1, address to)",
+    "effects": [
+     "Pulls amount0 of token0 (zkUSD) from the signer into the pool.",
+     "Pulls amount1 of token1 (USDC) from the signer into the pool.",
+     "Mints LP shares (PAR-LP) to `to`; the number is computed from reserves and total supply, and 1000 shares are locked on the first deposit."
+    ],
+    "shown": "Add the zkUSD and USDC amounts and send the resulting shares to the named recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addLiquidity: the number of shares minted is not shown because it comes from storage.",
+      "evidence": "ParSwapPool.sol addLiquidity: `shares = Math.mulDiv(value, supply, reserve0 + reserve1)`. The descriptor has no shares field because nothing in calldata holds it.",
+      "fix": "None possible. The wording 'shares to {to}' is enough.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "approve(address spender, uint256 value)",
+    "effects": [
+     "Sets the spender's allowance over the signer's PAR-LP shares to `value`. Max uint256 is never decreased."
+    ],
+    "shown": "Approve the stated amount of PAR-LP (or Unlimited) for the named spender.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "removeLiquidity(uint256 shares, uint256 minAmount0, uint256 minAmount1, address to)",
+    "effects": [
+     "Burns `shares` PAR-LP from the signer.",
+     "Sends a pro-rata share of reserve0 in zkUSD to `to`, at least minAmount0, or the call reverts.",
+     "Sends a pro-rata share of reserve1 in USDC to `to`, at least minAmount1, or the call reverts."
+    ],
+    "shown": "Redeem the stated PAR-LP to the recipient, with a minimum zkUSD and a minimum USDC shown as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "removeLiquidity: the sentence 'Redeem {shares} to {to}' suggests the shares go to the recipient and leaves out the tokens received.",
+      "evidence": "descriptor removeLiquidity interpolatedIntent 'Redeem {shares} to {to}'. In ParSwapPool.sol _settleWithdrawal the shares are burned from msg.sender and token0/token1 are sent to `to`.",
+      "fix": "Use 'Burn {shares} for at least {minAmount0} and {minAmount1}, sent to {to}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "removeLiquidityExact(uint256 amount0, uint256 amount1, uint256 maxShares, address to)",
+    "effects": [
+     "Burns PAR-LP from the signer, computed at the reserve ratio and rounded up, capped at maxShares.",
+     "Sends exactly amount0 zkUSD to `to`.",
+     "Sends exactly amount1 USDC to `to`."
+    ],
+    "shown": "Withdraw the exact zkUSD and USDC amounts to the recipient, with a share cap (or 'No limit') shown as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "removeLiquidityExact: the exact shares burned come from storage; only the cap is shown.",
+      "evidence": "ParSwapPool.sol removeLiquidityExact: `shares = Math.mulDiv(value, totalSupply(), r0 + r1, Math.Rounding.Ceil)`. The field 'Maximum shares' shows maxShares, or 'No limit' at max.",
+      "fix": "None needed beyond the cap. You could add 'burning up to {maxShares}' to the sentence.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "skim(address to)",
+    "effects": [
+     "Sends every token0 and token1 balance above the tracked reserves to `to`. Nothing is taken from the signer."
+    ],
+    "shown": "Send the pool's excess to the recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "skim: the amounts swept are balances minus reserves, read on chain and not in calldata.",
+      "evidence": "ParSwapPool.sol skim: `amount0 = token0.balanceOf(address(this)) - reserve0; amount1 = ...`.",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "swap(address tokenIn, uint256 amount, address to)",
+    "effects": [
+     "Pulls `amount` of tokenIn (zkUSD or USDC) from the signer through an allowance.",
+     "Sends exactly `amount` of the other pool token to `to`, 1:1 with no fee. It reverts if the reserve is short."
+    ],
+    "shown": "Swap the paid amount of tokenIn and send to the recipient. The token received and its amount are never stated.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swap: the output token and the amount received (equal to the input, 1:1) appear nowhere on the screen.",
+      "evidence": "ParSwapPool.sol _settleSwap: `token1.safeTransfer(to, amount)` / `token0.safeTransfer(to, amount)`. The descriptor swap fields are only 'Pay' {amount} with tokenPath tokenIn and 'To'. Case 5 reads 'Swap 21.37 zkUSD, send to Bob' and never says Bob gets 21.37 USDC.",
+      "fix": "State the output in the sentence, e.g. 'Swap {amount} 1:1 for the same amount of the other pool token (zkUSD/USDC), sent to {to}'. Also add a 'Receive (1:1)' field on amount.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "swapPushed(address tokenIn, uint256 amount, address to)",
+    "effects": [
+     "Pulls nothing from the signer in this call. It consumes `amount` of tokenIn already held above the reserve, whoever pushed it.",
+     "Sends exactly `amount` of the other pool token to `to`, 1:1."
+    ],
+    "shown": "Swap the stated amount (labelled 'Pay') and send to the recipient. The token received is not stated.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swapPushed: the output token and amount sent to the recipient (1:1 other pool token) are not shown.",
+      "evidence": "ParSwapPool.sol swapPushed -> _settleSwap: `token1.safeTransfer(to, amount)` or `token0.safeTransfer(to, amount)`. The descriptor fields are only 'Pay' {amount} (tokenIn) and 'To'.",
+      "fix": "Say 'for {amount} of the other pool token (1:1), sent to {to}' in the interpolatedIntent and add a receive field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapPushed: the label 'Pay' implies the call takes tokens from the signer, but it uses tokens already in the pool.",
+      "evidence": "ParSwapPool.sol swapPushed: `received = balanceOf(address(this)) - reserveIn; require(received >= amount)` and there is no transferFrom. The descriptor field label is 'Pay'.",
+      "fix": "Relabel it 'Pre-funded input' and say in the intent that the tokens must already be in the pool in the same transaction.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 45
+   },
+   {
+    "key": "swapWithAuthorization(address tokenIn, uint256 amount, address from, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)",
+    "effects": [
+     "Uses `from`'s EIP-3009 authorization to pull `amount` of tokenIn from `from` (who may be the signer). The nonce is consumed.",
+     "Sends exactly `amount` of the other pool token to `from`, 1:1."
+    ],
+    "shown": "Swap the stated tokenIn amount from the named owner, valid before a date. Neither the output token nor who receives it is stated.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swapWithAuthorization: the output token and amount, and that the output goes to `from`, are not shown.",
+      "evidence": "ParSwapPool.sol swapWithAuthorization: `_settleSwap(zeroForOne, amount, tokenIn, from)` sends the other token to `from`. The descriptor fields are 'Pay', 'From' and 'Valid before', and the sentence is 'Swap {amount} from {from}'.",
+      "fix": "Use 'Swap {amount} from {from} 1:1 for the same amount of the other pool token, sent back to {from}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "swapWithAuthorization: validAfter and the nonce are not shown. They only bound the authorization window.",
+      "evidence": "The descriptor shows only validBefore. ParSwapPool.sol passes validAfter and nonce to IERC3009.receiveWithAuthorization.",
+      "fix": "Optionally add validAfter as a date field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 50
+   },
+   {
+    "key": "transfer(address to, uint256 value)",
+    "effects": [
+     "Moves `value` PAR-LP shares from the signer to `to`."
+    ],
+    "shown": "Send the stated PAR-LP amount to the recipient.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "transferFrom(address from, address to, uint256 value)",
+    "effects": [
+     "Moves `value` PAR-LP from `from` to `to` and spends the signer's allowance from `from`, unless it is unlimited."
+    ],
+    "shown": "Send the stated PAR-LP amount from the owner to the recipient.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.458,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 94,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "addLiquidity(uint256 amount0, uint256 amount1, address to)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "approve(address spender, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "removeLiquidity(uint256 shares, uint256 minAmount0, uint256 minAmount1, address to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "removeLiquidity: the sentence 'Redeem {shares} to {to}' suggests the shares go to the recipient and leaves out the tokens received.",
+   "comprehension": null
+  },
+  "removeLiquidityExact(uint256 amount0, uint256 amount1, uint256 maxShares, address to)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "skim(address to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "swap(address tokenIn, uint256 amount, address to)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "swap: the output token and the amount received (equal to the input, 1:1) appear nowhere on the screen.",
+   "comprehension": null
+  },
+  "swapPushed(address tokenIn, uint256 amount, address to)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "swapPushed: the output token and amount sent to the recipient (1:1 other pool token) are not shown.",
+   "comprehension": null
+  },
+  "swapWithAuthorization(address tokenIn, uint256 amount, address from, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "swapWithAuthorization: the output token and amount, and that the output goes to `from`, are not shown.",
+   "comprehension": null
+  },
+  "transfer(address to, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferFrom(address from, address to, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 78,
+  "clarity": 75,
+  "functions": "5A 2B 3F",
+  "incomplete": false,
+  "worst": "swap: the output token and the amount received (equal to the input, 1:1) appear nowhere on the screen."
+ }
+}

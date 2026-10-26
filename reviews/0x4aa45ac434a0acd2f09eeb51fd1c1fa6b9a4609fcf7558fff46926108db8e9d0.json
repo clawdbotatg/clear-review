@@ -1,0 +1,108 @@
+{
+ "hash": "0x4aa45ac434a0acd2f09eeb51fd1c1fa6b9a4609fcf7558fff46926108db8e9d0",
+ "file": "registry/ocarina-trade/calldata-OTCRegistry.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x07c0000007b4b558e2fcd47f47a573413b0caf7c"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xfc9e05bf732fb5aeee7e270928f349ed3fa3cc0d"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x07c00000057b66a84004add3b0f9164e744354cb"
+  },
+  {
+   "chainId": 137,
+   "address": "0x07c000000e10b73c0506f36ba75e50a5d3147061"
+  },
+  {
+   "chainId": 57073,
+   "address": "0x07c00000025cf03243e6fde1be86af60d12fbf8f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "registerOrder(((address offerer,address zone,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)[] offer,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 counter) components,bytes seaportSignature,bytes signature,string memo) reg)",
+    "effects": [
+     "No assets or native value move in this call (not payable). It records the Seaport order hash as registered in OTCRegistry. The zone's validateOrder requires this before the order can be filled.",
+     "It calls Seaport.validate with the maker's Seaport signature. That marks the order pre-validated, so the taker in zoneHash (anyone when zero) can fill it with no further consent from the maker until endTime, or until the maker cancels or bumps the counter.",
+     "When filled, the offerer's offer items leave through the offerer's existing Seaport approvals. Fixed amounts are enforced (startAmount == endAmount), native offer items are rejected, and ERC-20s must be whitelisted.",
+     "When filled, each consideration item is paid to the offerer (the code enforces recipient == offerer), in fixed amounts. Fulfiller-signed tips can only be added on top, paid by the fulfiller.",
+     "The order must be live now (startTime <= now <= endTime). The zone must be this registry, the order type FULL_RESTRICTED, the conduit key zero and the counter current. The maker's EIP-712 registration signature over (orderHash, seaportSignature, memo) must verify."
+    ],
+    "shown": "'Publish offer' with the maker, the allowed taker, each offered item (type, token, ID, amount) and each received item (type, token, ID, amount), the expiry and the memo. The fixed checks (zone, order type, conduit key) are hidden while they match.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "registerOrder: the intent 'Publish offer' does not say the order becomes fillable immediately without further consent.",
+      "evidence": "OTCRegistry.sol registerOrder: `registered[orderHash] = true;` and `SeaportInterface(seaport).validate(orders)` pre-validate the order ('so takers can fulfill with an empty signature'). validateOrder reverts unless registered. The descriptor has intent \"Publish offer\" and no interpolatedIntent.",
+      "fix": "Use an intent like 'Activate trade offer (fillable until expiry)'. Add an interpolatedIntent naming the maker and the expiry, e.g. 'Activate offer by {maker}, fillable until {endTime}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "registerOrder: criteria merkle roots render as 77-digit decimal integers under 'ID/set hash'.",
+      "evidence": "Case 6 shows 'Offer ID/set hash' = 7719472615821079694904732333912527190217998977709370935963838933860875309329. The descriptor field #.reg.components.offer.[].identifierOrCriteria has format raw.",
+      "fix": "No format can decode a merkle root into a set of IDs. At most, the label could say it is a criteria root that the signer should check in the app.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "registerOrder: NFT quantities use the tokenAmount format against ERC-721/1155 collections.",
+      "evidence": "The descriptor sets 'Offer amount' and 'Receive amount' to format tokenAmount with tokenPath = the item token for every itemType. Cases 0, 1, 3 and 6 render NFT amounts like '1' and '3' without a unit.",
+      "fix": "Optional. Keep it, since the cases render correctly. A wallet that cannot resolve decimals for a collection may show the amount differently.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.347,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 64,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "registerOrder(((address offerer,address zone,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)[] offer,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 counter) components,bytes seaportSignature,bytes signature,string memo) reg)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "registerOrder: the intent 'Publish offer' does not say the order becomes fillable immediately without further consent.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 65,
+  "functions": "1B",
+  "incomplete": false,
+  "worst": "registerOrder: the intent 'Publish offer' does not say the order becomes fillable immediately without further consent."
+ }
+}

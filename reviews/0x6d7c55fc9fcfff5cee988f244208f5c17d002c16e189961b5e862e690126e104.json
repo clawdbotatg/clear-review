@@ -1,0 +1,198 @@
+{
+ "hash": "0x6d7c55fc9fcfff5cee988f244208f5c17d002c16e189961b5e862e690126e104",
+ "file": "registry/morpho/calldata-kpk-KPK_wARS_Yield-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb5ce3ca2c774b72955c25875022fdd91f7a7b938"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` wARS (0x0DC4…D90D, the vault asset) from the signer via transferFrom, using the signer's existing approval to the vault.",
+     "Mints vault shares (KPK_wARS_Yield) to `onBehalf`; the count is previewDeposit(assets), set by the vault's share price after accrueInterest. There is no minimum."
+    ],
+    "shown": "Deposit the exact wARS amount into the KPK_wARS_Yield vault, with shares sent to the onBehalf address; the share count is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown; the vault computes it from its share price.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0 minted 1629547.83 KPK_wARS_Yield, which is not on the screen. The calldata has no share amount or minimum, so no descriptor can show it.",
+      "fix": "None possible in the descriptor. A label could note that shares are minted at the current share price.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the interpolated intent leaves out that vault shares come back, and 'Share ticker' is a separate raw constant field.",
+      "evidence": "descriptor deposit interpolatedIntent \"Deposit {#.assets} for {#.onBehalf}\"; field 'Share ticker' value $.metadata.constants.vaultTicker (raw).",
+      "fix": "Use \"Deposit {#.assets} into KPK_wARS_Yield, shares to {#.onBehalf}\" and drop the standalone ticker field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "wARS out: amount, asset and vault are right. Shares in: the reader knew the recipient and the ticker but not the amount, which only the vault decides."
+     }
+    ],
+    "glance": 82,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` wARS from the vault to `receiver`.",
+     "Burns previewWithdraw(assets) vault shares from `onBehalf`. The count is rounded up at the current share price, with no maximum.",
+     "When msg.sender != onBehalf, the caller's share allowance from onBehalf goes down by the shares burned, unless it is infinite."
+    ],
+    "shown": "Withdraw exactly the given wARS amount to the receiver, from the Owner's position; the shares burned are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown; the vault computes the count from its share price.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)` → `deleteShares(onBehalf, shares)`. Case 1 burned 49970.45 KPK_wARS_Yield from the signer, which is not on the screen.",
+      "fix": "None for the amount. The calldata has no share bound.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: nothing on the screen says the Owner's KPK_wARS_Yield shares are burned to pay for this withdrawal.",
+      "evidence": "descriptor withdraw fields: 'Withdraw exactly', 'To', 'Owner'; interpolatedIntent \"Withdraw {#.assets} to {#.receiver}\". Case 1 reader: 'the screen doesn't show what is given up (likely vault shares/position in KPK)'.",
+      "fix": "Relabel onBehalf to 'Burn KPK_wARS_Yield shares from', or use \"Withdraw {#.assets} from KPK_wARS_Yield vault (shares of {#.onBehalf}) to {#.receiver}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "wARS in: exact amount and receiver are right. Shares out: the reader only guessed that vault shares are given up and did not know the amount."
+     }
+    ],
+    "glance": 70,
+    "depth": 65
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares (KPK_wARS_Yield) from `onBehalf`, spending the caller's share allowance when the caller is not onBehalf.",
+     "Sends previewRedeem(shares) wARS from the vault to `receiver`. The amount is set by the current share price, with no minimum."
+    ],
+    "shown": "Redeem the exact KPK_wARS_Yield share amount from the Owner to the receiver; the asset and amount paid out are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says the payout is wARS, though the descriptor has it as a constant.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. The asset is wARS (constructor _asset 0x0DC4…D90D = metadata.constants.underlyingToken). descriptor redeem interpolatedIntent \"Redeem {#.shares} to {#.receiver}\" names no output asset. Case 2 reader: 'The screen does not say which asset or how much.'",
+      "fix": "Use \"Redeem {#.shares} for wARS to {#.receiver}\" and/or label receiver 'wARS sent to'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the wARS amount received is computed by the vault and has no minimum, so it cannot be shown.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);`. Case 2 paid out 100.000000001 wARS, which is not on the screen. The calldata has no min-out.",
+      "fix": "None in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Shares out: right. wARS in: the reader knew some underlying asset arrives at their address, but not that it is wARS or how much."
+     }
+    ],
+    "glance": 62,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.331,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 90,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: nothing on the screen says the Owner's KPK_wARS_Yield shares are burned to pay for this withdrawal.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says the payout is wARS, though the descriptor has it as a constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 71,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says the payout is wARS, though the descriptor has it as a constant."
+ }
+}

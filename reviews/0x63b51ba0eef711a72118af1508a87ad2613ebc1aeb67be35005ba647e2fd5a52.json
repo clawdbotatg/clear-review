@@ -1,0 +1,761 @@
+{
+ "hash": "0x63b51ba0eef711a72118af1508a87ad2613ebc1aeb67be35005ba647e2fd5a52",
+ "file": "registry/paraswap/calldata-AugustusSwapper-v6.2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  },
+  {
+   "chainId": 10,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  },
+  {
+   "chainId": 56,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  },
+  {
+   "chainId": 100,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  },
+  {
+   "chainId": 137,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  },
+  {
+   "chainId": 1101,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x6a000f20005980200259b80c5102003040001068"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "swapExactAmountIn(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)",
+    "effects": [
+     "Pulls exactly fromAmount of srcToken from the signer (or takes msg.value equal to fromAmount when srcToken is 0xEeee) and sends it to the hidden executor.",
+     "Optionally runs an ERC-2612, DAI or Permit2 permit from the hidden permit bytes, which sets or uses an allowance on the signer's srcToken.",
+     "Sends destToken to the beneficiary (the signer when it is zero) after Augustus checks its balance against toAmount.",
+     "A partner fee or a surplus share (set by the hidden partnerAndFee) is cut from the destToken output before it is paid out, and 1 wei is kept as dust."
+    ],
+    "shown": "\"Swap\", with the amount to send in srcToken, the minimum to receive in destToken, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapExactAmountIn: the hidden partner fee is cut after the minimum check, so 'Minimum to Receive' is not guaranteed.",
+      "evidence": "AugustusFees.processSwapExactAmountInFeesAndTransfer takes fee = feeBase*feePercent/10000 (feePercent up to 200 bps) out of receivedAmount and has no toAmount check. Descriptor: partnerAndFee is 'visible: never', and toAmount is labelled 'Minimum to Receive'. Case 0 stayed above the minimum (3.109927 ≥ 3.100598 USDT); sibling case 7 (Pro) fell below it.",
+      "fix": "Show partnerAndFee's fee percent, or relabel toAmount as 'Minimum before fees'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swapExactAmountIn: the executor that receives the signer's tokens and the permit bytes are hidden.",
+      "evidence": "Code: srcToken.safeTransferFrom(msg.sender, executor, amountIn), and srcToken.permit(permit) runs when permit.length > 0. Descriptor: #.executor and #.permit are 'visible: never'. The output is still bounded by the toAmount check on Augustus's balance.",
+      "fix": "Optionally show the executor as an address field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountIn: the intent 'Swap' has no interpolated intent naming the tokens and amounts.",
+      "evidence": "descriptor formats.swapExactAmountIn: intent 'Swap', no interpolatedIntent",
+      "fix": "Add an interpolatedIntent such as 'Swap {fromAmount} for at least {toAmount}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "3.11 USDC out; 3.109927 USDT in, above the 3.100598 minimum. 28 USDT surplus went to the fee vault."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "swapExactAmountOut(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)",
+    "effects": [
+     "Pulls fromAmount (the maximum) of srcToken from the signer, or msg.value equal to fromAmount for ETH, and sends it to the hidden executor.",
+     "Optionally runs a permit from the hidden permit bytes.",
+     "Sends at least toAmount of destToken to the beneficiary.",
+     "Refunds the unspent srcToken to msg.sender after a hidden partner fee or surplus share is cut from it; total spend stays at or below fromAmount."
+    ],
+    "shown": "\"Swap\", with the maximum to send, the amount to receive, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapExactAmountOut: the partner fee taken from the srcToken refund is hidden but stays within the maximum shown.",
+      "evidence": "AugustusFees.processSwapExactAmountOutFeesAndTransfer runs _distributeFees(remainingAmount, srcToken, ...) and refunds the rest to msg.sender. partnerAndFee is 'visible: never'. Case 1: 194063 USDC was refunded and the net spend of 2489.397551 is ≤ the 2489.591614 shown.",
+      "fix": "Optionally show the partner fee percent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountOut: the intent 'Swap' has no interpolated intent.",
+      "evidence": "intent 'Swap', interpolatedIntent null",
+      "fix": "Add 'Swap at most {fromAmount} for {toAmount}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "Up to 2489.59 USDC shown; net 2489.397551 spent after the refund. Exactly 1.18 ETH received."
+     }
+    ],
+    "glance": 45,
+    "depth": 72
+   },
+   {
+    "key": "swapExactAmountInPro(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)",
+    "effects": [
+     "Pulls exactly fromAmount of srcToken from the signer to the hidden executor, or takes msg.value equal to fromAmount when srcToken is ETH (isETH forces value to 0 otherwise).",
+     "Optionally runs a permit or Permit2 transfer from the hidden permit bytes.",
+     "Checks that Augustus's destToken balance is at least toAmount, then cuts 50% of the surplus for the protocol and the partner's full fixed fee (up to 2%).",
+     "Sends the rest minus 1 wei to the beneficiary. That amount can be below toAmount."
+    ],
+    "shown": "\"Swap\", with the amount to send, the minimum to receive, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapExactAmountInPro: the signer receives less than the 'Minimum to Receive' shown, because the partner fee is cut after the check.",
+      "evidence": "ProPartnerFacet.swapExactAmountInPro: `if (receivedAmount < minAmountOut) revert` runs before processSwapExactAmountInPro, which takes partnerFeeShare = (receivedAmount - paraswapFeeShare)*feePercent/10000. Case 7: the screen shows 'Minimum to Receive 2.127035 USDC'; the signer got 2.119879 USDC, and 20660 went to the fee vault.",
+      "fix": "Show the partner fee from partnerAndFee and label toAmount as the amount before fees, or bound the output after fees.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swapExactAmountInPro: the executor and permit bytes, which move the signer's tokens, are hidden.",
+      "evidence": "srcToken.safeTransferFrom(msg.sender, executor, amountIn); permit2TransferFrom(permit, executor, amountIn). #.executor and #.permit are 'visible: never'.",
+      "fix": "Optionally show the executor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountInPro: the intent 'Swap' has no interpolated intent.",
+      "evidence": "intent 'Swap', interpolatedIntent null",
+      "fix": "Add an interpolatedIntent with the amounts.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "wrong"
+      ],
+      "notes": "0.001 ETH out as shown. 2.119879 USDC arrived, below the 2.127035 minimum, after a 90 bps partner fee and a surplus share."
+     }
+    ],
+    "glance": 40,
+    "depth": 40
+   },
+   {
+    "key": "swapExactAmountOutPro(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)",
+    "effects": [
+     "Pulls fromAmount (the maximum) of srcToken from the signer, or msg.value equal to fromAmount for ETH, to the hidden executor.",
+     "Optionally runs a permit or Permit2 transfer from the hidden permit bytes.",
+     "Sends all destToken received (at least toAmount) to the beneficiary.",
+     "Cuts 50% of the surplus and the partner fee (capped at the remainder) from the unspent srcToken, and refunds the rest to msg.sender; total spend ≤ fromAmount."
+    ],
+    "shown": "\"Swap\", with the maximum to send, the amount to receive, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapExactAmountOutPro: the partner and protocol fees come out of the refund but stay within the maximum shown.",
+      "evidence": "AugustusFees.processSwapExactAmountOutPro caps partnerFeeShare at remainingAmount - paraswapFeeShare. partnerAndFee is 'visible: never'. Case 8: exactly the 0.00047339975092111 ETH maximum was spent.",
+      "fix": "Optionally show the fee percent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountOutPro: the intent 'Swap' has no interpolated intent.",
+      "evidence": "intent 'Swap', interpolatedIntent null",
+      "fix": "Add an interpolatedIntent with the amounts.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 8,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "The full maximum in ETH was spent; exactly 1 USDC received."
+     }
+    ],
+    "glance": 45,
+    "depth": 72
+   },
+   {
+    "key": "swapExactAmountInOnUniswapV2((address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary, bytes pools) uniData, uint256 partnerAndFee, bytes permit)",
+    "effects": [
+     "Pulls fromAmount of srcToken from the signer into the Uniswap V2 pools listed in the hidden pools bytes.",
+     "Optionally runs a permit from the hidden permit bytes.",
+     "Sends destToken to the beneficiary after the toAmount check, minus any hidden partner fee or surplus share."
+    ],
+    "shown": "\"Swap\", with the amount to send, the minimum to receive, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapExactAmountInOnUniswapV2: a hidden partner fee can push the output below 'Minimum to Receive'.",
+      "evidence": "AugustusFees.processSwapExactAmountInFeesAndTransfer cuts the fixed fee from receivedAmount with no toAmount check. partnerAndFee is 'visible: never'. Case 2 stayed above the minimum.",
+      "fix": "Show the partner fee, or relabel the minimum as before fees.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountInOnUniswapV2: the intent 'Swap' has no interpolated intent.",
+      "evidence": "intent 'Swap', interpolatedIntent null",
+      "fix": "Add an interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "0.03 WETH out; 11.305M ANML in, above the 11.2275M minimum. Surplus went to the fee vault."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "swapExactAmountInOnUniswapV3((address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary, bytes pools) uniData, uint256 partnerAndFee, bytes permit)",
+    "effects": [
+     "Pulls fromAmount of srcToken from the signer to the Uniswap V3 pools listed in the hidden pools bytes.",
+     "Optionally runs a permit from the hidden permit bytes.",
+     "Sends destToken to the beneficiary after the toAmount check, minus any hidden partner fee or surplus share."
+    ],
+    "shown": "\"Swap\", with the amount to send, the minimum to receive, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapExactAmountInOnUniswapV3: a hidden partner fee can push the output below 'Minimum to Receive'.",
+      "evidence": "AugustusFees.processSwapExactAmountInFeesAndTransferUniV3 cuts the fee from receivedAmount and then runs safeTransfer(beneficiary, returnAmount), with no min check. partnerAndFee is 'visible: never'.",
+      "fix": "Show the partner fee, or relabel the minimum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountInOnUniswapV3: the intent 'Swap' has no interpolated intent.",
+      "evidence": "intent 'Swap', interpolatedIntent null",
+      "fix": "Add an interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "28 msUSD out; 27.0963 msY in, above the 27.0910 minimum."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "swapExactAmountOutOnUniswapV2((address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary, bytes pools) uniData, uint256 partnerAndFee, bytes permit)",
+    "effects": [
+     "Spends up to fromAmount of srcToken (or ETH) from the signer through the hidden Uniswap V2 pools.",
+     "Sends toAmount of destToken to the beneficiary, possibly minus 1 wei of dust.",
+     "Refunds unspent srcToken to the signer after any hidden fee or surplus share."
+    ],
+    "shown": "\"Swap\", with the maximum to send, the amount to receive, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapExactAmountOutOnUniswapV2: 'Amount to Receive' can arrive 1 wei short because of dust handling.",
+      "evidence": "AugustusFees.processSwapExactAmountOutFeesAndTransfer: destToken.safeTransfer(beneficiary, --receivedAmount). The sibling UniV3 case 4 delivered 299.999999 for 300 USDC shown. The router source is missing.",
+      "fix": "Label the field as approximate, or 'at least toAmount minus dust'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountOutOnUniswapV2: the intent 'Swap' has no interpolated intent.",
+      "evidence": "intent 'Swap', interpolatedIntent null",
+      "fix": "Add an interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "swapExactAmountOutOnUniswapV3((address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary, bytes pools) uniData, uint256 partnerAndFee, bytes permit)",
+    "effects": [
+     "Spends up to fromAmount of srcToken (or msg.value for ETH) from the signer through the hidden Uniswap V3 pools.",
+     "Sends destToken to the beneficiary; in case 4 that was 1 wei less than toAmount.",
+     "Refunds unspent srcToken (ETH in case 4) to the signer after the surplus fee to the fee vault."
+    ],
+    "shown": "\"Swap\", with the maximum to send, the amount to receive, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapExactAmountOutOnUniswapV3: the signer received 299.999999 USDC while the screen says exactly 300 USDC.",
+      "evidence": "Case 4: 'Amount to Receive 300 USDC'; the mined transfer to the signer was 299999999. AugustusFees transfers --receivedAmount (1 wei dust).",
+      "fix": "Label toAmount as approximate ('about', less 1 wei dust), or bound the output exactly.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountOutOnUniswapV3: the intent 'Swap' has no interpolated intent.",
+      "evidence": "intent 'Swap', interpolatedIntent null",
+      "fix": "Add an interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Maximum ETH sent, part refunded (net 0.14197 ETH). USDC arrived 1 wei short of the 300 shown."
+     }
+    ],
+    "glance": 45,
+    "depth": 68
+   },
+   {
+    "key": "swapExactAmountInOnCurveV1((uint256 curveData, uint256 curveAssets, address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) curveV1Data, uint256 partnerAndFee, bytes permit)",
+    "effects": [
+     "Pulls fromAmount of srcToken from the signer to Augustus, spending the existing allowance.",
+     "Optionally runs a permit from the hidden permit bytes.",
+     "Swaps on the Curve pool in the hidden curveData and sends destToken to the beneficiary after the toAmount check, minus any hidden fee."
+    ],
+    "shown": "\"Swap\", with the amount to send, the minimum to receive, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapExactAmountInOnCurveV1: a hidden partner fee can push the output below 'Minimum to Receive'.",
+      "evidence": "AugustusFees.processSwapExactAmountInFeesAndTransfer cuts the fee with no toAmount check. partnerAndFee is 'visible: never'.",
+      "fix": "Show the partner fee.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swapExactAmountInOnCurveV1: using up the signer's PENDLE allowance to Augustus is not stated.",
+      "evidence": "Case 5: an approval event from the signer to 0x6a00…1068 left the allowance at 0. This is the allowance spent by the swap shown.",
+      "fix": "None needed; it is implied by the swap.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountInOnCurveV1: the intent 'Swap' has no interpolated intent.",
+      "evidence": "intent 'Swap', interpolatedIntent null",
+      "fix": "Add an interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right",
+       "missed"
+      ],
+      "notes": "PENDLE out and sdPENDLE in (16.826, above the 16.775 minimum) are correct. The allowance spent is not shown."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "swapExactAmountInOnCurveV2((uint256 curveData, uint256 i, uint256 j, address poolAddress, address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) curveV2Data, uint256 partnerAndFee, bytes permit)",
+    "effects": [
+     "Pulls fromAmount of srcToken from the signer.",
+     "Optionally runs a permit from the hidden permit bytes.",
+     "Swaps on the hidden poolAddress and sends destToken to the beneficiary after the toAmount check, minus any hidden fee."
+    ],
+    "shown": "\"Swap\", with the amount to send, the minimum to receive, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapExactAmountInOnCurveV2: a hidden partner fee can push the output below 'Minimum to Receive'.",
+      "evidence": "AugustusFees.processSwapExactAmountInFeesAndTransfer has no min check after the fee. partnerAndFee is 'visible: never'.",
+      "fix": "Show the partner fee.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "swapExactAmountInOnCurveV2: the intent 'Swap' has no interpolated intent.",
+      "evidence": "intent 'Swap', interpolatedIntent null",
+      "fix": "Add an interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "swapExactAmountInOnBalancerV2((uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, uint256 beneficiaryAndApproveFlag) balancerData, uint256 partnerAndFee, bytes permit, bytes data)",
+    "effects": [
+     "Pulls fromAmount of the input asset named inside the Balancer call data from the signer, or ETH when the asset is zero.",
+     "Runs the Balancer Vault call encoded in data.",
+     "Sends the output asset to the beneficiary (the low 20 bytes of beneficiaryAndApproveFlag) after the toAmount check, minus any hidden fee."
+    ],
+    "shown": "\"Swap\", with the swap type from data's first byte, the amount to send and minimum to receive (tokens read at data[292:356]), and the beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "swapExactAmountInOnBalancerV2: the token offsets fit a single swap only, so a batchSwap could show a wrong token.",
+      "evidence": "tokenPath '#.data.[292:324]' and '#.data.[324:356]' match assetIn and assetOut of swap(SingleSwap,...). For batchSwap those bytes hold an array length and offset. The enum only maps '82' (0x52) to 'Single swap'.",
+      "fix": "Add a separate format for batchSwap, or confirm the router only accepts swap().",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapExactAmountInOnBalancerV2: a hidden partner fee can push the output below 'Minimum to Receive'.",
+      "evidence": "AugustusFees.processSwapExactAmountInFeesAndTransfer has no min check after the fee. partnerAndFee is 'visible: never'.",
+      "fix": "Show the partner fee.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "swapExactAmountOutOnBalancerV2((uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, uint256 beneficiaryAndApproveFlag) balancerData, uint256 partnerAndFee, bytes permit, bytes data)",
+    "effects": [
+     "Pulls up to fromAmount of the input asset named in the Balancer call data from the signer.",
+     "Runs the Balancer Vault call in data.",
+     "Sends toAmount of the output asset to the beneficiary and refunds unspent input after any hidden fee."
+    ],
+    "shown": "\"Swap\", with the swap type, the maximum to send and amount to receive (tokens read at data[292:356]), and the beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "swapExactAmountOutOnBalancerV2: the token offsets fit a single swap only, so a batchSwap could show a wrong token.",
+      "evidence": "tokenPath '#.data.[292:324]' and '#.data.[324:356]' are valid only for swap(SingleSwap,...); the enum covers only first byte 82.",
+      "fix": "Add a batchSwap format, or confirm only swap() is accepted.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 62
+   },
+   {
+    "key": "swapOnAugustusRFQTryBatchFill((uint256 fromAmount, uint256 toAmount, uint8 wrapApproveDirection, bytes32 metadata, address beneficiary) data, ((uint256 nonceAndMeta, uint128 expiry, address makerAsset, address takerAsset, address maker, address taker, uint256 makerAmount, uint256 takerAmount) order, bytes signature, uint256 takerTokenFillAmount, bytes permitTakerAsset, bytes permitMakerAsset)[] orders, bytes permit)",
+    "effects": [
+     "Pulls fromAmount of the orders' takerAsset from the signer and fills signed RFQ orders against the makers.",
+     "Makers send makerAsset to the beneficiary (at least toAmount).",
+     "In exact-out mode (direction bit in wrapApproveDirection), unspent takerAsset is refunded to the signer.",
+     "Hidden wrap and unwrap flags may switch ETH and WETH."
+    ],
+    "shown": "\"Swap\", with the amount to send in orders[0].takerAsset, the minimum to receive in orders[0].makerAsset, and the beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapOnAugustusRFQTryBatchFill: fixed exact-in labels, while the hidden direction bit made case 6 exact-out with a refund.",
+      "evidence": "Case 6: wrapApproveDirection = 0x08. 'Amount to Send 4617.452477 USDC' was shown; 4612.839638 was net spent after a 4.612839 USDC refund. The direction is not shown.",
+      "fix": "Label fromAmount 'Maximum to Send', or switch labels on the direction bit.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "swapOnAugustusRFQTryBatchFill: hidden wrap and unwrap flags mean ETH may move while WETH is shown.",
+      "evidence": "data.wrapApproveDirection is not displayed. Token labels come only from orders[0].takerAsset and makerAsset, which are WETH when wrapping. The router source is missing, so this could not be confirmed.",
+      "fix": "Show the ETH or WETH side from the wrap bits, or add a note.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "Spent 4612.84 USDC, less than the 4617.45 shown as exact. Received 1.0000000002 PAXG, above the 1 PAXG minimum."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": [
+   "Augustus V6 Routers source (generic swapExactAmountIn/Out, Uniswap V2/V3, Curve V1/V2, Balancer V2, AugustusRFQ routers) is missing from contracts/1-0x6a000f…1068: meta.json lists 46 omitted sources and only AugustusV6.sol is present. Not checked as a result: where the toAmount check sits relative to fees in the non-Pro formats, the Balancer data offsets for batchSwap, and the RFQ wrap/unwrap/direction bits."
+  ]
+ },
+ "cost": 1.624,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [
+  "swapExactAmountInPro(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)",
+  "swapExactAmountOutPro(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)"
+ ],
+ "seconds": 705,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "swapExactAmountIn(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapExactAmountIn: the hidden partner fee is cut after the minimum check, so 'Minimum to Receive' is not guaranteed.",
+   "comprehension": 100
+  },
+  "swapExactAmountOut(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "swapExactAmountInPro(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 31,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "swapExactAmountInPro: the signer receives less than the 'Minimum to Receive' shown, because the partner fee is cut after the check.",
+   "comprehension": 25
+  },
+  "swapExactAmountOutPro(address executor, (address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) swapData, uint256 partnerAndFee, bytes permit, bytes executorData)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "swapExactAmountOutPro takes ETH but never shows how much (@.value)",
+   "comprehension": 100
+  },
+  "swapExactAmountInOnUniswapV2((address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary, bytes pools) uniData, uint256 partnerAndFee, bytes permit)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapExactAmountInOnUniswapV2: a hidden partner fee can push the output below 'Minimum to Receive'.",
+   "comprehension": 100
+  },
+  "swapExactAmountInOnUniswapV3((address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary, bytes pools) uniData, uint256 partnerAndFee, bytes permit)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapExactAmountInOnUniswapV3: a hidden partner fee can push the output below 'Minimum to Receive'.",
+   "comprehension": 100
+  },
+  "swapExactAmountOutOnUniswapV2((address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary, bytes pools) uniData, uint256 partnerAndFee, bytes permit)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapExactAmountOutOnUniswapV2: 'Amount to Receive' can arrive 1 wei short because of dust handling.",
+   "comprehension": null
+  },
+  "swapExactAmountOutOnUniswapV3((address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary, bytes pools) uniData, uint256 partnerAndFee, bytes permit)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "swapExactAmountOutOnUniswapV3: the signer received 299.999999 USDC while the screen says exactly 300 USDC.",
+   "comprehension": 75
+  },
+  "swapExactAmountInOnCurveV1((uint256 curveData, uint256 curveAssets, address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) curveV1Data, uint256 partnerAndFee, bytes permit)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapExactAmountInOnCurveV1: a hidden partner fee can push the output below 'Minimum to Receive'.",
+   "comprehension": 67
+  },
+  "swapExactAmountInOnCurveV2((uint256 curveData, uint256 i, uint256 j, address poolAddress, address srcToken, address destToken, uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, address beneficiary) curveV2Data, uint256 partnerAndFee, bytes permit)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapExactAmountInOnCurveV2: a hidden partner fee can push the output below 'Minimum to Receive'.",
+   "comprehension": null
+  },
+  "swapExactAmountInOnBalancerV2((uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, uint256 beneficiaryAndApproveFlag) balancerData, uint256 partnerAndFee, bytes permit, bytes data)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "swapExactAmountInOnBalancerV2: the token offsets fit a single swap only, so a batchSwap could show a wrong token.",
+   "comprehension": null
+  },
+  "swapExactAmountOutOnBalancerV2((uint256 fromAmount, uint256 toAmount, uint256 quotedAmount, bytes32 metadata, uint256 beneficiaryAndApproveFlag) balancerData, uint256 partnerAndFee, bytes permit, bytes data)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 54,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapExactAmountOutOnBalancerV2: the token offsets fit a single swap only, so a batchSwap could show a wrong token.",
+   "comprehension": null
+  },
+  "swapOnAugustusRFQTryBatchFill((uint256 fromAmount, uint256 toAmount, uint8 wrapApproveDirection, bytes32 metadata, address beneficiary) data, ((uint256 nonceAndMeta, uint128 expiry, address makerAsset, address takerAsset, address maker, address taker, uint256 makerAmount, uint256 takerAmount) order, bytes signature, uint256 takerTokenFillAmount, bytes permitTakerAsset, bytes permitMakerAsset)[] orders, bytes permit)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "swapOnAugustusRFQTryBatchFill: hidden wrap and unwrap flags mean ETH may move while WETH is shown.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 73,
+  "clarity": 66,
+  "functions": "4A 2B 4C 3F",
+  "incomplete": true,
+  "worst": "swapExactAmountInPro: the signer receives less than the 'Minimum to Receive' shown, because the partner fee is cut after the check."
+ }
+}

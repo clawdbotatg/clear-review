@@ -1,0 +1,199 @@
+{
+ "hash": "0x248051369932fa375607232b72af720ad49d2c6289a252822311c98daebdd030",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakUSDC-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef01735c132ada46aa9aa4c54623caa92a64cb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` USDC from the signer into the vault, which spends the signer's USDC allowance to the vault (ERC4626._deposit safeTransferFrom).",
+     "Mints steakUSDC shares to `receiver`. The share count is computed from vault totals after fee accrual (deposit: _convertToSharesWithTotals, Floor), and there is no minimum.",
+     "The vault supplies the USDC to Morpho Blue markets and mints performance-fee shares to the fee recipient. Neither moves the signer's assets."
+    ],
+    "shown": "Deposit: 1 USDC deposit amount, share ticker steakUSDC, and the shares' recipient address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: number of steakUSDC shares received is not shown and has no minimum in calldata.",
+      "evidence": "MetaMorpho.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Floor). Case 0: signer received 0.975656792564981956 steakUSDC, and the screen shows only 'Share ticker: steakUSDC'.",
+      "fix": "No calldata value carries it. A label like 'Receive steakUSDC shares (amount set by vault rate)' would set expectations.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: intent 'Deposit' names neither the asset, the amount nor the vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json deposit intent \"Deposit\", interpolatedIntent absent. The 'Share ticker' raw constant field stands alone.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into steakUSDC vault for shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out 1 is shown exactly. The steakUSDC received is shown by ticker and recipient but has no amount, so the reader was unsure of the share count."
+     }
+    ],
+    "glance": 50,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Sends exactly `assets` USDC from the vault to `receiver` (after pulling liquidity from Morpho Blue).",
+     "Burns steakUSDC shares from `owner`. The count is computed from vault totals, rounded up, and has no maximum in calldata.",
+     "When the caller is not `owner`, it spends the caller's share allowance from `owner` (ERC4626._withdraw _spendAllowance)."
+    ],
+    "shown": "Withdraw: exactly 11.027134 USDC, to the receiver address, from the owner address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: number of steakUSDC shares burned from the owner is not shown and has no cap.",
+      "evidence": "MetaMorpho.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Ceil). Case 1: signer burned 10.732385554483293792 steakUSDC, and no field shows shares.",
+      "fix": "No calldata value carries it. Labelling 'Owner' as 'Burn shares from' would at least say shares leave that account.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: intent 'Withdraw' omits the asset and vault, and the 'Owner' label does not say shares are burned from it.",
+      "evidence": "descriptor.json withdraw intent \"Withdraw\", field label \"Owner\". There is no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from steakUSDC vault to {receiver}\" and relabel owner \"Shares burned from\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDC in 11.027134 is shown exactly. The steakUSDC shares burned appear only as 'Owner', with no amount, and the reader knew the share count was not shown."
+     }
+    ],
+    "glance": 45,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` steakUSDC from `owner`. When the caller is not owner, it spends the caller's share allowance.",
+     "Sends USDC to `receiver`. The amount is computed from vault totals after fee accrual (Floor), with no minimum."
+    ],
+    "shown": "Redeem: 11.67648580452523931 steakUSDC shares, to the receiver address, from the owner address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the asset received (USDC) is named nowhere on the screen. The reader only guessed it.",
+      "evidence": "descriptor.json redeem fields: shares, receiver, owner only. metadata.constants.underlyingTicker 'USDC' is unused here. Case 2: signer received 12.000052 USDC, and the reader wrote 'presumably USDC... screen doesn't say'.",
+      "fix": "Add a field {label:'Receive asset', value:'$.metadata.constants.underlyingTicker', format:'raw'} or interpolatedIntent \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: USDC amount received is not shown and the function has no minimum.",
+      "evidence": "MetaMorpho.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Floor). Case 2: 12.000052 USDC arrived, and no field shows it.",
+      "fix": "No calldata value carries it. A label could state the amount is set by the vault exchange rate.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Shares out are shown exactly. The USDC in has neither its asset nor its amount on screen; the reader assumed USDC."
+     }
+    ],
+    "glance": 35,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.311,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 86,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the asset received (USDC) is named nowhere on the screen. The reader only guessed it.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 68,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the asset received (USDC) is named nowhere on the screen. The reader only guessed it."
+ }
+}

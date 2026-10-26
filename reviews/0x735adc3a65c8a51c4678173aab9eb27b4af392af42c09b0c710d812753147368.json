@@ -1,0 +1,270 @@
+{
+ "hash": "0x735adc3a65c8a51c4678173aab9eb27b4af392af42c09b0c710d812753147368",
+ "file": "registry/morpho/calldata-yearn-ymvOG-USDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xef417a2512c5a41f69ae4e021648b69a7cde5d03"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Exactly `assets` USDC moves from the signer to the vault through transferFrom, using the signer's USDC allowance to the vault.",
+     "Vault shares are minted to `receiver`. The amount is assets × (totalSupply+1e12)/(lastTotalAssets+1), rounded down, after interest and fee accrual. No minimum is enforced.",
+     "The vault then supplies the USDC to Morpho Blue markets. Nothing more is taken from the signer."
+    ],
+    "shown": "\"Deposit\", with the USDC amount, a fixed share ticker 'ymvOG-USDC' and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown, and the code enforces no minimum.",
+      "evidence": "MetaMorphoV1_1.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Floor). The share count comes from storage. Case 0: the signer received 2.270135986527314799 shares, and the screen shows only the ticker.",
+      "fix": "Nothing in calldata can show it. A label such as 'Receive vault shares (amount at current price)' would make this explicit.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent is only 'Deposit', with no interpolatedIntent naming the amount, asset or vault.",
+      "evidence": "descriptor.json display.formats deposit: \"intent\": \"Deposit\", and there is no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into Yearn ymvOG-USDC vault for {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the fixed 'Share ticker' ymvOG-USDC differs from the YMV_1 symbol seen in the mined transfer.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"ymvOG-USDC\". The case 0 mined effect shows the share token symbol \"YMV_1\". The constructor __symbol is YMV_1, and the owner can change it with setSymbol().",
+      "fix": "Make the constant match the token's on-chain symbol, or label it as the vault's brand name.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 2.475186 USDC out is shown correctly. The shares arriving at the signer have their ticker shown but not their amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 72
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Exactly `shares` vault shares are minted to `receiver`.",
+     "USDC moves from the signer to the vault. The amount is shares × (lastTotalAssets+1)/(totalSupply+1e12), rounded up. It is not in calldata, and only the signer's allowance limits it.",
+     "The vault supplies the USDC to Morpho Blue markets."
+    ],
+    "shown": "\"Mint\", with a constant 'Deposit asset: USDC' that has no amount, the number of shares minted, and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken from the signer is not shown, and no maximum bounds it.",
+      "evidence": "MetaMorphoV1_1.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Ceil). Case 1: the signer sent 0.000002 USDC, and the screen shows only 'Deposit asset: USDC'.",
+      "fix": "The amount cannot come from calldata. Relabel the field 'Pay with USDC (amount set by vault price)' so the signer knows the cost is not shown.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the 'Deposit asset' field shows only a ticker, and the intent 'Mint' does not say USDC will be spent.",
+      "evidence": "descriptor mint field {label: 'Deposit asset', format: raw, value: $.metadata.constants.underlyingTicker}. The intent is \"Mint\" and there is no interpolatedIntent. In case 1 the reader was unsure how much USDC would leave.",
+      "fix": "Add interpolatedIntent \"Mint {shares} vault shares to {receiver}, paying USDC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "USDC out: the asset is shown but the amount (0.000002 USDC) is not. The shares went to 0xdead, which the screen shows correctly. They are not a signer effect."
+     }
+    ],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Shares are burned from `owner`. The amount is assets × (totalSupply+1e12)/(lastTotalAssets+1), rounded up. It is not in calldata and has no maximum.",
+     "If the caller is not `owner`, the caller's share allowance from `owner` is spent (OZ ERC4626 _withdraw → _spendAllowance).",
+     "Exactly `assets` USDC is withdrawn from Morpho Blue and sent to `receiver`."
+    ],
+    "shown": "\"Withdraw\", with the exact USDC amount, the receiver and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown, and no maximum bounds it.",
+      "evidence": "MetaMorphoV1_1.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Ceil). Case 2: 0.920198262098407884 shares were burned from the signer, and the screen does not show this.",
+      "fix": "Nothing in calldata can show it. A label such as 'Owner (shares burned from)' would state the effect.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent is only 'Withdraw', with no interpolatedIntent naming the amount, vault or receiver.",
+      "evidence": "descriptor withdraw: \"intent\": \"Withdraw\", with no interpolatedIntent. The 'Owner' label does not say that shares are burned from this address.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from Yearn vault to {receiver}, burning shares of {owner}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "Shares out: the reader knew shares would be burned but the screen gave no amount. The 1 USDC in to the signer is shown correctly."
+     }
+    ],
+    "glance": 40,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Exactly `shares` vault shares are burned from `owner`. If the caller is not `owner`, the caller's share allowance from `owner` is spent.",
+     "USDC goes to `receiver`. The amount is shares × (lastTotalAssets+1)/(totalSupply+1e12), rounded down. No minimum is enforced."
+    ],
+    "shown": "\"Redeem\", with the number of shares, the receiver and the owner. The asset received is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names USDC as the asset that arrives, though sibling formats show it.",
+      "evidence": "descriptor redeem has fields shares, receiver and owner only. mint shows $.metadata.constants.underlyingTicker, but redeem does not. Case 3: the signer received 559.069296 USDC, and the reader wrote 'probably USDC'.",
+      "fix": "Add a field {label: 'Receive asset', format: raw, value: $.metadata.constants.underlyingTicker}, or an interpolatedIntent naming USDC.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown, and the code enforces no minimum.",
+      "evidence": "MetaMorphoV1_1.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Floor). The amount comes from storage. Case 3: 559.069296 USDC came in, and no amount was shown.",
+      "fix": "Nothing in calldata can show it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent is only 'Redeem', with no interpolatedIntent.",
+      "evidence": "descriptor redeem: \"intent\": \"Redeem\", with no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 512.759478 shares out are shown correctly. USDC in: neither the asset nor the amount is shown, and the reader guessed USDC."
+     }
+    ],
+    "glance": 35,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.449,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 104,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent is only 'Deposit', with no interpolatedIntent naming the amount, asset or vault.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the 'Deposit asset' field shows only a ticker, and the intent 'Mint' does not say USDC will be spent.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent is only 'Withdraw', with no interpolatedIntent naming the amount, vault or receiver.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 58,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never names USDC as the asset that arrives, though sibling formats show it.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 56,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names USDC as the asset that arrives, though sibling formats show it."
+ }
+}

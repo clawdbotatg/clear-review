@@ -1,0 +1,219 @@
+{
+ "hash": "0xc02cbb575fb25267f65406e526f655b9f392c70fedcb1112926253c1285cc53a",
+ "file": "registry/flare/calldata-DistributionToDelegators-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0x9c7a4c83842b29bb4a082b0e689cb9474bd938d0"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "claim(address _rewardOwner, address _recipient, uint256 _month, bool _wrap)",
+    "effects": [
+     "Claims the reward owner's airdrop share for every unclaimed month from the owner's next claimable month up to and including _month, not only _month.",
+     "Sends the total claimed amount to _recipient: as native FLR when _wrap is false, or as WFLR through wNat.depositTo when _wrap is true.",
+     "Marks every month up to _month as claimed for the reward owner (ownerNextClaimableMonth = _month + 1), so the owner cannot claim those months again.",
+     "If the signer is not the reward owner, the signer acts as an approved executor, and ClaimSetupManager restricts the allowed recipients.",
+     "The amount comes from storage (vote power at random blocks times the unclaimed pool), not from calldata. The function is nonpayable."
+    ],
+    "shown": "The intent 'claim rewards' with the reward owner, the recipient, a raw month number and a raw 'Wrap' true/false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim labels _month as 'Month', but the call claims every unclaimed month up to it.",
+      "evidence": "DistributionToDelegators._claim: `for (uint256 month = _nextClaimableMonth(_rewardOwner, _monthToExpireNext); month <= _month; month++)`. NatSpec: `@param _month last month to claim for`. Descriptor: label 'Month', format raw. Cases 0 and 3 show 'Month: 12'.",
+      "fix": "Change the label to 'Claim up to month' (or 'Last month claimed').",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "claim shows the received asset only as a raw 'Wrap: true/false' flag, not as WFLR versus FLR.",
+      "evidence": "_transferOrWrap: `if (_wrap) { wNat.depositTo{value: _rewardAmount}(_recipient); } else { _recipient.call{value: _rewardAmount}(\"\") }`. Descriptor: `\"label\": \"Wrap\", \"format\": \"raw\"`. Case 0 shows 'Wrap: true' and case 3 shows 'Wrap: false'.",
+      "fix": "Use an enum or map for _wrap, e.g. true → 'As WFLR (wrapped)' and false → 'As native FLR', with the label 'Receive as'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claim has no interpolated intent naming the recipient, and the intent does not say FLR airdrop.",
+      "evidence": "Descriptor: `\"intent\": \"claim rewards\"`, with no interpolatedIntent. The recipient of the claimed FLR is the _recipient field, which can differ from the reward owner.",
+      "fix": "Add an interpolatedIntent such as 'Claim FLR airdrop of {_rewardOwner} to {_recipient}'. Change the intent to 'Claim FLR airdrop'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim cannot show the claimed amount, because the contract computes it from storage and vote power.",
+      "evidence": "_getClaimableWei: `return (_weight, unclaimedAmount.mulDiv(_weight, unclaimedWeight));`, which uses combinedNat.balanceOfAt at the random vote power blocks.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "autoClaim(address[] _rewardOwners, uint256 _month)",
+    "effects": [
+     "For each listed reward owner, claims the owner's airdrop share (unless the owner opted out) and the share of the owner's personal delegation account, for all unclaimed months up to _month.",
+     "Sends each owner's claimed total minus the executor fee to the claim address (the personal delegation account if enabled, else the owner), always wrapped as WFLR.",
+     "Pays the executor fee times the number of owners to msg.sender (the signer) in native FLR.",
+     "Marks months up to _month as claimed for each owner and each delegation account.",
+     "ClaimSetupManager supplies the claim addresses and the fee from storage. The function is nonpayable."
+    ],
+    "shown": "The intent 'batch claims rewards', the list of reward owners and a raw month number.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "autoClaim does not say that it deducts an executor fee per owner and pays it to the caller.",
+      "evidence": "autoClaim: `rewardAmount = rewardAmount.sub(executorFeeValue, ERR_CLAIMED_AMOUNT_TOO_SMALL);` and `_transferOrWrap(msg.sender, executorFeeValue.mul(_rewardOwners.length), false);`. Descriptor intent: 'batch claims rewards'. Case 1 shows only 'Reward Owner' and 'Month: 12'.",
+      "fix": "Change the intent to 'Claim FLR airdrop as WFLR, executor fee paid' or add an interpolatedIntent that states the fee goes to the caller.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "autoClaim does not say that rewards arrive as WFLR at the owner's delegation account.",
+      "evidence": "autoClaim: `_transferOrWrap(claimAddress, rewardAmount, true);` where claimAddress comes from claimSetupManager.getAutoClaimAddressesAndExecutorFee. Descriptor: `\"intent\": \"batch claims rewards\"` and no recipient field.",
+      "fix": "Change the intent to 'Claim FLR airdrop as WFLR' and add an interpolatedIntent such as 'Claim WFLR airdrop for {_rewardOwners} up to month {_month}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "autoClaim labels _month as 'Month', but it claims every unclaimed month up to it.",
+      "evidence": "_claim loops `month <= _month`. NatSpec: `@param _month last month to claim for`. Descriptor: label 'Month', format raw.",
+      "fix": "Change the label to 'Claim up to month'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "autoClaim gets its recipients and fee from ClaimSetupManager storage, which no descriptor can show.",
+      "evidence": "autoClaim: `(address[] memory claimAddresses, uint256 executorFeeValue) = claimSetupManager.getAutoClaimAddressesAndExecutorFee(msg.sender, _rewardOwners);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 30
+   },
+   {
+    "key": "confirmOptOutOfAirdrop(address[] _optOutAddresses)",
+    "effects": [
+     "Only governance can call it. In production mode, the call only records a timelocked governance call (_recordTimelockedCall) and the change happens later through executeGovernanceCall.",
+     "When it executes, it permanently marks each listed address as opted out (optOut = true) and adds it to optOutAddresses. Each address must already have requested the opt-out.",
+     "Opted-out addresses can never claim the airdrop again (claim reverts with 'already opted out'), and their weight leaves future distributions.",
+     "No asset moves. The function is nonpayable."
+    ],
+    "shown": "The intent 'opt out of airdrop' and the list of 'Opt Out Address' entries.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "confirmOptOutOfAirdrop reads like the signer opting out, but it is a governance confirmation for other addresses.",
+      "evidence": "DistributionToDelegators.confirmOptOutOfAirdrop is `onlyGovernance` and requires `optOutCandidate[optOutAddress]`. The user's own opt-out is optOutOfAirdrop(). Descriptor: `\"intent\": \"opt out of airdrop\"`.",
+      "fix": "Change the intent to 'Confirm airdrop opt-out (governance)' and add an interpolatedIntent 'Permanently opt out {_optOutAddresses} from airdrop'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "confirmOptOutOfAirdrop does not say that the opt-out is permanent or that production mode timelocks it.",
+      "evidence": "GovernedBase.onlyGovernance: `if (executing || !productionMode) { ... _; } else { _recordTimelockedCall(msg.data); }`. Nothing in the contract resets optOut[...] = true. Descriptor intent: 'opt out of airdrop'.",
+      "fix": "Change the intent to 'Schedule permanent airdrop opt-out'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "confirmOptOutOfAirdrop is onlyGovernance, so only the governance account can sign it.",
+      "evidence": "`function confirmOptOutOfAirdrop(address[] calldata _optOutAddresses) external onlyGovernance`. The user-facing optOutOfAirdrop() has no format in the descriptor.",
+      "fix": "Add a format for optOutOfAirdrop() with the intent 'Request airdrop opt-out' if the ABI includes it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "ClaimSetupManager (getAutoClaimAddressesAndExecutorFee, checkExecutorAndAllowedRecipient) is not in the directory. It decides the recipients and the executor fee in autoClaim, and the allowed recipients for an executor in claim."
+  ]
+ },
+ "cost": 0.497,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 117,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "claim(address _rewardOwner, address _recipient, uint256 _month, bool _wrap)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "claim labels _month as 'Month', but the call claims every unclaimed month up to it.",
+   "comprehension": null
+  },
+  "autoClaim(address[] _rewardOwners, uint256 _month)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 20,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "autoClaim does not say that it deducts an executor fee per owner and pays it to the caller.",
+   "comprehension": null
+  },
+  "confirmOptOutOfAirdrop(address[] _optOutAddresses)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "confirmOptOutOfAirdrop reads like the signer opting out, but it is a governance confirmation for other addresses.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 97,
+  "clarity": 30,
+  "functions": "3C",
+  "incomplete": true,
+  "worst": "autoClaim does not say that it deducts an executor fee per owner and pays it to the caller."
+ }
+}

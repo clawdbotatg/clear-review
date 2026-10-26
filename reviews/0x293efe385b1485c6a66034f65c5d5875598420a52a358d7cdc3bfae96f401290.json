@@ -1,0 +1,139 @@
+{
+ "hash": "0x293efe385b1485c6a66034f65c5d5875598420a52a358d7cdc3bfae96f401290",
+ "file": "registry/HyperDiscipline/eip712-CommitIntent.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42161,
+   "address": "0x8bc22f59b2e734b18aede34c930a268fddbebb03"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "CommitIntent(address user,address token,uint256 amount,bytes32 rulesHash,uint64 duration,uint256 fine,address recipient,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Lets anyone submit the signed intent through commitWithSig until `deadline`. The submitter (msg.sender, e.g. the deposit-address forwarder) pays `amount` of `token` into the vault.",
+     "Opens a commitment owned by `user` (the signer). The signer gets any refund and is the only one who can call emergencyWithdraw.",
+     "Takes a platform fee at commit time: max(platformFeeBps of the deposit, which is 1% at deploy, minFeeUsd converted to token units through Chainlink, which is $1 at deploy). The fee is credited to the treasury, so the locked stake is the deposit minus the fee.",
+     "Locks the net stake for `duration` seconds under the off-chain rules in `rulesHash`. The oracle decides whether the rules were broken.",
+     "If the oracle rules a violation, `fine` is forfeited: forfeitFeeBps (15% at deploy) goes to the treasury and the rest to `recipient`, or all of it goes to the treasury when recipient == treasury. The signer gets back stake minus fine.",
+     "If there is no violation, the full net stake (deposit minus fee) goes back to the signer. If the oracle never resolves, the signer can emergency-withdraw it after endsAt plus a grace period.",
+     "Uses up the signer's commit nonce `nonce`. The commit reverts if fine > net stake, for example when fine equals amount."
+    ],
+    "shown": "\"Open commitment\", then the trader, the stake amount and slash penalty in the token, the duration, the slash recipient, an expiry date, the stake token, a raw rules hash and the nonce.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "wrong-amount",
+      "title": "CommitIntent: 'Stake amount' shows the gross deposit, but the platform fee is cut before the stake is locked.",
+      "evidence": "CommitmentVaultV4._commit: `uint256 fee = _computeFee(token, totalDeposit); ... uint256 netStake = totalDeposit - fee; ... _credit(token, treasury, fee);`. _computeFee is the larger of `totalDeposit * platformFeeBps / 10_000` (100 bps at deploy) and minFeeInToken (minFeeUsd = 1e8 = $1). Descriptor: field `amount` labelled 'Stake amount' with no mention of any fee. In case 0 the screen says 'Stake amount 10 USDC', but the locked and refundable stake is at most 9.9 USDC, or 9 USDC with the $1 floor.",
+      "fix": "Rename the field to 'Deposit (platform fee deducted)'. Have the intent say a fee is taken, e.g. 'Deposit tokens into a commitment (platform fee: 1% or $1 minimum)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "CommitIntent: 'Slash recipient' implies it gets the whole penalty; 15% goes to the treasury.",
+      "evidence": "CommitmentVaultV4._computeSlashShares: `toTreasury = (c.fine * forfeitFeeBps) / 10_000; toRecipient = c.fine - toTreasury;` (forfeitFeeBps = 1_500 at deploy). Descriptor fields: 'Slash penalty' (fine) and 'Slash recipient' (recipient). The signer's loss on a slash is the full fine, which is shown right. The named recipient only gets 85% of it.",
+      "fix": "Relabel to 'Slash recipient (after protocol share)', or name the treasury share in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "CommitIntent: the intent 'Open commitment' does not say tokens are staked and can be slashed; no interpolatedIntent.",
+      "evidence": "Descriptor: `\"intent\": \"Open commitment\"` and no interpolatedIntent. The code locks `amount` of `token` and lets the oracle forfeit `fine` to `recipient` (_applyResolution).",
+      "fix": "Add an interpolatedIntent such as 'Stake {amount} for {duration}; lose up to {fine} if rules are broken', and use an intent like 'Stake tokens in a slashable commitment'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "CommitIntent: the user field allows only 'eoa', but the contract also accepts smart-account (EIP-1271) signers.",
+      "evidence": "CommitmentVaultV5.commitWithSig: `SignatureChecker.isValidSignatureNow(intent.user, digest, sig)` (ECDSA and EIP-1271). Descriptor: `user` params `types: [\"eoa\"]`.",
+      "fix": "Use `types: [\"eoa\", \"contract\"]`, or add `senderAddress`-style handling if the wallet supports it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "CommitIntent case 0 signs fine == amount, which the contract always rejects after the fee.",
+      "evidence": "cases/0.json: amount 10000000, fine 10000000 (10 USDC each). CommitmentVaultV4._commit: `if (fine > netStake) revert InvalidFine(fine, netStake);` with netStake = amount - fee, and fee > 0. The test shows a commitment that cannot execute.",
+      "fix": "Use a fine at or below the net stake (e.g. amount 10 USDC, fine 5 USDC) so the case is a real, executable intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "CommitIntent: rulesHash stands for the off-chain rules that decide the slash, which no screen can show.",
+      "evidence": "CommitmentVaultV5.CommitIntent: `bytes32 rulesHash; // off-chain rule spec digest`. Descriptor: 'Rules hash' (raw).",
+      "fix": "None in the descriptor. The app should show the rules the hash commits to.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "CommitIntent: the duration renders as hours ('600:00:00' for 25 days), which is hard to read.",
+      "evidence": "cases/0.json: duration 2160000 shows as 'Duration 600:00:00'. Descriptor: `format: duration`.",
+      "fix": "None in the spec today. A days-capable duration rendering would help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "CommitIntent: the tokens are paid by whoever submits, and anyone may submit the intent before the deadline.",
+      "evidence": "CommitmentVaultV5.commitWithSig: `token.safeTransferFrom(msg.sender, address(this), intent.amount);`. NatSpec: 'Anyone can call; the resulting commitment is always owned by intent.user.'",
+      "fix": "Optionally say in the intent that a relayer submits this using the deposit-address funds.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.377,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 75,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "CommitIntent(address user,address token,uint256 amount,bytes32 rulesHash,uint64 duration,uint256 fine,address recipient,uint256 nonce,uint256 deadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 4,
+   "worst": "CommitIntent: 'Stake amount' shows the gross deposit, but the platform fee is cut before the stake is locked.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 33,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "CommitIntent: 'Stake amount' shows the gross deposit, but the platform fee is cut before the stake is locked."
+ }
+}

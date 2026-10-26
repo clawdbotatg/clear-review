@@ -1,0 +1,123 @@
+{
+ "hash": "0x648088f1de2c560a780c4888f9d7be14dde105b3f34a9ccb9b568c3dafb07c10",
+ "file": "registry/swissborg/calldata-WormholeTransceiver.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x45e581d6841f0a99fc34f70871ef56b353813ddb"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "receiveMessage(bytes encodedMessage)",
+    "effects": [
+     "Checks the Wormhole VAA in encodedMessage against the Core Bridge and the registered peer, then marks its hash as used so it cannot be replayed.",
+     "Passes the parsed NTT message to the NttManager 0x66a2…a1e5 through attestationReceived. In the mined case the NttManager then released 928.73135489 BORG to the recipient named in the message, which was the signer.",
+     "The recipient and amount come from the signed message, not from msg.sender. The signer gets tokens only when they are the encoded recipient. The amount is a trimmed 8-decimal value that the NttManager scales to BORG's 18 decimals.",
+     "Not payable. No ETH leaves the signer, and the signer's tokens get no approval."
+    ],
+    "shown": "The intent 'Receive Bridged BORG' and the whole encoded VAA as one raw hex blob of about 1,100 bytes. No amount and no recipient are shown in readable form.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "receiveMessage: the incoming BORG amount is visible only inside the raw VAA hex, never as an amount.",
+      "evidence": "descriptor.json: the only field is {\"path\":\"#.encodedMessage\",\"format\":\"raw\"}. In case 0, the trimmed amount 0x000000159fab9581 (92873135489, 8 decimals) sits just after the NTT prefix 994e545408. The mined transfer is 928731354890000000000 BORG in to the signer, and the reader wrote 'amount not shown on screen'.",
+      "fix": "Add a field on a fixed-offset slice from the end of the bytes, e.g. #.encodedMessage.[-76:-68], with format 'unit', decimals 8 and base 'BORG', labelled 'Amount'. Use it in interpolatedIntent too.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "receiveMessage: the recipient of the BORG is visible only inside the raw VAA hex, with no address field.",
+      "evidence": "WormholeTransceiver.receiveMessage delivers to the NttManager, which pays the recipient encoded in the message, not msg.sender. In case 0 the encoded recipient …49719d256a5ea16bfa579ea16e95bea9fa41a452 is at bytes [-24:-4], just before the toChain 0002 and the empty-payload length 0000. The reader wrote they 'can't confirm it's the recipient field'.",
+      "fix": "Add a field 'Recipient' on #.encodedMessage.[-24:-4] with format addressName, and name it in the intent ('Receive {amount} bridged BORG to {recipient}').",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "receiveMessage: the intent suggests the signer receives the BORG, but the recipient is fixed by the message.",
+      "evidence": "WormholeTransceiver.sol receiveMessage has no msg.sender check: _verifyMessage then _deliverToNttManager. Anyone can relay a VAA, and the tokens go to the recipient encoded in it. The intent is 'Receive Bridged BORG'.",
+      "fix": "Use wording such as 'Complete BORG bridge transfer' together with a recipient field, so a relayer does not expect funds that go to someone else.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "receiveMessage: the only field is a raw blob of over 1,000 bytes that no signer can read.",
+      "evidence": "descriptor.json field 'Encoded Message' format raw, visible always. Case 0 shows the full VAA hex with 13 guardian signatures.",
+      "fix": "Replace it with sliced amount and recipient fields, plus the source chain if wanted. Set the raw VAA to visible: never or optional.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "receiveMessage: whether tokens arrive now depends on NttManager storage the screen cannot show.",
+      "evidence": "Transceiver.sol _deliverToNttManager calls INttManager(nttManager).attestationReceived. The NttManager threshold and inbound rate limit (it can queue the transfer) live in storage, and its source is not in the directory.",
+      "fix": "No descriptor change can show this. A label like 'Amount (may be queued if rate-limited)' is optional.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "928.73135489 BORG arrived from the NttManager to the signer. The reader got the direction and the asset from the intent, but saw no amount and could not confirm they were the recipient. Both values appear only as raw hex."
+     }
+    ],
+    "glance": 55,
+    "depth": 20
+   }
+  ],
+  "couldNotCheck": [
+   "The NttManager at 0x66a28b080918184851774a89ab94850a41f6a1e5, called by attestationReceived, has no source in the directory. Its code mints or unlocks the BORG, picks the recipient and the amount scaling, and applies the threshold and inbound rate-limit queueing. It could only be checked through the mined receipt."
+  ]
+ },
+ "cost": 0.354,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 86,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "receiveMessage(bytes encodedMessage)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 25,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "receiveMessage: the incoming BORG amount is visible only inside the raw VAA hex, never as an amount.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 25,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": "receiveMessage: the incoming BORG amount is visible only inside the raw VAA hex, never as an amount."
+ }
+}

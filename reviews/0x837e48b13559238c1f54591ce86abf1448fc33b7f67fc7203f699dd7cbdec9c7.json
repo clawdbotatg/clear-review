@@ -1,0 +1,359 @@
+{
+ "hash": "0x837e48b13559238c1f54591ce86abf1448fc33b7f67fc7203f699dd7cbdec9c7",
+ "file": "registry/safe/calldata-SafeL2-1.4.1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 10,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 56,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 137,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x29fcb43b46531bca003ddc8fcb67ffe91900c762"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)",
+    "effects": [
+     "Sets the Safe's owners to _owners and the confirmation threshold to _threshold. It can run only once, on a fresh proxy.",
+     "Sets fallbackHandler as the Safe's fallback handler when it is not zero.",
+     "Delegate-calls `to` with `data`, so `to`'s code runs in the Safe's own storage and balances. This is normally used to enable modules.",
+     "Pays `payment` of paymentToken (ETH when zero) from the Safe to paymentReceiver. When paymentReceiver is zero, tx.origin receives it."
+    ],
+    "shown": "\"Setup Safe\" with the owners, the threshold, the fallback handler, the payment with its token, the payment receiver, and `data` decoded as a nested call to `to` under the label 'Module'.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "setup decodes `data` as a plain call to `to`, but the Safe always delegate-calls it.",
+      "evidence": "ModuleManager.setupModules: `require(execute(to, 0, data, Enum.Operation.DelegateCall, type(uint256).max), \"GS000\");`. Descriptor setup field: {\"path\":\"data\",\"label\":\"Module\",\"format\":\"calldata\",\"params\":{\"calleePath\":\"to\"}}. Nothing says delegate call, and `to` has no field of its own.",
+      "fix": "Add a field for `to` labelled 'Delegate call target (runs in Safe)'. Change the `data` label to 'Delegate call data'. Change the intent to 'Create Safe and run setup code'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setup shows a zero paymentReceiver as the zero address, but the code pays tx.origin.",
+      "evidence": "Safe.handlePayment: `address payable receiver = refundReceiver == address(0) ? payable(tx.origin) : refundReceiver;`. Descriptor field 'Payment receiver' is a plain addressName with no senderAddress.",
+      "fix": "Add \"senderAddress\": \"$.metadata.constants.addressAsNull\" to the paymentReceiver params so that zero renders as the sender.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "setup is bound to the SafeL2 singleton, where it always reverts. Signers call it on new proxies.",
+      "evidence": "Safe constructor: `threshold = 1;`. OwnerManager.setupOwners: `require(threshold == 0, \"GS200\");`. meta.json: isProxy false, SafeL2 singleton 0x29fc…c762. Descriptor deployments list only that address.",
+      "fix": "Bind the descriptor to Safe proxies, for example with a factory constraint on SafeProxyFactory's ProxyCreation event. Or describe setup inside the factory's createProxyWithNonce initializer.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "effects": [
+     "Sends the executor's msg.value of native currency to the Safe (the function is payable).",
+     "Runs the Safe transaction: it calls or delegate-calls `to` with `data` and sends `value` of native currency from the Safe to `to`.",
+     "When operation is 1, `to`'s code runs in the Safe's context and can move any Safe asset or change owners and modules.",
+     "When gasPrice > 0, the Safe pays (gasUsed + baseGas) * gasPrice in gasToken (ETH when zero) to refundReceiver, or to tx.origin when that is zero. It pays even if the inner call fails.",
+     "When safeTxGas or gasPrice is not zero, the inner call can fail and the transaction still succeeds. The nonce is still used.",
+     "Increments the Safe nonce. A v=1 signature whose owner is msg.sender counts as the executor's own approval."
+    ],
+    "shown": "\"sign multisig operation\" with the operation type, the Safe and the executor, `data` as a nested call to `to`, baseGas raw as 'Gas amount', gasPrice as a token amount, and the gas receiver.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "execTransaction is payable but shows no @.value, so native currency the executor sends is never shown.",
+      "evidence": "Safe.execTransaction is declared `public payable virtual returns (bool success)`, and nothing checks msg.value. The descriptor execTransaction fields have no field with path '@.value'.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"ETH sent to Safe\",\"format\":\"amount\",\"visible\":\"always\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "execTransaction has no field for `value`, the native currency the Safe sends to `to`.",
+      "evidence": "Executor.execute is called with `execute(to, value, data, operation, ...)`. In the descriptor, `value` appears only as amountPath of the 'Transaction' calldata field. The spec says the inner descriptor only MAY reference it via @.value; ERC-20 descriptors do not. With empty `data` (a plain ETH send) there is no inner descriptor, so neither amount nor recipient is shown.",
+      "fix": "Add {\"path\":\"value\",\"label\":\"Amount sent by Safe\",\"format\":\"amount\",\"visible\":\"always\"} and {\"path\":\"to\",\"label\":\"To\",\"format\":\"addressName\",\"visible\":\"always\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "execTransaction decodes `data` as a call to `to` even when operation 1 makes it a delegate call.",
+      "evidence": "Executor.execute delegate-calls when `operation == Enum.Operation.DelegateCall`. Descriptor: 'Transaction' calldata field with calleePath 'to' and spenderPath '@.to', with no condition on `operation`. The 'Operation type' enum shows 'Delegate Call', but the nested rendering still states the outcome of a normal call to `to`.",
+      "fix": "Show a fixed warning field when operation is 1, and do not decode nested calldata as a call in that case. Add 'Delegate call: target code runs as your Safe' to the enum label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "execTransaction intent says 'sign multisig operation', but the call executes the Safe transaction.",
+      "evidence": "Descriptor intent: \"sign multisig operation\". Safe.execTransaction checks the signatures, then runs `execute(to, value, data, operation, ...)` and pays the refund.",
+      "fix": "Change the intent to 'Execute Safe transaction'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "execTransaction shows a zero refundReceiver as the zero address, but tx.origin receives the refund.",
+      "evidence": "Safe.handlePayment: `refundReceiver == address(0) ? payable(tx.origin) : refundReceiver`. Descriptor field 'Gas receiver' is a plain addressName.",
+      "fix": "Add \"senderAddress\": \"$.metadata.constants.addressAsNull\" to the refundReceiver params.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "execTransaction fee fields do not show the refund cost: baseGas is raw 'Gas amount', gasPrice is a per-gas token amount.",
+      "evidence": "Safe.handlePayment: `payment = gasUsed.add(baseGas).mul(gasPrice)`. Descriptor: baseGas 'Gas amount' (raw), gasPrice 'Gas price' (tokenAmount with gasToken).",
+      "fix": "Rename baseGas to 'Base gas (added to gas used)' and gasPrice to 'Refund price per gas'. Add a gasToken field labelled 'Refund token'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "execTransaction hides safeTxGas, which decides if the inner call can fail while the refund is still paid.",
+      "evidence": "Safe.execTransaction: `require(success || safeTxGas != 0 || gasPrice != 0, \"GS013\");`. Descriptor: {\"label\":\"Safe Tx Gas\",\"path\":\"safeTxGas\",\"visible\":\"never\"}.",
+      "fix": "Show safeTxGas as raw with label 'Inner call gas limit (0 = must succeed)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "execTransaction is bound to the SafeL2 singleton. Signers send to Safe proxies, so the format never matches.",
+      "evidence": "meta.json: SafeL2 singleton 0x29fc…c762, isProxy false. Safe constructor sets threshold 1 with no owners, so checkNSignatures always fails on the singleton. Descriptor deployments list only that address.",
+      "fix": "Bind to Safe proxies, for example with a factory constraint on SafeProxyFactory's ProxyCreation event.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 25,
+    "depth": 40
+   },
+   {
+    "key": "addOwnerWithThreshold(address owner, uint256 _threshold)",
+    "effects": [
+     "Adds `owner` as a Safe owner (callable only by the Safe itself through execTransaction).",
+     "Sets the threshold to _threshold when it differs from the current one."
+    ],
+    "shown": "\"Add signer\" with the new owner and the new threshold.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "addOwnerWithThreshold restricts the owner field to EOA types, but owners can be contracts.",
+      "evidence": "OwnerManager.addOwnerWithThreshold rejects only zero, sentinel and address(this). Descriptor field 'Signer' has types [\"eoa\"].",
+      "fix": "Change the types to [\"eoa\", \"wallet\", \"contract\"].",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 85
+   },
+   {
+    "key": "removeOwner(address prevOwner, address owner, uint256 _threshold)",
+    "effects": [
+     "Removes `owner` from the Safe owners (callable only by the Safe itself).",
+     "Sets the threshold to _threshold when it differs from the current one."
+    ],
+    "shown": "\"Remove signer\" with the owner removed and the new threshold.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "swapOwner(address prevOwner, address oldOwner, address newOwner)",
+    "effects": [
+     "Replaces Safe owner oldOwner with newOwner. The threshold does not change. It is callable only by the Safe itself."
+    ],
+    "shown": "\"Swap signer\" with the old and the new owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "swapOwner restricts the new owner field to EOA types, but owners can be contracts.",
+      "evidence": "OwnerManager.swapOwner rejects only zero, sentinel and address(this) for newOwner. Descriptor field 'New signer' has types [\"eoa\"].",
+      "fix": "Change the types to [\"eoa\", \"wallet\", \"contract\"].",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "changeThreshold(uint256 _threshold)",
+    "effects": [
+     "Sets the number of required confirmations to _threshold (callable only by the Safe itself)."
+    ],
+    "shown": "\"Modify threshold\" with the new threshold.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 90
+   },
+   {
+    "key": "approveHash(bytes32 hashToApprove)",
+    "effects": [
+     "Records the signer (who must be an owner) as approving hashToApprove permanently. It counts as that owner's signature for the Safe transaction or message with that hash, and it cannot be revoked."
+    ],
+    "shown": "\"Approve Safe hash\" with the hash as raw bytes.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "approveHash shows a raw hash and not the Safe transaction it approves, and the approval is permanent.",
+      "evidence": "Safe.approveHash: `approvedHashes[msg.sender][hashToApprove] = 1;`. The devdoc says the approved hash stays approved forever. Descriptor field 'Hash to approve' is raw.",
+      "fix": "Change the intent to 'Permanently sign Safe transaction hash'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 30
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.572,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [
+  "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)"
+ ],
+ "seconds": 110,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 2,
+   "worst": "setup decodes `data` as a plain call to `to`, but the Safe always delegate-calls it.",
+   "comprehension": null
+  },
+  "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 17,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 4,
+   "warnings": 5,
+   "worst": "execTransaction is payable but shows no @.value, so native currency the executor sends is never shown.",
+   "comprehension": null
+  },
+  "addOwnerWithThreshold(address owner, uint256 _threshold)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "addOwnerWithThreshold restricts the owner field to EOA types, but owners can be contracts.",
+   "comprehension": null
+  },
+  "removeOwner(address prevOwner, address owner, uint256 _threshold)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "swapOwner(address prevOwner, address oldOwner, address newOwner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapOwner restricts the new owner field to EOA types, but owners can be contracts.",
+   "comprehension": null
+  },
+  "changeThreshold(uint256 _threshold)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "approveHash(bytes32 hashToApprove)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 75,
+  "clarity": 60,
+  "functions": "2A 2B 1C 2F",
+  "incomplete": false,
+  "worst": "execTransaction is payable but shows no @.value, so native currency the executor sends is never shown."
+ }
+}

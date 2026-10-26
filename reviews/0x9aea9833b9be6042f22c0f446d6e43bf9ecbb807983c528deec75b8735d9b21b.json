@@ -1,0 +1,184 @@
+{
+ "hash": "0x9aea9833b9be6042f22c0f446d6e43bf9ecbb807983c528deec75b8735d9b21b",
+ "file": "registry/morpho/calldata-galaxy_curation-gUSDCq-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x1e9e47583f15d45a10df48c0b1846e0492c795d7"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` USDC moves from the signer to the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "Vault shares (gUSDCq) are minted to `onBehalf`. The amount is previewDeposit(assets), computed from the vault's share price after accrueInterest, and has no minimum.",
+     "The vault forwards the deposited USDC to its liquidity adapter. This is internal to the vault and moves none of the signer's assets.",
+     "accrueInterest may mint fee shares to the fee recipients, which dilutes the share price used."
+    ],
+    "shown": "Deposit <assets> USDC for <onBehalf>, with the share ticker gUSDCq and the shares' recipient shown as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of gUSDCq shares minted is not shown, and the call sets no minimum.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` comes from storage (totalAssets, totalSupply, fees). The calldata has no share amount. Case 0 minted 13713e18 gUSDCq to the signer, and the screen shows only 'Share ticker: gUSDCq'.",
+      "fix": "No calldata field can show it. Optionally add a note that the shares follow the vault's current share price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out (13713) is shown exactly. gUSDCq in: the asset and recipient are shown, but no amount, because the amount comes from the share price in storage. The reader correctly took the share amount as unknown."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `assets` USDC is sent from the vault to `receiver` (safeTransfer(asset, receiver, assets) in exit).",
+     "Shares of `onBehalf` are burned. The amount is previewWithdraw(assets), rounded up, and has no maximum.",
+     "If the caller is not `onBehalf`, the caller's share allowance from `onBehalf` is reduced by the burned shares.",
+     "The vault may pull liquidity back from its adapter to fund the withdrawal. This is internal and moves none of the signer's assets."
+    ],
+    "shown": "Withdraw exactly <assets> USDC to <receiver>, with the share owner `onBehalf` shown as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of gUSDCq shares burned from the owner is not shown, and the call sets no maximum.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets);` then `deleteShares(onBehalf, shares)` in exit. Case 1 burned 19.772702013870962142 gUSDCq from the signer, while the screen shows only 'Withdraw exactly 20.1 USDC' and 'Owner'.",
+      "fix": "No calldata value carries it. Optionally phrase the intent as 'Withdraw {assets} to {receiver}, burning shares of {onBehalf}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDC in (20.1, to the signer) is shown exactly. gUSDCq out: the owner is shown, but the share amount comes from storage and the screen never names the asset. The reader guessed shares leave."
+     }
+    ],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "`shares` gUSDCq are burned from `onBehalf` (deleteShares in exit).",
+     "If the caller is not `onBehalf`, the caller's share allowance from `onBehalf` is reduced by `shares`.",
+     "USDC is sent from the vault to `receiver`. The amount is previewRedeem(shares), computed from the share price in storage, and has no minimum."
+    ],
+    "shown": "Redeem <shares> gUSDCq to <receiver>, with the owner shown as a field. The token that arrives is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says that USDC arrives at the receiver; only the shares redeemed are named.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. Descriptor redeem: interpolatedIntent 'Redeem {#.shares} to {#.receiver}', and no field references $.metadata.constants.underlyingTicker or underlyingToken. In case 2, 60271.999711 USDC arrived at the signer, and the reader was 'unsure... whether the underlying is USDC; inferred from the name only'.",
+      "fix": "Name the output, e.g. intent 'Redeem gUSDCq for USDC' and interpolatedIntent 'Redeem {#.shares} for USDC to {#.receiver}', or add a constant field 'Receive: USDC' like the 'Share ticker' field in deposit.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received comes from the share price, and the call sets no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. The amount is not in the calldata. Case 2 received 60271.999711 USDC, an amount the screen does not show.",
+      "fix": "No descriptor change can show the amount. Stating the asset (finding above) is the most the descriptor can do.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "gUSDCq out is shown exactly with the right token (the vault, via @.to). USDC in: the recipient is shown, but neither the asset nor the amount is. The reader only guessed USDC."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.331,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 70,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says that USDC arrives at the receiver; only the shares redeemed are named.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 76,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says that USDC arrives at the receiver; only the shares redeemed are named."
+ }
+}

@@ -1,0 +1,229 @@
+{
+ "hash": "0xd95b1b817f7c2cf5898621517dedc9a0ac98df2933f89f4b1619afa2ee9e4e45",
+ "file": "registry/kiln/calldata-Vault-WBTC-Morpho-Gauntlet-Core.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x9d4c18c1c15cfdbf260f2910031bbd68f4aa889d"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends `assets` WBTC from its wallet to the vault, using its WBTC allowance to the vault (safeTransferFrom caller -> vault).",
+     "The receiver gets newly minted kmgcWBTC shares. The vault computes the number from the exchange rate, minus a deposit fee that the fee manager sets in storage.",
+     "Before the mint, the vault mints reward-fee shares to itself. This changes the exchange rate the signer gets.",
+     "The vault delegatecalls a connector that moves the WBTC into the Morpho Gauntlet WBTC Core vault. Nothing more of the signer's leaves."
+    ],
+    "shown": "\"Deposit\", with the WBTC amount, the share ticker kmgcWBTC and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many kmgcWBTC shares arrive; the vault computes them and can take a deposit fee.",
+      "evidence": "Vault.sol deposit: `(uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply());` and _previewDeposit: `depositFeeAmount = assets.mulDiv($._depositFee, ...)`. The descriptor shows only `Share ticker` (raw constant) and no share amount. Case 0: kmgcWBTC in 911, and the screen has no amount for it.",
+      "fix": "Nothing in calldata bounds the shares. No descriptor change can show the share count.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit uses a bare 'Deposit' intent and the label 'Deposit asset' on an amount, so the line does not name WBTC or the vault.",
+      "evidence": "descriptor deposit: `\"intent\": \"Deposit\"`, field `\"label\": \"Deposit asset\"` on path `assets` (tokenAmount). Case 0 screen: 'Deposit asset: 0.00000911 WBTC'.",
+      "fix": "Change the intent to \"Deposit WBTC into Kiln vault\" and the label to \"Amount to deposit\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows 911 sats of WBTC out right. kmgcWBTC shares in (911) are shown by ticker and receiver only, with no amount. The reader saw the direction and the asset but not the amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The receiver gets exactly `shares` kmgcWBTC shares, newly minted.",
+     "The signer sends the WBTC amount that previewMint computes, rounded up and grossed up by the deposit fee in storage. Calldata has no maximum for it.",
+     "Before the mint, the vault mints reward-fee shares to itself. This changes the WBTC cost.",
+     "The vault delegatecalls a connector that moves the WBTC into Morpho."
+    ],
+    "shown": "\"Mint\", with 'Deposit asset: WBTC' (ticker only), the share amount in kmgcWBTC and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much WBTC leaves the signer. Calldata has no maximum, so nothing bounds it.",
+      "evidence": "Vault.sol mint: `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); ... _deposit(_msgSender(), receiver, _assets, shares, _depositFeeAmount);`. The descriptor's 'Deposit asset' field is the raw constant `$.metadata.constants.underlyingTicker`, with no amount.",
+      "fix": "Nothing in calldata holds the asset amount. No descriptor change can show it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint shows 'Deposit asset: WBTC' with no amount, which reads like a complete deposit line.",
+      "evidence": "descriptor mint: `{\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}` next to `\"intent\": \"Mint\"`.",
+      "fix": "Rename the field to \"Pay with (amount set by vault)\" and change the intent to \"Mint vault shares with WBTC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns kmgcWBTC shares from `owner`, in a number computed from `assets` and rounded up.",
+     "When the signer is not the owner, the signer spends its share allowance from the owner.",
+     "The receiver gets the WBTC that the connector withdraws (the vault's balance change), which is intended to be `assets`.",
+     "Before the burn, the vault mints reward-fee shares to itself."
+    ],
+    "shown": "\"Withdraw\", with 'Withdraw exactly' the WBTC amount, 'To' the receiver and 'Owner' the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many kmgcWBTC shares the vault burns from the owner.",
+      "evidence": "Vault.sol withdraw: `uint256 _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); ... _withdraw(_msgSender(), receiver, owner, assets, _shares);` and _withdraw: `_burn(owner, shares);`. The descriptor has no shares field because calldata has no shares value.",
+      "fix": "The share count is not in calldata. No descriptor change can show it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "withdraw labels the amount 'Withdraw exactly', but the vault sends its balance change after the connector call.",
+      "evidence": "Vault.sol _withdraw: `_connector.functionDelegateCall(abi.encodeCall(IConnector.withdraw, (IERC20(asset()), assets))); SafeERC20.safeTransfer(IERC20(asset()), receiver, IERC20(asset()).balanceOf(address(this)) - _balanceBefore);`. The descriptor field label is \"Withdraw exactly\".",
+      "fix": "The connector source is not available, so this stays unresolved. Use the label \"Amount to withdraw\" if the connector can return a different amount.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` kmgcWBTC from `owner`.",
+     "When the signer is not the owner, the signer spends its share allowance from the owner.",
+     "The receiver gets the WBTC that the connector withdraws for the converted amount, rounded down. Calldata has no minimum for it.",
+     "Before the burn, the vault mints reward-fee shares to itself. This lowers the WBTC per share."
+    ],
+    "shown": "\"Redeem\", with 'Shares to redeem' in kmgcWBTC, 'To' the receiver and 'Owner' the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much WBTC the receiver gets, and calldata has no minimum for it.",
+      "evidence": "Vault.sol redeem: `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply); ... _withdraw(_msgSender(), receiver, owner, _assets, shares);`. The descriptor has no field for the WBTC out.",
+      "fix": "The WBTC amount is not in calldata. No descriptor change can show it. Change the intent to \"Redeem vault shares for WBTC\" to name the asset.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem's bare 'Redeem' intent and 'To' label do not say that WBTC is what the receiver gets.",
+      "evidence": "descriptor redeem: `\"intent\": \"Redeem\"`, field `{\"path\": \"receiver\", \"label\": \"To\"}`. No field names WBTC.",
+      "fix": "Change the intent to \"Redeem vault shares for WBTC\" and the label to \"Send WBTC to\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "The Vault delegatecalls a connector from registry 0xde63817c82e93499357ae198518f90ac1be93a72 (name MORPHO_GAUNTLET_WBTC_CORE). Its source is not in the directory. In withdraw and redeem, the WBTC sent to the receiver is the vault's balance change after that connector call, so I could not check the amount the receiver gets."
+  ]
+ },
+ "cost": 0.521,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 79,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint shows 'Deposit asset: WBTC' with no amount, which reads like a complete deposit line.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem's bare 'Redeem' intent and 'To' label do not say that WBTC is what the receiver gets.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 56,
+  "functions": "2B 2C",
+  "incomplete": true,
+  "worst": "mint shows 'Deposit asset: WBTC' with no amount, which reads like a complete deposit line."
+ }
+}

@@ -1,0 +1,228 @@
+{
+ "hash": "0xc706f03ab1e6707996c20066ec1ad212e12ed3492e0e1daf849a45d4a099b5bd",
+ "file": "registry/morpho/calldata-gauntlet-msolvbtcbbn.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xdbb316375b4dc992b2c8827d120c09dfb1d3455d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` xSolvBTC from the signer with transferFrom; the signer must have approved the vault beforehand.",
+     "Mints vault shares (msolvbtcbbn) to `receiver`. The number of shares comes from vault storage (totalSupply, lastTotalAssets) and is rounded down. There is no minimum.",
+     "Supplies the deposited xSolvBTC to Morpho Blue markets through the vault's supply queue. This touches only vault state."
+    ],
+    "shown": "Deposit, with the xSolvBTC amount, a constant share ticker 'msolvbtcbbn' and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent is just 'Deposit' and there is no interpolatedIntent naming the amount or the receiver.",
+      "evidence": "descriptor.json deposit format: \"intent\": \"Deposit\", no interpolatedIntent. Case 0 screen intent: \"Deposit\".",
+      "fix": "Add an interpolatedIntent such as \"Deposit {assets} for msolvbtcbbn shares to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is computed from vault storage and has no minimum bound.",
+      "evidence": "MetaMorphoV1_1.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor); calldata has no minShares.",
+      "fix": "None in the descriptor. The amount is not in the calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' field is a raw constant that adds a row without stating an amount.",
+      "evidence": "descriptor.json deposit: {\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}. Case 0 shows \"msolvbtcbbn\".",
+      "fix": "Put the share ticker into the interpolated sentence, or label it 'You receive shares of'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` vault shares (msolvbtcbbn) to `receiver`.",
+     "Takes xSolvBTC from the signer with transferFrom. The amount is computed from vault storage and rounded up. The calldata sets no maximum, so it is bounded only by the signer's allowance.",
+     "Supplies that xSolvBTC to Morpho Blue markets. This touches only vault state."
+    ],
+    "shown": "Mint, with the deposit asset named as 'xSolvBTC' but no amount, the exact share amount and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the xSolvBTC amount pulled from the signer is computed on chain and not shown. There is no maximum.",
+      "evidence": "MetaMorphoV1_1.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit pulls `assets`. Screen case 1: 'Deposit asset' = \"xSolvBTC\" with no amount.",
+      "fix": "None in the descriptor. The amount is not in the calldata. A label like 'Pays in (amount set by vault)' would make this clear.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say that xSolvBTC is deposited from the signer's wallet.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", no interpolatedIntent. The function spends the signer's xSolvBTC through _deposit.",
+      "fix": "Use the intent 'Deposit xSolvBTC for shares' and an interpolatedIntent such as \"Mint {shares} to {receiver} by depositing xSolvBTC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns vault shares from `owner`. The number is computed from vault storage and rounded up.",
+     "If the signer is not `owner`, spends the signer's allowance over the owner's shares.",
+     "Sends exactly `assets` xSolvBTC to `receiver`, after withdrawing it from Morpho Blue markets."
+    ],
+    "shown": "Withdraw, with the exact xSolvBTC amount, the receiver and the share owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent is just 'Withdraw' and there is no interpolatedIntent with the amount and receiver.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", no interpolatedIntent.",
+      "fix": "Add an interpolatedIntent such as \"Withdraw {assets} to {receiver} from {owner}'s shares\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is computed on chain and not shown. There is no maximum.",
+      "evidence": "MetaMorphoV1_1.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil).",
+      "fix": "None in the descriptor. The amount is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `owner`.",
+     "If the signer is not `owner`, spends the signer's allowance over the owner's shares.",
+     "Sends xSolvBTC to `receiver`. The amount is computed from vault storage and rounded down. There is no minimum."
+    ],
+    "shown": "Redeem, with the exact share amount, the receiver and the owner. Nothing names the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: no field names xSolvBTC as the asset the receiver gets back.",
+      "evidence": "descriptor.json redeem fields: only shares, receiver, owner. The mint format adds the constant field 'Deposit asset' = $.metadata.constants.underlyingTicker, but redeem has nothing similar. _withdraw sends the underlying asset (0xd9D9...9DEf) to the receiver.",
+      "fix": "Add a constant field {\"label\": \"Receive asset\", \"value\": \"$.metadata.constants.underlyingTicker\"}, or name it in an interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the xSolvBTC amount received is computed on chain, with no minimum.",
+      "evidence": "MetaMorphoV1_1.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor).",
+      "fix": "None in the descriptor. The amount is not in the calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent is just 'Redeem' and there is no interpolatedIntent with the shares and receiver.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", no interpolatedIntent.",
+      "fix": "Add an interpolatedIntent such as \"Redeem {shares} for xSolvBTC to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.315,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 71,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent is just 'Deposit' and there is no interpolatedIntent naming the amount or the receiver.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that xSolvBTC is deposited from the signer's wallet.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent is just 'Withdraw' and there is no interpolatedIntent with the amount and receiver.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: no field names xSolvBTC as the asset the receiver gets back.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 55,
+  "functions": "1B 3C",
+  "incomplete": false,
+  "worst": "redeem: no field names xSolvBTC as the asset the receiver gets back."
+ }
+}

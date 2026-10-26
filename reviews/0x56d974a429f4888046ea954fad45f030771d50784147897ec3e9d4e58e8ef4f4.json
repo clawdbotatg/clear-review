@@ -1,0 +1,288 @@
+{
+ "hash": "0x56d974a429f4888046ea954fad45f030771d50784147897ec3e9d4e58e8ef4f4",
+ "file": "registry/aave/calldata-lpv2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x7d2768de32b0b80b7a3454c06bdac94a69ddc7a9"
+  },
+  {
+   "chainId": 137,
+   "address": "0x8dff5e27ea6b7ac08ebfdf9eb090f32ee9a30fcf"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x4f01aed16d97e3ab5ab2b501154dc9bb0f1a5a2c"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "repay(address asset, uint256 amount, uint256 rateMode, address onBehalfOf)",
+    "effects": [
+     "The signer sends up to `amount` of `asset` to the aToken contract. The code caps the payment at the current debt of `onBehalfOf` in the chosen rate mode, and type(uint256).max repays the whole debt.",
+     "The stable or variable debt of `onBehalfOf` (the debt token picked by `rateMode`) is burned by the amount paid.",
+     "When the debt reaches zero, the borrowing flag of `onBehalfOf` for this reserve is cleared."
+    ],
+    "shown": "Intent 'Repay loan', with the amount in the asset token ('All USDC' for max), the rate mode as stable/variable, and the debt holder whose debt is cut.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "repay intent 'Repay loan' names neither the asset nor the debt holder.",
+      "evidence": "descriptor repay: \"intent\": \"Repay loan\", no interpolatedIntent; case 0 screen shows 'All USDC' and the holder only in fields.",
+      "fix": "Add an interpolatedIntent: \"Repay {amount} {rateMode} debt for {onBehalfOf}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "USDC 423429 out matches 'All USDC'. The code caps the payment at the debt. The variable debt burn matches 'Repay loan' with rate mode 'variable'. The reader knew the exact figure was not shown."
+     }
+    ],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "setUserUseReserveAsCollateral(address asset, bool useAsCollateral)",
+    "effects": [
+     "The signer's collateral flag for the `asset` reserve is set to `useAsCollateral`. No tokens move. Disabling it lowers the signer's borrowing power and health factor, and the validation reverts if the position would become unsafe."
+    ],
+    "shown": "Intent 'Manage collateral', with the asset as a token name and 'Enable as collateral' shown as true/false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "setUserUseReserveAsCollateral intent 'Manage collateral' does not say enable or disable.",
+      "evidence": "descriptor: \"intent\": \"Manage collateral\"; field useAsCollateral format raw; case 1 screen 'Enable as collateral: false'. LendingPool.setUserUseReserveAsCollateral: _usersConfig[msg.sender].setUsingAsCollateral(reserve.id, useAsCollateral).",
+      "fix": "Change the label to \"Use as collateral\" and add an interpolatedIntent: \"Set {asset} as collateral: {useAsCollateral}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "No token movements. The effect is the WETH collateral flag set to false, and the screen shows it."
+     }
+    ],
+    "glance": 45,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(address asset, uint256 amount, address to)",
+    "effects": [
+     "The signer's aTokens of `asset` are burned by `amount`. type(uint256).max burns the whole aToken balance.",
+     "`to` receives the same amount of the underlying `asset`.",
+     "If the whole balance is withdrawn, the signer's collateral flag for this reserve is cleared."
+    ],
+    "shown": "Intent 'Withdraw', with the amount in the asset token ('Max WETH' for max) and the recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent 'Withdraw' names neither the asset nor the recipient.",
+      "evidence": "descriptor withdraw: \"intent\": \"Withdraw\", no interpolatedIntent; case 2 shows 'Max WETH' and 'sosalkin.eth' only in fields.",
+      "fix": "Add an interpolatedIntent: \"Withdraw {amount} to {to}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "WETH 0.00737 in to the signer, who is sosalkin.eth. The reader doubted that the name was the signer's own address. aWETH out (whole balance) matches 'Max WETH'."
+     }
+    ],
+    "glance": 55,
+    "depth": 85
+   },
+   {
+    "key": "swapBorrowRateMode(address asset, uint256 rateMode)",
+    "effects": [
+     "Mainnet: the signer's whole stable debt in `asset` is burned and the same amount is minted as variable debt. rateMode must be 1.",
+     "Polygon and Avalanche: rateMode is the current mode. 1 moves the whole stable debt to variable. 2 moves the whole variable debt to stable at the current stable rate."
+    ],
+    "shown": "Intent 'Swap to variable', with the asset and 'Current rate mode' as stable/variable.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "swapBorrowRateMode intent says 'Swap to variable', but rateMode 2 moves debt to stable on Polygon/Avalanche.",
+      "evidence": "Polygon/Avalanche LendingPool.swapBorrowRateMode: `else { IVariableDebtToken(...).burn(msg.sender, variableDebt, ...); IStableDebtToken(...).mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate); }`. Descriptor: \"intent\": \"Swap to variable\". The mainnet ValidationLogic requires currentRateMode == STABLE, but the descriptor also binds 137 and 43114.",
+      "fix": "Change the intent to \"Swap borrow rate mode\" and add an interpolatedIntent such as \"Swap {asset} debt from {rateMode} rate\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "swapBorrowRateMode has no test case, so the variable-to-stable branch is never exercised.",
+      "evidence": "FORMATS.md swapBorrowRateMode: cases: none.",
+      "fix": "Add test cases with rateMode 1 and rateMode 2 on Polygon or Avalanche.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf)",
+    "effects": [
+     "The signer (msg.sender) receives `amount` of `asset` from the aToken contract.",
+     "`onBehalfOf` gets `amount` of stable or variable debt tokens, using credit delegation when it is not the signer.",
+     "The borrowing flag of `onBehalfOf` for this reserve is set on its first borrow."
+    ],
+    "shown": "Intent 'Borrow', with the amount in the asset token, the rate mode as stable/variable, and the debtor.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "borrow intent 'Borrow' names neither the asset nor who carries the debt.",
+      "evidence": "descriptor borrow: \"intent\": \"Borrow\", no interpolatedIntent. LendingPool._executeBorrow mints debt to vars.onBehalfOf and sends the underlying to vars.user.",
+      "fix": "Add an interpolatedIntent: \"Borrow {amount} at {interestRateMode} rate for {onBehalfOf}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 90
+   },
+   {
+    "key": "deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)",
+    "effects": [
+     "The signer sends `amount` of `asset` to the aToken contract.",
+     "`onBehalfOf` receives `amount` of aTokens.",
+     "On the first deposit, the reserve is enabled as collateral for `onBehalfOf`."
+    ],
+    "shown": "Intent 'Supply', with the amount in the asset token and the recipient of the aTokens.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Supply' names neither the asset nor the aToken recipient.",
+      "evidence": "descriptor deposit: \"intent\": \"Supply\", no interpolatedIntent. LendingPool.deposit: IAToken(aToken).mint(onBehalfOf, amount, ...).",
+      "fix": "Add an interpolatedIntent: \"Supply {amount} for {onBehalfOf}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.692,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 122,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "repay(address asset, uint256 amount, uint256 rateMode, address onBehalfOf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 87,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "repay intent 'Repay loan' names neither the asset nor the debt holder.",
+   "comprehension": 100
+  },
+  "setUserUseReserveAsCollateral(address asset, bool useAsCollateral)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 81,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setUserUseReserveAsCollateral intent 'Manage collateral' does not say enable or disable.",
+   "comprehension": 100
+  },
+  "withdraw(address asset, uint256 amount, address to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent 'Withdraw' names neither the asset nor the recipient.",
+   "comprehension": 75
+  },
+  "swapBorrowRateMode(address asset, uint256 rateMode)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "swapBorrowRateMode intent says 'Swap to variable', but rateMode 2 moves debt to stable on Polygon/Avalanche.",
+   "comprehension": null
+  },
+  "borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "borrow intent 'Borrow' names neither the asset nor who carries the debt.",
+   "comprehension": null
+  },
+  "deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Supply' names neither the asset nor the aToken recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 88,
+  "clarity": 72,
+  "functions": "2A 3B 1F",
+  "incomplete": false,
+  "worst": "swapBorrowRateMode intent says 'Swap to variable', but rateMode 2 moves debt to stable on Polygon/Avalanche."
+ }
+}

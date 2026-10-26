@@ -1,0 +1,238 @@
+{
+ "hash": "0x381f83cbf90a09e1970068694767d19a61bf0c4981778643734c8b44b69b8304",
+ "file": "registry/morpho/calldata-steakhouse_financial-grove-bbqAUSD-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeeff0d672ab7f5018dfb614c93981045d4aa98a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Signer sends exactly `assets` AUSD to the vault (safeTransferFrom msg.sender in enter).",
+     "Vault mints previewDeposit(assets) grove-bbqAUSD shares to onBehalf. The share count is worked out at execution time.",
+     "The vault accrues interest first, which can mint fee shares to the fee recipients. That dilution is already priced into previewDeposit.",
+     "The deposited AUSD may be forwarded to the liquidity adapter. This does not affect the signer's position."
+    ],
+    "shown": "Deposit 0.01 AUSD for the onBehalf address, plus the share ticker grove-bbqAUSD and the shares recipient; the number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown, because the contract works it out at execution time.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);`. There is no minShares parameter. Case 0: signer received 10000000000000000 grove-bbqAUSD; the screen shows only the ticker.",
+      "fix": "None possible in ERC-7730. The calldata has no share amount or minimum.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "AUSD out of 0.01 is shown exactly. Shares in: the ticker and recipient are shown but not the amount, so the reader was unsure how many shares."
+     }
+    ],
+    "glance": 88,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) grove-bbqAUSD shares from onBehalf. The share count is worked out at execution time.",
+     "Sends exactly `assets` AUSD to receiver.",
+     "If msg.sender != onBehalf, it spends the caller's share allowance from onBehalf by the burned shares (exit).",
+     "Interest accrues first, which may mint fee shares."
+    ],
+    "shown": "Withdraw exactly the AUSD amount to the receiver, with the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is not shown, because the contract works it out at execution time.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets);`. There is no maxShares parameter. Case 2: 277396.14 grove-bbqAUSD burned from the signer; the screen shows only an Owner field.",
+      "fix": "None possible in ERC-7730. Optionally add a shares-burned note to the Owner label, e.g. 'Burn shares from'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "AUSD in (279596 to the signer) is shown exactly. Shares out: the reader inferred it from the Owner field but the amount is not shown."
+     }
+    ],
+    "glance": 85,
+    "depth": 78
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` grove-bbqAUSD from onBehalf.",
+     "Sends previewRedeem(shares) AUSD to receiver. The amount is worked out at execution time.",
+     "If msg.sender != onBehalf, it spends the caller's share allowance from onBehalf.",
+     "Interest accrues first, which may mint fee shares."
+    ],
+    "shown": "Redeem an exact number of grove-bbqAUSD shares to the receiver, with the owner, but never names AUSD as the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names AUSD as the asset received, so the reader only guessed it.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The descriptor redeem fields have no underlying asset, while mint uses `$.metadata.constants.underlyingTicker`. Case 3: signer received 35002.116562 AUSD; the reader wrote 'likely AUSD, not shown'.",
+      "fix": "Add a field {label: 'Receive asset', format: 'raw', value: '$.metadata.constants.underlyingTicker'}, and/or reword the intent to 'Redeem {#.shares} for AUSD to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the AUSD amount received is not shown, because the contract works it out at execution time.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. There is no minAssets parameter. Case 3: 35002116562 AUSD received; it is not on the screen.",
+      "fix": "None possible in ERC-7730.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Shares out are shown exactly. For AUSD in, the asset is guessed and the amount is not shown."
+     }
+    ],
+    "glance": 72,
+    "depth": 68
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Signer pays previewMint(shares) AUSD to the vault. The amount is worked out at execution time, with no maximum in the calldata; only the signer's allowance caps it.",
+     "Vault mints exactly `shares` grove-bbqAUSD to onBehalf.",
+     "Interest accrues first, which may mint fee shares."
+    ],
+    "shown": "Mint an exact number of grove-bbqAUSD shares to onBehalf, with AUSD named as the deposit asset but no AUSD amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the AUSD amount the signer pays is not shown, because the contract works it out at execution time.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`, and enter does safeTransferFrom(asset, msg.sender, ...). Case 1: signer paid 1.009812 AUSD; the screen shows only 'Deposit asset: AUSD'.",
+      "fix": "None possible in ERC-7730. There is no maxAssets parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent and the sentence do not say the signer pays AUSD for the shares.",
+      "evidence": "descriptor mint: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. Only the separate 'Deposit asset: AUSD' field hints that tokens leave the wallet.",
+      "fix": "Use intent 'Deposit AUSD to mint shares' and interpolatedIntent 'Pay AUSD to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The AUSD outflow's asset and direction are understood, but the amount (1.009812) is not shown. Shares went to 0xdEaD, not the signer, and both the screen and the reader got that right."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.361,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 88,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names AUSD as the asset received, so the reader only guessed it.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 51,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent and the sentence do not say the signer pays AUSD for the shares.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 70,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names AUSD as the asset received, so the reader only guessed it."
+ }
+}

@@ -1,0 +1,116 @@
+{
+ "hash": "0x8d9355cac77ce500274d3de6964c08bb7520473b3b306798900589ebea126d86",
+ "file": "registry/threshold/calldata-L1BitcoinDepositor-address.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 11155111,
+   "address": "0x59fae614867b66421b44d1ed3461e6b6a4b50106"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xd9b523fb879c63b00ef14e48c98f4e3398d3ba2d"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "initializeDeposit((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal, address l2DepositOwner)",
+    "effects": [
+     "No ETH or token leaves or reaches the signer: the function is not payable and moves no assets (L1BitcoinDepositor.initializeDeposit).",
+     "It reveals a Bitcoin deposit (fundingTx output at reveal.fundingOutputIndex) to the tBTC Bridge through bridge.revealDepositWithExtraData, with l2DepositOwner encoded as extraData. The tBTC minted later is sent to that L2 address when finalizeDeposit runs.",
+     "It marks deposits[depositKey] = Initialized. Each Bitcoin funding output can be initialized only once.",
+     "It reverts if reveal.vault is not the configured TBTCVault or if l2DepositOwner is zero.",
+     "If a reimbursement pool is attached and the signer is authorized, it records a deferred gas refund for the signer (gasReimbursements[depositKey]). The refund is paid when the deposit is finalized."
+    ],
+    "shown": "\"Initialize tBTC deposit\", with the L2 deposit owner, the funding output index, the wallet and refund pubkey hashes, the refund locktime and the vault always shown, and the Bitcoin tx parts as optional raw hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "initializeDeposit: the intent does not name who receives the minted tBTC; no interpolatedIntent.",
+      "evidence": "descriptor.json intent \"Initialize tBTC deposit\", with no interpolatedIntent. In L1BitcoinDepositor.initializeDeposit, extraData = toWormholeAddress(l2DepositOwner) decides who receives the tBTC on L2.",
+      "fix": "Add an interpolatedIntent such as \"Initialize tBTC deposit bridged to {l2DepositOwner} on L2\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "initializeDeposit: Bitcoin pubkey hashes and refund locktime are always shown as raw hex.",
+      "evidence": "descriptor.json fields reveal.walletPubKeyHash, reveal.refundPubKeyHash and reveal.refundLocktime use format raw with visible always. refundLocktime is a 4-byte little-endian Bitcoin locktime (source doc comment on initializeDeposit), so its raw hex cannot be read as a date.",
+      "fix": "Make walletPubKeyHash and refundLocktime optional, or add labels that say the locktime is little-endian Bitcoin time. Keep the always-visible fields to the owner, the vault and the output index.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "initializeDeposit: the BTC amount being bridged is only inside the raw outputVector bytes.",
+      "evidence": "The deposit amount is the value of fundingTx.outputVector at reveal.fundingOutputIndex, read by the Bridge (AbstractTBTCDepositor._initializeDeposit: bridge.deposits(depositKey).amount). The descriptor shows fundingTx.outputVector only as raw, optional.",
+      "fix": "Not possible with current formats, because no format parses a Bitcoin output vector. Keep the raw field optional.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "initializeDeposit: the deferred gas reimbursement recorded for an authorized caller is not mentioned.",
+      "evidence": "L1BitcoinDepositor.initializeDeposit: gasReimbursements[depositKey] = GasReimbursement({receiver: msg.sender, gasSpent: ...}) when reimbursementPool is set and reimbursementAuthorizations[msg.sender] is true.",
+      "fix": "Optional: mention in the intent that authorized relayers get a gas refund when the deposit is finalized. This depends on storage, so a descriptor cannot show it exactly.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "initializeDeposit descriptor: metadata.contractName does not match the verified contract name.",
+      "evidence": "descriptor.json metadata.contractName \"CrossChainBitcoinDepositor\", but meta.json shows both implementations named L1BitcoinDepositor (0x8e26…, 0xad0d…).",
+      "fix": "Set contractName to \"L1BitcoinDepositor\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.387,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 54,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "initializeDeposit((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal, address l2DepositOwner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "initializeDeposit: the intent does not name who receives the minted tBTC; no interpolatedIntent.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 52,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "initializeDeposit: the intent does not name who receives the minted tBTC; no interpolatedIntent."
+ }
+}

@@ -1,0 +1,569 @@
+{
+ "hash": "0xa4d6deb9fd616d491bafd4b89a6c20cd620c1711e6a6b3fb5d88f21eb0d9bc38",
+ "file": "registry/lido/calldata-WithdrawalQueueERC721.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x889edc2edab5f40e902b864ad4d7ade8e412f9b1"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "requestWithdrawals(uint256[] _amounts, address _owner)",
+    "effects": [
+     "Takes each amount in _amounts of stETH from the signer to the WithdrawalQueue, spending the signer's existing stETH allowance to the queue.",
+     "Mints one unstETH withdrawal NFT per amount to _owner, or to the signer when _owner is zero; the NFT owner alone can claim the ETH later.",
+     "No ETH arrives in this call; ETH comes later through a separate claim after finalization."
+    ],
+    "shown": "Intent 'Request Withdrawal', sentence 'Withdraw <amount> stETH', fields Amount (stETH) and Beneficiary (zero shown as Sender).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestWithdrawals interpolatedIntent says 'Withdraw' but the call only queues a request; ETH comes later.",
+      "evidence": "descriptor: \"interpolatedIntent\": \"Withdraw {_amounts.[]}\"; WithdrawalQueue._requestWithdrawal: STETH.transferFrom(msg.sender, address(this), _amountOfStETH); ... requestId = _enqueue(...); _emitTransfer(address(0), _owner, requestId); no ETH is sent. Case 0 reader: 'Nothing immediately ... doesn't state it.'",
+      "fix": "Change interpolatedIntent to \"Request withdrawal of {_amounts.[]} for {_owner}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "requestWithdrawals sentence omits the beneficiary who receives the withdrawal NFT and the ETH claim.",
+      "evidence": "descriptor: interpolatedIntent \"Withdraw {_amounts.[]}\" while field '#._owner' 'Beneficiary' exists; WithdrawalQueue.requestWithdrawals: requestIds[i] = _requestWithdrawal(_amounts[i], _owner). Case 0: unstETH NFT 118121 minted to the owner.",
+      "fix": "Add {_owner} to interpolatedIntent, e.g. \"Request withdrawal of {_amounts.[]} for {_owner}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestWithdrawals does not say the request is a transferable unstETH NFT.",
+      "evidence": "WithdrawalQueueERC721._emitTransfer emits ERC721 Transfer on request; case 0 effect nft unstETH tokenId 118121 in to signer; screen only has 'Beneficiary'.",
+      "fix": "Rename the Beneficiary label to 'unstETH NFT owner' or 'Request owner'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "missed",
+       "right",
+       "partial"
+      ],
+      "notes": "stETH allowance consumed (approval to 0) is not shown; stETH out 0.0011 shown right; NFT to signer shown as Beneficiary conan26.eth, reader unsure it is themselves and did not know it is an NFT."
+     }
+    ],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "requestWithdrawalsWithPermit(uint256[] _amounts, address _owner, (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) _permit)",
+    "effects": [
+     "Runs stETH.permit to set the signer's stETH allowance to the WithdrawalQueue to _permit.value.",
+     "Takes each amount of stETH from the signer to the queue, spending that allowance; any excess allowance stays with the queue.",
+     "Mints one unstETH withdrawal NFT per amount to _owner, or to the signer when _owner is zero."
+    ],
+    "shown": "Intent 'Request Withdrawal', sentence 'Withdraw <amount> stETH', fields Amount (stETH) and Beneficiary; all permit values hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "requestWithdrawalsWithPermit hides the permit value, the stETH allowance the call sets for the queue.",
+      "evidence": "WithdrawalQueue.requestWithdrawalsWithPermit: STETH.permit(msg.sender, address(this), _permit.value, _permit.deadline, ...); descriptor: {\"label\": \"Permit Value\", \"path\": \"#._permit.value\", \"visible\": \"never\"}. Case 1: approval 1.3 stETH grant to the queue, not on the screen.",
+      "fix": "Show '#._permit.value' as tokenAmount with token $.metadata.constants.stETHaddress, label 'stETH allowance to queue'. Keep it out of interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestWithdrawalsWithPermit sentence says 'Withdraw' but the call only queues a request.",
+      "evidence": "descriptor: \"interpolatedIntent\": \"Withdraw {_amounts.[]}\"; requestWithdrawals sends no ETH, it calls _enqueue and mints the NFT.",
+      "fix": "Change interpolatedIntent to \"Request withdrawal of {_amounts.[]} for {_owner}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "requestWithdrawalsWithPermit sentence omits the beneficiary who owns the withdrawal request.",
+      "evidence": "descriptor interpolatedIntent \"Withdraw {_amounts.[]}\" omits '#._owner'; code mints the request NFT to _owner.",
+      "fix": "Add {_owner} to interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "missed",
+       "right",
+       "right"
+      ],
+      "notes": "Permit approval of 1.3 stETH (then spent to 0) not shown; stETH out 1.3 shown right; NFT 118124 to signer shown as Beneficiary."
+     }
+    ],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "requestWithdrawalsWstETH(uint256[] _amounts, address _owner)",
+    "effects": [
+     "Takes each amount of wstETH from the signer to the queue, spending the signer's wstETH allowance.",
+     "The queue unwraps the wstETH to stETH and opens a request for that stETH amount.",
+     "Mints one unstETH withdrawal NFT per amount to _owner, or to the signer when _owner is zero."
+    ],
+    "shown": "Intent 'Request withdrawal', sentence 'Withdraw <amount> wstETH', fields Amount to withdraw (wstETH) and Beneficiary.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestWithdrawalsWstETH sentence says 'Withdraw' but the call only queues a request.",
+      "evidence": "descriptor: \"interpolatedIntent\": \"Withdraw {_amounts.[]}\"; WithdrawalQueue._requestWithdrawalWstETH: WSTETH.transferFrom(...); WSTETH.unwrap(...); _enqueue(...); no ETH is sent.",
+      "fix": "Change interpolatedIntent to \"Request withdrawal of {_amounts.[]} for {_owner}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "requestWithdrawalsWstETH sentence omits the beneficiary who owns the withdrawal request.",
+      "evidence": "descriptor interpolatedIntent omits '#._owner'; code: requestIds[i] = _requestWithdrawalWstETH(_amounts[i], _owner).",
+      "fix": "Add {_owner} to interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "requestWithdrawalsWstETHWithPermit(uint256[] _amounts, address _owner, (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) _permit)",
+    "effects": [
+     "Runs wstETH.permit to set the signer's wstETH allowance to the queue to _permit.value.",
+     "Takes each amount of wstETH from the signer, unwraps it to stETH and opens a request; excess allowance stays with the queue.",
+     "Mints one unstETH withdrawal NFT per amount to _owner, or to the signer when _owner is zero."
+    ],
+    "shown": "Intent 'Request withdrawal', sentence 'Withdraw <amount> wstETH', fields Amount to withdraw and Beneficiary; the permit struct is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "requestWithdrawalsWstETHWithPermit hides the permit value, the wstETH allowance set for the queue.",
+      "evidence": "WithdrawalQueue.requestWithdrawalsWstETHWithPermit: WSTETH.permit(msg.sender, address(this), _permit.value, ...); descriptor: {\"label\": \"Permit\", \"path\": \"#._permit\", \"visible\": \"never\"}.",
+      "fix": "Add a field '#._permit.value' as tokenAmount with token $.metadata.constants.wstETHaddress, label 'wstETH allowance to queue'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestWithdrawalsWstETHWithPermit sentence says 'Withdraw' and omits the beneficiary.",
+      "evidence": "descriptor: \"interpolatedIntent\": \"Withdraw {_amounts.[]}\"; code queues a request owned by _owner and sends no ETH.",
+      "fix": "Change interpolatedIntent to \"Request withdrawal of {_amounts.[]} for {_owner}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "claimWithdrawal(uint256 _requestId)",
+    "effects": [
+     "Burns the signer's finalized unstETH withdrawal NFT _requestId.",
+     "Sends the claimable ETH of that request (computed from storage) to the signer."
+    ],
+    "shown": "Intent 'Claim withdrawal' and the raw Request ID.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimWithdrawal intent does not say that ETH arrives in the signer's wallet.",
+      "evidence": "WithdrawalQueueBase._claim: _sendValue(_recipient, ethWithDiscount) with _recipient = msg.sender; descriptor intent \"Claim withdrawal\". Case 2: 0.10454 ETH in to signer; reader wrote 'Probably ETH ... amount not shown'.",
+      "fix": "Change intent to \"Claim ETH from withdrawal request\" and add interpolatedIntent \"Claim ETH for request {_requestId}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimWithdrawal cannot show the ETH amount; it comes from the finalization checkpoint in storage.",
+      "evidence": "WithdrawalQueueBase._claim: uint256 ethWithDiscount = _calculateClaimableEther(request, _requestId, _hint); case 2 ETH in 104540144059004910 wei, not on screen.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "claimWithdrawal shows the request ID raw instead of as the unstETH NFT.",
+      "evidence": "descriptor: {\"label\": \"Request ID\", \"format\": \"raw\", \"path\": \"#._requestId\"}; the ID is an ERC721 tokenId of this contract.",
+      "fix": "Use format nftName with collectionPath \"@.to\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "ETH in not stated, amount from storage; NFT 117007 burned matches the Request ID shown."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "claimWithdrawals(uint256[] _requestIds, uint256[] _hints)",
+    "effects": [
+     "Burns each listed finalized unstETH NFT of the signer.",
+     "Sends the claimable ETH of all listed requests to the signer."
+    ],
+    "shown": "Intent 'Claim withdrawals' and the raw Request IDs; hints hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimWithdrawals intent does not say that ETH arrives in the signer's wallet.",
+      "evidence": "WithdrawalQueue.claimWithdrawals: _claim(_requestIds[i], _hints[i], msg.sender); descriptor intent \"Claim withdrawals\". Case 3: 4.728 ETH in to signer, not named on screen.",
+      "fix": "Change intent to \"Claim ETH from withdrawal requests\" and add interpolatedIntent \"Claim ETH for requests {_requestIds.[]}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimWithdrawals cannot show the ETH amount; it comes from storage checkpoints.",
+      "evidence": "WithdrawalQueueBase._claim: ethWithDiscount = _calculateClaimableEther(...); case 3 ETH in 4728000000000000000 wei not shown.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "ETH 4.728 in not stated; NFT 93761 burned matches Request ID shown."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "claimWithdrawalsTo(uint256[] _requestIds, uint256[] _hints, address _recipient)",
+    "effects": [
+     "Burns each listed finalized unstETH NFT of the signer.",
+     "Sends the claimable ETH of all listed requests to _recipient, which can be a third party."
+    ],
+    "shown": "Intent 'Claim withdrawals', raw Request IDs and ETH recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimWithdrawalsTo intent does not say the ETH goes to a recipient that may not be the signer.",
+      "evidence": "WithdrawalQueue.claimWithdrawalsTo: _claim(_requestIds[i], _hints[i], _recipient); descriptor intent \"Claim withdrawals\" with recipient only in a field.",
+      "fix": "Add interpolatedIntent \"Claim ETH for requests {_requestIds.[]} to {_recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimWithdrawalsTo cannot show the ETH amount; it comes from storage checkpoints.",
+      "evidence": "WithdrawalQueueBase._claim: ethWithDiscount = _calculateClaimableEther(request, _requestId, _hint).",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "approve(address _to, uint256 _requestId)",
+    "effects": [
+     "Lets _to transfer the single unstETH NFT _requestId, and so take its ETH claim; _to = zero clears the approval."
+    ],
+    "shown": "Intent 'Approve unstETH NFT', fields Operator address and Request ID.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approve shows the zero address literally where it means revoke the approval.",
+      "evidence": "WithdrawalQueueERC721._approve: _getTokenApprovals()[_requestId] = _to; descriptor field '#._to' addressName with no senderAddress or zero label.",
+      "fix": "Add an interpolatedIntent \"Allow {_to} to transfer unstETH request {_requestId}\" and label the zero address as 'Revoke'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "approve restricts the operator address types to contract, though an EOA can be approved.",
+      "evidence": "descriptor: \"types\": [\"contract\"] for '#._to'; WithdrawalQueueERC721.approve has no such check.",
+      "fix": "Use types [\"eoa\", \"wallet\", \"contract\"].",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "safeTransferFrom(address _from, address _to, uint256 _requestId)",
+    "effects": [
+     "Moves the unstETH NFT _requestId, and its ETH claim, from _from to _to; calls onERC721Received when _to is a contract."
+    ],
+    "shown": "Sentence 'Send unstETH to <to>', fields From, To and raw Request ID.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "safeTransferFrom test sends the NFT to the same address, a path the code always reverts.",
+      "evidence": "WithdrawalQueueERC721._transfer: if (_to == _from) revert TransferToThemselves(); case 4 has From = To = 0x0240ce6C... and mined status 0 with no effects.",
+      "fix": "Replace case 4 with a successful transfer to a different address.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "safeTransferFrom cannot show the stETH or ETH value the transferred request carries.",
+      "evidence": "The request amount sits in _getQueue()[_requestId].cumulativeStETH in storage; the screen shows only 'Request ID'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "transferFrom(address _from, address _to, uint256 _requestId)",
+    "effects": [
+     "Moves the unstETH NFT _requestId, and its ETH claim, from _from to _to."
+    ],
+    "shown": "Sentence 'Send unstETH to <to>', fields From, To and raw Request ID.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "transferFrom cannot show the stETH or ETH value the transferred request carries.",
+      "evidence": "WithdrawalQueueERC721._transfer: request.owner = _to; the request amount is in storage; screen shows only 'Request ID' 118110 in case 5.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "NFT 118110 out to 0x7834...5f25, shown with From, To and Request ID."
+     }
+    ],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "setApprovalForAll(address _operator, bool _approved)",
+    "effects": [
+     "Grants or revokes _operator the right to transfer all of the signer's unstETH NFTs, present and future, and so their ETH claims."
+    ],
+    "shown": "Intent 'Manage ALL unstETH NFTs', sentence 'Allow all unstETH NFTs' or 'Revoke all unstETH NFTs', fields Operator and Access.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setApprovalForAll sentence omits the operator who gets control of all unstETH NFTs.",
+      "evidence": "descriptor: \"interpolatedIntent\": \"{_approved} unstETH NFTs\" renders 'Allow all unstETH NFTs' in case 11; WithdrawalQueueERC721._setApprovalForAll: _getOperatorApprovals()[_owner][_operator] = _approved.",
+      "fix": "Change enum labels to \"Allow\"/\"Revoke\" and interpolatedIntent to \"{_approved} {_operator} to move all your unstETH NFTs\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "setApprovalForAll limits operator types to eoa and wallet, though operators are often contracts.",
+      "evidence": "descriptor: \"types\": [\"eoa\", \"wallet\"] for '#._operator'; the code accepts any address.",
+      "fix": "Use types [\"eoa\", \"wallet\", \"contract\"].",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.827,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 146,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "requestWithdrawals(uint256[] _amounts, address _owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "requestWithdrawals interpolatedIntent says 'Withdraw' but the call only queues a request; ETH comes later.",
+   "comprehension": 50
+  },
+  "requestWithdrawalsWithPermit(uint256[] _amounts, address _owner, (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) _permit)": {
+   "grade": "C",
+   "truth": 67,
+   "clarity": 58,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "requestWithdrawalsWithPermit hides the permit value, the stETH allowance the call sets for the queue.",
+   "comprehension": 67
+  },
+  "requestWithdrawalsWstETH(uint256[] _amounts, address _owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "requestWithdrawalsWstETH sentence says 'Withdraw' but the call only queues a request.",
+   "comprehension": null
+  },
+  "requestWithdrawalsWstETHWithPermit(uint256[] _amounts, address _owner, (uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) _permit)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "requestWithdrawalsWstETHWithPermit hides the permit value, the wstETH allowance set for the queue.",
+   "comprehension": null
+  },
+  "claimWithdrawal(uint256 _requestId)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimWithdrawal intent does not say that ETH arrives in the signer's wallet.",
+   "comprehension": 75
+  },
+  "claimWithdrawals(uint256[] _requestIds, uint256[] _hints)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimWithdrawals intent does not say that ETH arrives in the signer's wallet.",
+   "comprehension": 75
+  },
+  "claimWithdrawalsTo(uint256[] _requestIds, uint256[] _hints, address _recipient)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimWithdrawalsTo intent does not say the ETH goes to a recipient that may not be the signer.",
+   "comprehension": null
+  },
+  "approve(address _to, uint256 _requestId)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "approve shows the zero address literally where it means revoke the approval.",
+   "comprehension": null
+  },
+  "safeTransferFrom(address _from, address _to, uint256 _requestId)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "safeTransferFrom test sends the NFT to the same address, a path the code always reverts.",
+   "comprehension": null
+  },
+  "transferFrom(address _from, address _to, uint256 _requestId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "setApprovalForAll(address _operator, bool _approved)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setApprovalForAll sentence omits the operator who gets control of all unstETH NFTs.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 95,
+  "clarity": 65,
+  "functions": "2A 6B 3C",
+  "incomplete": false,
+  "worst": "requestWithdrawalsWithPermit hides the permit value, the stETH allowance the call sets for the queue."
+ }
+}

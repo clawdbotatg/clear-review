@@ -1,0 +1,258 @@
+{
+ "hash": "0xf31222eaa229b96b1ff3d051d6ee64869acb026aec23cdd07571554df1b246f8",
+ "file": "registry/kiln/calldata-Vault-cbBTC-Morpho-Gauntlet-Core.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x79091f30b3ba1102734b2484f209986250b2630b"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` cbBTC from the signer into the vault (safeTransferFrom in Vault._deposit).",
+     "Mints vault shares (kmgccbBTC) to `receiver`. The number is computed on chain from totalAssets/totalSupply, minus a deposit fee read from storage. No minimum is enforced.",
+     "Before the share price is computed, reward-fee shares accrue and are minted to the vault (_accrueRewardFee). This dilutes the price the signer gets.",
+     "The vault delegatecalls the connector to put the cbBTC into the Morpho Gauntlet vault. The signer's assets are not touched further.",
+     "Reverts if `receiver` is not the signer and neither side has SPENDER_ROLE, because shares are non-transferable (transferable_=false)."
+    ],
+    "shown": "Intent 'Deposit', with the cbBTC amount, a fixed 'Share ticker kmgccbBTC' line and the share receiver address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no on-chain minimum.",
+      "evidence": "Vault.sol deposit(): `(uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply());` The shares are computed from storage. Case 0: signer got 911 kmgcCBBTC in, but the screen shows only 'Share ticker: kmgccbBTC'.",
+      "fix": "Nothing in the calldata carries it. The label could say shares are 'computed at current price'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: a deposit fee from storage (up to 35%) cuts the shares minted, and nothing on screen says so.",
+      "evidence": "Vault.sol _previewDeposit: `depositFeeAmount = assets.mulDiv($._depositFee, ...)`; `_convertToShares(assets - depositFeeAmount, ...)`. The fee is 0 at init and can be changed by FEE_MANAGER.",
+      "fix": "No calldata value carries it. It could be mentioned in the metadata or the label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit: the intent 'Deposit' gives no amount, no asset and no vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\", with no interpolatedIntent. Reader case 0 was unsure 'Which vault or contract receives the cbBTC'.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into Kiln Morpho Gauntlet cbBTC vault for shares to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Deposit asset' label sits on an amount, and 'Share ticker' is a raw constant line that does not say shares are received.",
+      "evidence": "descriptor.json deposit fields: label 'Deposit asset' on path assets (tokenAmount); label 'Share ticker' with value $.metadata.constants.vaultTicker (raw).",
+      "fix": "Rename them 'Amount to deposit' and 'You receive (shares)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "911 cbBTC out is shown right. The 911 kmgcCBBTC shares in appear only as a ticker, with no amount. The reader expected the shares but did not know how many."
+     }
+    ],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` vault shares to `receiver`.",
+     "Pulls from the signer an amount of cbBTC computed on chain (previewMint: share price plus the deposit fee). The calldata sets no maximum.",
+     "Reward-fee shares accrue to the vault before pricing.",
+     "The connector deposits the cbBTC into the Morpho vault in the vault's context.",
+     "Reverts unless `receiver` is the signer or a SPENDER_ROLE holder is involved (non-transferable shares)."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: cbBTC' with no amount, the shares amount in vault tokens, and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the cbBTC amount taken from the signer is computed on chain and not shown. The calldata has no cap.",
+      "evidence": "Vault.sol mint(): `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); _deposit(_msgSender(), receiver, _assets, shares, ...)`. The descriptor shows only the constant 'cbBTC'.",
+      "fix": "No calldata value holds it. The label could say 'cbBTC (amount set by vault price, incl. fee)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' does not say that cbBTC is pulled from the signer, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\". A non-expert may not realise that minting spends their cbBTC.",
+      "fix": "Use intent 'Deposit cbBTC for shares' and interpolatedIntent \"Mint {shares} by depositing cbBTC, shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns from `owner` the vault shares computed for `assets` (rounded up). If owner is not the signer, the signer's share allowance from owner is spent.",
+     "The connector withdraws `assets` cbBTC from Morpho. The vault sends `receiver` the cbBTC balance delta it actually received.",
+     "Reward-fee shares accrue before pricing.",
+     "Reverts unless the receiver and owner are the signer or a SPENDER_ROLE holder is involved."
+    ],
+    "shown": "Intent 'Withdraw', with 'Withdraw exactly' cbBTC amount, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is computed on chain and not shown.",
+      "evidence": "Vault.sol withdraw(): `_shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); _withdraw(...assets, _shares)`.",
+      "fix": "Not in the calldata. Nothing to do beyond a note.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "withdraw: 'Withdraw exactly' assumes the connector returns the exact amount. The vault forwards only the balance delta.",
+      "evidence": "Vault.sol _withdraw: `SafeERC20.safeTransfer(IERC20(asset()), receiver, IERC20(asset()).balanceOf(address(this)) - _balanceBefore);`. The connector code is not available.",
+      "fix": "Rename the label 'Withdraw' or 'Amount to withdraw' unless the connector is known to deliver the exact amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw: the intent 'Withdraw' does not name the asset or the amount, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\".",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver} from {owner}'s shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `owner`. If owner is not the signer, the signer's share allowance from owner is spent.",
+     "Sends `receiver` cbBTC: the computed asset value of the shares, as actually delivered by the connector. The calldata sets no minimum.",
+     "Reward-fee shares accrue before pricing, which lowers the cbBTC per share.",
+     "Reverts unless the receiver and owner are the signer or a SPENDER_ROLE holder is involved."
+    ],
+    "shown": "Intent 'Redeem', with the shares amount in vault tokens, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the cbBTC amount received is not shown and has no minimum.",
+      "evidence": "Vault.sol redeem(): `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply);`. It is computed from storage. The descriptor has no field for the asset received.",
+      "fix": "Not in the calldata. A constant field 'You receive: cbBTC' would at least name the asset.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the intent 'Redeem' and the fields never say that cbBTC is what arrives.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\". The fields are shares, receiver and owner, with no mention of the underlying cbBTC (unlike the mint format, which uses underlyingTicker).",
+      "fix": "Add a field 'Receive asset' with value $.metadata.constants.underlyingTicker, and interpolatedIntent \"Redeem {shares} for cbBTC to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "Connector delegatecalled by Vault._deposit/_withdraw through connector registry 0xde63817c82e93499357ae198518f90ac1be93a72 (name MORPHO_GAUNTLET_CBBTC_CORE): source not in directory. It runs in the vault's context, sets totalAssets (share price), and decides the cbBTC amount actually forwarded to the receiver on withdraw/redeem."
+  ]
+ },
+ "cost": 0.62,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 102,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit: the intent 'Deposit' gives no amount, no asset and no vault, and there is no interpolatedIntent.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that cbBTC is pulled from the signer, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent 'Withdraw' does not name the asset or the amount, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the intent 'Redeem' and the fields never say that cbBTC is what arrives.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 50,
+  "functions": "4C",
+  "incomplete": true,
+  "worst": "deposit: the intent 'Deposit' gives no amount, no asset and no vault, and there is no interpolatedIntent."
+ }
+}

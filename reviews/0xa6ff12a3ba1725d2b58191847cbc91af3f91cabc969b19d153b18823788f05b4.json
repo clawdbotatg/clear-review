@@ -1,0 +1,305 @@
+{
+ "hash": "0xa6ff12a3ba1725d2b58191847cbc91af3f91cabc969b19d153b18823788f05b4",
+ "file": "registry/flare/calldata-RewardManager-Songbird.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 19,
+   "address": "0xe26ad68b17224951b5740f33926cc438764eb9a7"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "claim(address _rewardOwner, address _recipient, uint24 _rewardEpochId, bool _wrap, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)",
+    "effects": [
+     "The contract pays the reward owner's DIRECT and FEE proof amounts to _recipient. For FEE proofs it first burns a share set by the burn factor that FlareSystemsCalculator returns.",
+     "It also pays the owner's weight-based rewards (WSGB delegation, mirrored stake, C-chain stake) for every unclaimed epoch up to _rewardEpochId. Proofs do not carry these amounts: the contract computes them from storage.",
+     "The payout goes to _recipient as native SGB, or as WSGB through wNat.depositTo when _wrap is true.",
+     "The contract marks all of the owner's epochs up to _rewardEpochId as claimed, so they cannot be claimed again.",
+     "Weight-based proofs initialise reward pools for any beneficiary, which is a state change only.",
+     "Nothing leaves the signer. The function is not payable."
+    ],
+    "shown": "\"Claim rewards to {recipient}\", with the reward owner, the recipient, the last epoch, SGB or WSGB, and a list of proof beneficiaries, proof amounts and claim types.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: 'Proof amount' looks like the payout, but it is not what the recipient receives.",
+      "evidence": "RewardManager.sol _claim: `_rewardAmountWei += _claimWeightBasedRewards(_rewardOwner, _recipient, _rewardEpochId, ...)`. _claimRewards pays `unclaimedRewardAmount.mulDiv(_rewardWeight, unclaimedRewardWeight)`, which is a share of the pool. Descriptor: label 'Proof amount' on `#._proofs.[].body.amount`. Case 1 shows '5 SGB' with 'WSGB delegation', but that number is the total of the pool, not the signer's share. Case 3 has no proofs and shows no amount, yet the call still pays rewards for every epoch up to 303.",
+      "fix": "Rename the field to 'Reward pool total (proof)'. Change the intent to 'Claim all rewards up to epoch' so the signer does not read the proof amounts as the payout.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "claim: a Provider fee proof shows the full amount, but the contract burns part of it.",
+      "evidence": "RewardManager.sol _claimFromDirectOrFeeClaim: `if (rewardClaim.claimType == ClaimType.FEE) { ... _burnAmountWei = ...mulDiv(burnFactor, PPM_MAX) ...; _rewardAmountWei -= _burnAmountWei;` Case 2 shows 'Proof amount 3 SGB' with 'Claim Type Provider fee'.",
+      "fix": "Label FEE amounts 'Up to', or add a note that part of a provider fee can be burned.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: proof amounts show SGB while 'Receive as' WSGB means the payout is wrapped.",
+      "evidence": "RewardManager.sol _transferOrWrap: `if (_wrap) { wNat.depositTo{value: _rewardAmount}(_recipient); }`. Case 1 shows 'Receive as WSGB' next to 'Proof amount 5 SGB'.",
+      "fix": "Add the token to the interpolated intent: 'Claim rewards as {_wrap} to {_recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "claim: the beneficiary, amount and type of each proof show as separate lists that the signer cannot pair.",
+      "evidence": "Case 2 shows 'Proof beneficiary', 'Proof beneficiary', 'Proof amount 3 SGB', 'Proof amount 7 SGB', 'Claim Type Provider fee', 'Claim Type Mirrored stake'.",
+      "fix": "Put the three proof fields in one field group on `#._proofs.[]` so each proof shows as one row.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the total payout depends on storage, so no descriptor can show it.",
+      "evidence": "RewardManager.sol _claimWNatRewards / _claimMirrorRewards / _claimCChainRewards read wNat.balanceOfAt, delegatesOfAt, pChainStakeMirror.stakesOfAt and cChainStake.stakesOfAt at the vote power block.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claim: the epoch of each proof is hidden and can differ from the epoch shown.",
+      "evidence": "Descriptor: 'Proofs Body Epoch Id' has `visible: never`. _processProofs only checks `_proofs[i].body.rewardEpochId >= _minClaimableEpochId`.",
+      "fix": "Show `#._proofs.[].body.rewardEpochId` as 'Proof epoch'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 50
+   },
+   {
+    "key": "claimProxy(address _msgSender, address _rewardOwner, address _recipient, uint24 _rewardEpochId, bool _wrap, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)",
+    "effects": [
+     "Only the FtsoRewardManager proxy contract can call this function. A transaction a person signs and sends to this address reverts.",
+     "When the proxy calls it, the effects are the same as claim: proof and weight-based rewards for the owner up to _rewardEpochId go to _recipient, as SGB or as WSGB; FEE proofs are partly burned.",
+     "Nothing leaves the signer. The function is not payable."
+    ],
+    "shown": "\"Claim rewards to {recipient}\" with the caller, the reward owner, the recipient, the last epoch, SGB or WSGB, and the proof lists.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "claimProxy only accepts calls from the FtsoRewardManager contract, so no signer can call it directly.",
+      "evidence": "RewardManager.sol claimProxy: `require(msg.sender == ftsoRewardManagerProxy, \"only ftso reward manager proxy\");`. Case 4 ('Claim through the legacy FtsoRewardManager') sends the transaction straight to 0xe26a…b9a7, so it reverts.",
+      "fix": "Remove this format, or bind it to the FtsoRewardManager deployment that forwards the call.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimProxy: 'Proof amount' looks like the payout, but it is a pool total or a pre-burn amount.",
+      "evidence": "Same code as claim (_claim → _claimWeightBasedRewards, and the FEE burn in _claimFromDirectOrFeeClaim). Descriptor label 'Proof amount'. Case 4 shows '12 SGB' with 'C-chain stake'.",
+      "fix": "Rename the field to 'Reward pool total (proof)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "claimProxy: proof fields show as separate parallel lists that the signer cannot pair.",
+      "evidence": "Descriptor: separate fields `#._proofs.[].body.beneficiary.[-20:]`, `#._proofs.[].body.amount` and `#._proofs.[].body.claimType`.",
+      "fix": "Put them in one field group on `#._proofs.[]`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "claimProxy test case 4 sends a transaction directly that the contract always rejects.",
+      "evidence": "Case 4: `to` is 0xe26ad68b…b9a7 with selector 0xaa145443. claimProxy requires msg.sender == ftsoRewardManagerProxy.",
+      "fix": "Make the test the FtsoRewardManager call that forwards to claimProxy, or drop the format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 45
+   },
+   {
+    "key": "initialiseWeightBasedClaims((bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)",
+    "effects": [
+     "For each weight-based proof (WSGB delegation, mirrored stake, C-chain stake) with a valid merkle proof, the contract records the beneficiary's reward pool amount and vote power for that epoch.",
+     "DIRECT and FEE proofs are skipped and pay nothing.",
+     "No funds move to or from the signer. Anyone can call it."
+    ],
+    "shown": "\"Initialise claims for {beneficiary}\" with the beneficiary, the proof amount and the claim type of each proof.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "initialiseWeightBasedClaims shows 'Proof amount' in SGB, but no funds move.",
+      "evidence": "RewardManager.sol initialiseWeightBasedClaims calls `_processProofs(address(0), address(0), _proofs, ...)`, which only writes `state.amount` and `state.weight`. Case 6 shows 'Proof amount 8 SGB'.",
+      "fix": "Change the intent to 'Register reward pools (no payout)'. Rename the field to 'Pool total'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "initialiseWeightBasedClaims: DIRECT and FEE proofs show as if processed, but the contract ignores them.",
+      "evidence": "RewardManager.sol _processProofs: `if (claimType == ClaimType.DIRECT || claimType == ClaimType.FEE) { if (_rewardOwner != address(0)) {...} }`. _rewardOwner is address(0) here. The 'Claim Type' enum lists 'Direct' and 'Provider fee'.",
+      "fix": "Add a note that only stake-weighted claim types are initialised.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "initialiseWeightBasedClaims: proof fields show as separate lists that the signer cannot pair.",
+      "evidence": "Descriptor: separate fields for `#._proofs.[].body.beneficiary.[-20:]`, `.amount` and `.claimType`.",
+      "fix": "Put them in one field group on `#._proofs.[]`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 50
+   },
+   {
+    "key": "autoClaim(address[] _rewardOwners, uint24 _rewardEpochId, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)",
+    "effects": [
+     "The signer is the claim executor. The contract sends the signer executorFee × number of owners in native SGB.",
+     "For each owner, the contract claims weight-based rewards up to _rewardEpochId, and PDA rewards when a PDA is set. It wraps the rewards minus the executor fee and sends them as WSGB to the claim address (the owner's PDA or the owner).",
+     "Weight-based proofs are initialised. DIRECT and FEE proofs are ignored and pay nothing.",
+     "All owners' epochs up to _rewardEpochId are marked as claimed.",
+     "The function is not payable."
+    ],
+    "shown": "\"Auto-claim and wrap rewards for {owners}\" with the reward owners, the last epoch and the proof lists.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "autoClaim does not say that the signer receives an executor fee in SGB for each owner.",
+      "evidence": "RewardManager.sol autoClaim: `_transferOrWrap(msg.sender, executorFeeValue * _rewardOwners.length, false);`. The intent is 'Auto-claim and wrap rewards'. No field mentions a fee.",
+      "fix": "Change the intent to 'Auto-claim rewards, earn executor fee'. The fee amount is in storage, so it cannot be a field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-party",
+      "title": "autoClaim says 'for {owners}', but rewards go to each owner's PDA when one is set.",
+      "evidence": "RewardManager.sol autoClaim: `_transferOrWrap(claimAddress, rewardAmount, true);` where claimAddresses come from claimSetupManager.getAutoClaimAddressesAndExecutorFee. Interpolated intent: 'Auto-claim and wrap rewards for {_rewardOwners.[]}'.",
+      "fix": "Add a note: 'Rewards go to each owner's personal delegation account if set'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "autoClaim: 'Proof amount' is a pool total, and DIRECT and FEE proofs pay nothing.",
+      "evidence": "autoClaim calls `_processProofs(address(0), address(0), _proofs, ...)`: initialise only. Case 5 shows 'Proof amount 25 SGB'.",
+      "fix": "Rename the field to 'Pool total (proof)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "autoClaim: proof fields show as separate parallel lists.",
+      "evidence": "Descriptor: separate fields for `#._proofs.[].body.beneficiary.[-20:]`, `.amount` and `.claimType`.",
+      "fix": "Put them in one field group on `#._proofs.[]`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "autoClaim: the fee and the claim addresses come from ClaimSetupManager storage, so no descriptor can show them.",
+      "evidence": "`(address[] memory claimAddresses, uint256 executorFeeValue) = claimSetupManager.getAutoClaimAddressesAndExecutorFee(msg.sender, _rewardOwners);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 45
+   }
+  ],
+  "couldNotCheck": [
+   "ClaimSetupManager (getAutoClaimAddressesAndExecutorFee) is not in the directory. It sets the executor fee the signer receives in autoClaim and the claim addresses that receive the owners' rewards."
+  ]
+ },
+ "cost": 0.651,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 110,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "claim(address _rewardOwner, address _recipient, uint24 _rewardEpochId, bool _wrap, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "claim: a Provider fee proof shows the full amount, but the contract burns part of it.",
+   "comprehension": null
+  },
+  "claimProxy(address _msgSender, address _rewardOwner, address _recipient, uint24 _rewardEpochId, bool _wrap, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 32,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "claimProxy only accepts calls from the FtsoRewardManager contract, so no signer can call it directly.",
+   "comprehension": null
+  },
+  "initialiseWeightBasedClaims((bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "initialiseWeightBasedClaims: DIRECT and FEE proofs show as if processed, but the contract ignores them.",
+   "comprehension": null
+  },
+  "autoClaim(address[] _rewardOwners, uint24 _rewardEpochId, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "autoClaim does not say that the signer receives an executor fee in SGB for each owner.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 85,
+  "clarity": 38,
+  "functions": "4C",
+  "incomplete": true,
+  "worst": "claimProxy only accepts calls from the FtsoRewardManager contract, so no signer can call it directly."
+ }
+}

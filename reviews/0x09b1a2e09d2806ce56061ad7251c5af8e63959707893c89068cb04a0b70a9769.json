@@ -1,0 +1,227 @@
+{
+ "hash": "0x09b1a2e09d2806ce56061ad7251c5af8e63959707893c89068cb04a0b70a9769",
+ "file": "registry/kiln/calldata-Vault-USDC-Morpho-Gauntlet-Prime.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5e720481e8de9c59547ad5a65742adddb53dd765"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` USDC from the signer into the vault (safeTransferFrom caller → vault).",
+     "Mints vault shares (kmgpUSDC) to `receiver`; the number is computed from the asset amount minus a storage deposit fee and the current share price.",
+     "A deposit fee set in storage (`_depositFee`) is taken from the assets before shares are computed and booked to the fee dispatcher.",
+     "The vault delegatecalls its connector, which puts the USDC into the Morpho Gauntlet USDC Prime vault (gtUSDC); no further effect on the signer."
+    ],
+    "shown": "\"Deposit\", with the USDC amount, the share ticker kmgpUSDC and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: intent is a bare \"Deposit\" with no interpolatedIntent naming the amount, asset or share recipient.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\", no interpolatedIntent; case 0 screen intent \"Deposit\".",
+      "fix": "Add interpolatedIntent \"Deposit {assets} for kmgpUSDC shares to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: share amount received and storage deposit fee are not in calldata and cannot be shown.",
+      "evidence": "Vault.sol deposit: `_previewDeposit(assets, _newTotalAssets, totalSupply())` computes shares after `depositFeeAmount = assets.mulDiv($._depositFee, ...)`; case 0 kmgpUSDC in 1000001 is not on screen.",
+      "fix": "None possible in the descriptor; the label could say shares are computed at the current price, minus any deposit fee.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out 1.000001 is shown correctly. kmgpUSDC in goes to the signer, who is shown as receiver, but the share amount (1.000001) is computed on chain and cannot be shown. The reader got the direction and asset of the shares right but not the amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` vault shares (kmgpUSDC) to `receiver`.",
+     "Pulls USDC from the signer. The amount is computed from the share price, rounded up and grossed up by the deposit fee (`_previewMint`). It is not in calldata and has no max bound beyond the signer's allowance.",
+     "A deposit fee from storage is included in the USDC pulled and booked to the fee dispatcher.",
+     "The vault delegatecalls its connector to put the USDC into the Morpho vault."
+    ],
+    "shown": "\"Mint\", with a \"Deposit asset: USDC\" label, the share amount, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: intent \"Mint\" does not say USDC is spent; no interpolatedIntent.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", no interpolatedIntent; USDC appears only as the raw constant field 'Deposit asset'.",
+      "fix": "Use intent \"Deposit USDC for vault shares\" and interpolatedIntent \"Mint {shares} to {receiver} by depositing USDC\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount pulled from the signer is computed on chain and has no bound in calldata.",
+      "evidence": "Vault.sol mint: `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, ...)` then `_deposit(_msgSender(), receiver, _assets, ...)` → safeTransferFrom(caller, this, assets).",
+      "fix": "None in the descriptor; the 'Deposit asset' field could carry a note that the USDC cost depends on the current share price plus the deposit fee.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns `owner`'s shares. The number is computed from `assets` at the current price, rounded up.",
+     "If the signer is not `owner`, spends the signer's share allowance from `owner`.",
+     "Sends USDC to `receiver`, equal to the vault's balance change after the connector withdraws `assets` from the Morpho vault."
+    ],
+    "shown": "\"Withdraw\", with the exact USDC amount, the receiver and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: intent is a bare \"Withdraw\" with no interpolatedIntent naming the amount and receiver.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver} from {owner}'s shares\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from owner is computed on chain and not shown.",
+      "evidence": "Vault.sol withdraw: `_shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply())` then `_burn(owner, shares)`.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `owner`.",
+     "If the signer is not `owner`, spends the signer's share allowance from `owner`.",
+     "Sends USDC to `receiver`. The amount is computed from the shares at the current price, rounded down, and delivered as the vault's balance change after the connector withdraws."
+    ],
+    "shown": "\"Redeem\", with the share amount, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: intent \"Redeem\" does not say USDC is received; no interpolatedIntent.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", no interpolatedIntent and no field naming USDC as the asset paid out.",
+      "fix": "Add interpolatedIntent \"Redeem {shares} for USDC to {receiver}\" or a constant field 'Receive asset: USDC'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount paid to receiver is computed on chain and not shown.",
+      "evidence": "Vault.sol redeem: `_assets = _convertToAssets(shares, Math.Rounding.Floor, ...)`; `_withdraw` transfers the balance delta to receiver.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "The vault delegatecalls a connector looked up at run time (`$._connectorRegistry.getOrRevert($._connectorName)`, name MORPHO_GAUNTLET_USDC_PRIME) in deposit, mint, withdraw and redeem. Neither the connector registry nor the connector source is in the directory. The connector runs in the vault's context and decides the USDC balance change that withdraw and redeem send to the receiver."
+  ]
+ },
+ "cost": 0.46,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 66,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: intent is a bare \"Deposit\" with no interpolatedIntent naming the amount, asset or share recipient.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: intent \"Mint\" does not say USDC is spent; no interpolatedIntent.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: intent is a bare \"Withdraw\" with no interpolatedIntent naming the amount and receiver.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: intent \"Redeem\" does not say USDC is received; no interpolatedIntent.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 54,
+  "functions": "1B 3C",
+  "incomplete": true,
+  "worst": "mint: intent \"Mint\" does not say USDC is spent; no interpolatedIntent."
+ }
+}

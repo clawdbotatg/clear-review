@@ -1,0 +1,230 @@
+{
+ "hash": "0x70c08b26da7629ca076dd297005d4f3eb3048e7bb8897a0ceb2e1bd0630db987",
+ "file": "registry/symbiotic/calldata-VaultV1-TANSSI.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xca7bc6a710b815dfcbabb9503e6a387e94914545"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` TANSSI (the vault's collateral, 0x553F…24AB) to the vault through transferFrom, which spends the signer's allowance.",
+     "`onBehalfOf` receives vault active shares, calculated from the vault's current stake and shares; the signer receives no shares unless onBehalfOf is the signer."
+    ],
+    "shown": "Deposit 123.25 TANSSI into the vault, for the beneficiary address shown, with the vault address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many vault shares the beneficiary receives; the vault calculates them from storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` `_activeSharesOf[onBehalfOf].push(..., activeSharesOf(onBehalfOf) + mintedShares);` The descriptor has fields only for amount and onBehalfOf.",
+      "fix": "None. The share count depends on vault state at execution.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The vault burns the signer's active shares worth `amount` TANSSI, rounded up.",
+     "`amount` TANSSI moves from active stake into the withdrawal queue for the next epoch.",
+     "`claimer` receives withdrawal shares for epoch currentEpoch()+1, which give it the right to claim that TANSSI later. No tokens move now.",
+     "Slashing can reduce the queued amount before the claim."
+    ],
+    "shown": "Request a 2.5 TANSSI withdrawal from the vault, with the claim owner address shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "withdraw shows the requested amount, but slashing can cut what the claimer can later claim.",
+      "evidence": "Vault.sol onSlash: `withdrawals[currentEpoch_ + 1] = nextWithdrawals - nextWithdrawalsSlashed;` and withdrawalsOf uses previewRedeem against withdrawals[epoch]. Descriptor label 'Requested assets'.",
+      "fix": "Optional: keep the label 'Requested assets'. The final amount depends on slashing, which no descriptor can show.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The vault burns `shares` of the signer's active vault shares.",
+     "Their TANSSI value, calculated from storage, moves into the withdrawal queue for the next epoch.",
+     "`claimer` receives withdrawal shares for epoch currentEpoch()+1, which give it the right to claim that TANSSI later."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claim owner address shown, with the vault address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem shows the share amount as a raw 18-digit integer, but shares use the collateral's 12 decimals.",
+      "evidence": "ERC4626Math._decimalsOffset returns 0, so shares use the collateral's decimals. Descriptor: `#.shares` 'Vault shares (raw)', format raw. Case 2 shows '987654321123456789' (987,654.32 shares).",
+      "fix": "Use {\"path\":\"#.shares\",\"label\":\"Vault shares\",\"format\":\"unit\",\"params\":{\"base\":\"shares\",\"decimals\":12}} and change the interpolatedIntent to 'Queue {shares} for {claimer}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the TANSSI amount queued; the vault calculates it from storage.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault uses up the signer's withdrawal claim for `epoch`.",
+     "The vault sends the signer's withdrawal for that epoch, in TANSSI, to `recipient`. The amount comes from storage."
+    ],
+    "shown": "Claim epoch 42 to the recipient address shown, with the vault address. The screen does not name the asset or the amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim never names TANSSI, so the signer does not see which asset goes to the recipient.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);` Descriptor intent 'Claim withdrawal', interpolatedIntent 'Claim epoch {epoch} to {recipient}'.",
+      "fix": "Change the intent to 'Claim TANSSI withdrawal' and the interpolatedIntent to 'Claim TANSSI for epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim does not show the amount sent; withdrawalsOf(epoch, msg.sender) reads it from storage.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 68
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The vault uses up the signer's withdrawal claim for each listed epoch.",
+     "The vault sends the sum of those withdrawals, in TANSSI, to `recipient` in one transfer. The amount comes from storage."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient address shown, with each epoch listed and the vault address. The screen does not name the asset or the amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch never names TANSSI, so the signer does not see which asset goes to the recipient.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);` Descriptor intent 'Claim withdrawals', interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}'.",
+      "fix": "Change the intent to 'Claim TANSSI withdrawals' and the interpolatedIntent to 'Claim TANSSI for epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch does not show the total amount sent; the vault sums withdrawals from storage.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` and _claim: `amount = withdrawalsOf(epoch, msg.sender);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 68
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.4,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 69,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem shows the share amount as a raw 18-digit integer, but shares use the collateral's 12 decimals.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim never names TANSSI, so the signer does not see which asset goes to the recipient.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch never names TANSSI, so the signer does not see which asset goes to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 69,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem shows the share amount as a raw 18-digit integer, but shares use the collateral's 12 decimals."
+ }
+}

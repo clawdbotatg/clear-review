@@ -1,0 +1,212 @@
+{
+ "hash": "0x31e743300b7e3d12517f14f2f0459b8e103ed1704407a414fd4897093c513976",
+ "file": "registry/symbiotic/calldata-VaultV1-rsM-BTC-OFT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x72926d99c913dede6c7d92ddf125ba781b0e901c"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` of the vault collateral (rsM-BTC-OFT, 0x57a0…627f) from the signer into the vault with transferFrom, using the signer's allowance.",
+     "Credits active vault shares worth the deposited amount to `onBehalfOf`, who may be someone other than the signer."
+    ],
+    "shown": "Deposit 123.25 rsM-BTC-OFT for the beneficiary address, with the vault, the amount with its token and the beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to onBehalfOf is not shown.",
+      "evidence": "Vault.sol deposit: mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_). The count comes from vault state, not calldata. The descriptor shows only #.amount and #.onBehalfOf.",
+      "fix": "None possible. The share count comes from vault state.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active shares worth `amount` of collateral (rounded up).",
+     "Queues `amount` of collateral for withdrawal in the next epoch and gives the claim to it to `claimer`, who may be someone other than the signer. No tokens move in this call."
+    ],
+    "shown": "Request a 2.5 rsM-BTC-OFT withdrawal for the claim owner, with the vault, the requested assets with their token and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of active shares burned from the signer is not shown.",
+      "evidence": "Vault.sol withdraw: burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake()). The count comes from vault state. The screen shows only the asset amount.",
+      "fix": "None possible. The share count comes from vault state.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Queues the collateral those shares are worth (previewRedeem, rounded down) for withdrawal in the next epoch, and gives the claim to `claimer`, who may be someone other than the signer."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claim owner, with the shares as a raw integer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is a raw 18-decimal integer that a person cannot read.",
+      "evidence": "descriptor redeem: field '#.shares' has format 'raw'. Case 2 shows '987654321123456789'. ERC4626Math._decimalsOffset() returns 0, so shares use the collateral's 18 decimals.",
+      "fix": "Use format 'unit' with params {base: 'shares', decimals: 18} so 0.987654 shares is shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the collateral amount queued for the claimer is not shown.",
+      "evidence": "Vault.sol redeem: withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares()). The amount comes from vault state.",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Sends the signer's matured withdrawal for `epoch` (withdrawalsOf(epoch, msg.sender)) in vault collateral rsM-BTC-OFT from the vault to `recipient`.",
+     "Marks the signer's claim for that epoch as used, so the signer cannot claim it again."
+    ],
+    "shown": "Claim epoch 42 to the recipient. No asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount and the asset sent to the recipient are not shown.",
+      "evidence": "Vault.sol claim: amount = _claim(epoch); IERC20(collateral).safeTransfer(recipient, amount). The amount comes from storage. The intent 'Claim withdrawal' does not name rsM-BTC-OFT.",
+      "fix": "The amount cannot be shown. The intent could name the asset, e.g. 'Claim rsM-BTC-OFT withdrawal'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Sends the sum of the signer's matured withdrawals for every listed epoch, in vault collateral rsM-BTC-OFT, from the vault to `recipient`.",
+     "Marks each listed epoch's claim as used for the signer."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient, with each epoch listed. No asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total amount and the asset sent to the recipient are not shown.",
+      "evidence": "Vault.sol claimBatch: amount += _claim(epochs[i]); IERC20(collateral).safeTransfer(recipient, amount). The amount comes from storage. The intent 'Claim withdrawals' does not name rsM-BTC-OFT.",
+      "fix": "The amount cannot be shown. The intent could name the asset, e.g. 'Claim rsM-BTC-OFT withdrawals'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.34,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 57,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is a raw 18-decimal integer that a person cannot read.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: the share amount is a raw 18-decimal integer that a person cannot read."
+ }
+}

@@ -1,0 +1,233 @@
+{
+ "hash": "0xc211f51c142d806e4a34b3a739b9fc43e8e27b256f53cf0b6ff9f46382a4651a",
+ "file": "registry/symbiotic/calldata-VaultV1-rsLSK-OFT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x230e1d993107d5902dac8a59a0bcb13f72477017"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The vault pulls exactly `amount` of the collateral token rsLSK-OFT (0x1e6b0ff8…, set at initialization and matching the descriptor constant) from the signer with safeTransferFrom (Vault.deposit).",
+     "Vault active shares, priced from the vault's current stake, are credited to `onBehalfOf`, not necessarily to the signer (`_activeSharesOf[onBehalfOf].push(...)`).",
+     "The call reverts if a depositor whitelist is on and the signer is not on it, or if the deposit limit would be passed."
+    ],
+    "shown": "Deposit 123.25 rsLSK-OFT for <beneficiary>, with the vault, the amount in rsLSK-OFT and the beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown because it comes from the vault's stored stake and shares.",
+      "evidence": "Vault.deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)` reads storage. No calldata value carries it.",
+      "fix": "None possible. The beneficiary and the amount of collateral are already shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The signer's active shares are burned, rounded up from `amount` of collateral (previewWithdraw, Ceil). No tokens move in this call.",
+     "A withdrawal claim on `amount` rsLSK-OFT for epoch currentEpoch+1 is credited to `claimer`. Only `claimer` can claim it later, so the signer gives up the stake when `claimer` is someone else.",
+     "Until it is claimed, the queued amount can still be slashed, and it can only be claimed after the next epoch ends (the epoch is 7 days for this vault)."
+    ],
+    "shown": "Request 2.5 rsLSK-OFT withdrawal for <claimer>, with the vault, the requested assets in rsLSK-OFT and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned, the claim epoch and the slashing risk come from storage and are not shown.",
+      "evidence": "Vault.withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`. Vault._withdraw: `uint256 epoch = currentEpoch() + 1`. onSlash can reduce `withdrawals[epoch]`.",
+      "fix": "None needed in fields. The intent 'Request withdrawal' already says the funds do not arrive now.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 82,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "`shares` of the signer's active vault shares are burned.",
+     "The rsLSK-OFT value of those shares at the current price becomes a withdrawal claim for epoch currentEpoch+1, credited to `claimer`. Only `claimer` can claim it later.",
+     "No tokens move now. The claim can be slashed until it is claimed after the next epoch."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for <claimer>, with the vault, the raw share count and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is shown as a raw integer with no decimals, though shares use the collateral's scale.",
+      "evidence": "descriptor redeem field `#.shares` has format `raw`. Case 2 shows '987654321123456789'. ERC4626Math._decimalsOffset() returns 0, so shares have the same decimals as rsLSK-OFT (18).",
+      "fix": "Use format `unit` with `decimals: 18` and `base: \"shares\"` (or label it 'Vault shares'), so that it reads 0.9877 shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the collateral the shares are worth is priced from storage and cannot be shown.",
+      "evidence": "Vault.redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())`.",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The signer's matured withdrawal for `epoch` is marked as claimed.",
+     "The whole withdrawal the signer is owed for that epoch, in rsLSK-OFT (amount read from storage), is sent to `recipient`, who may not be the signer."
+    ],
+    "shown": "Claim epoch 42 to <recipient>, with the vault, the epoch and the recipient as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: no part of the screen names the asset paid out (rsLSK-OFT).",
+      "evidence": "Vault.claim: `IERC20(collateral).safeTransfer(recipient, amount)`. descriptor intent 'Claim withdrawal' and interpolatedIntent 'Claim epoch {epoch} to {recipient}' do not mention the token.",
+      "fix": "Name the asset in the intent, for example 'Claim rsLSK-OFT withdrawal', with interpolatedIntent 'Claim rsLSK-OFT from epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount sent to the recipient comes from storage and is not in the calldata.",
+      "evidence": "Vault._claim: `amount = withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 68,
+    "depth": 68
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Every listed epoch's withdrawal for the signer is marked as claimed. The call reverts if any of them is not mature, was already claimed, or is empty.",
+     "The sum of those withdrawals, in rsLSK-OFT (amounts read from storage), is sent to `recipient` in one transfer."
+    ],
+    "shown": "Claim epochs 42 and 44 and 128 to <recipient>, with the vault, each epoch and the recipient as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimBatch: no part of the screen names the asset paid out (rsLSK-OFT).",
+      "evidence": "Vault.claimBatch: `IERC20(collateral).safeTransfer(recipient, amount)`. descriptor intent 'Claim withdrawals' and interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}' do not mention the token.",
+      "fix": "Name the asset in the intent, for example 'Claim rsLSK-OFT withdrawals'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total sent to the recipient is summed from storage and is not in the calldata.",
+      "evidence": "Vault.claimBatch: `amount += _claim(epochs[i])`. Vault._claim reads `withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 68,
+    "depth": 68
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.367,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 65,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 56,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is shown as a raw integer with no decimals, though shares use the collateral's scale.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: no part of the screen names the asset paid out (rsLSK-OFT).",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: no part of the screen names the asset paid out (rsLSK-OFT).",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: the share amount is shown as a raw integer with no decimals, though shares use the collateral's scale."
+ }
+}

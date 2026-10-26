@@ -1,0 +1,250 @@
+{
+ "hash": "0xf7781db8606ddc2c2d707fec350c72f56c8e2f3df90c92b3e96f9f23f70f2040",
+ "file": "registry/morpho/calldata-gauntlet-gtWBTCc.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x443df5eee3196e9b2dd77cabd3ea76c3dee8f9b2"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` WBTC to the vault, using the signer's WBTC allowance to the vault (ERC4626._deposit safeTransferFrom).",
+     "The vault mints gtWBTCc shares to `receiver`. The number is computed from the vault's exchange rate after fee accrual (MetaMorpho.deposit, _convertToSharesWithTotals, rounded down)."
+    ],
+    "shown": "Intent 'Deposit', the exact WBTC amount, the share ticker gtWBTCc as a constant, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent is just 'Deposit', with no amount, asset or vault, and there is no interpolatedIntent",
+      "evidence": "descriptor.json deposit format: \"intent\": \"Deposit\" with no interpolatedIntent; the amount appears only in the 'Deposit asset' field.",
+      "fix": "Add an interpolatedIntent such as 'Deposit {assets} into Gauntlet gtWBTCc vault for {receiver}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown because the contract computes it from storage",
+      "evidence": "MetaMorpho.sol deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Floor). Case 0: signer received 9887330253267 gtWBTCc, and the screen shows only the 'Share ticker' gtWBTCc.",
+      "fix": "No calldata holds this value. A label such as 'Receive gtWBTCc shares (at vault rate)' could set expectations.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.00001 WBTC outflow is shown correctly. The share inflow is shown with its asset and receiver but no amount, which is a spec limitation."
+     }
+    ],
+    "glance": 45,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer pays WBTC to the vault, using the signer's WBTC allowance. The amount is computed from `shares` at the vault exchange rate, rounded up (MetaMorpho.mint, _convertToAssetsWithTotals Ceil), and there is no maximum in calldata.",
+     "The vault mints exactly `shares` gtWBTCc to `receiver`."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: WBTC' with no amount, the exact shares minted in gtWBTCc, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the WBTC amount taken from the signer is not shown, and no bound exists in calldata",
+      "evidence": "MetaMorpho.sol mint: assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); then _deposit pulls `assets` from the caller. Case 1: 101 WBTC left the signer, but the screen shows only 'Deposit asset: WBTC'.",
+      "fix": "No calldata holds this value. Relabel to something like 'Pay with (amount set by vault rate)' so the signer knows the WBTC cost is not fixed.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say that WBTC is paid or who receives the shares",
+      "evidence": "descriptor.json mint format: \"intent\": \"Mint\" with no interpolatedIntent. The case 1 reader could not tell how much WBTC leaves.",
+      "fix": "Add an interpolatedIntent such as 'Mint {shares} by depositing WBTC, shares to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer paid 101 WBTC, and the screen shows the asset but no amount. The shares went to 0xdead (signer null), shown correctly as the receiver."
+     }
+    ],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns gtWBTCc shares from `owner`. The number is computed and rounded up (MetaMorpho.withdraw, _convertToSharesWithTotals Ceil).",
+     "When the signer is not `owner`, the call spends the signer's share allowance from `owner` (ERC4626._withdraw _spendAllowance).",
+     "The vault sends exactly `assets` WBTC to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', the exact WBTC amount, the receiver, and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown because it is computed from storage",
+      "evidence": "MetaMorpho.sol withdraw: shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _withdraw burns them from owner.",
+      "fix": "No calldata holds this value. A label noting that gtWBTCc shares are burned would help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent is just 'Withdraw', with no amount, asset or recipient",
+      "evidence": "descriptor.json withdraw format: \"intent\": \"Withdraw\" with no interpolatedIntent.",
+      "fix": "Add an interpolatedIntent such as 'Withdraw {assets} from gtWBTCc vault to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtWBTCc from `owner`. When the signer is not the owner, the call spends the signer's share allowance from `owner`.",
+     "The vault sends WBTC to `receiver`. The amount is computed from shares at the vault rate, rounded down (MetaMorpho.redeem, _convertToAssetsWithTotals Floor), and there is no minimum in calldata."
+    ],
+    "shown": "Intent 'Redeem', the exact gtWBTCc shares, the receiver and the owner. Nothing says that WBTC is received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the asset received (WBTC) is never named on the screen",
+      "evidence": "descriptor.json redeem format has the fields shares, receiver and owner only. mint uses the constant $.metadata.constants.underlyingTicker, and redeem has no such field. Case 2: the signer received 540167 WBTC, and the reader only guessed 'likely WBTC'.",
+      "fix": "Add a constant field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and an interpolatedIntent such as 'Redeem {shares} for WBTC to {receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WBTC amount received is not shown and has no minimum, because the vault rate decides it",
+      "evidence": "MetaMorpho.sol redeem: assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor). Case 2: 540167 WBTC in, and no amount is on the screen.",
+      "fix": "No calldata holds this value.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent is just 'Redeem', with no amount, asset or recipient",
+      "evidence": "descriptor.json redeem format: \"intent\": \"Redeem\" with no interpolatedIntent.",
+      "fix": "Add an interpolatedIntent naming the shares, the WBTC and the receiver.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The gtWBTCc burn is shown exactly. The WBTC inflow is not named and has no amount; the reader guessed the asset. The ENS name hid whether the receiver is the signer's own address."
+     }
+    ],
+    "glance": 35,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.339,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 69,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent is just 'Deposit', with no amount, asset or vault, and there is no interpolatedIntent",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that WBTC is paid or who receives the shares",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent is just 'Withdraw', with no amount, asset or recipient",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 57,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the asset received (WBTC) is never named on the screen",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 55,
+  "functions": "1B 2C 1D",
+  "incomplete": false,
+  "worst": "redeem: the asset received (WBTC) is never named on the screen"
+ }
+}

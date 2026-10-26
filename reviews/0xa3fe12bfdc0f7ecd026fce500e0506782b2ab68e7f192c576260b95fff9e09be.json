@@ -1,0 +1,189 @@
+{
+ "hash": "0xa3fe12bfdc0f7ecd026fce500e0506782b2ab68e7f192c576260b95fff9e09be",
+ "file": "registry/morpho/calldata-gauntlet-gtEURCc.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x1c155be6bc51f2c37d472d4c2eba7a637806e122"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` EURC to the vault, which supplies it to Morpho Blue markets.",
+     "The vault mints gtEURCc shares to `receiver`; the count comes from the current share price (rounded down).",
+     "Before that, the vault mints fee shares to its fee recipient, which dilutes existing holders but does not change the shares computed for this deposit."
+    ],
+    "shown": "Deposit, with the EURC amount, the share ticker gtEURCc and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many gtEURCc shares the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorpho.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` The descriptor shows only 'Share ticker' = $.metadata.constants.vaultTicker.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends EURC to the vault. The amount comes from the current share price (rounded up) and is not in the calldata.",
+     "The vault mints exactly `shares` gtEURCc to `receiver`.",
+     "Fee shares go to the fee recipient first (accrual)."
+    ],
+    "shown": "Mint, with 'Deposit asset: EURC', the exact number of gtEURCc shares minted and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much EURC leaves the signer; the vault computes it from storage.",
+      "evidence": "MetaMorpho.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` The descriptor shows only 'Deposit asset' = $.metadata.constants.underlyingTicker.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent 'Mint' does not say that the signer pays EURC for the shares.",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\". MetaMorpho.sol mint calls `_deposit(_msgSender(), receiver, assets, shares)`, which pulls EURC from the signer.",
+      "fix": "Change the intent to \"Deposit EURC for vault shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns gtEURCc shares from `owner`. The count comes from the share price (rounded up) and is not in the calldata.",
+     "When `owner` is not the signer, the vault spends the signer's gtEURCc allowance from `owner`.",
+     "The vault withdraws exactly `assets` EURC from Morpho and sends it to `receiver`."
+    ],
+    "shown": "Withdraw, with the exact EURC amount, the receiver ('To') and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many gtEURCc shares the vault burns from the owner; storage decides it.",
+      "evidence": "MetaMorpho.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then `_withdraw(_msgSender(), receiver, owner, assets, shares);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtEURCc from `owner`. When `owner` is not the signer, it spends the signer's allowance.",
+     "The vault sends EURC to `receiver`. The amount comes from the share price (rounded down) and is not in the calldata."
+    ],
+    "shown": "Redeem, with the number of gtEURCc shares, the receiver ('To') and the share owner. Nothing names EURC as the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names EURC as the asset the receiver gets; only the shares are shown.",
+      "evidence": "descriptor redeem format fields: 'Shares to redeem' (tokenAmount, tokenPath @.to), 'To', 'Owner'. There is no underlying field, but the mint format has 'Deposit asset' = $.metadata.constants.underlyingTicker. MetaMorpho.sol redeem: `_withdraw(_msgSender(), receiver, owner, assets, shares)` sends the EURC asset to receiver.",
+      "fix": "Add {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"} and change the intent to \"Redeem shares for EURC\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much EURC the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorpho.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.37,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 46,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say that the signer pays EURC for the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names EURC as the asset the receiver gets; only the shares are shown.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 66,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem never names EURC as the asset the receiver gets; only the shares are shown."
+ }
+}

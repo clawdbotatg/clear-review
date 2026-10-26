@@ -1,0 +1,224 @@
+{
+ "hash": "0xf2770b1fee81afa20a5d28fbd1ec42a878e2d846e93a326c6825cff47e90605b",
+ "file": "registry/symbiotic/calldata-VaultV1-tBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xa5c47fe5c30d2547ddc1ccefac5a515902178de6"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` tBTC (the vault's collateral 0x18084f…, set at init) from the signer to the vault with safeTransferFrom, using the signer's existing allowance.",
+     "Credits active vault shares, worked out from the vault's stake/share ratio, to `onBehalfOf`. This can be another address, which then owns the deposit.",
+     "Reverts if the deposit whitelist is on and the signer is not whitelisted, or if the deposit limit would be exceeded."
+    ],
+    "shown": "Deposit 123.25 tBTC for the beneficiary address, with the vault, the amount in tBTC and the beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of vault shares minted to the beneficiary is not shown; the vault works it out from storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...)`. The descriptor shows only #.amount and #.onBehalfOf.",
+      "fix": "None possible: the value is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns active shares from the signer's position, enough (rounded up) to cover `amount` tBTC. The share count comes from storage.",
+     "Moves `amount` tBTC of stake into the withdrawal queue of the next epoch, credited to `claimer` as withdrawal shares. No tokens move in this call.",
+     "`claimer` (it can be another address) gets the right to claim that tBTC once the next epoch has ended. Until then it can still be slashed."
+    ],
+    "shown": "Request a 2.5 tBTC withdrawal for the claim owner, with the vault, the requested assets in tBTC and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of active shares burned from the signer is not shown; it comes from storage with rounding up.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` then _withdraw: `_activeSharesOf[msg.sender].push(..., activeSharesOf(msg.sender) - burnedShares)`.",
+      "fix": "None possible: the value is not in the calldata. The tBTC amount shown is the asset value that leaves the position.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns exactly `shares` active shares from the signer's position.",
+     "Moves the tBTC value of those shares (rounded down, from storage) into the next epoch's withdrawal queue, credited to `claimer`. No tokens move in this call.",
+     "`claimer` (it can be another address) gets the right to claim that tBTC after the next epoch."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claim owner, with the vault, the raw share count and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "redeem: the shares are shown as a raw integer and the tBTC value queued is not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`. The Vault ABI has no decimals or symbol (V1 shares are not an ERC-20). Descriptor: `#.shares` 'Vault shares (raw)' format raw.",
+      "fix": "None in the descriptor: no share token exists to format with, and the asset value comes from storage. The '(raw)' label is the honest choice.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed, which uses up the signer's claim right for that epoch.",
+     "Sends tBTC equal to withdrawalsOf(epoch, signer) from the vault to `recipient`, which can be someone other than the signer. The amount comes from storage."
+    ],
+    "shown": "Claim epoch 42 to the recipient, with the vault, the epoch number and the recipient as fields. No token or amount is named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim: the screen never says the claimed asset is tBTC; intent and fields name only an epoch.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);` with collateral = tBTC. Descriptor intent 'Claim withdrawal', interpolatedIntent 'Claim epoch {epoch} to {recipient}'.",
+      "fix": "Name the asset in the intent, for example 'Claim tBTC withdrawal', with interpolatedIntent 'Claim tBTC from epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the tBTC amount sent to the recipient comes from storage and is not shown.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);`",
+      "fix": "None possible: the amount is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawal for each listed epoch as claimed, which uses up those claim rights.",
+     "Sends the sum of the signer's tBTC withdrawals for those epochs from the vault to `recipient` in one transfer. The amount comes from storage."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient, with the vault, each epoch and the recipient as fields. No token or amount is named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch: the screen never says the claimed asset is tBTC; only epoch numbers and a recipient appear.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);`. Descriptor intent 'Claim withdrawals', interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}'.",
+      "fix": "Name the asset, for example intent 'Claim tBTC withdrawals' and 'Claim tBTC from epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total tBTC sent to the recipient comes from storage and is not shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` where _claim reads withdrawalsOf(epoch, msg.sender).",
+      "fix": "None possible: the amount is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.364,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 72,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the screen never says the claimed asset is tBTC; intent and fields name only an epoch.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the screen never says the claimed asset is tBTC; only epoch numbers and a recipient appear.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 70,
+  "functions": "2A 1B 2C",
+  "incomplete": false,
+  "worst": "claim: the screen never says the claimed asset is tBTC; intent and fields name only an epoch."
+ }
+}

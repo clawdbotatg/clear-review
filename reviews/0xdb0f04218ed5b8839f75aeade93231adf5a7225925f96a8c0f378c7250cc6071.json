@@ -1,0 +1,235 @@
+{
+ "hash": "0xdb0f04218ed5b8839f75aeade93231adf5a7225925f96a8c0f378c7250cc6071",
+ "file": "registry/threshold/calldata-RebateStaking.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x0184739c32edc3471d3e4860c8e39a5f3ff85a45"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "stake(uint96 amount)",
+    "effects": [
+     "Pulls `amount` T from the signer into the RebateStaking contract (token.safeTransferFrom(msg.sender, address(this), amount)).",
+     "Raises the signer's stakedAmount by `amount`, which raises their fee-rebate cap (stakedAmount / rebatePerToken).",
+     "If the signer was another staker's delegatee, that delegation is cleared, so the signer stops using the other staker's rebate capacity (delegates[msg.sender] = 0)."
+    ],
+    "shown": "\"Stake T\" with the amount in T at 18 decimals, e.g. \"1000T\".",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "stake: if the signer was another staker's delegatee, staking silently ends that delegation.",
+      "evidence": "RebateStaking.sol stake(): `address otherStaker = delegates[msg.sender]; if (otherStaker != address(0)) { stakes[otherStaker].delegatee = address(0); delegates[msg.sender] = address(0); ... }`. Descriptor intent is only \"Stake T\" and the screen has nothing about delegation.",
+      "fix": "Add a short note to the intent, e.g. \"Stake T (ends any rebate delegation to you)\", or describe it in the descriptor's documentation.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "stake: amount uses a `unit` with base \"T\" rather than tokenAmount tied to the T token address.",
+      "evidence": "descriptor stake field: `\"format\": \"unit\", \"params\": {\"base\": \"T\", \"decimals\": 18}`. The token is set at initialize to 0xCdF7028ceAB81fA0C6971208e83fa7872994beE5 (proxy constructor _data). The screen shows \"1000T\" with no space and no link to the token.",
+      "fix": "Use `tokenAmount` with `token` set to the T address so the wallet shows the verified ticker and decimals.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 88
+   },
+   {
+    "key": "startUnstaking(uint96 amount)",
+    "effects": [
+     "Marks `amount` of the signer's stake as unstaking and starts the unstaking timer (unstakingTimestamp = now). No tokens move.",
+     "The signer's rebate cap drops at once, because it is computed from stakedAmount - unstakingAmount.",
+     "The tokens can be withdrawn only after unstakingPeriod (set to 30 days at initialization; it lives in storage), and only one unstaking can run at a time."
+    ],
+    "shown": "\"Start unstaking T\" with the amount in T.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "startUnstaking: the lock period and the immediate drop in rebate cap are not shown.",
+      "evidence": "RebateStaking.sol startUnstaking() sets unstakingTimestamp. finalizeUnstaking() requires `unstakingTimestamp + unstakingPeriod <= block.timestamp`. getRebateCap uses `stakedAmount - unstakingAmount`. unstakingPeriod is a storage value (0x278d00 = 30 days at init).",
+      "fix": "Optionally say in the intent that tokens unlock after the unstaking period and stop counting toward rebates now.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 82
+   },
+   {
+    "key": "finalizeUnstaking(address receiver)",
+    "effects": [
+     "Sends the signer's pending unstakingAmount of T from the staking contract to `receiver`, which can be any address.",
+     "Lowers the signer's stakedAmount by that amount and resets the unstaking state.",
+     "If the signer's stake reaches zero, their rebate delegatee is cleared."
+    ],
+    "shown": "\"Finalize T unstaking\" with the Receiver address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "finalizeUnstaking: the T amount sent to the receiver comes from storage and is not shown.",
+      "evidence": "RebateStaking.sol finalizeUnstaking(): `uint96 amount = stakeInfo.unstakingAmount; ... token.safeTransfer(receiver, amount);`. The calldata carries only `receiver`.",
+      "fix": "None possible from calldata; the descriptor could mention 'the amount you started unstaking' in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "finalizeUnstaking: the intent does not say that T is sent to the receiver, which may be a third party.",
+      "evidence": "descriptor intent \"Finalize T unstaking\". There is no interpolatedIntent; the receiver appears only as a field. Code: `token.safeTransfer(receiver, amount)`.",
+      "fix": "Add an interpolatedIntent such as \"Withdraw unstaked T to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "setDelegatee(address _delegatee)",
+    "effects": [
+     "Lets `_delegatee` use the signer's fee-rebate capacity on tBTC bridge fees (delegates[_delegatee] = msg.sender; the bridge's applyForRebate maps the user to the staker).",
+     "Removes any previous delegatee's access to the signer's rebate.",
+     "Passing the zero address or the signer's own address clears delegation instead of setting it."
+    ],
+    "shown": "\"Set rebate delegatee\" with the Delegatee address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setDelegatee: zero address or own address means 'remove delegatee', but it is shown literally.",
+      "evidence": "RebateStaking.sol setDelegatee(): `if (_delegatee == address(0) || _delegatee == msg.sender) { stakeInfo.delegatee = address(0); ... return; }`. The descriptor shows only the Delegatee address, so 0x000…0 would appear as if it were being set as delegatee.",
+      "fix": "Note in the label or intent that the zero address or your own address clears the delegatee.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "setDelegatee: the intent does not say the delegatee consumes the signer's rebate capacity.",
+      "evidence": "getStaker()/applyForRebate(): fees the delegatee pays use stakes[staker] rebates. The intent says only \"Set rebate delegatee\".",
+      "fix": "e.g. \"Let {_delegatee} use your T stake's fee rebates\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   },
+   {
+    "key": "setRebateTreasuryFeeMode(uint8 _rebateTreasuryFeeMode)",
+    "effects": [
+     "Sets which tBTC bridge fees (deposits, redemptions or both) the signer's stake rebates. This also applies to their delegatee's use. No assets move."
+    ],
+    "shown": "\"Set fee waiver mode\" with the mode name (Mint and redeem / Deposits only / Redemptions only).",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setRebateTreasuryFeeMode: wording is inconsistent ('fee waiver' vs 'rebate', 'Mint' vs 'Deposits').",
+      "evidence": "descriptor enums: `\"0\": \"Mint and redeem\", \"1\": \"Deposits only\"`. Intent \"Set fee waiver mode\" while setDelegatee says \"rebate\". The code's enum is Both/DepositOnly/RedemptionOnly. The values match the code.",
+      "fix": "Use one term throughout, e.g. \"Deposits and redemptions\" and \"Set fee rebate mode\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.319,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 60,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "stake(uint96 amount)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "stake: if the signer was another staker's delegatee, staking silently ends that delegation.",
+   "comprehension": null
+  },
+  "startUnstaking(uint96 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "finalizeUnstaking(address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setDelegatee(address _delegatee)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setDelegatee: zero address or own address means 'remove delegatee', but it is shown literally.",
+   "comprehension": null
+  },
+  "setRebateTreasuryFeeMode(uint8 _rebateTreasuryFeeMode)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 98,
+  "clarity": 75,
+  "functions": "3A 2B",
+  "incomplete": false,
+  "worst": null
+ }
+}

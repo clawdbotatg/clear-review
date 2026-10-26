@@ -1,0 +1,654 @@
+{
+ "hash": "0x7e84e31b36fad0b7e710f6347149bae7f6c6b164d58ceafbcf4885013946a25b",
+ "file": "registry/glue/calldata-GlueHook.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 130,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 10,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 56,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 137,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 196,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 480,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 1868,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 4326,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  },
+  {
+   "chainId": 5042,
+   "address": "0x03d482cb3ff339c2d29736818d0f72c66dd6a040"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "launchPool((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint160 sqrtPriceX96,address main,address recipient,int24 tickLower,int24 tickUpper,uint128 liquidity,address owner,(uint64 buybackShareWad,uint64 burnShareWad,uint64 compoundShareWad,uint64 potCompoundShareWad,uint64 potBurnShareWad,bool publicHarvest,address secondaryRecipient,address mainRecipient,uint256 minMain,uint256 minSecondary) config)",
+    "effects": [
+     "Creates the pool at sqrtPriceX96 and makes the signer the pot admin.",
+     "Fixes the pot's main and secondary sides and the delivery target for bought main (address(0) means burn).",
+     "Creates the LP program: owner (also first operator) gets the right to withdraw the liquidity. owner=0 locks the liquidity forever.",
+     "Pulls the ERC20 side(s) of the seed liquidity from the signer's allowance to the hook, at the exact amount the position needs.",
+     "Takes native currency up to msg.value for a native currency0 side and refunds the unused excess.",
+     "Sets the fee split rules: shares, fee recipients and auto-harvest minimums."
+    ],
+    "shown": "Launch <token0>/<token1> pool, with pool parameters, main asset, delivery, raw ticks and liquidity units, owner, every split share and recipient, raw minimums and the max native sent.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "launchPool intent never says the signer deposits both tokens into a position owned by `owner`",
+      "evidence": "GlueLiquidity._mint pulls ERC20 legs from the caller (tstore PAYER_SLOT caller()) and the native leg from msg.value. The descriptor's intent is 'Launch GlueHook pool' / 'Launch {key.currency0}/{key.currency1} pool'.",
+      "fix": "Use an interpolatedIntent such as 'Launch {key.currency0}/{key.currency1} pool and deposit liquidity owned by {owner}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "launchPool shows no amount or bound for the ERC20 deposit, only raw liquidity units",
+      "evidence": "GlueLiquidity._mint: ERC20 legs are settled 'at the EXACT amount owed', which is computed from liquidity, sqrtPriceX96 and ticks. The field is 'Liquidity units' (raw). The function has no max-amount parameter.",
+      "fix": "No descriptor change can show it. The contract would need maxAmount0/maxAmount1 parameters.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "launchPool shows native currency0 as the zero address in fields and intent",
+      "evidence": "Case 0 screen: 'Token 0' = 0x0000000000000000000000000000000000000000, and the intent reads 'Launch 0x0000.../TOKEN pool'. V4 keys native as address(0) (GlueHook ETH_ADDRESS).",
+      "fix": "Map address(0) to the native currency name (for example through a local address name), or add a label hint '(0=native)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "launchPool shows the disabled minSecondary as a 78-digit number, and minMain as 'off TOKEN'",
+      "evidence": "Case 0: 'Min 2nd (max=off)' = 115792089237316195423570985008687907853269984665640564039457584007913129639935, and 'Min main' = 'off TOKEN'. The descriptor uses raw for config.minSecondary.",
+      "fix": "Keep the max=off wording consistent. Hide the raw sentinel, or move the meaning into the label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "launchPool initial price is shown as raw sqrtPriceX96, which sets the deposit ratio",
+      "evidence": "The descriptor field sqrtPriceX96 is 'Price sqrtX96' (raw, optional). Case 0 shows 79228162514264337593543950336.",
+      "fix": "No ERC-7730 format can turn a Q64.96 square-root price into a readable price.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "launchPool owner=0 locks the signer's deposit forever, explained only by a terse label",
+      "evidence": "GlueLiquidity.createProgram sets g.owner = owner. With owner=0, _ownedProgram can never pass, so removeProgramLiquidity is impossible. Label: 'Owner (0=lock+public)'.",
+      "fix": "Use a clearer label, for example 'Owner (0x0 = liquidity locked forever)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 60
+   },
+   {
+    "key": "initPot((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,address main,address recipient)",
+    "effects": [
+     "One-shot, admin only: sets the pot's main and secondary currencies and the delivery target for bought main (address(0) means burn).",
+     "Seeds the reference tick and asks GlueStick to create the main's wrapper. Nothing moves from the signer."
+    ],
+    "shown": "Open pot, main <main>, with the pool currencies, fee, tick spacing and the delivery target (0=burn).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "initPot shows the burn delivery as a bare zero address",
+      "evidence": "Case 1: 'Delivery (0=burn)' renders 0x000...0. GlueLiquidity.initPot: 'address(0) is stored verbatim and MEANS burn'.",
+      "fix": "Put the burn meaning in the interpolatedIntent, for example 'Open pot, buy {main}, deliver to {recipient} (0 = burn)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "addLiquidity((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,int24 tickLower,int24 tickUpper,uint128 liquidity,address owner)",
+    "effects": [
+     "Pot admin only: creates the program with every share at zero, both fee recipients set to owner and auto-harvest off.",
+     "Pulls the ERC20 side(s) for `liquidity` units from the signer's allowance to the hook.",
+     "Takes native currency up to msg.value for a native currency0 side and refunds the excess.",
+     "owner (also operator) gets the right to withdraw the liquidity and to receive its fees."
+    ],
+    "shown": "Create LP for <token0>/<token1>, with fee, tick spacing, raw ticks, raw liquidity units, owner and the max native sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addLiquidity shows no token amount or bound for the ERC20 deposit",
+      "evidence": "GlueLiquidity._mint pulls the exact amount owed from the caller's allowance. The amount depends on the live pool price, and the only field is 'Liquidity units' (raw).",
+      "fix": "No descriptor fix exists. Max-amount parameters in the contract would allow one.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "addLiquidity intent omits the deposit and that the position and its fees belong to owner",
+      "evidence": "GlueHook.addLiquidity sets secondaryRecipient: owner and mainRecipient: owner. The intent is 'Create LP for {key.currency0}/{key.currency1}'.",
+      "fix": "Use 'Deposit liquidity into {key.currency0}/{key.currency1} program owned by {owner}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "addLiquidity shows native currency0 as the zero address",
+      "evidence": "Case 8: 'Token 0' = 0x0000000000000000000000000000000000000000, and the intent reads 'Create LP for 0x0000.../TOKEN'.",
+      "fix": "Name address(0) as the native currency.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "addLiquidityAdvanced((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,int24 tickLower,int24 tickUpper,uint128 liquidity,address owner,(uint64 buybackShareWad,uint64 burnShareWad,uint64 compoundShareWad,uint64 potCompoundShareWad,uint64 potBurnShareWad,bool publicHarvest,address secondaryRecipient,address mainRecipient,uint256 minMain,uint256 minSecondary) config)",
+    "effects": [
+     "Pot admin only: creates the program with the given split rules.",
+     "Pulls the ERC20 side(s) for `liquidity` units from the signer's allowance to the hook.",
+     "Takes native currency up to msg.value and refunds the excess.",
+     "owner (also operator) holds the withdraw right. owner=0 locks the deposit forever and makes harvest public.",
+     "Fee legs go to secondaryRecipient and mainRecipient. Buyback, burn and compound shares are carved off gross fees."
+    ],
+    "shown": "Create LP for <token0>/<token1>, with fee, ticks, raw liquidity units, owner, every share and recipient, raw minimums and the max native sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addLiquidityAdvanced shows no token amount or bound for the ERC20 deposit",
+      "evidence": "GlueLiquidity._mint pulls the exact amount owed from the caller's allowance. Only 'Liquidity units' (raw) is shown.",
+      "fix": "No descriptor fix exists.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "addLiquidityAdvanced intent omits the deposit and the owner, and owner=0 locks the funds forever",
+      "evidence": "Intent: 'Create LP for {key.currency0}/{key.currency1}'. Label 'Owner (0=lock+public)'. With owner=0, _ownedProgram reverts for everyone.",
+      "fix": "Use an intent such as 'Deposit liquidity into {key.currency0}/{key.currency1} program owned by {owner}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "addLiquidityAdvanced shows disabled minimums as 78-digit numbers and native as the zero address",
+      "evidence": "Case 2: 'Min main (max=off)' and 'Min 2nd (max=off)' = 1157920892373161954235709850086879078532699846656405640394575840079131296399 35. 'Token 0' = 0x000...0.",
+      "fix": "State the max=off meaning more plainly, and name address(0) as native.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 60
+   },
+   {
+    "key": "addProgramLiquidity((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint128 liquidity)",
+    "effects": [
+     "Owner only: first harvests pending fees through the stored split. Legs go to the stored recipients, the pot, burn and compound.",
+     "Pulls the ERC20 side(s) for `liquidity` units from the signer's allowance to the hook.",
+     "Takes native currency up to msg.value and refunds the excess."
+    ],
+    "shown": "Add LP to <token0>/<token1> (harvests), with raw liquidity units and the max native sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addProgramLiquidity shows no token amount or bound for the ERC20 deposit",
+      "evidence": "GlueHook.addProgramLiquidity calls GlueLiquidity.mintLiquidity, then _mint pulls the exact amount from the caller. The amount depends on the live price. Only 'Liquidity units' (raw) is shown.",
+      "fix": "No descriptor fix exists.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addProgramLiquidity harvest payouts go to stored recipients that the screen cannot show",
+      "evidence": "_harvestInto calls GlueLiquidity.place, which pays g.mainRecipient and g.secondaryRecipient from storage.",
+      "fix": "None. These are storage values.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "removeProgramLiquidity((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint128 liquidity,address to)",
+    "effects": [
+     "Owner only: first harvests pending fees through the stored split. Fee remainders go to the stored recipients, not to `to`.",
+     "Removes `liquidity` units from the program position.",
+     "Sends the principal of both currencies to `to`. There is no minimum-out bound."
+    ],
+    "shown": "Remove LP from <token0>/<token1> (harvests), with raw liquidity units and 'Send remainder to' <to>.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "removeProgramLiquidity labels the principal recipient 'Send remainder to'",
+      "evidence": "GlueHook.removeProgramLiquidity calls _removeLiquidityV4(key, liquidity, address(this), to, ...). `to` 'Receives both principal legs'. Fee 'remainders' go to g.mainRecipient and g.secondaryRecipient. Descriptor label: 'Send remainder to'.",
+      "fix": "Rename the label to 'Send withdrawn tokens to' and put {to} in the interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "removeProgramLiquidity intent omits that the tokens go to `to`, which may be another address",
+      "evidence": "Case 4 sends to 0x2c62...b672 (a friend). The interpolatedIntent is 'Remove LP from {key.currency0}/{key.currency1} (harvests)'.",
+      "fix": "Use 'Remove LP from {key.currency0}/{key.currency1}, send to {to}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "removeProgramLiquidity has no minimum-out bound for the returned tokens",
+      "evidence": "_removeLiquidityV4 returns whatever deltas the pool gives. The function has no min-amount parameters.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "harvest((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key)",
+    "effects": [
+     "Collects the program's pending fees and splits them by the stored rules: buyback to the pot, burn, compound back into the position, remainders pushed to the stored main and secondary recipients.",
+     "The signer receives something only if the signer is a stored recipient."
+    ],
+    "shown": "Harvest <token0>/<token1>, with pool fee and tick spacing.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "harvest destinations and amounts come from storage and the screen cannot show them",
+      "evidence": "GlueHook.harvest calls _harvestInto, then GlueLiquidity.place pays g.mainRecipient and g.secondaryRecipient and burns or compounds by the stored shares.",
+      "fix": "None. The intent could say 'Harvest and split fees by program rules'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 55
+   },
+   {
+    "key": "donate((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint256 amount)",
+    "effects": [
+     "Takes `amount` of the pot's secondary currency from the signer: transferFrom of the ERC20, or msg.value (which must equal amount) for native.",
+     "The donation is irreversible. It funds automatic buybacks and there is no withdrawal path."
+    ],
+    "shown": "Donate to <token0>/<token1> pot, with a raw donation amount labelled 'pot 2nd token' and the native value sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "donate does not show which token is donated, and the amount is raw",
+      "evidence": "GlueHook.donate: secondary = p.secondary (storage), then _pullToken(secondary, msg.sender, ...). Cases 6/7: 'Donation (pot 2nd token, raw)' = 1000000000000000000000 / 1000000000.",
+      "fix": "No calldata path names the secondary, so tokenAmount cannot be used. The label already warns.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "donate cases 6 and 7 use the same pool but assume opposite secondary tokens",
+      "evidence": "Case 6 says 'Donate 1000 TOKEN to an ERC20 secondary pot' and case 7 says 'Donate 1000 USDC when the pot main is currency0'. Both use key TOKEN/USDC.",
+      "fix": "Make the case descriptions consistent with one pot configuration.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 50
+   },
+   {
+    "key": "claim(address asset)",
+    "effects": [
+     "Sends the signer everything booked to them as owed in `asset`, an amount read from storage."
+    ],
+    "shown": "Claim owed <asset>.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "flushDirect(bytes32 poolId)",
+    "effects": [
+     "Permissionless: sends the pool's parked main to the pot's current recipient. No signer assets move."
+    ],
+    "shown": "Retry parked delivery, with the raw pool id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "flushDirect pool id is raw and hides the pool and its recipient",
+      "evidence": "The descriptor shows poolId 'Pool id' (raw). GlueLiquidity.flushDirect sends to p.recipient from storage.",
+      "fix": "None.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "setProgramConfig(bytes32 poolId,(uint64 buybackShareWad,uint64 burnShareWad,uint64 compoundShareWad,uint64 potCompoundShareWad,uint64 potBurnShareWad,bool publicHarvest,address secondaryRecipient,address mainRecipient,uint256 minMain,uint256 minSecondary) config)",
+    "effects": [
+     "Operator only: replaces the split rules, which set the shares, the fee recipients for future harvests, public harvest and the auto-harvest minimums."
+    ],
+    "shown": "Edit LP program split, with raw pool id, every share as %, recipients and raw minimums.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "setProgramConfig shows raw pool id and raw minimums, with no token for the minimums",
+      "evidence": "poolId is 'Pool id' (raw). minMain and minSecondary are raw because the main and secondary tokens live in storage.",
+      "fix": "None.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setProgramConfig intent does not say it can redirect future fee payouts",
+      "evidence": "GlueLiquidity._applyConfig writes g.secondaryRecipient and g.mainRecipient. The interpolatedIntent is 'Edit LP program split'.",
+      "fix": "Use 'Edit LP split; fees to {config.mainRecipient} / {config.secondaryRecipient}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "setProgramOperator(bytes32 poolId,address newOperator)",
+    "effects": [
+     "Operator only: moves the rule-editing role to newOperator. address(0) freezes the rules forever."
+    ],
+    "shown": "Set operator to <newOperator>, with the pool id.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "setRecipient(bytes32 poolId,address recipient)",
+    "effects": [
+     "Admin only: changes where the pot's bought main is delivered. address(0) means burn."
+    ],
+    "shown": "Set delivery to <recipient>, with the pool id.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "transferProgramOwnership(bytes32 poolId,address newOwner)",
+    "effects": [
+     "Owner only: transfers the program's liquidity rights (add, remove, harvest) to newOwner. The operator role stays.",
+     "newOwner=0 locks the liquidity forever and forces harvest to be public."
+    ],
+    "shown": "Transfer program to <newOwner>, with the pool id.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transferProgramOwnership to zero reads as a transfer, but permanently locks the signer's liquidity",
+      "evidence": "Case 13 intent: 'Transfer program to 0x0000000000000000000000000000000000000000'. GlueLiquidity.transferOwnership: with newOwner == 0, g.owner = 0 and publicHarvest is forced on, so removal is impossible forever.",
+      "fix": "Say it in the intent, for example 'Transfer program liquidity rights to {newOwner} (0 = lock forever)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 1.143,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 209,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "launchPool((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint160 sqrtPriceX96,address main,address recipient,int24 tickLower,int24 tickUpper,uint128 liquidity,address owner,(uint64 buybackShareWad,uint64 burnShareWad,uint64 compoundShareWad,uint64 potCompoundShareWad,uint64 potBurnShareWad,bool publicHarvest,address secondaryRecipient,address mainRecipient,uint256 minMain,uint256 minSecondary) config)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "launchPool intent never says the signer deposits both tokens into a position owned by `owner`",
+   "comprehension": null
+  },
+  "initPot((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,address main,address recipient)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "initPot shows the burn delivery as a bare zero address",
+   "comprehension": null
+  },
+  "addLiquidity((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,int24 tickLower,int24 tickUpper,uint128 liquidity,address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "addLiquidity intent omits the deposit and that the position and its fees belong to owner",
+   "comprehension": null
+  },
+  "addLiquidityAdvanced((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,int24 tickLower,int24 tickUpper,uint128 liquidity,address owner,(uint64 buybackShareWad,uint64 burnShareWad,uint64 compoundShareWad,uint64 potCompoundShareWad,uint64 potBurnShareWad,bool publicHarvest,address secondaryRecipient,address mainRecipient,uint256 minMain,uint256 minSecondary) config)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "addLiquidityAdvanced intent omits the deposit and the owner, and owner=0 locks the funds forever",
+   "comprehension": null
+  },
+  "addProgramLiquidity((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint128 liquidity)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "removeProgramLiquidity((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint128 liquidity,address to)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "removeProgramLiquidity labels the principal recipient 'Send remainder to'",
+   "comprehension": null
+  },
+  "harvest((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "donate((address currency0,address currency1,uint24 fee,int24 tickSpacing,address hooks) key,uint256 amount)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address asset)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "flushDirect(bytes32 poolId)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setProgramConfig(bytes32 poolId,(uint64 buybackShareWad,uint64 burnShareWad,uint64 compoundShareWad,uint64 potCompoundShareWad,uint64 potBurnShareWad,bool publicHarvest,address secondaryRecipient,address mainRecipient,uint256 minMain,uint256 minSecondary) config)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setProgramConfig intent does not say it can redirect future fee payouts",
+   "comprehension": null
+  },
+  "setProgramOperator(bytes32 poolId,address newOperator)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setRecipient(bytes32 poolId,address recipient)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferProgramOwnership(bytes32 poolId,address newOwner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferProgramOwnership to zero reads as a transfer, but permanently locks the signer's liquidity",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 62,
+  "functions": "3A 5B 6C",
+  "incomplete": false,
+  "worst": "launchPool intent never says the signer deposits both tokens into a position owned by `owner`"
+ }
+}

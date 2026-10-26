@@ -1,0 +1,265 @@
+{
+ "hash": "0x4d440eaabe0a9e4eb6e84efe071498446a018cf77713cf2d58f7539b3634371f",
+ "file": "registry/symbiotic/calldata-VaultV1-uniBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x4b7a4bae15b049f84f2806ea7297fcd3702ac82b"
+  },
+  {
+   "chainId": 1,
+   "address": "0x5ab263160a116decc6bab1361fc55a3be62e2338"
+  },
+  {
+   "chainId": 1,
+   "address": "0x5e278bf93478c842148e7c52be5415f6c1d46538"
+  },
+  {
+   "chainId": 1,
+   "address": "0x95934438741616fc7fcf65215e4a624aa608494b"
+  },
+  {
+   "chainId": 1,
+   "address": "0x9fafca9108762ab320aedb7d0c76102b17285ced"
+  },
+  {
+   "chainId": 1,
+   "address": "0xabe79b5004f0738c38017633d81654eaef3b416d"
+  },
+  {
+   "chainId": 1,
+   "address": "0xc50f8c3f843865c640f541b0f8e700af227daa83"
+  },
+  {
+   "chainId": 1,
+   "address": "0xca5412f167228f33571a1d2c1fccf28f5b74ab59"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` of the vault collateral to the vault through safeTransferFrom. For 0x4b7a… the collateral is uniBTC 0x004E9C3E…, per the constructor initData.",
+     "Active vault shares worth the deposited amount are credited to `onBehalfOf`, not necessarily the signer.",
+     "The deposit becomes slashable stake that the vault delegates."
+    ],
+    "shown": "Deposit 123.25 uniBTC from the signer into the named vault, with the shares credited to the beneficiary address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "deposit: the uniBTC constant is unconfirmed as the collateral for 7 of the 8 deployments.",
+      "evidence": "descriptor metadata.constants.underlyingToken = 0x004E9C3E…, used in `#.amount` tokenAmount. Vault.sol deposit uses `IERC20(collateral).safeTransferFrom(msg.sender, address(this), amount)`. `collateral` is set in _initialize from storage, and only 0x4b7a…'s initData (meta.json) confirms 0x004e9c3e…. The other 7 deployments have no meta.",
+      "fix": "Confirm on chain that collateral() returns uniBTC for every listed deployment. Move any vault with a different collateral into its own descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown because it comes from vault storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)` uses storage values that are not in the calldata.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 88
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The signer's active shares are burned: previewWithdraw(amount), rounded up, which reverts if it is more than the signer holds.",
+     "The signer's active stake goes down by `amount` of collateral (uniBTC).",
+     "Withdrawal shares for `amount` in epoch currentEpoch+1 are credited to `claimer`. Only the claimer can claim them after that epoch ends, and they stay slashable until then.",
+     "No tokens move in this call."
+    ],
+    "shown": "Request a withdrawal of 2.5 uniBTC from the vault, with the claim owned by the claimer address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "withdraw: the intent does not say the funds wait for the next epoch or that the claimer, not the signer, claims them.",
+      "evidence": "Vault.sol _withdraw: `uint256 epoch = currentEpoch() + 1; ... withdrawalSharesOf[epoch][claimer] += mintedShares;` and _claim checks `withdrawalsOf(epoch, msg.sender)`. The screen says \"Request {amount} withdrawal for {claimer}\" with the label 'Claim owner'.",
+      "fix": "An optional wording change: \"Request {amount} withdrawal, claimable by {claimer} after the epoch ends\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The signer's active shares are burned: exactly `shares`, which reverts if it is more than the signer holds.",
+     "The signer's active stake goes down by previewRedeem(shares) of collateral (uniBTC). The amount comes from the vault's stake-to-share ratio.",
+     "Withdrawal shares for that amount in the next epoch are credited to `claimer`, who can claim them after that epoch ends.",
+     "No tokens move in this call."
+    ],
+    "shown": "Queue a raw number of vault shares for withdrawal, with the claim owned by the claimer address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "redeem: the shares appear as a raw integer, and the uniBTC amount they convert to is not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())`. The descriptor field `#.shares` has format raw. Case 9 shows '987654321123456789'.",
+      "fix": "None possible in the descriptor: the shares are internal accounting units, not an ERC-20, and the conversion depends on storage. The '(raw)' label is the honest choice.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The signer's claim for `epoch` is marked as spent (isWithdrawalsClaimed[epoch][msg.sender] = true).",
+     "withdrawalsOf(epoch, signer) of collateral (uniBTC) is transferred from the vault to `recipient`, which may be someone other than the signer."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 and send it to the recipient address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claim: neither the intent nor the fields name the asset (uniBTC) that goes to the recipient.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount)`. The descriptor intent is \"Claim withdrawal\" and the interpolatedIntent is \"Claim epoch {epoch} to {recipient}\". No field mentions uniBTC.",
+      "fix": "Name the asset in the intent: \"Claim uniBTC withdrawal\" / \"Claim uniBTC from epoch {epoch} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount paid out comes from storage and cannot be shown.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender)`, computed from the withdrawal share mappings.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 60
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The signer's claims for every listed epoch are marked as spent. The call reverts if any of them is already claimed, empty or not finished.",
+     "The sum of withdrawalsOf(epoch, signer) over the listed epochs, in collateral (uniBTC), is transferred to `recipient` in one transfer."
+    ],
+    "shown": "Claim the withdrawals for the listed epochs and send them to the recipient address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claimBatch: neither the intent nor the fields name the asset (uniBTC) that goes to the recipient.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount)`. The descriptor intent is \"Claim withdrawals\" and the interpolatedIntent is \"Claim epochs {epochs.[]} to {recipient}\".",
+      "fix": "Name the asset in the intent: \"Claim uniBTC withdrawals\" / \"Claim uniBTC from epochs {epochs.[]} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total amount paid out comes from storage and cannot be shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i])`, where _claim reads withdrawalsOf(epoch, msg.sender).",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": [
+   "The collateral token of 7 of the 8 deployments (0x5ab26316…, 0x5e278bf9…, 0x95934438…, 0x9fafca91…, 0xabe79b50…, 0xc50f8c3f…, 0xca5412f1…). Only 0x4b7a…'s source and initData are in the directory, so I can't confirm that the uniBTC constant used for every amount is the collateral those vaults actually move."
+  ]
+ },
+ "cost": 0.354,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 118,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 56,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: neither the intent nor the fields name the asset (uniBTC) that goes to the recipient.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 56,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: neither the intent nor the fields name the asset (uniBTC) that goes to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 68,
+  "functions": "2A 3C",
+  "incomplete": true,
+  "worst": null
+ }
+}

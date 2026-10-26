@@ -1,0 +1,243 @@
+{
+ "hash": "0xf584202293c17ae754da0de06e42065f18d3ad820bf10f2a3cb8fdc93df05d2e",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakRUSD.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef11ecb698f4b5378685c05a210bdf71093521"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` rUSD to the vault, using the rUSD allowance the signer gave the vault.",
+     "The vault mints steakRUSD shares to `receiver`. The share count comes from the vault's total assets and supply after fee accrual. The calldata has no minimum.",
+     "The vault supplies the rUSD to Morpho Blue markets. This does not move any of the signer's assets."
+    ],
+    "shown": "Intent 'Deposit', the rUSD amount, the steakRUSD ticker as a raw constant, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many steakRUSD shares the receiver gets; the calldata has no minimum.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` The descriptor shows only 'Share ticker: steakRUSD'. In case 0 the signer receives 9270.61 steakRUSD, and no field shows this amount.",
+      "fix": "No descriptor change can show a value computed from storage. Keep the 'Send shares to' field.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "deposit spends the signer's rUSD allowance to the vault, and nothing on the screen says so.",
+      "evidence": "ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);` In case 0 the rUSD allowance to the vault drops to 0 (approval effect, signer 'grant'). The screen shows only 'Deposit asset 10000 rUSD'.",
+      "fix": "No change needed. Spending the allowance is the prerequisite of the stated deposit.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit labels the amount 'Deposit asset' and adds a raw 'Share ticker' line without a share amount.",
+      "evidence": "descriptor deposit fields: `\"label\": \"Deposit asset\"` on `assets` with tokenAmount, and `{\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}`. In case 0 the reader was unsure how many shares arrive.",
+      "fix": "Rename the first label to 'Amount to deposit'. Rename 'Share ticker' to 'Receive shares of' or drop it. Change the intent to 'Deposit rUSD for steakRUSD'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "The screen states the 10000 rUSD out correctly. For the 9270.61 steakRUSD in, it shows only the ticker and the recipient. Nothing states the allowance spent."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` steakRUSD to `receiver`.",
+     "The signer sends rUSD to the vault. The amount is computed from storage with Ceil rounding, using the signer's allowance. The calldata has no maximum.",
+     "The vault supplies the rUSD to Morpho Blue."
+    ],
+    "shown": "Intent 'Mint', the 'Deposit asset' ticker rUSD with no amount, the minted share amount, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much rUSD the signer pays; the amount comes from storage with no cap.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then ERC4626._deposit `safeTransferFrom(_asset, caller, address(this), assets)`. In case 0... rather case 1, the signer pays 1084166370 wei rUSD, and the screen shows only 'Deposit asset: rUSD'.",
+      "fix": "No descriptor change can show the computed amount. Keep the rUSD field and label it 'Pay with'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent 'Mint' does not say the signer pays rUSD. The field shows only a ticker.",
+      "evidence": "descriptor mint: `\"intent\": \"Mint\"`, field `{\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}`. In case 1 the reader was unsure how much rUSD leaves.",
+      "fix": "Change the intent to 'Mint steakRUSD by paying rUSD'. Rename the field to 'Pay with'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ]
+     }
+    ],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns steakRUSD shares from `owner`. The amount is computed with Ceil rounding and has no maximum in the calldata.",
+     "If the signer is not `owner`, the call spends `owner`'s share allowance to the signer.",
+     "The vault sends exactly `assets` rUSD to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', the exact rUSD amount, the recipient and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many steakRUSD shares the owner burns; the calldata has no maximum.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` and ERC4626._withdraw `_burn(owner, shares);`. No field states the burned shares.",
+      "fix": "No descriptor change can show a value computed from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` steakRUSD from `owner`. If the signer is not `owner`, this spends `owner`'s allowance to the signer.",
+     "The vault sends rUSD to `receiver`. The amount is computed from storage with Floor rounding. The calldata has no minimum."
+    ],
+    "shown": "Intent 'Redeem', the steakRUSD shares to redeem, the recipient and the owner. The screen does not name the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names rUSD as the asset received. The mint format shows that constant.",
+      "evidence": "ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);` The redeem fields are only 'Shares to redeem', 'To' and 'Owner'. In case 2 the signer receives 9.0070 rUSD, and the reader only guessed the asset was rUSD.",
+      "fix": "Add `{\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}`. Change the intent to 'Redeem steakRUSD for rUSD'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much rUSD arrives; the calldata has no minimum.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. In case 2 the signer receives 9006961590539552255 wei rUSD, and no field shows this amount.",
+      "fix": "No descriptor change can show a value computed from storage.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states the 8.2466 steakRUSD out correctly. The rUSD in has no asset name and no amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.479,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 102,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 51,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit labels the amount 'Deposit asset' and adds a raw 'Share ticker' line without a share amount.",
+   "comprehension": 50
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 44,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say the signer pays rUSD. The field shows only a ticker.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names rUSD as the asset received. The mint format shows that constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 55,
+  "functions": "1B 2C 1D",
+  "incomplete": false,
+  "worst": "redeem never names rUSD as the asset received. The mint format shows that constant."
+ }
+}

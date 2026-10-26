@@ -1,0 +1,203 @@
+{
+ "hash": "0x380958f0b0ce2ea43970226f8eeb95f02892b7f3c028c75d3b7eb35fe49e4368",
+ "file": "registry/ekubo/calldata-Ve33Periphery.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 4663,
+   "address": "0x1d834b70c33facebdb05af3c9c78da396f5d0e26"
+  },
+  {
+   "chainId": 46630,
+   "address": "0x1d834b70c33facebdb05af3c9c78da396f5d0e26"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "scheduleEmissions(uint64 startTime, uint64 endTime, uint160 rewardRate)",
+    "effects": [
+     "Pulls the funding amount of the stake token (STONX, 0x570C…70C5, the stakeToken immutable) from the signer with transferFrom to the Ekubo Core accountant. The amount is computed by Ve33 from rewardRate (Q32 tokens per second) and the schedule length. For case 0 that is about 100 STONX for one day.",
+     "Schedules the global Ve33 emission stream from startTime (0 = start now) to endTime at rewardRate. This is a permanent schedule that LPs/voters get paid from, and the signer is recorded as funder.",
+     "Spends the signer's STONX allowance to the periphery by that amount.",
+     "Any native value sent with the call is not used, because the stake token is an ERC-20. It stays in the periphery, and anyone can take it by calling refundNativeToken."
+    ],
+    "shown": "\"Schedule STONX emissions\" with start and end dates and a raw Q32 reward rate. The screen never says that STONX leaves the wallet or how much.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "scheduleEmissions: the STONX transfer out of the signer's wallet and its amount are not shown",
+      "evidence": "Ve33Periphery.handleLockData: `ACCOUNTANT.payFrom(payer, stakeToken, amount);` with payer = msg.sender. FlashAccountantLib.payFrom calls `transferFrom(from, accountant, amount)`. Descriptor intent \"Schedule Ve33 emissions\" / \"Schedule STONX emissions\". Its fields are only start, end and the raw rate. No field and no wording says tokens are paid. Case 0 (rate 4971026962962962962962962 Q32 over 86400 s ≈ 100 STONX) shows no amount.",
+      "fix": "Say it in the intent: \"Fund STONX emissions from your wallet\". Relabel rewardRate as \"STONX per second (Q32 fixed-point)\". Add a note that the total paid = rate × (end − start) / 2^32. ERC-7730 cannot compute that product (see the spec-limitation finding).",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "scheduleEmissions is payable but @.value is not shown, and ETH sent is left in the periphery",
+      "evidence": "`function scheduleEmissions(...) external payable`. stakeToken = 0x570c5aa7… (immutable 6351), so the native branch `safeTransferETH(address(ACCOUNTANT), amount)` never runs. msg.value stays in the contract. PayableMulticallable.refundNativeToken sends `address(this).balance` to any msg.sender. The descriptor has no `@.value` field.",
+      "fix": "Add a field {path: \"@.value\", label: \"Native value sent\", format: \"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "scheduleEmissions: the reward rate is shown as a raw Q32 integer with no token or unit",
+      "evidence": "Descriptor field rewardRate is `format: raw`, label \"Reward rate (Q32)\". Case 0 shows \"4971026962962962962962962\". That is about 0.001157 STONX/s, which no reader can tell.",
+      "fix": "Label it \"STONX per second, ×2^32 fixed-point\". Explain in the intent that the total STONX paid follows from the rate and the duration.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "scheduleEmissions: startTime 0 means start now but would show as 1970-01-01",
+      "evidence": "NatSpec: \"startTime Real emission schedule start time, or zero for immediate start.\" Descriptor startTime is a plain `date` with no special-value handling.",
+      "fix": "Label it \"Start time (0 = now)\" or handle 0 with a message where the spec allows.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "scheduleEmissions: the total funding (rate × duration / 2^32) cannot be computed by ERC-7730",
+      "evidence": "Ve33Lib.scheduleEmissions returns `amount` decoded from core.forward. It is computed in the Ve33 extension from rewardRate, startTime and endTime. No field format multiplies calldata values.",
+      "fix": "Wait for spec support for derived amounts. Until then, state the formula in the label or the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "scheduleEmissions: the test does not exercise non-zero value or startTime = 0",
+      "evidence": "cases/0.json: value \"0\", startTime 0x6b49d200. The function is payable, and the zero start time has its own meaning.",
+      "fix": "Add a case with startTime 0 and one with non-zero value.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 30
+   },
+   {
+    "key": "multicall(bytes[] data)",
+    "effects": [
+     "Runs each inner call on the periphery itself (delegatecall to self) as the signer, for example scheduleEmissions, which pulls STONX from the signer, and refundNativeToken.",
+     "Native value sent with the batch stays in the periphery unless a refundNativeToken call is part of the batch, because the stake token is not native."
+    ],
+    "shown": "\"Ve33 emission batch\" with each inner action decoded as a call to the periphery. The native value sent is not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multicall is payable but @.value is not shown",
+      "evidence": "PayableMulticallable.multicall is `public payable`. The descriptor's fields are only `data.[]`, with no `@.value`. ETH sent is not used by scheduleEmissions (stakeToken is ERC-20) and stays in the contract, where anyone can take it with refundNativeToken.",
+      "fix": "Add {path: \"@.value\", label: \"Native value sent\", format: \"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "multicall: the intent does not say the batch can pull STONX from the wallet",
+      "evidence": "Intent \"Batch Ve33 emission actions\" / interpolatedIntent \"Ve33 emission batch\". Inner scheduleEmissions calls payFrom(msg.sender, stakeToken, amount).",
+      "fix": "Use the intent \"Batch Ve33 emission funding (may pull STONX from your wallet)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 45
+   },
+   {
+    "key": "refundNativeToken()",
+    "effects": [
+     "Sends the periphery's whole native balance, including any value sent with this call, to the signer (msg.sender)."
+    ],
+    "shown": "\"Refund native token\" with the signer as recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "refundNativeToken: the refunded amount is the contract balance, which no calldata holds",
+      "evidence": "PayableMulticallable.refundNativeToken: `SafeTransferLib.safeTransferETH(msg.sender, address(this).balance)`.",
+      "fix": "None possible. A label like \"Receives all native token held by the contract\" could help.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": [
+   "Ve33 extension 0xD18685a514E59b06d59824e16Db07e73345d9953 (source omitted): it computes the STONX amount scheduleEmissions pulls from the signer and validates the timestamps.",
+   "Ekubo Core 0x00000000000014aA86C5d3c41765bb24e11bd701 (source not in directory): lock/forward/payment accounting that settles the signer's payment."
+  ]
+ },
+ "cost": 0.355,
+ "account": "ethereum_foundation",
+ "hiddenValue": [
+  "scheduleEmissions(uint64 startTime, uint64 endTime, uint160 rewardRate)",
+  "multicall(bytes[] data)",
+  "refundNativeToken()"
+ ],
+ "seconds": 67,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "scheduleEmissions(uint64 startTime, uint64 endTime, uint160 rewardRate)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 22,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 3,
+   "worst": "scheduleEmissions: the STONX transfer out of the signer's wallet and its amount are not shown",
+   "comprehension": null
+  },
+  "multicall(bytes[] data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "multicall is payable but @.value is not shown",
+   "comprehension": null
+  },
+  "refundNativeToken()": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "refundNativeToken takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 8,
+  "clarity": 48,
+  "functions": "3F",
+  "incomplete": true,
+  "worst": "scheduleEmissions: the STONX transfer out of the signer's wallet and its amount are not shown"
+ }
+}

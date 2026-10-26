@@ -1,0 +1,248 @@
+{
+ "hash": "0xbaf72b508091e44282782a1bb34b4b48c1b1ac1fab38b0d8041e8bdb6cebd344",
+ "file": "registry/kiln/calldata-Vault-WETH-Morpho-MEV-Capital.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x057e9b54c04b467ccd9dfb56a84bdd99c17a2a50"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` WETH to the vault (safeTransferFrom caller -> vault).",
+     "The vault mints kmmWETH shares to `receiver`. The count comes from the share price and a deposit fee read from storage, and no minimum is enforced.",
+     "The vault keeps a deposit fee (depositFee from storage, up to 35%) out of the WETH. This lowers the shares minted.",
+     "The vault delegatecalls the connector, which deposits the WETH into the Morpho MEV Capital vault. This does not touch the signer's funds directly.",
+     "The shares are not transferable (transferable_ = false at init), so `receiver` must be the signer unless a SPENDER role applies."
+    ],
+    "shown": "The intent says \"Deposit\". The fields show the WETH amount, the share ticker kmmWETH and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent is a bare \"Deposit\" with no asset, amount or vault, and there is no interpolated intent",
+      "evidence": "descriptor.json deposit format: \"intent\": \"Deposit\", no interpolatedIntent. Case 0 screen intent \"Deposit\". The blind reader was unsure which contract receives the WETH.",
+      "fix": "Add \"interpolatedIntent\": \"Deposit {assets} into Kiln MEV Capital WETH vault for kmmWETH\". Change the intent to \"Deposit WETH into Kiln vault\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the share amount received; the code computes it and enforces no minimum",
+      "evidence": "Vault.sol deposit: `(uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply());`. Case 0 mined: 386000000000001 kmmWETH arrive to the signer, and the screen shows no share amount.",
+      "fix": "None in the descriptor. ERC-4626 deposit has no minShares parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit takes a storage deposit fee from the WETH before it mints shares; the screen does not mention it",
+      "evidence": "Vault.sol _previewDeposit: `depositFeeAmount = assets.mulDiv($._depositFee, _MAX_PERCENT * 10 ** _underlyingDecimals());` `shares = ... _convertToShares(assets - depositFeeAmount, ...)`",
+      "fix": "None. The fee rate is in storage. The share amount is not shown, so no amount on screen is cut.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The WETH out (0.000386000000000001) is shown exactly. The kmmWETH in shows its ticker and the receiver but not the amount (386000000000001). The code enforces no bound on that amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` kmmWETH to `receiver`.",
+     "The signer sends WETH to the vault. The amount is computed from the share price plus the deposit fee (previewMint, rounded up), and no maximum is enforced.",
+     "The vault keeps a deposit fee (storage rate, up to 35%) inside the WETH it takes.",
+     "The vault delegatecalls the connector, which deposits the WETH into the Morpho vault."
+    ],
+    "shown": "The intent says \"Mint\". The fields show the deposit asset as the WETH ticker, the minted share amount in kmmWETH, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent \"Mint\" does not say the signer pays WETH for the shares",
+      "evidence": "descriptor.json mint format: \"intent\": \"Mint\". The WETH outflow is shown only as a raw ticker field: \"label\": \"Deposit asset\", \"value\": \"$.metadata.constants.underlyingTicker\". Vault.sol _deposit: `SafeERC20.safeTransferFrom(IERC20(asset()), caller, address(this), assets);`",
+      "fix": "Change the intent to \"Deposit WETH for vault shares\". Add \"interpolatedIntent\": \"Deposit WETH to mint {shares} to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much WETH leaves the signer; the amount is computed with no maximum",
+      "evidence": "Vault.sol mint: `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply);` then `_deposit(_msgSender(), receiver, _assets, shares, _depositFeeAmount);`",
+      "fix": "None in the descriptor. ERC-4626 mint has no maxAssets parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns kmmWETH shares from `owner`. The count comes from the share price (rounded up), and no maximum is enforced.",
+     "If the signer is not `owner`, the call spends the signer's share allowance from `owner`.",
+     "The vault withdraws `assets` WETH through the connector and sends the WETH it gets to `receiver`.",
+     "The call accrues the reward fee shares to the vault, which dilutes holders slightly."
+    ],
+    "shown": "The intent says \"Withdraw\". The fields show the exact WETH amount, the receiver and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent is a bare \"Withdraw\" with no asset, amount or source vault",
+      "evidence": "descriptor.json withdraw format: \"intent\": \"Withdraw\", no interpolatedIntent.",
+      "fix": "Add \"interpolatedIntent\": \"Withdraw {assets} to {receiver}\". Change the intent to \"Withdraw WETH from Kiln vault\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares are burned from the owner; no maximum is enforced",
+      "evidence": "Vault.sol withdraw: `uint256 _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply());` then `_burn(owner, shares)` in _withdraw.",
+      "fix": "None in the descriptor. ERC-4626 withdraw has no maxShares parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` kmmWETH from `owner`.",
+     "If the signer is not `owner`, the call spends the signer's share allowance from `owner`.",
+     "The vault withdraws WETH through the connector and sends it to `receiver`. The amount is computed from the share price, and no minimum is enforced.",
+     "The call accrues the reward fee shares to the vault."
+    ],
+    "shown": "The intent says \"Redeem\". The fields show the share amount in kmmWETH, the receiver and the owner. Nothing names the WETH received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names WETH as the asset the receiver gets",
+      "evidence": "Vault.sol _withdraw: `SafeERC20.safeTransfer(IERC20(asset()), receiver, IERC20(asset()).balanceOf(address(this)) - _balanceBefore);`. descriptor.json redeem fields: only \"Shares to redeem\", \"To\" and \"Owner\". The mint format, by contrast, has a constant field for underlyingTicker.",
+      "fix": "Add {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}. Add \"interpolatedIntent\": \"Redeem {shares} for WETH to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem intent is a bare \"Redeem\" with no amount or asset received",
+      "evidence": "descriptor.json redeem format: \"intent\": \"Redeem\", no interpolatedIntent.",
+      "fix": "Change the intent to \"Redeem vault shares for WETH\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the WETH amount received; the code computes it and enforces no minimum",
+      "evidence": "Vault.sol redeem: `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply);`",
+      "fix": "None in the descriptor. ERC-4626 redeem has no minAssets parameter.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "The connector contract is missing from the directory. The vault resolves it through ConnectorRegistry 0xde63817c82e93499357ae198518f90ac1be93a72 under the name MORPHO_MEV_CAPITAL_WETH and delegatecalls it in deposit, mint, withdraw and redeem. It sets totalAssets, which prices the shares. In withdraw and redeem, the WETH sent to the receiver is the vault's balance change after the connector's withdraw. So I could not confirm that the receiver gets exactly the amount shown in withdraw."
+  ]
+ },
+ "cost": 0.568,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 83,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent is a bare \"Deposit\" with no asset, amount or vault, and there is no interpolated intent",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent \"Mint\" does not say the signer pays WETH for the shares",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent is a bare \"Withdraw\" with no asset, amount or source vault",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem never names WETH as the asset the receiver gets",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 50,
+  "functions": "1B 3C",
+  "incomplete": true,
+  "worst": "redeem never names WETH as the asset the receiver gets"
+ }
+}

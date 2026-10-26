@@ -1,0 +1,190 @@
+{
+ "hash": "0x636487b721e123b50359ae3ce44c230397e177bd0d2169e1676830c52c4524c9",
+ "file": "registry/flare/calldata-MintingTagManager-FXRP-Songbird.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 19,
+   "address": "0x09e139a95edd67509aea040bf4b722ec103d21f4"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "reserve()",
+    "effects": [
+     "The signer pays exactly reservationFee in native SGB (msg.value must equal it), which goes to reservationFeeRecipient, an address read from storage.",
+     "A new minting-tag NFT (id = nextAvailableTag) is minted to the signer with _safeMint.",
+     "The new tag's minting recipient is set to the signer and its executor is cleared (_afterTokenTransfer)."
+    ],
+    "shown": "Intent 'reserve minting tag' with the native value paid shown as 'Reservation Fee' in SGB.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "reserve: the fee recipient and the new tag id come from storage and are not shown.",
+      "evidence": "MintingTagManager.sol reserve(): Transfers.transferNAT(reservationFeeRecipient, msg.value); _reserve uses nextAvailableTag. The descriptor shows only @.value 'Reservation Fee'.",
+      "fix": "None possible from calldata. You could add 'to the Flare fee recipient' to the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "reserve test sends 1 SGB, but the deployed initial fee is 1000 SGB and must match exactly.",
+      "evidence": "cases/0.json value 1000000000000000000. meta.json constructor _reservationFee 1000000000000000000000. reserve(): require(msg.value == reservationFee). Governance may have changed the fee since.",
+      "fix": "Use the current on-chain reservationFee in the test value.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "setMintingRecipient(uint256 _mintingTag, address _recipient)",
+    "effects": [
+     "Only the tag owner can call this. It changes the address that receives FXRP minted with this tag to _recipient, which must be non-zero."
+    ],
+    "shown": "Intent 'set mint recipient' with the Tag Id and the new Recipient address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setMintingRecipient: recipient address types eoa/wallet are narrower than the code allows.",
+      "evidence": "descriptor: #._recipient params.types ['eoa','wallet']. MintingTagManager.setMintingRecipient only requires _recipient != address(0), so a contract is valid.",
+      "fix": "Add 'contract' to types, or drop the types restriction.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "setAllowedExecutor(uint256 _mintingTag, address _executor)",
+    "effects": [
+     "Only the tag owner can call this. It schedules _executor as the only address allowed to execute direct mintings with the tag, active after executorChangeAfterSeconds (from storage). Until then the old executor stays active.",
+     "If a change is pending and _executor equals the currently active executor, the pending change is cancelled instead.",
+     "Zero address means anyone may execute."
+    ],
+    "shown": "Intent 'Set mint executor (delayed)' with the Tag Id and the executor address, labelled 'zero = anyone'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "setAllowedExecutor: the delay length and the cancel-pending behaviour are not shown.",
+      "evidence": "_setExecutor: allowedExecutorActiveAfterTs = block.timestamp + executorChangeAfterSeconds (storage). When changePending && _executor == currentAllowedExecutor it emits AllowedExecutorChangeCancelled. The intent says only '(delayed)'.",
+      "fix": "None needed beyond the intent. The delay is a storage value.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "transfer(address _to, uint256 _mintingTag)",
+    "effects": [
+     "The signer's minting-tag NFT moves to _to (ERC721 _transfer, which requires the signer to be the owner; it is not a safe transfer).",
+     "The tag's minting recipient is reset to _to.",
+     "Any allowed executor, old or pending, is cleared immediately."
+    ],
+    "shown": "Intent 'Transfer minting tag, reset settings' with the To address and the Tag Id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "transfer: 'reset settings' does not say that the recipient becomes the new owner and the executor is cleared.",
+      "evidence": "_afterTokenTransfer: _setRecipient(id, _to); _clearExecutor(id). Intent: 'Transfer minting tag, reset settings'.",
+      "fix": "Intent such as 'Transfer minting tag (mint recipient set to new owner, executor cleared)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transfer: 'To' address types eoa/wallet are narrower than the code allows.",
+      "evidence": "descriptor: #._to params.types ['eoa','wallet']. transfer() calls ERC721 _transfer, which accepts any non-zero address, including contracts.",
+      "fix": "Add 'contract' to types, or drop the types restriction.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.27,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 65,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "reserve()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setMintingRecipient(uint256 _mintingTag, address _recipient)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setMintingRecipient: recipient address types eoa/wallet are narrower than the code allows.",
+   "comprehension": null
+  },
+  "setAllowedExecutor(uint256 _mintingTag, address _executor)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transfer(address _to, uint256 _mintingTag)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transfer: 'To' address types eoa/wallet are narrower than the code allows.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 76,
+  "functions": "1A 3B",
+  "incomplete": false,
+  "worst": "setMintingRecipient: recipient address types eoa/wallet are narrower than the code allows."
+ }
+}

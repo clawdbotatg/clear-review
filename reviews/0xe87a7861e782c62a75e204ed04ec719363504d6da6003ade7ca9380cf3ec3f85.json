@@ -1,0 +1,261 @@
+{
+ "hash": "0xe87a7861e782c62a75e204ed04ec719363504d6da6003ade7ca9380cf3ec3f85",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakUSDTBethena.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeefc1cdafc5b4a649b54d07afc6bf0f75c6f4e2"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDtb to the vault, which supplies it to Morpho Blue markets.",
+     "The vault spends `assets` of the signer's USDtb allowance to the vault.",
+     "The vault mints shares of steakUSDTBethena to `receiver`, computed from storage (convertToShares, rounded down) after interest and fee accrual."
+    ],
+    "shown": "Intent 'Deposit' with the USDtb amount deposited, the share ticker as a constant, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many vault shares the receiver gets; the amount comes from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` Screen case 0 shows only 'Share ticker: steakUSDTBethena'. Case 0 mined: signer receives 13.886592747079557415 steakUSDTBethena.",
+      "fix": "No calldata value holds the share amount. ERC-7730 cannot show it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "deposit spends the signer's USDtb allowance to the vault; the screen does not mention it.",
+      "evidence": "Case 0 mined: approval effect USDtb, signer grant to 0xbeef…F4E2, remaining 1 USDtb after the 14 USDtb transferFrom. ERC4626._deposit calls `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets)`.",
+      "fix": "None needed. Spending the allowance is the prerequisite of the deposit that is named.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' names no asset or vault; the constant 'Share ticker' field carries no amount.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`, field `{\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}`.",
+      "fix": "Add an interpolatedIntent such as \"Deposit {assets} into steakUSDTBethena\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "14 USDtb out shown right. Shares in: ticker and receiver shown, amount not shown (storage). Allowance spend not shown; it is the prerequisite of the deposit."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` steakUSDTBethena to `receiver`.",
+     "The signer pays USDtb to the vault in an amount computed from storage (convertToAssets, rounded up), with no maximum in the calldata.",
+     "The vault spends that amount of the signer's USDtb allowance to the vault."
+    ],
+    "shown": "Intent 'Mint' with the USDtb ticker as 'Deposit asset' (no amount), the share amount minted, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDtb the signer pays; the amount comes from storage with no cap.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` Screen case 1 shows 'Deposit asset: USDtb' with no amount. Case 1 mined: signer sends 1016153102 wei USDtb (0.000000001016153102 USDtb).",
+      "fix": "No calldata value holds the asset amount. The only bound is the signer's USDtb allowance to the vault.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint shows 'Deposit asset' with only a ticker, so it reads like a missing amount.",
+      "evidence": "descriptor mint format: `{\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}`; case 1 screen 'Deposit asset: USDtb'; the reader wrote 'How much USDtb I'm depositing. The screen doesn't say.'",
+      "fix": "Change the label to 'Pay with (amount set by vault price)' or similar, and add an interpolatedIntent \"Mint {shares} to {receiver}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "USDtb out: asset and vault shown, amount not shown (computed from storage). The shares go to 0x…0001, not the signer; the screen shows that receiver correctly."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns shares from `owner`, computed from storage (convertToShares, rounded up); when owner is not the caller it spends the owner's share allowance to the caller.",
+     "The vault withdraws `assets` USDtb from Morpho markets and sends exactly `assets` USDtb to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw' with the exact USDtb amount, the receiver and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares the owner burns; the amount comes from storage.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` Case 2 mined: signer burns 9.920560239570378003 steakUSDTBethena; the screen shows no share amount.",
+      "fix": "No calldata value holds the share amount. ERC-7730 cannot show it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent 'Withdraw' names no asset, amount or vault.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`; the amount and receiver appear only as fields.",
+      "fix": "Add an interpolatedIntent such as \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "Shares burned: direction and vault right, amount not shown (storage). 10 USDtb in to the signer shown right."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` steakUSDTBethena from `owner`; when owner is not the caller it spends the owner's share allowance to the caller.",
+     "The vault sends USDtb to `receiver` in an amount computed from storage (convertToAssets, rounded down), with no minimum in the calldata."
+    ],
+    "shown": "Intent 'Redeem' with the share amount burned, the receiver and the owner; the asset received is not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem never names USDtb as the asset received; the reader guessed USDT.",
+      "evidence": "descriptor redeem format fields: only `shares`, `receiver`, `owner`; no field uses `$.metadata.constants.underlyingTicker`, unlike mint. Case 3 reader: 'Underlying asset (likely USDT) ... amount not shown on screen'. Case 3 mined: signer receives 18049.297079023025562447 USDtb.",
+      "fix": "Add a field `{\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}` and an interpolatedIntent \"Redeem {shares} for USDtb to {receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDtb the receiver gets; the amount comes from storage with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` Case 3 mined: 18049.297079023025562447 USDtb in; the screen shows no amount.",
+      "fix": "No calldata value holds the asset amount. ERC-7730 cannot show it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "17871.343646827924851112 shares out shown right. USDtb in: direction and receiver right, asset not named (reader guessed USDT), amount not shown."
+     }
+    ],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.417,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 85,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 56,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 51,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDtb as the asset received; the reader guessed USDT.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 60,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": null
+ }
+}

@@ -1,0 +1,287 @@
+{
+ "hash": "0x1cd48ca487e65ffc25c7ec85a9a2933c800bf2451e49e4bf9a32de0e07bc14a5",
+ "file": "registry/flare/calldata-RewardManager-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0xc8f55c5aa2c752ee285bd872855c749f4ee6239b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "claim(address _rewardOwner, address _recipient, uint24 _rewardEpochId, bool _wrap, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)",
+    "effects": [
+     "Claims the reward owner's Direct and Provider-fee rewards from each proof whose beneficiary equals _rewardOwner, using the proof amount capped at what the epoch still holds.",
+     "For Provider-fee proofs, a burn share set by flareSystemsCalculator.calculateBurnFactorPPM is sent to 0x...dEaD and the recipient gets the rest.",
+     "Delegation, mirrored-stake and C-chain proofs only initialise the provider's or node's reward pool; they pay nothing directly.",
+     "Claims all of the owner's weight-based rewards (WFLR delegation, P-chain mirror, C-chain stake) for every epoch from the next claimable one up to _rewardEpochId; the amount is computed on chain from vote power.",
+     "Marks the owner's epochs up to _rewardEpochId as claimed (rewardOwnerNextClaimableEpochId = _rewardEpochId + 1).",
+     "Sends the total to _recipient as native FLR, or as WFLR through wNat.depositTo when _wrap is true.",
+     "When the signer is not the owner, ClaimSetupManager checks that the signer is the owner's executor and that the recipient is allowed."
+    ],
+    "shown": "Claim rewards to the recipient, with the owner, recipient, last epoch, FLR or WFLR, and each proof's beneficiary, amount and claim type.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: 'Proof amount' and 'Proof beneficiary' read as the signer's payout, but for pool claims they are not.",
+      "evidence": "RewardManager.sol _processProofs: types other than DIRECT/FEE only call _initialiseWeightBasedClaim, which stores the pool for address(rewardClaim.beneficiary) (the delegate or node); the payout comes from _claimWeightBasedRewards via _calculateRewardAmount. Descriptor labels 'Proof beneficiary' and 'Proof amount' are shown next to 'Reward Owner'.",
+      "fix": "Rename them to 'Reward pool owner' and 'Pool / claim amount', or add a message that delegation and stake proofs only initialise the provider's pool.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "claim: a Provider-fee proof can be partly burned, so the recipient may get less than 'Proof amount'.",
+      "evidence": "RewardManager.sol _claimFromDirectOrFeeClaim: if claimType == FEE and burnFactor > 0, _burnAmountWei = min(amount*burnFactor/PPM_MAX, amount); _rewardAmountWei -= _burnAmountWei; _claim: BURN_ADDRESS.transfer(burnAmountWei). The descriptor shows 'Proof amount' as the full leaf amount.",
+      "fix": "Label the field 'Gross reward (provider fees may be partly burned)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "claim: the proof beneficiary, amount and claim type are separate parallel lists the signer cannot pair.",
+      "evidence": "Descriptor fields '#._proofs.[].body.beneficiary.[-20:]', '#._proofs.[].body.amount', '#._proofs.[].body.claimType' are each a separate array path.",
+      "fix": "Group them per proof under one field on '#._proofs.[]' with the body fields inside.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: 'Stake rewards up to epoch' omits delegation rewards and hides that all earlier epochs are claimed too.",
+      "evidence": "RewardManager.sol _claimWeightBasedRewards loops from _nextClaimableEpochId to _rewardEpochId over WNAT, MIRROR and CCHAIN rewards, then sets rewardOwnerNextClaimableEpochId. Descriptor label: 'Stake rewards up to epoch'.",
+      "fix": "Rename it to 'Claim all rewards up to epoch'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the weight-based reward amount is computed from on-chain vote power and is not in the calldata.",
+      "evidence": "RewardManager.sol _claimRewards -> _calculateRewardAmount(state, _rewardWeight), where the weight comes from wNat.balanceOfAt, pChainStakeMirror.stakesOfAt and cChainStake.stakesOfAt.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claim: the intent does not say whether FLR or WFLR arrives.",
+      "evidence": "interpolatedIntent 'Claim rewards to {_recipient}'; _transferOrWrap uses wNat.depositTo when _wrap is true. 'Receive as' is shown as a field.",
+      "fix": "Use 'Claim rewards as {_wrap} to {_recipient}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "claimProxy(address _msgSender, address _rewardOwner, address _recipient, uint24 _rewardEpochId, bool _wrap, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)",
+    "effects": [
+     "Reverts unless msg.sender is ftsoRewardManagerProxy, so an EOA can never execute it directly.",
+     "When called by the proxy, it does the same as claim: pays the owner's Direct and Fee rewards minus any burn, plus all weight-based rewards up to _rewardEpochId, to _recipient as FLR or WFLR.",
+     "Checks the executor and recipient permissions for _msgSender instead of msg.sender."
+    ],
+    "shown": "Claim rewards to the recipient, with caller, owner, recipient, last epoch, FLR or WFLR, and the proof details.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "claimProxy: only the FtsoRewardManager proxy can call it, so a signer calling it directly always reverts.",
+      "evidence": "RewardManager.sol claimProxy: require(msg.sender == ftsoRewardManagerProxy, \"only ftso reward manager proxy\").",
+      "fix": "Say in the intent that this is called through the legacy FtsoRewardManager, or drop the format.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimProxy: 'Proof amount' and 'Proof beneficiary' read as the payout, but for pool claims they are not.",
+      "evidence": "_processProofs only initialises WNAT/MIRROR/CCHAIN pools for the delegate or node; the descriptor shows 'Proof amount' and 'Proof beneficiary'.",
+      "fix": "Rename them as in claim, and group the proof fields per proof.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "claimProxy: a Provider-fee proof can be partly burned, so the recipient may get less than 'Proof amount'.",
+      "evidence": "_claimFromDirectOrFeeClaim burn branch for ClaimType.FEE; _claim: BURN_ADDRESS.transfer(burnAmountWei).",
+      "fix": "Label it 'Gross reward (provider fees may be partly burned)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "claimProxy: the proof fields are separate parallel lists the signer cannot pair.",
+      "evidence": "Fields '#._proofs.[].body.beneficiary.[-20:]', '#._proofs.[].body.amount', '#._proofs.[].body.claimType'.",
+      "fix": "Group them per proof on '#._proofs.[]'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "autoClaim(address[] _rewardOwners, uint24 _rewardEpochId, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)",
+    "effects": [
+     "Initialises the weight-based reward pools in the proofs; Direct and Fee proofs are skipped because the owner is passed as address(0).",
+     "For each reward owner, claims weight-based rewards up to _rewardEpochId, plus the WNAT rewards of the owner's claim address (PDA), and marks those epochs claimed.",
+     "Deducts the executor fee from each owner's reward and deposits the rest as WFLR to the owner's claim address set in ClaimSetupManager, not necessarily the owner.",
+     "Pays the signer (executor) executorFeeValue times the number of owners, in native FLR.",
+     "Reverts if any owner's reward is below the executor fee."
+    ],
+    "shown": "Auto-claim and wrap rewards for the listed owners, with the last epoch and the proof details.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "autoClaim: the executor fee paid in FLR to the signer is not mentioned anywhere on the screen.",
+      "evidence": "RewardManager.sol autoClaim: rewardAmount -= executorFeeValue; ... _transferOrWrap(msg.sender, executorFeeValue * _rewardOwners.length, false). The intent 'Auto-claim and wrap rewards for {_rewardOwners.[]}' says nothing about a fee.",
+      "fix": "Use the intent 'Auto-claim rewards for {_rewardOwners.[]} as WFLR and collect the executor fee in FLR'. The fee amount comes from storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "autoClaim: rewards go to each owner's claim address from ClaimSetupManager, not necessarily the listed owner.",
+      "evidence": "autoClaim: (claimAddresses, executorFeeValue) = claimSetupManager.getAutoClaimAddressesAndExecutorFee(msg.sender, _rewardOwners); _transferOrWrap(claimAddress, rewardAmount, true).",
+      "fix": "None possible beyond wording, e.g. 'to their claim addresses'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "autoClaim: 'Proof amount' implies a payout, but proofs only initialise pools and Direct/Fee proofs are ignored.",
+      "evidence": "autoClaim calls _processProofs(address(0), address(0), _proofs, ...), so the DIRECT/FEE branch is skipped (`if (_rewardOwner != address(0))`) and the other types are only initialised.",
+      "fix": "Rename it 'Pool amount (initialisation only)' and group the proof fields per proof.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "autoClaim: 'Stake rewards up to epoch' omits delegation rewards and that earlier epochs are claimed too.",
+      "evidence": "_claimWeightBasedRewards loops from the next claimable epoch to _rewardEpochId over WNAT, MIRROR and CCHAIN.",
+      "fix": "Use 'Claim all rewards up to epoch'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 45
+   },
+   {
+    "key": "initialiseWeightBasedClaims((bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)",
+    "effects": [
+     "Verifies each weight-based proof against the epoch's Merkle root and records the beneficiary's reward pool amount and weight; no funds move.",
+     "Direct and Fee proofs are skipped; any caller may do this for any beneficiary."
+    ],
+    "shown": "Initialise claims for the proof beneficiaries, with each proof's amount and claim type.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "initialiseWeightBasedClaims: 'Proof amount' with an EOA-only beneficiary suggests a payment, but nothing moves.",
+      "evidence": "RewardManager.sol _initialiseWeightBasedClaim only sets state.initialised, state.amount and state.weight; the descriptor's Beneficiary field has types ['eoa'] while for MIRROR the beneficiary is a node id.",
+      "fix": "Rename it 'Pool amount (no transfer)' and widen the types or relabel 'Provider / node'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "initialiseWeightBasedClaims: the proof fields are parallel lists and the proof epoch is hidden.",
+      "evidence": "Fields '#._proofs.[].body.beneficiary.[-20:]', '#._proofs.[].body.amount', '#._proofs.[].body.claimType'; '#._proofs.[].body.rewardEpochId' has visible: never.",
+      "fix": "Group them per proof on '#._proofs.[]' and show the epoch.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.552,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 123,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "claim(address _rewardOwner, address _recipient, uint24 _rewardEpochId, bool _wrap, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "claim: a Provider-fee proof can be partly burned, so the recipient may get less than 'Proof amount'.",
+   "comprehension": null
+  },
+  "claimProxy(address _msgSender, address _rewardOwner, address _recipient, uint24 _rewardEpochId, bool _wrap, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "claimProxy: a Provider-fee proof can be partly burned, so the recipient may get less than 'Proof amount'.",
+   "comprehension": null
+  },
+  "autoClaim(address[] _rewardOwners, uint24 _rewardEpochId, (bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "autoClaim: the executor fee paid in FLR to the signer is not mentioned anywhere on the screen.",
+   "comprehension": null
+  },
+  "initialiseWeightBasedClaims((bytes32[] merkleProof, (uint24 rewardEpochId, bytes20 beneficiary, uint120 amount, uint8 claimType) body)[] _proofs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "initialiseWeightBasedClaims: 'Proof amount' with an EOA-only beneficiary suggests a payment, but nothing moves.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 92,
+  "clarity": 49,
+  "functions": "1B 3C",
+  "incomplete": false,
+  "worst": "claim: a Provider-fee proof can be partly burned, so the recipient may get less than 'Proof amount'."
+ }
+}

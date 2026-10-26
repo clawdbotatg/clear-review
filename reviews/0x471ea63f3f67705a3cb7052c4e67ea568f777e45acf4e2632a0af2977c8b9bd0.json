@@ -1,0 +1,146 @@
+{
+ "hash": "0x471ea63f3f67705a3cb7052c4e67ea568f777e45acf4e2632a0af2977c8b9bd0",
+ "file": "registry/gondi/calldata-AuctionLoanLiquidator-v3_2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe6ef33216348ddb2303a19bb970e83d6508faba5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "placeBid(address _nftAddress, uint256 _tokenId, (address loanAddress, uint256 loanId, uint256 highestBid, uint256 triggerFee, uint256 minBid, address highestBidder, uint96 duration, address asset, uint96 startTime, address originator, uint96 lastBidTime, bytes32 loanHash, uint96 buyoutWindow) _auction, uint256 _bid)",
+    "effects": [
+     "The signer sends _bid of _auction.asset (pulled from their allowance) to the liquidator contract, which holds it in escrow as the new top bid.",
+     "The signer becomes the auction's highest bidder. If the signer wins and the auction is settled, they get the collateral NFT (_nftAddress #_tokenId); if someone outbids them, they get the bid back (pushed to them, or held as a pending refund they can claim).",
+     "The previous top bidder gets _auction.highestBid back from the contract. That is the signer only when the signer was already the top bidder.",
+     "The bid must be at least the effective minimum bid and more than 105% of the current top bid, or the call reverts. It also reverts while the main lender's buyout window is open."
+    ],
+    "shown": "\"Bid 1.2 WETH for Quirkies #4543\", with the bid amount and token, the NFT, the loan contract, the loan ID and the current top bid in WETH.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "placeBid: the funds go to the liquidator, but the only address shown is 'Loan contract'.",
+      "evidence": "AuctionLoanLiquidator.placeBid: token.safeTransferFrom(newBidder, address(this), _bid); descriptor shows _auction.loanAddress labelled 'Loan contract' (case 0: 0xE365…Ac0a), which is not where the bid goes.",
+      "fix": "Optionally say in the intent that the bid is held in escrow by the liquidator and refunded if outbid, e.g. 'Bid {_bid} for {_tokenId} (refunded if outbid)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "placeBid: the intent does not say the bid is escrowed, refunded if outbid, and wins the NFT only after settlement.",
+      "evidence": "AuctionLoanLiquidator.placeBid refunds the previous highestBidder with trySafeTransfer or _pendingRefunds; the NFT moves only in settleAuction. Intent: 'Bid on liquidation auction'.",
+      "fix": "Add a short note to the intent, e.g. 'Bid {_bid} for {_tokenId}; refunded if outbid'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "settleAuction((address loanAddress, uint256 loanId, uint256 highestBid, uint256 triggerFee, uint256 minBid, address highestBidder, uint96 duration, address asset, uint96 startTime, address originator, uint96 lastBidTime, bytes32 loanHash, uint96 buyoutWindow) _auction, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee, bool lenderRefinanceDisabled) _loan)",
+    "effects": [
+     "The collateral NFT (_loan.nftCollateralAddress #_loan.nftCollateralTokenId) goes from the liquidator to _auction.highestBidder (the signer only if the signer is the winner).",
+     "The signer, as settler, receives a trigger fee of highestBid * _auction.triggerFee / 10000 in _auction.asset. The originator receives the same amount.",
+     "The rest (highestBid - 2 * triggerFee) is approved to the LiquidationDistributor and paid out by it to the loan's lenders and borrower. The signer receives part of it if they are a lender or the borrower.",
+     "The signer pays nothing. The auction record is deleted."
+    ],
+    "shown": "\"Settle auction of Quirkies #4543\", with the loan contract, loan ID, winning bid in WETH, winner, collateral NFT, loan principal, borrower, lenders and a raw 'No lender refinance: true' flag.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "settleAuction: the settler's trigger-fee reward is paid to the signer but its rate is hidden.",
+      "evidence": "AuctionLoanLiquidator.settleAuction: triggerFee = highestBid.mulDivDown(_auction.triggerFee, _BPS); asset.safeTransfer(msg.sender, triggerFee); descriptor: _auction.triggerFee 'Trigger fee' visible: never. In case 1 the auction's triggerFee is 0, so nothing is paid there.",
+      "fix": "Show _auction.triggerFee as 'Settler reward' using unit format with base 'bps' (or decimals 2 with a '%' unit), or state it in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "settleAuction: the sentence does not say who receives the NFT.",
+      "evidence": "settleAuction: ERC721(collateralAddress).transferFrom(address(this), _auction.highestBidder, tokenId); interpolatedIntent 'Settle auction of {_loan.nftCollateralTokenId}'. The winner appears only as a separate 'Winner' field.",
+      "fix": "Use interpolatedIntent 'Settle auction: {_loan.nftCollateralTokenId} to {_auction.highestBidder} for {_auction.highestBid}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "settleAuction: a raw, double-negative 'No lender refinance' flag is shown that has no bearing on settlement.",
+      "evidence": "Descriptor field _loan.lenderRefinanceDisabled 'No lender refinance' format raw, visible always (case 1 shows 'true'). settleAuction only uses it through the loan hash check.",
+      "fix": "Set visible: never on _loan.lenderRefinanceDisabled.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "settleAuction: how the LiquidationDistributor pays out lenders and borrower is decided by code outside the calldata.",
+      "evidence": "settleAuction: _liquidationDistributor.distribute(_auction.loanAddress, proceeds, _loan); the distributor address comes from storage, and its source is not in the directory.",
+      "fix": "None in the descriptor. The winning bid and loan principal are shown as context.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 72
+   }
+  ],
+  "couldNotCheck": [
+   "settleAuction calls _liquidationDistributor.distribute (0x1C495e474C63B5B095173ca0bd9DE1B9F002D75d), whose source is not in the directory. It decides how the proceeds are split between lenders and the borrower, which matters when the signer is one of them."
+  ]
+ },
+ "cost": 0.38,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 75,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "placeBid(address _nftAddress, uint256 _tokenId, (address loanAddress, uint256 loanId, uint256 highestBid, uint256 triggerFee, uint256 minBid, address highestBidder, uint96 duration, address asset, uint96 startTime, address originator, uint96 lastBidTime, bytes32 loanHash, uint96 buyoutWindow) _auction, uint256 _bid)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "settleAuction((address loanAddress, uint256 loanId, uint256 highestBid, uint256 triggerFee, uint256 minBid, address highestBidder, uint96 duration, address asset, uint96 startTime, address originator, uint96 lastBidTime, bytes32 loanHash, uint96 buyoutWindow) _auction, (address borrower, uint256 nftCollateralTokenId, address nftCollateralAddress, address principalAddress, uint256 principalAmount, uint256 startTime, uint256 duration, (uint256 loanId, uint256 floor, uint256 principalAmount, address lender, uint256 accruedInterest, uint256 startTime, uint256 aprBps)[] tranche, uint256 protocolFee, bool lenderRefinanceDisabled) _loan)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 66,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "settleAuction: the settler's trigger-fee reward is paid to the signer but its rate is hidden.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 95,
+  "clarity": 76,
+  "functions": "1A 1B",
+  "incomplete": true,
+  "worst": "settleAuction: the settler's trigger-fee reward is paid to the signer but its rate is hidden."
+ }
+}

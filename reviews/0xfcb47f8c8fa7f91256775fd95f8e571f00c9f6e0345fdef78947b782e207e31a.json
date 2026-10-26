@@ -1,0 +1,195 @@
+{
+ "hash": "0xfcb47f8c8fa7f91256775fd95f8e571f00c9f6e0345fdef78947b782e207e31a",
+ "file": "registry/morpho/calldata-clearstar-REECOUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xd1e9242e075db4bdd3f3c721d7d5fd4180a94a7e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer by transferFrom into the vault, using an existing USDC allowance (VaultV2.enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints REECOUSDC vault shares to `onBehalf`. The amount is previewDeposit(assets) at the current share price after fees accrue, and the calldata has no minimum."
+    ],
+    "shown": "Deposit the stated USDC amount into the Clearstar REECOUSDC vault, with the shares sent to the stated address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown; the vault's exchange rate decides it.",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets);` reads the share price from storage and adapters, and the calldata has no shares or minimum. The descriptor only shows a constant 'Share ticker'.",
+      "fix": "None possible from calldata. The label could say shares are received at the current vault price.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "deposit: the 'Share ticker' constant field shows a bare symbol with no amount, which adds little.",
+      "evidence": "descriptor.json deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'} renders 'REECOUSDC' (case 0).",
+      "fix": "Fold it into the shares label, e.g. 'Send REECOUSDC shares to', and drop the separate field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The signer sends 1 USDC, which is shown exactly. The shares were minted to 0xdEaD (not the signer), and the screen states 'Send shares to 0x…dEaD'. The reader understood both."
+     }
+    ],
+    "glance": 88,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` USDC from the vault to `receiver` (VaultV2.exit: safeTransfer(asset, receiver, assets)).",
+     "Burns REECOUSDC shares from `onBehalf`. The amount is previewWithdraw(assets), rounded up at the current share price.",
+     "When the caller is not `onBehalf`, spends the caller's REECOUSDC share allowance from `onBehalf` by the number of shares burned (unless that allowance is max)."
+    ],
+    "shown": "Withdraw exactly the stated USDC to the receiver, with the shares taken from the stated owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown; the vault's price decides it.",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 1: the signer lost 1097.664804116253852254 REECOUSDC, and the screen shows only 1101 USDC and Owner.",
+      "fix": "None possible from calldata. The Owner label could say 'Shares burned from'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "withdraw: the intent does not say vault shares are given up from the owner.",
+      "evidence": "interpolatedIntent 'Withdraw {#.assets} to {#.receiver}'. The Owner field is shown separately.",
+      "fix": "Use something like 'Withdraw {#.assets} to {#.receiver} from {#.onBehalf}'s shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ]
+     }
+    ],
+    "glance": 85,
+    "depth": 82
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` REECOUSDC from `onBehalf`. When the caller is not `onBehalf`, this spends the caller's share allowance.",
+     "Sends USDC to `receiver`. The amount is previewRedeem(shares) at the current share price, and the calldata has no minimum."
+    ],
+    "shown": "Redeem the stated REECOUSDC shares to the receiver, from the stated owner. The screen does not say which asset comes back.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem: the screen never says USDC is received, though the payout asset is the fixed constant USDC.",
+      "evidence": "descriptor redeem fields: 'Shares to redeem', 'To', 'Owner'. The intent is 'Redeem {#.shares} to {#.receiver}'. VaultV2.exit: safeTransfer(asset, receiver, assets) where asset = USDC (meta immutables 0xa0b8…eb48). Case 2: the reader says 'likely USDC, amount not shown'.",
+      "fix": "Label the receiver 'Receive USDC at', or set the intent to 'Redeem {#.shares} for USDC to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown and has no minimum; the vault's share price decides it.",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares);`. Case 2: the signer received 100.001013 USDC, and this amount appears nowhere on the screen.",
+      "fix": "None possible from calldata. Only a router with a minimum-out could bound it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ]
+     }
+    ],
+    "glance": 70,
+    "depth": 72
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.379,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 75,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says USDC is received, though the payout asset is the fixed constant USDC.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 80,
+  "functions": "1A 2B",
+  "incomplete": false,
+  "worst": null
+ }
+}

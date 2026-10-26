@@ -1,0 +1,185 @@
+{
+ "hash": "0x8fecfec38cf3525867fa47cd4d577675647e5dee336acbc1e124d0ae2412639b",
+ "file": "registry/safe/eip712-Safe-1.3.0.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
+  },
+  {
+   "chainId": 10,
+   "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
+  },
+  {
+   "chainId": 56,
+   "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
+  },
+  {
+   "chainId": 137,
+   "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
+  },
+  {
+   "chainId": 1,
+   "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
+  },
+  {
+   "chainId": 10,
+   "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
+  },
+  {
+   "chainId": 56,
+   "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
+  },
+  {
+   "chainId": 137,
+   "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x69f4d1788e39c87893c980c06edf4b7f686e2938"
+  },
+  {
+   "chainId": 7777777,
+   "address": "0xd9db270c1b5e3bd161e8c8503c55ceabee709552"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "effects": [
+     "The signature authorizes the Safe whose address is the EIP-712 verifyingContract (domainSeparator uses address(this), the Safe proxy) to execute one transaction at the given nonce.",
+     "With operation 0, the Safe calls `to` and sends `value` in native currency with `data`.",
+     "With operation 1, the Safe delegatecalls `to`: the code of `to` runs in the Safe's own context, with full access to its balances, owners, modules and storage; `value` is not sent.",
+     "When gasPrice > 0, the Safe pays (gasUsed + baseGas) × gasPrice in gasToken (native currency if zero, price capped at tx.gasprice) to refundReceiver, or to tx.origin when refundReceiver is zero.",
+     "The gas payment is taken even when the inner call fails; with safeTxGas or gasPrice non-zero the inner call may fail and the nonce is still consumed.",
+     "safeTxGas sets the gas given to the inner call when gasPrice > 0, and so bounds gasUsed and the refund."
+    ],
+    "shown": "An intent 'Safe', the target, the native value, the operation type as 'Call' or 'Delegate Call', the inner call decoded as a call to `to`, and baseGas, gasPrice, gasToken and refundReceiver as raw values; safeTxGas and nonce are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "SafeTx is bound to the Safe 1.3.0 singletons, but each Safe signs with its own proxy address as domain.",
+      "evidence": "GnosisSafe.sol domainSeparator(): `return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));` — `this` is the Safe proxy at runtime. descriptor.json context.eip712.deployments lists only 0xd9Db270c…709552 (GnosisSafe singleton) and 0x69f4D178…2938 (GnosisSafeL2 singleton). Cases 0 and 1 sign with verifyingContract = a singleton, a domain that no real Safe accepts (the singleton has threshold 1 and no owners).",
+      "fix": "Bind to Safe proxies instead of the singletons, for example with a factory constraint on the Safe proxy factory and its ProxyCreation event, and rewrite the test cases with a real Safe proxy as verifyingContract.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "SafeTx decodes data as a call to `to` even when operation 1 makes it a delegatecall in the Safe.",
+      "evidence": "Executor.execute / GnosisSafe.execTransaction: `success = execute(to, value, data, operation, ...)`; operation DelegateCall runs `to`'s code in the Safe's context. descriptor field `data`: format calldata, `calleePath: \"to\"`, `amountPath: \"value\"`, `spenderPath: \"@.to\"`. Only the enum field 'Operation type' says 'Delegate Call'; the intent is 'Safe'.",
+      "fix": "Change the intent to warn about delegate calls (e.g. 'Execute Safe transaction (check operation type)'), and do not decode `data` as a normal call to `to` when operation is 1; add a test case with operation 1.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "SafeTx shows the gas refund as raw gasPrice, gasToken and baseGas, so the fee the Safe pays is unreadable.",
+      "evidence": "GnosisSafe.handlePayment: `payment = gasUsed.add(baseGas).mul(gasPrice)`; `transferToken(gasToken, receiver, payment)` or `receiver.send(payment)`. Descriptor: `baseGas` 'Gas amount' (raw), `gasPrice` 'Gas price' (raw), `gasToken` 'Gas token' (raw), `refundReceiver` 'Gas receiver' (raw).",
+      "fix": "Show gasPrice as tokenAmount with `tokenPath: \"gasToken\"` and `nativeCurrencyAddress` set to the zero address; show gasToken and refundReceiver as addressName; relabel baseGas as 'Base gas (added to gas used)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "SafeTx hides safeTxGas, which bounds the refund and lets the inner call fail while the fee is still paid.",
+      "evidence": "GnosisSafe.execTransaction: `execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas)`; `require(success || safeTxGas != 0 || gasPrice != 0, \"GS013\")`. Descriptor: `{\"label\": \"Safe Tx Gas\", \"path\": \"safeTxGas\", \"visible\": \"never\"}`.",
+      "fix": "Make safeTxGas visible (raw, label 'Gas limit for inner call') or at least visible when gasPrice is not zero.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "SafeTx shows a zero refundReceiver literally, but the code then pays tx.origin.",
+      "evidence": "GnosisSafe.handlePayment: `address payable receiver = refundReceiver == address(0) ? payable(tx.origin) : refundReceiver;`. Cases 0 and 1 render 'Gas receiver: 0x0000000000000000000000000000000000000000' and 'Gas token: 0x000…000' without meaning.",
+      "fix": "Use addressName for refundReceiver with a label such as 'Gas refund to (zero = executor)', and nativeCurrencyAddress for gasToken.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "SafeTx intent 'Safe' does not say that a transaction is executed from the Safe.",
+      "evidence": "descriptor.json: `\"intent\": \"Safe\"`, no interpolatedIntent. The function authorizes the Safe to call or delegatecall `to` with `value` native currency.",
+      "fix": "Change the intent to 'Execute Safe transaction' and add an interpolatedIntent such as 'Send {value} to {to} from Safe'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "SafeTx tests cover only plain ETH transfers with operation 0 and gasPrice 0.",
+      "evidence": "cases/0.json and cases/1.json: `data: 0x`, `operation: 0`, `gasPrice: 0`, `gasToken`/`refundReceiver` zero; both use a singleton as verifyingContract. No case covers delegatecall, nested calldata, or a gas refund.",
+      "fix": "Add cases with a real Safe proxy domain: an ERC-20 transfer in data, operation 1, and a non-zero gasPrice with a gasToken.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 15,
+    "depth": 45
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.402,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 78,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 15,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 5,
+   "worst": "SafeTx is bound to the Safe 1.3.0 singletons, but each Safe signs with its own proxy address as domain.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 0,
+  "clarity": 15,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "SafeTx is bound to the Safe 1.3.0 singletons, but each Safe signs with its own proxy address as domain."
+ }
+}

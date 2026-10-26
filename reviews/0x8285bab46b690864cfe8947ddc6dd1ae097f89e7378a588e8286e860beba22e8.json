@@ -1,0 +1,100 @@
+{
+ "hash": "0x8285bab46b690864cfe8947ddc6dd1ae097f89e7378a588e8286e860beba22e8",
+ "file": "registry/permit/eip712-permit-polygon-usdt.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 137,
+   "address": "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Sets the owner's USDT0 allowance for the spender to exactly `value`, replacing any earlier allowance (`_approve(owner, spender, value)`).",
+     "Uses up the owner's current permit nonce (`nonces[owner]++`).",
+     "The signature works until `deadline`; a deadline of 0 means it never expires (`deadline == 0 || now <= deadline`).",
+     "Anyone who holds the signature can submit it. No tokens move until the spender calls transferFrom."
+    ],
+    "shown": "\"Authorize spending of tokens\" with the spender as a raw address, the max spending amount in the token (or \"Unlimited\" at 2^255 or more), a \"Valid until\" date and the owner. The nonce is hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "Permit descriptor binds to domain name \"Tether USD\", but the contract signs under domain name \"USDT0\" with a salt.",
+      "evidence": "descriptor.json context.eip712.domain: {\"name\": \"Tether USD\", \"version\": \"1\"}. UChildUSDT0.upgradeToUSDT0 sets the name with `_setDomainSeperator(\"USDT0\");`. EIP712Base._setDomainSeperator hashes `EIP712_DOMAIN_TYPEHASH = keccak256(\"EIP712Domain(string name,string version,address verifyingContract,bytes32 salt)\")` with `keccak256(bytes(name))` and `bytes32(getChainId())` as the salt. UChildUSDT0.permit checks the signature against this `domainSeperator`. The code never sets the name \"Tether USD\", and the older UChildERC20 implementation had no permit function.",
+      "fix": "Set context.eip712.domain.name to the domain name the deployed contract uses (\"USDT0\", per upgradeToUSDT0). Check it on chain against DOMAIN_SEPARATOR(). Leave out chainId, or match the salt-based domain the contract uses.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Permit shows deadline 0 as a 1970 date, but the code treats 0 as never expiring.",
+      "evidence": "UChildUSDT0.permit: `require(deadline == 0 || now <= deadline, \"USDT0: PERMIT-EXPIRED\");`. descriptor field `deadline` 'Valid until', format date, encoding timestamp, with no special value for 0.",
+      "fix": "Show deadline 0 as \"No expiry\", for example with a threshold-style message or a label, and add a test case with deadline 0.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Permit intent is generic and does not name the spender or the amount being approved.",
+      "evidence": "descriptor intent \"Authorize spending of tokens\"; interpolatedIntent null. The effect is _approve(owner, spender, value) on USDT0.",
+      "fix": "Add an interpolatedIntent such as \"Allow {spender} to spend {value}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "Permit format has no test case, so the domain and the Unlimited/expiry renderings are never checked.",
+      "evidence": "FORMATS.md: \"cases: 0 (no tx)\".",
+      "fix": "Add EIP-712 test messages with the real domain: one with a finite value and deadline, one with an unlimited value and one with deadline 0.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.252,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 40,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 3,
+   "worst": "Permit descriptor binds to domain name \"Tether USD\", but the contract signs under domain name \"USDT0\" with a salt.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 42,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "Permit descriptor binds to domain name \"Tether USD\", but the contract signs under domain name \"USDT0\" with a salt."
+ }
+}

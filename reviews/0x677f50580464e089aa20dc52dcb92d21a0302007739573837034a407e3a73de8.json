@@ -1,0 +1,509 @@
+{
+ "hash": "0x677f50580464e089aa20dc52dcb92d21a0302007739573837034a407e3a73de8",
+ "file": "registry/flyingtulip/calldata-SessionManager.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2daf4b445e7d659100b22a15c3eeb10e64ac5dc9"
+  },
+  {
+   "chainId": 1,
+   "address": "0xf9f3ddf2e96cabef94e2634c326dc6dde99360f8"
+  },
+  {
+   "chainId": 56,
+   "address": "0xc85cb743f72b3a9bb594faa7d46ee1efc61b7a42"
+  },
+  {
+   "chainId": 146,
+   "address": "0x2daf4b445e7d659100b22a15c3eeb10e64ac5dc9"
+  },
+  {
+   "chainId": 146,
+   "address": "0x109ae72778a0260571b9767477204f1ce41fbdff"
+  },
+  {
+   "chainId": 146,
+   "address": "0x52ef449d44cc4205fa44bf644dee15611fc30734"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x176592c8ed3f2d94ce4c3f1a4cff7d068176ac54"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "createSession(address delegate, uint48 validAfter, uint48 validUntil, uint32 maxCalls, uint16 maxFeeBps, (address token, uint256 limit)[] limits, bytes32 salt)",
+    "effects": [
+     "Creates a session owned by the signer (msg.sender) that lets `delegate` sign calls which allowlisted target contracts run against the signer's funds.",
+     "Sets a per-token spend allowance for the session for each token in `limits`; a limit of type(uint256).max is never decremented (unlimited).",
+     "Bounds the session by the validAfter/validUntil window (validUntil 0 = no expiry) and maxCalls (0 = unlimited calls).",
+     "Lets the relayer take a fee of up to maxFeeBps of the output on each call.",
+     "Which contracts the delegate can drive is set by the SessionManager admin (allowedTarget), not by this call."
+    ],
+    "shown": "\"Session {delegate}\" with the delegate, the validity dates, max calls, the max fee in bps and each token limit rendered through its token.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "createSession intent does not say the delegate gets power to spend the signer's tokens.",
+      "evidence": "descriptor intent \"Create session\", interpolatedIntent \"Session {delegate}\"; SessionManager.sol header: delegate signs per-call intents consumed by targets, and validateAndConsume decrements tokenAllowance of the owner's session.",
+      "fix": "Use an interpolatedIntent like \"Let {delegate} spend your tokens until {validUntil}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createSession shows validUntil 0 and maxCalls 0 literally, but they mean no expiry and unlimited calls.",
+      "evidence": "SessionManager.sol SessionConfig: `uint48 validUntil; // 0 = no expiry`, `uint32 maxCalls; // 0 = unlimited`; descriptor formats validUntil as date (0 renders as 1970) and maxCalls as raw.",
+      "fix": "Add a threshold/message or label (\"Valid until (0 = never expires)\", \"Max calls (0 = unlimited)\").",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createSession token limit can render as a bare integer with no token, because limits.[].token is never shown.",
+      "evidence": "case 0 screen: Token limit \"100000000000000000000\" for token 0xf7d85ec4…9c9c; descriptor `limits.[]` visible never, no field for `limits.[].token`.",
+      "fix": "Add a `limits.[].token` addressName/token field so the asset is visible even when its metadata does not resolve.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createSession cannot show which target contracts the delegate may drive; the admin sets them in storage.",
+      "evidence": "SessionManager.sol validateAndConsume: `if (!allowedTarget[msg.sender]) revert TargetNotAllowed`; allowedTarget is set by setAllowedTarget onlyOwner.",
+      "fix": "None in the descriptor; it could be named in metadata or the intent text.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "acceptOwnership()",
+    "effects": [
+     "Makes the signer, who must be the pending owner, the owner of the SessionManager, with control over which target contracts may consume user sessions."
+    ],
+    "shown": "\"Accept ownership\" under the generic intent \"Manage session manager\", with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "acceptOwnership uses the generic intent \"Manage session manager\" shared by all admin functions.",
+      "evidence": "descriptor acceptOwnership intent \"Manage session manager\"; interpolatedIntent \"Accept ownership\".",
+      "fix": "Set intent to \"Accept ownership of session manager\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "createSessionBySig(address owner_, address delegate, uint48 validAfter, uint48 validUntil, uint32 maxCalls, uint16 maxFeeBps, (address token, uint256 limit)[] limits, bytes32 salt, bytes ownerSignature)",
+    "effects": [
+     "Using owner_'s EIP-712 signature, creates a session for owner_ (not the caller) that lets `delegate` sign calls which allowlisted targets run against owner_'s funds.",
+     "Sets per-token session allowances from `limits` (max = unlimited), the validity window (validUntil 0 = no expiry), maxCalls (0 = unlimited) and the max relayer fee.",
+     "Moves none of the signer's (relayer's) assets."
+    ],
+    "shown": "\"Sig session {delegate}\" with the owner, delegate, dates, max calls, max fee in bps and each token limit with its token.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "createSessionBySig interpolated intent \"Sig session {delegate}\" is jargon and omits the owner whose funds are delegated.",
+      "evidence": "descriptor interpolatedIntent \"Sig session {delegate}\"; case 1 reader unsure \"Why the Owner differs from my wallet address, and whose funds the session controls\".",
+      "fix": "Use \"Create session for {owner_}: {delegate} may spend listed tokens\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createSessionBySig shows validUntil 0 and maxCalls 0 literally, but they mean no expiry and unlimited calls.",
+      "evidence": "SessionManager.sol SessionConfig comments `0 = no expiry`, `0 = unlimited`; descriptor date and raw formats.",
+      "fix": "Add a message/threshold or explanatory labels.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createSessionBySig token limit has no token field, so an unresolved token shows a bare integer.",
+      "evidence": "descriptor `limits.[]` visible never, no `limits.[].token` field; same layout as createSession, where case 0 rendered a raw limit.",
+      "fix": "Add a `limits.[].token` field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined tx has no token movements. The signer is a relayer, and the session belongs to owner 0x07F9…aA15, which the screen shows. The reader correctly saw four unlimited token limits for a 24h, 100-call session."
+     }
+    ],
+    "glance": 40,
+    "depth": 70
+   },
+   {
+    "key": "invalidateNonceBySig(bytes32 sessionId, uint256 nonce, uint256 deadline, address executor, bytes delegateSignature)",
+    "effects": [
+     "Using the delegate's signature, increments the session's nonce, cancelling the pending delegate-signed call that uses this nonce; the session stays active.",
+     "The signer must be `executor`; nothing of the signer's moves."
+    ],
+    "shown": "\"Invalidate nonce {nonce}\" with the session ID as a raw hash, the nonce and the executor.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "invalidateNonceBySig identifies the session only by a raw bytes32 id; the owner and delegate cannot be shown.",
+      "evidence": "descriptor field sessionId format raw; sessions[sessionId] holds owner/delegate in storage.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "renounceOwnership()",
+    "effects": [
+     "Sets the SessionManager owner to the zero address for good, freezing the target allowlist; the signer loses admin rights."
+    ],
+    "shown": "\"Renounce ownership\" under the generic intent \"Manage session manager\".",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "renounceOwnership does not say the step is permanent and freezes the target allowlist.",
+      "evidence": "OZ Ownable.renounceOwnership `_transferOwnership(address(0))`; descriptor interpolatedIntent \"Renounce ownership\".",
+      "fix": "Say \"Renounce ownership permanently (no admin)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "revokeSession(bytes32 sessionId)",
+    "effects": [
+     "Marks the signer's session as revoked, so its delegate can no longer have calls validated; only the session owner can call this."
+    ],
+    "shown": "\"Revoke {sessionId}\" with the session ID as a raw hash.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "revokeSession shows only a raw session hash; which delegate loses access is in storage.",
+      "evidence": "descriptor sessionId format raw; case 2 reader unsure \"What the session was allowed to do, and who held it\".",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token effects. The reader correctly understood that a session is cancelled."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "revokeSessionBySig(bytes32 sessionId, uint256 deadline, bytes ownerSignature)",
+    "effects": [
+     "Using the owner's signature, marks the session as revoked so its delegate can no longer act; the signer (relayer) moves no assets."
+    ],
+    "shown": "\"Revoke sig {sessionId}\" with the session ID as a raw hash.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "revokeSessionBySig interpolated intent \"Revoke sig\" reads as revoking a signature, not a session.",
+      "evidence": "descriptor interpolatedIntent \"Revoke sig {sessionId}\"; code `revoked[sessionId] = true` in _revokeSessionBySig.",
+      "fix": "Use \"Revoke session {sessionId} (owner signed)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   },
+   {
+    "key": "setAllowedTarget(address target, bool allowed)",
+    "effects": [
+     "Admin only: adds a contract to or removes it from the allowlist of targets that may consume any user's session and spend its token allowances."
+    ],
+    "shown": "\"Allow {target}: {allowed}\" with the target and a raw true/false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setAllowedTarget shows the bool raw; \"Allow X: false\" actually disallows the target.",
+      "evidence": "descriptor interpolatedIntent \"Allow {target}: {allowed}\", field allowed format raw; case 8 screen \"Allow 0xAa48…D23C: true\".",
+      "fix": "Use an enum/label mapping true→\"Allow\", false→\"Remove\", and an intent like \"Set session target {target}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "setAllowedTargets(address[] targets, bool allowed)",
+    "effects": [
+     "Admin only: adds each listed contract to or removes it from the allowlist of targets that may consume user sessions and spend their token allowances."
+    ],
+    "shown": "\"Allow targets: {allowed}\" with each target address and a raw true/false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setAllowedTargets intent \"Allow targets: true\" shows a raw bool and reads wrong for false.",
+      "evidence": "descriptor interpolatedIntent \"Allow targets: {allowed}\"; case 9 screen \"Allow targets: true\".",
+      "fix": "Map the bool to Allow/Remove and say \"Allow session targets\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 9,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token effects. The reader correctly saw two addresses added to the allowlist."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "transferOwnership(address newOwner)",
+    "effects": [
+     "Admin only (Ownable2Step): sets newOwner as pending owner. Ownership moves only when newOwner calls acceptOwnership; until then the signer stays owner."
+    ],
+    "shown": "\"Transfer to {newOwner}\" with the new owner address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transferOwnership says \"Transfer to\" without naming ownership, and implies an immediate change that is only a nomination.",
+      "evidence": "descriptor interpolatedIntent \"Transfer to {newOwner}\"; Ownable2Step.transferOwnership sets `_pendingOwner` only. Case 5 reader: \"You likely lose owner control\".",
+      "fix": "Use \"Propose {newOwner} as new owner (must accept)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token effects. The reader thought control passes right away; it does so only after acceptance."
+     }
+    ],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "validateAndConsume(address spendToken, uint256 spendAmount, (bytes32 sessionId, bytes32 dataHash, uint256 nonce, uint256 deadline, address executor, uint256 feeAmount) call, bytes delegateSignature, address executor)",
+    "effects": [
+     "Reverts unless the caller is an allowlisted target contract; an ordinary wallet cannot succeed.",
+     "Uses one nonce of the session given in call.sessionId and lowers that session's allowance for spendToken by spendAmount (unless the allowance is unlimited).",
+     "Moves no tokens itself; it returns the owner, the delegate and maxFeeBps to the target."
+    ],
+    "shown": "\"Validate {spendAmount}\" with the spend amount in spendToken; the session, the executor and the fee are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "validateAndConsume can only be called by an allowlisted target contract; a wallet signer always reverts.",
+      "evidence": "SessionManager.sol validateAndConsume: `if (!allowedTarget[msg.sender]) revert TargetNotAllowed(msg.sender);`",
+      "fix": "Consider dropping this format, or note in the intent that it is a contract-only call.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "validateAndConsume \"Validate 25 FT\" suggests tokens are spent; only the session's allowance accounting changes, and the session is hidden.",
+      "evidence": "code `tokenAllowance[call.sessionId][spendToken] = allowance - spendAmount`, no transfer; descriptor call.sessionId and call.feeAmount visible never; case 10 screen \"Validate 25 FT\".",
+      "fix": "Use \"Consume session allowance of {spendAmount}\" and show call.sessionId.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.598,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 220,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "createSession(address delegate, uint48 validAfter, uint48 validUntil, uint32 maxCalls, uint16 maxFeeBps, (address token, uint256 limit)[] limits, bytes32 salt)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "createSession intent does not say the delegate gets power to spend the signer's tokens.",
+   "comprehension": null
+  },
+  "acceptOwnership()": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "createSessionBySig(address owner_, address delegate, uint48 validAfter, uint48 validUntil, uint32 maxCalls, uint16 maxFeeBps, (address token, uint256 limit)[] limits, bytes32 salt, bytes ownerSignature)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "createSessionBySig interpolated intent \"Sig session {delegate}\" is jargon and omits the owner whose funds are delegated.",
+   "comprehension": null
+  },
+  "invalidateNonceBySig(bytes32 sessionId, uint256 nonce, uint256 deadline, address executor, bytes delegateSignature)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "renounceOwnership()": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "revokeSession(bytes32 sessionId)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "revokeSessionBySig(bytes32 sessionId, uint256 deadline, bytes ownerSignature)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "revokeSessionBySig interpolated intent \"Revoke sig\" reads as revoking a signature, not a session.",
+   "comprehension": null
+  },
+  "setAllowedTarget(address target, bool allowed)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAllowedTarget shows the bool raw; \"Allow X: false\" actually disallows the target.",
+   "comprehension": null
+  },
+  "setAllowedTargets(address[] targets, bool allowed)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAllowedTargets intent \"Allow targets: true\" shows a raw bool and reads wrong for false.",
+   "comprehension": null
+  },
+  "transferOwnership(address newOwner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferOwnership says \"Transfer to\" without naming ownership, and implies an immediate change that is only a nomination.",
+   "comprehension": null
+  },
+  "validateAndConsume(address spendToken, uint256 spendAmount, (bytes32 sessionId, bytes32 dataHash, uint256 nonce, uint256 deadline, address executor, uint256 feeAmount) call, bytes delegateSignature, address executor)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 62,
+  "functions": "8B 3C",
+  "incomplete": false,
+  "worst": "createSession intent does not say the delegate gets power to spend the signer's tokens."
+ }
+}

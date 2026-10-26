@@ -1,0 +1,101 @@
+{
+ "hash": "0x02a6e7ab6aa84d40c872daed7191a8ececacd8d4bce4fb724a5685ad472ae79a",
+ "file": "registry/bedrock/calldata-selini-vault.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb8b0aed0a1ce913183665b71bd9653fe378f2230"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "mint(address _token, uint256 _amount)",
+    "effects": [
+     "The vault pulls exactly _amount of _token from the signer with safeTransferFrom, which spends the signer's allowance to the vault.",
+     "The vault mints suniBTC (cuniBTC) to the signer: the same amount for an 8-decimal token, or _amount / 1e10 rounded down for an 18-decimal token.",
+     "For an 18-decimal token, the vault keeps the dust below 1e10 wei without minting suniBTC for it.",
+     "No native value: mint is not payable."
+    ],
+    "shown": "The screen says 'Mint suniBTC by depositing 0.00513458 uniBTC' and shows the token and the deposit amount, but not how much suniBTC the signer receives.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mint names suniBTC as the output but does not show the suniBTC amount the signer receives.",
+      "evidence": "Vault.sol _mint: `(, uint256 cuniBTCAmount) = _amounts(_token, _amount); ... IMintableContract(cuniBTC).mint(_sender, cuniBTCAmount);` with `_amounts`: `if (decs == 8) return (_amount, _amount);`. Descriptor interpolatedIntent: 'Mint suniBTC by depositing {_amount}'. Case 0: signer receives 513458 suniBTC (0.00513458), and the screen shows no amount. The reader noted 'suniBTC from Bedrock, amount not shown on screen'.",
+      "fix": "Change interpolatedIntent to 'Mint suniBTC 1:1 by depositing {_amount}'. You can also add a note that suniBTC is minted 1:1 in BTC value.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The mint intent 'Mint with wrapped BTC' does not name the deposit or suniBTC.",
+      "evidence": "Descriptor intent: 'Mint with wrapped BTC'. Case 0 deposits uniBTC, and the reader was unsure: 'The title says wrapped BTC but the token is uniBTC, which is a little confusing'.",
+      "fix": "Change intent to 'Deposit BTC token to mint suniBTC'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "mint with an 18-decimal token takes the full amount but mints suniBTC rounded down to 8 decimals.",
+      "evidence": "Vault.sol _amounts: `uint256 uniBTCAmt = _amount / EXCHANGE_RATE_BASE; return (uniBTCAmt * EXCHANGE_RATE_BASE, uniBTCAmt);` while _mint transfers `_amount`, not the rounded amount: `IERC20(_token).safeTransferFrom(_sender, address(this), _amount);`. The vault keeps up to 1e10-1 wei of dust. The descriptor cannot compute the rounding.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows 0.00513458 uniBTC out correctly. It names suniBTC as the output with no amount, and the signer receives 0.00513458 suniBTC (1:1). The zero-amount approval effect is the allowance spent by transferFrom, so it is merged into the uniBTC transfer."
+     }
+    ],
+    "glance": 72,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.265,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 40,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "mint(address _token, uint256 _amount)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "mint names suniBTC as the output but does not show the suniBTC amount the signer receives.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 50,
+  "clarity": 68,
+  "functions": "1D",
+  "incomplete": false,
+  "worst": "mint names suniBTC as the output but does not show the suniBTC amount the signer receives."
+ }
+}

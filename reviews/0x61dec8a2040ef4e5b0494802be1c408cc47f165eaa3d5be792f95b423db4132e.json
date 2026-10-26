@@ -1,0 +1,232 @@
+{
+ "hash": "0x61dec8a2040ef4e5b0494802be1c408cc47f165eaa3d5be792f95b423db4132e",
+ "file": "registry/morpho/calldata-steakhouse_financial-bbqAUSD-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeeff89abb7815ccd5182bd1ff82c4a4f8fcb13d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` AUSD from the signer into the vault, using the signer's AUSD allowance to the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints bbqAUSD vault shares to `onBehalf`. The number is previewDeposit(assets), set by the share price after interest accrues. There is no minimum."
+    ],
+    "shown": "Deposit a given AUSD amount into the bbqAUSD vault, with shares sent to the onBehalf address; the share amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of bbqAUSD shares received is not shown and has no minimum",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0: the signer received 10000000000000000 bbqAUSD (0.01), but the screen shows only 'Share ticker: bbqAUSD'.",
+      "fix": "No descriptor change can show it, because the share amount comes from the vault price and is not in the calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "0.01 AUSD out is shown exactly. The 0.01 bbqAUSD in is shown with its ticker and recipient but no amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) bbqAUSD shares from `onBehalf`. That is the signer when they are the owner. The number is computed and has no maximum.",
+     "When the signer is not `onBehalf`, spends onBehalf's share allowance to the signer by the shares burned.",
+     "Sends exactly `assets` AUSD from the vault to `receiver`."
+    ],
+    "shown": "Withdraw exactly a given AUSD amount to the receiver, from the shown owner's position; the shares burned are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of bbqAUSD shares burned is not shown and has no cap",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 2: 349962.28 bbqAUSD left the signer, and no field states it.",
+      "fix": "No descriptor change can show it, because the shares come from the vault price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The reader knew shares leave but not how many. 350000 AUSD in to the signer is shown exactly."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` bbqAUSD from `onBehalf`. When the signer is not the owner, spends the owner's share allowance to the signer.",
+     "Sends previewRedeem(shares) AUSD from the vault to `receiver`. The amount is computed and has no minimum."
+    ],
+    "shown": "Redeem a given amount of bbqAUSD shares to the receiver from the owner; neither the asset received nor its amount is named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the AUSD amount received is not shown and has no minimum",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. Case 3: the signer received 75120.00772 AUSD, and no field states it.",
+      "fix": "No descriptor change can show the computed amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the screen never says AUSD is the asset received",
+      "evidence": "descriptor redeem: interpolatedIntent 'Redeem {#.shares} to {#.receiver}', and there is no field with the underlying ticker, unlike mint, which has '$.metadata.constants.underlyingTicker'. Case 3 reader: 'Underlying asset (likely AUSD)... Which token and how much I get back'.",
+      "fix": "Add a constant field 'Receive asset' = $.metadata.constants.underlyingTicker, and use an intent like 'Redeem {#.shares} for AUSD to {#.receiver}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out are shown exactly. For the AUSD in, the reader guessed the asset and saw no amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Pulls previewMint(shares) AUSD from the signer, using the signer's allowance to the vault. The amount is computed from the share price and has no maximum in the calldata.",
+     "Mints exactly `shares` bbqAUSD to `onBehalf`."
+    ],
+    "shown": "Mint a given amount of bbqAUSD shares for onBehalf, with 'Deposit asset: AUSD' and no AUSD amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the AUSD amount pulled from the signer is not shown and has no maximum",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` then `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: 1.018163 AUSD left the signer, but the screen shows 'Deposit asset: AUSD' with no amount.",
+      "fix": "No descriptor change can show the computed amount. The allowance the signer gave the vault is the only cap.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent never says the signer pays AUSD",
+      "evidence": "descriptor mint: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. The AUSD payment appears only as a raw constant field 'Deposit asset: AUSD'. Case 1 shows 'Mint 0.999999999 bbqAUSD for 0x...dEaD' while 1.018163 AUSD left the signer.",
+      "fix": "Use an intent like 'Deposit AUSD to mint {#.shares} for {#.onBehalf}' and label the constant field 'Pay with'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The reader knew AUSD leaves but could only guess the amount (~1 AUSD vs 1.018163). They also saw that the shares go to the dead address, not to them."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.411,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 114,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says AUSD is the asset received",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent never says the signer pays AUSD",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 67,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the intent never says the signer pays AUSD"
+ }
+}

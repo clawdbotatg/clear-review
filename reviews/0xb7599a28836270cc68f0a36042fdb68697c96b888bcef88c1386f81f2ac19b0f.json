@@ -1,0 +1,629 @@
+{
+ "hash": "0xb7599a28836270cc68f0a36042fdb68697c96b888bcef88c1386f81f2ac19b0f",
+ "file": "registry/symbiotic/calldata-UniversalDelegator-USDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xdc94e7d2efaf84e620c8d39386f168aaa99da058"
+  },
+  {
+   "chainId": 1,
+   "address": "0x44c213a4fce41e9ddecc2222bc8f705d42e41b22"
+  },
+  {
+   "chainId": 1,
+   "address": "0xc6017834f5838176800c6c4db8cdeb6463f33d78"
+  },
+  {
+   "chainId": 1,
+   "address": "0x073db5f29d670e66bde5c520c12d4f4faeaac39d"
+  },
+  {
+   "chainId": 1,
+   "address": "0xead44b1545bcb2c0b6b8399f7c63f48be2fe3eea"
+  },
+  {
+   "chainId": 1,
+   "address": "0xe7b97eb234d4a10fa774d0f8e5837bfe4fe36c71"
+  },
+  {
+   "chainId": 1,
+   "address": "0x7e74ac5e88651ed89880e2d18bcc4e4398a09988"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addAdapter(address adapter)",
+    "effects": [
+     "Adds a registry-whitelisted adapter to the delegator's ordered adapter list. This list sets the order for deallocation and sweeps.",
+     "Grants ALLOCATE_ROLE and DEALLOCATE_ROLE to the adapter address, so the adapter can call allocate and deallocate on the vault's assets.",
+     "Nothing of the signer's moves and no native value is taken (not payable)."
+    ],
+    "shown": "Add adapter <adapter> on the named delegator.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "addAdapter also grants the Allocate and Deallocate roles to the adapter, and the screen does not say so.",
+      "evidence": "UniversalDelegator.sol addAdapter: `_grantRole(ALLOCATE_ROLE, adapter); _grantRole(DEALLOCATE_ROLE, adapter);`. Descriptor intent is \"Add allocation adapter\" with fields Delegator and Adapter only.",
+      "fix": "Say it in the intent, e.g. \"Add adapter {adapter} and give it allocate/deallocate rights\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "removeAdapter(address adapter)",
+    "effects": [
+     "Removes the adapter from the ordered adapter list and from the auto-allocate route. Reverts if the adapter still holds assets.",
+     "Revokes the adapter's ALLOCATE_ROLE and DEALLOCATE_ROLE.",
+     "Sets the adapter's absolute and share limits to zero and clears its pending entry."
+    ],
+    "shown": "Remove adapter <adapter> from the named delegator.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "removeAdapter also revokes the adapter's roles, zeroes its limits and drops it from the auto-allocate route.",
+      "evidence": "UniversalDelegator.sol removeAdapter: `_removeOrdered(autoAllocateAdapters, adapter); _revokeRole(ALLOCATE_ROLE, adapter); ... absoluteLimitOf[adapter] = 0; shareLimitOf[adapter] = 0;`. These undo what addAdapter set up, so they are what 'Remove adapter' means.",
+      "fix": "Optional: \"Remove adapter {adapter} and revoke its rights\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "setLimits(address adapter,uint256 assets,uint256 share)",
+    "effects": [
+     "Sets the adapter's absolute asset cap to `assets`.",
+     "Sets the adapter's share cap to `share`, scaled so that 1e18 = 100% of vault total assets. The effective limit is the smaller of the two caps.",
+     "Reverts if the adapter is not added or share > 1e18."
+    ],
+    "shown": "Cap <adapter> at the smaller of <assets> USDC and <share>% of vault assets.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "setLimits renders the unlimited sentinel as \"No absolute cap USDC\", with a stray token suffix.",
+      "evidence": "Case 3 interpolatedIntent: \"Cap 0x2222… at the smaller of No absolute cap USDC and 100% of vault assets\". The descriptor's threshold message is \"No absolute cap\" and the wallet adds the ticker.",
+      "fix": "None at descriptor level; the wallet appends the symbol to threshold messages.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "swapAdapters(address adapter1,address adapter2)",
+    "effects": [
+     "Swaps the positions of two adapters in the `adapters` array. This array sets the order used for deallocation, sweeps and delayed deallocation requests.",
+     "It does not change the auto-allocation order, which is `autoAllocateAdapters`.",
+     "Reverts if either adapter is not in the list."
+    ],
+    "shown": "Swap adapter priority: swap <adapter1> and <adapter2>.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapAdapters says \"adapter priority\" but only changes the deallocation/sweep order, not the allocation order.",
+      "evidence": "UniversalDelegator.sol swapAdapters swaps entries of `adapters`. _deallocateAll and _sweepPending iterate `adapters`, while _allocateAll iterates `autoAllocateAdapters`. Descriptor intent: \"Swap adapter priority\".",
+      "fix": "Intent \"Swap deallocation order\" and interpolatedIntent \"Swap {adapter1} and {adapter2} in the withdrawal order\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "setAutoAllocateAdapters(address[] newAutoAllocateAdapters)",
+    "effects": [
+     "Replaces the whole auto-allocation route with the given ordered list of added adapters. Deposits and allocateAll fund the adapters in this order.",
+     "An empty list clears the route, which turns off automatic allocation of deposits."
+    ],
+    "shown": "Set allocation order for <delegator>, with each adapter listed in order.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setAutoAllocateAdapters with an empty list turns off auto-allocation, but the screen only says \"Set allocation order\".",
+      "evidence": "Case 8 (\"Clear automatic allocation route\") shows only the Delegator field and \"Set allocation order for 0xdC94…\". The code does `autoAllocateAdapters = newAutoAllocateAdapters;` and onDeposit → _allocateAll iterates this list.",
+      "fix": "Use \"Replace automatic allocation order\" so the signer knows the old route is overwritten. Note that an empty list disables auto-allocation.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "allocate(address adapter,uint256 assets)",
+    "effects": [
+     "First runs _sweepPending: deallocates every adapter's free assets back to the vault, deallocates more to cover the withdrawal queue, fills the queue and requests delayed deallocations.",
+     "If withdrawals are still pending, returns 0 and allocates nothing.",
+     "Otherwise pulls up to `assets` of the vault's free assets into the adapter. The amount is capped by vault free assets, adapter allocatable and the adapter limit."
+    ],
+    "shown": "Request <assets> USDC to <adapter>, labelled Maximum allocation.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "allocate first sweeps pending withdrawals across all adapters and may allocate nothing; the screen does not say so.",
+      "evidence": "UniversalDelegator.sol allocate: `if (_sweepPending() > 0) { return 0; }`. _sweepPending calls _deallocate on every adapter and WithdrawalQueue.fill(). The descriptor shows only \"Request {assets} to {adapter}\".",
+      "fix": "Intent \"Allocate vault assets (after settling pending withdrawals)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "allocateExact(address adapter,uint256 assets)",
+    "effects": [
+     "Runs _sweepPending first and returns 0 if withdrawals are still pending.",
+     "Deallocates from adapters in list order to free `assets` minus vault free assets. Returns 0 if it cannot free enough, but the deallocations already done stay.",
+     "Allocates up to `assets` to the adapter, within its limits."
+    ],
+    "shown": "Allocate, pulling from other adapters: request <assets> USDC to <adapter>.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "allocateExact has no threshold, so uint256 max shows as a 78-digit USDC amount.",
+      "evidence": "Case 12 shows \"Request 115792089237316195423570985008687907853269984665640564039457584007913129.639935 USDC to 0x1111…\". The `#.assets` params have no threshold/message, unlike the sibling formats.",
+      "fix": "Add `threshold: 0xff…ff` with a message such as \"Maximum request (uint256 max)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "allocateExact also sweeps pending withdrawals first, and deallocations stay when the allocation returns 0.",
+      "evidence": "UniversalDelegator.sol allocateExact: `if (_sweepPending() > 0) return 0; ... if (toDeallocate > _deallocateAll(toDeallocate)) return 0;`.",
+      "fix": "Optional wording on settling pending withdrawals first.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "allocateAll(uint256 assets)",
+    "effects": [
+     "Runs _sweepPending first and returns 0 if withdrawals are still pending.",
+     "Allocates up to `assets` of vault free assets across the auto-allocate route in order, within each adapter's limits."
+    ],
+    "shown": "Allocate up to <assets> USDC across adapters.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "allocateAll sweeps pending withdrawals first and may allocate nothing; the route used is stored, not shown.",
+      "evidence": "UniversalDelegator.sol allocateAll: `if (_sweepPending() > 0) return 0; return _allocateAll(assets);`. _allocateAll iterates the stored autoAllocateAdapters.",
+      "fix": "Optional: mention that pending withdrawals are settled first.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "deallocate(address adapter,uint256 assets)",
+    "effects": [
+     "Deallocates up to `assets` from the named adapter back to the vault.",
+     "Then runs _sweepPending: deallocates every adapter's free assets, deallocates more to fill the withdrawal queue, fills it and requests delayed deallocations."
+    ],
+    "shown": "Deallocate request: <assets> USDC, with the adapter in a separate field.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deallocate's interpolatedIntent omits the adapter that the assets are pulled from.",
+      "evidence": "Descriptor interpolatedIntent: \"Deallocate request: {assets}\". The adapter appears only as a field (case 15).",
+      "fix": "Use \"Deallocate {assets} from {adapter}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "deallocate then sweeps all adapters and fills the withdrawal queue, which the screen does not mention.",
+      "evidence": "UniversalDelegator.sol deallocate: `deallocated = _deallocate(adapter, assets); _sweepPending();`.",
+      "fix": "Optional: mention that pending withdrawals are processed afterwards.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "deallocateAll(uint256 assets)",
+    "effects": [
+     "Deallocates up to `assets` from adapters in list order back to the vault.",
+     "Then runs _sweepPending: fills the withdrawal queue and requests delayed deallocations."
+    ],
+    "shown": "Deallocate across adapters: request <assets> USDC.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "deallocateExact(uint256 assets)",
+    "effects": [
+     "Runs _sweepPending first. If withdrawals are still pending, returns 0 and deallocates nothing more.",
+     "Otherwise deallocates up to `assets` from adapters in list order back to the vault."
+    ],
+    "shown": "Deallocate after queue fill: request <assets> USDC.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deallocateExact's intent \"Deallocate after queue fill\" does not say it does nothing while withdrawals stay pending.",
+      "evidence": "UniversalDelegator.sol deallocateExact: `if (_sweepPending() > 0) { return 0; } return _deallocateAll(assets);`. The intent wording is vague for a non-expert.",
+      "fix": "Intent \"Settle pending withdrawals, then deallocate across adapters\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "forceDeallocate(address adapter,uint256 assets)",
+    "effects": [
+     "Deallocates up to min(assets, adapter total) from the adapter now.",
+     "Requests delayed deallocation of the rest from the adapter.",
+     "Lowers the adapter's absolute cap to its remaining assets (never raises it). The share cap is kept.",
+     "Then runs _sweepPending."
+    ],
+    "shown": "Deallocate adapter and lower its cap: request deallocation <assets> USDC, with the adapter in a field.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "forceDeallocate's interpolatedIntent omits the adapter whose cap is lowered and whose assets are pulled.",
+      "evidence": "Descriptor interpolatedIntent: \"Request deallocation: {assets}\". The adapter is only a field (case 21). The code calls `_setLimits(adapter, Math.min(absoluteLimitOf[adapter], ...), ...)`.",
+      "fix": "Use \"Force-deallocate {assets} from {adapter} and lower its cap\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "forceDeallocate's new cap is computed on chain and cannot be shown.",
+      "evidence": "UniversalDelegator.sol forceDeallocate: `adapterTotalAssets.saturatingSub(deallocated).saturatingSub(pending)` depends on adapter state.",
+      "fix": "None.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "sweepPending()",
+    "effects": [
+     "Permissionless. Deallocates every adapter's free assets to the vault, deallocates more to cover queued withdrawals, fills the withdrawal queue, and resets or places delayed deallocation requests on adapters.",
+     "Nothing of the signer's moves."
+    ],
+    "shown": "Process pending withdrawals on <delegator>.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "grantRole(bytes32 role,address account)",
+    "effects": [
+     "Grants `role` on the delegator to `account`. The caller must hold the role's admin role (DEFAULT_ADMIN_ROLE).",
+     "Allocate/Deallocate holders can move vault assets between the vault and adapters. Default admin can grant and revoke every role."
+    ],
+    "shown": "Grant <role name> to <account>, with the raw role ID also shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "grantRole shows unknown role IDs as a 78-digit decimal in the intent.",
+      "evidence": "Case 26 interpolatedIntent: \"Grant 115792089237316195423570985008687907853269984665640564039457584007913129639935 to 0x2222…\". The hex Role ID field is also shown.",
+      "fix": "None at descriptor level; the enum has no fallback.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "revokeRole(bytes32 role,address account)",
+    "effects": [
+     "Revokes `role` from `account`. Reverts for Allocate/Deallocate on an adapter that is still added."
+    ],
+    "shown": "Revoke <role name> from <account>, with the raw role ID.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "renounceRole(bytes32 role,address callerConfirmation)",
+    "effects": [
+     "The signer gives up `role` on the delegator. callerConfirmation must equal the signer."
+    ],
+    "shown": "Renounce <role name> for <address>, with the raw role ID.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "renounceRole's sentence does not say the signer loses the role themself.",
+      "evidence": "Descriptor interpolatedIntent: \"Renounce {role.[0:32]} for {callerConfirmation}\". OZ renounceRole requires `callerConfirmation == _msgSender()`.",
+      "fix": "Use \"Give up your {role} role\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "transferOwnership(address newOwner)",
+    "effects": [
+     "Sets the Ownable owner of the delegator to newOwner. The caller must be the current owner (the vault).",
+     "In this contract the owner has no gated functions, and roles and `vault` do not change."
+    ],
+    "shown": "Transfer delegator ownership: New owner <newOwner>.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "transferOwnership moves only the Ownable owner, which gates nothing in UniversalDelegator.",
+      "evidence": "No `onlyOwner` use exists in UniversalDelegator.sol or MigratableEntity.sol. Roles are under AccessControl, and _initialize sets `vault = owner`.",
+      "fix": "None needed.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": [
+   "VaultV2, WithdrawalQueue and the adapter contracts called by pull/push/fill/allocate/deallocate have no source in the directory. So I could not confirm that each delegator's vault asset is USDC, the token every tokenAmount field hard-codes.",
+   "Six of the seven deployments (0x44c2…, 0xc601…, 0x073d…, 0xead4…, 0xe7b9…, 0x7e74…) have no contract folder. I could not confirm they run the same UniversalDelegator implementation or have USDC vaults."
+  ]
+ },
+ "cost": 0.755,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 175,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "addAdapter(address adapter)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "addAdapter also grants the Allocate and Deallocate roles to the adapter, and the screen does not say so.",
+   "comprehension": null
+  },
+  "removeAdapter(address adapter)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setLimits(address adapter,uint256 assets,uint256 share)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "swapAdapters(address adapter1,address adapter2)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapAdapters says \"adapter priority\" but only changes the deallocation/sweep order, not the allocation order.",
+   "comprehension": null
+  },
+  "setAutoAllocateAdapters(address[] newAutoAllocateAdapters)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAutoAllocateAdapters with an empty list turns off auto-allocation, but the screen only says \"Set allocation order\".",
+   "comprehension": null
+  },
+  "allocate(address adapter,uint256 assets)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "allocate first sweeps pending withdrawals across all adapters and may allocate nothing; the screen does not say so.",
+   "comprehension": null
+  },
+  "allocateExact(address adapter,uint256 assets)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "allocateExact has no threshold, so uint256 max shows as a 78-digit USDC amount.",
+   "comprehension": null
+  },
+  "allocateAll(uint256 assets)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "deallocate(address adapter,uint256 assets)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deallocate's interpolatedIntent omits the adapter that the assets are pulled from.",
+   "comprehension": null
+  },
+  "deallocateAll(uint256 assets)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "deallocateExact(uint256 assets)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deallocateExact's intent \"Deallocate after queue fill\" does not say it does nothing while withdrawals stay pending.",
+   "comprehension": null
+  },
+  "forceDeallocate(address adapter,uint256 assets)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "forceDeallocate's interpolatedIntent omits the adapter whose cap is lowered and whose assets are pulled.",
+   "comprehension": null
+  },
+  "sweepPending()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "grantRole(bytes32 role,address account)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "revokeRole(bytes32 role,address account)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "renounceRole(bytes32 role,address callerConfirmation)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferOwnership(address newOwner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 99,
+  "clarity": 75,
+  "functions": "6A 11B",
+  "incomplete": true,
+  "worst": "addAdapter also grants the Allocate and Deallocate roles to the adapter, and the screen does not say so."
+ }
+}

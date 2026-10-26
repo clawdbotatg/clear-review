@@ -1,0 +1,242 @@
+{
+ "hash": "0x9f5cd5d9c2e8e4087f1b919e9358e33695590e5094b444130bfd7e9505720fd9",
+ "file": "registry/morpho/calldata-steakhouse_financial-bbqUSDG-v2-42161.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42161,
+   "address": "0xbeeff72b77e7584a450e887125f25e8d8819016a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:26Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDG to the vault (safeTransferFrom asset, msg.sender, vault).",
+     "The vault mints bbqUSDG shares to onBehalf; the share amount comes from previewDeposit at the current rate, with no minimum.",
+     "Fee shares go to the fee recipients first through accrueInterest, which sets the share price the signer gets."
+    ],
+    "shown": "Deposit 0.01 USDG for <onBehalf>, with the share ticker bbqUSDG and the share recipient shown; the number of shares received is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many bbqUSDG shares arrive; the vault rate in storage decides it.",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);` No minShares parameter. Case 0: 0.010000010 bbqUSDG in to the signer, and the screen shows only 'Share ticker: bbqUSDG'.",
+      "fix": "None in the descriptor. The share amount is not in the calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the USDG out (0.01) exactly. The bbqUSDG in shows its ticker and recipient but no amount, and calldata cannot give one."
+     }
+    ],
+    "glance": 82,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns bbqUSDG shares from onBehalf; the number comes from previewWithdraw (rounded up), with no maximum.",
+     "When msg.sender is not onBehalf, the call spends the signer's share allowance from onBehalf.",
+     "The vault sends exactly `assets` USDG to receiver."
+    ],
+    "shown": "Withdraw exactly 200000 USDG to <receiver>, with the owner shown; nothing says that bbqUSDG shares are burned or how many.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw does not say that bbqUSDG shares are burned from the owner.",
+      "evidence": "VaultV2.exit: `deleteShares(onBehalf, shares);` Case 2: the signer loses 199919.79 bbqUSDG, but the screen fields are only 'Withdraw exactly', 'To' and 'Owner'.",
+      "fix": "Rename the 'Owner' label to 'Burn bbqUSDG shares from'. Optionally add a constant field with the vaultTicker.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw has no cap on the shares burned; the vault rate in storage sets the number.",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets);` No maxShares parameter exists.",
+      "fix": "None in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows the 200000 USDG in, with the right recipient. The reader guessed that shares leave, but the screen gives no share asset or amount."
+     }
+    ],
+    "glance": 75,
+    "depth": 68
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` bbqUSDG from onBehalf, and spends the signer's share allowance when the signer is not onBehalf.",
+     "The vault sends USDG to receiver; the amount comes from previewRedeem at the current rate, with no minimum."
+    ],
+    "shown": "Redeem N bbqUSDG to <receiver>, with the owner shown; the screen does not name the USDG received or give its amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDG as the asset the receiver gets.",
+      "evidence": "VaultV2.exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` The redeem fields are only 'Shares to redeem', 'To' and 'Owner'. Case 3: the signer receives 380961.92 USDG. The reader wrote 'likely USDG' and listed the paid-out token as unsure.",
+      "fix": "Add {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}. Change the interpolatedIntent to 'Redeem {#.shares} for USDG to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem has no minimum for the USDG received; the vault rate in storage sets it.",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares);` No minAssets parameter exists.",
+      "fix": "None in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the bbqUSDG out exactly. The USDG in has neither its asset nor its amount on screen."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer sends USDG to the vault; the amount comes from previewMint (rounded up) at the current rate, with no maximum.",
+     "The vault mints exactly `shares` bbqUSDG to onBehalf."
+    ],
+    "shown": "Mint 1 bbqUSDG for <onBehalf>, with a constant 'Deposit asset: USDG'; the screen does not say how much USDG leaves the wallet.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The mint intent and sentence do not say that the signer pays USDG for the shares.",
+      "evidence": "Descriptor mint: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. VaultV2.enter: `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets);` Case 1: the signer pays 1 USDG.",
+      "fix": "Change the intent to 'Deposit USDG for shares'. Change the interpolatedIntent to 'Deposit USDG to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint has no cap on the USDG it takes; the vault rate in storage sets the amount.",
+      "evidence": "VaultV2.mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` No maxAssets parameter exists. Case 1: 1 USDG out and no amount on screen.",
+      "fix": "None in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The screen names USDG as the deposit asset but gives no amount, so the reader knew the asset and the direction but not the 1 USDG. The shares go to 0xdead, which is not the signer, and the screen shows that correctly."
+     }
+    ],
+    "glance": 50,
+    "depth": 52
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.399,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 88,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw does not say that bbqUSDG shares are burned from the owner.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDG as the asset the receiver gets.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The mint intent and sentence do not say that the signer pays USDG for the shares.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 65,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never names USDG as the asset the receiver gets."
+ }
+}

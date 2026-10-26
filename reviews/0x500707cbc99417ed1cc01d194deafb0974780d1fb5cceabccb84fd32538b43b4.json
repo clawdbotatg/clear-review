@@ -1,0 +1,263 @@
+{
+ "hash": "0x500707cbc99417ed1cc01d194deafb0974780d1fb5cceabccb84fd32538b43b4",
+ "file": "registry/morpho/calldata-armitage_by_wintermute-armUSDCp-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5dc53a23adc9f2bed98de6f59f7f309a7c71ff2b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer and sends it to the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints armUSDCp shares to `onBehalf`. The amount is previewDeposit(assets), set by the share price at execution. There is no minimum-shares parameter.",
+     "Accrues interest first, which can mint fee shares to the fee recipients. This dilutes the share price used for the signer's deposit."
+    ],
+    "shown": "Deposit 100000 USDC for <onBehalf>, with fields for the USDC amount, the share ticker armUSDCp and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of armUSDCp shares received is not shown; it is computed on-chain with no minimum.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets);`. Case 0: the signer received 100000 armUSDCp, and the screen shows only 'Share ticker: armUSDCp'.",
+      "fix": "None possible in the descriptor: the share amount is not in calldata and the function has no minShares argument.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit: the interpolated intent says 'for <address>' but not that armUSDCp shares go to that address.",
+      "evidence": "descriptor interpolatedIntent \"Deposit {#.assets} for {#.onBehalf}\"; the code mints shares to onBehalf: `createShares(onBehalf, shares)`.",
+      "fix": "Use \"Deposit {#.assets} and send armUSDCp shares to {#.onBehalf}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 100000 USDC out is shown exactly. The 100000 armUSDCp in is shown with its asset and recipient but no amount, which cannot be known from calldata."
+     }
+    ],
+    "glance": 80,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns armUSDCp shares from `onBehalf`. The amount is previewWithdraw(assets), rounded up, and there is no maximum-shares parameter.",
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "If the signer is not `onBehalf`, spends the signer's armUSDCp allowance from `onBehalf` by the shares burned.",
+     "Accrues interest first (fee shares can be minted) and may pull liquidity back from the liquidity adapter. Neither changes the amount sent to the receiver."
+    ],
+    "shown": "Withdraw 50 USDC to <receiver>, with fields for the exact USDC amount, the recipient and the owner whose position is used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of armUSDCp shares burned is not shown; it is computed on-chain with no cap.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets);` then exit() calls deleteShares(onBehalf, shares). Case 2: 49.658176641164756842 armUSDCp left the signer, and no field states a share amount.",
+      "fix": "None possible in the descriptor: the share amount is not in calldata and there is no maxShares argument.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw: the interpolated intent omits the owner whose armUSDCp shares are burned.",
+      "evidence": "descriptor interpolatedIntent \"Withdraw {#.assets} to {#.receiver}\"; exit(): `deleteShares(onBehalf, shares)` and the allowance is spent when msg.sender != onBehalf. Owner appears only as a field.",
+      "fix": "Use \"Withdraw {#.assets} from {#.onBehalf}'s armUSDCp position to {#.receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 50 USDC in to the signer is shown exactly. The armUSDCp burn (49.66 shares) is not shown; the reader only inferred that the position shrinks by about 50 USDC."
+     }
+    ],
+    "glance": 82,
+    "depth": 78
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` armUSDCp from `onBehalf`. If the signer is not `onBehalf`, the signer's share allowance from `onBehalf` is spent.",
+     "Sends USDC from the vault to `receiver`. The amount is previewRedeem(shares), rounded down, and there is no minimum-assets parameter.",
+     "Accrues interest first (fee shares can be minted) and may pull liquidity back from the liquidity adapter."
+    ],
+    "shown": "Redeem <shares> armUSDCp to <receiver>, with fields for the share amount, the recipient and the owner. Nothing names USDC as the asset received.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown; it is computed on-chain with no minimum.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);`. Case 3: the signer received 20652.648916 USDC, and no field states it.",
+      "fix": "None possible for the amount: it is not in calldata and the function has no minAssets argument.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the screen never says the signer receives USDC; the asset is known but not displayed.",
+      "evidence": "exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets)` with asset = USDC (constant underlyingTicker). The redeem fields show only shares, To and Owner. Case 3 reader: 'The screen doesn't show the amount or token. The name suggests USDC.'",
+      "fix": "Add a constant field 'Receive asset' = $.metadata.constants.underlyingTicker (as mint already does) and use the intent \"Redeem {#.shares} for USDC to {#.receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the interpolated intent omits the owner whose shares are burned.",
+      "evidence": "descriptor interpolatedIntent \"Redeem {#.shares} to {#.receiver}\"; exit() burns from onBehalf and spends the allowance when msg.sender != onBehalf.",
+      "fix": "Use \"Redeem {#.shares} from {#.onBehalf} for USDC to {#.receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 20560.586 armUSDCp out is shown exactly. The 20652.65 USDC in has no amount and no asset on screen; the reader guessed USDC from the name."
+     }
+    ],
+    "glance": 65,
+    "depth": 62
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes USDC from the signer and sends it to the vault. The amount is previewMint(shares), rounded up, and there is no maximum-assets parameter.",
+     "Mints exactly `shares` armUSDCp to `onBehalf`.",
+     "Accrues interest first, which can mint fee shares and move the price paid."
+    ],
+    "shown": "Mint 1 armUSDCp for <onBehalf>, with a field naming USDC as the deposit asset but no USDC amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken from the signer is not shown; it is computed on-chain with no maximum.",
+      "evidence": "VaultV2.sol mint(): `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. Case 1: 1 USDC left the signer, and the screen shows only 'Deposit asset: USDC'.",
+      "fix": "None possible for the amount: it is not in calldata and there is no maxAssets argument.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint' does not say USDC leaves the signer's wallet to pay for the shares.",
+      "evidence": "descriptor intent \"Mint\", interpolatedIntent \"Mint {#.shares} for {#.onBehalf}\"; enter(): `safeTransferFrom(asset, msg.sender, address(this), assets)`.",
+      "fix": "Use intent \"Deposit USDC for shares\" and interpolatedIntent \"Deposit USDC to mint {#.shares} for {#.onBehalf}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "USDC left the signer (1 USDC), and the screen names the asset but not the amount. The shares went to 0xdead, which the screen shows correctly; that is not a signer effect."
+     }
+    ],
+    "glance": 60,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.401,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 80,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the interpolated intent says 'for <address>' but not that armUSDCp shares go to that address.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the interpolated intent omits the owner whose armUSDCp shares are burned.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never says the signer receives USDC; the asset is known but not displayed.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 49,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say USDC leaves the signer's wallet to pay for the shares.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 63,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the intent 'Mint' does not say USDC leaves the signer's wallet to pay for the shares."
+ }
+}

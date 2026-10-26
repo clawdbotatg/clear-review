@@ -1,0 +1,189 @@
+{
+ "hash": "0x32332666d7f5539d23b2dd49edd0a0ab89bd079bdaef95b372d2169f420b6089",
+ "file": "registry/morpho/calldata-9summits-pikuUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xc30c60de46dec551b96326cbd05592c9245773ef"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer and sends it to the vault (enter: SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets)). This uses the signer's USDC allowance to the vault.",
+     "Mints pikuUSDC shares to `onBehalf`. The amount is previewDeposit(assets), which depends on the share price after fees accrue. There is no minimum."
+    ],
+    "shown": "Deposit X USDC for <onBehalf>. Fields show the USDC amount, the constant ticker pikuUSDC and the address that gets the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown, and the code has no minimum.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);`, computed from storage, no min parameter. Case 0: 4993.07 pikuUSDC in to signer; the screen shows no share amount.",
+      "fix": "No descriptor fix. The amount is decided on chain.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' field shows a bare constant with no amount; 'Deposit asset' labels an amount.",
+      "evidence": "descriptor deposit fields: {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'}; {path:'assets', label:'Deposit asset'}",
+      "fix": "Rename 'Deposit asset' to 'Deposit amount'. Put the ticker in the shares label (e.g. 'Send pikuUSDC shares to') and drop the standalone field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The USDC out matches exactly (5000.66741). Shares in: the asset and the recipient are shown, the amount is not, since the code computes it."
+     }
+    ],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` USDC from the vault to `receiver` (exit: SafeERC20Lib.safeTransfer(asset, receiver, assets)).",
+     "Burns pikuUSDC shares from `onBehalf`. The amount is previewWithdraw(assets), rounded up, with no maximum.",
+     "If the signer is not `onBehalf`, spends the signer's share allowance from `onBehalf` by the number of shares burned."
+    ],
+    "shown": "Withdraw X USDC to <receiver>. Fields show the USDC amount, the receiver and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of pikuUSDC shares burned from the owner is not shown, and the code has no maximum.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 1: 29932.99 pikuUSDC out from signer; not on screen.",
+      "fix": "No descriptor fix for the amount. The intent could add 'by burning pikuUSDC shares of {onBehalf}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The USDC in (30000 to the signer) is exact. The reader guessed shares were burned but did not know the amount or the token."
+     }
+    ],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` pikuUSDC from `onBehalf`. If the signer is not `onBehalf`, the signer's share allowance from `onBehalf` is spent.",
+     "Sends USDC equal to previewRedeem(shares) to `receiver`. The amount depends on the share price and has no minimum."
+    ],
+    "shown": "Redeem X pikuUSDC to <receiver>. Fields show the share amount, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: neither the intent nor the fields say USDC is paid out, though the asset is fixed.",
+      "evidence": "descriptor redeem interpolatedIntent 'Redeem {#.shares} to {#.receiver}'; VaultV2 exit pays `asset` (USDC, constructor _asset). Case 2 reader: 'probably USDC ... exact amount not shown'.",
+      "fix": "Use 'Redeem {#.shares} for USDC to {#.receiver}', or label the receiver field 'Send USDC to'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown, and the code has no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. Case 2: 18.5471 USDC in to signer; not on screen.",
+      "fix": "No descriptor fix. The amount is decided on chain.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The pikuUSDC out matches exactly. The USDC in has no amount or asset on screen, so the reader only guessed USDC."
+     }
+    ],
+    "glance": 70,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.425,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 72,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: neither the intent nor the fields say USDC is paid out, though the asset is fixed.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 73,
+  "functions": "3B",
+  "incomplete": false,
+  "worst": null
+ }
+}

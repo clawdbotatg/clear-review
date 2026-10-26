@@ -1,0 +1,348 @@
+{
+ "hash": "0x6a00e9e27ae0d95e7b13714024f6b1390870f3825a54cf6b29d6a96b41c544e7",
+ "file": "registry/feral-file/calldata-feralfile-airdrop-v1-0.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x051e50d8465417e58899fd48c3b0fc0ca3dd4b6a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "safeTransferFrom(address from,address to,uint256 id,uint256 amount,bytes data)",
+    "effects": [
+     "Moves `amount` units of ERC-1155 token `id` of this collection from `from` (the signer, or an owner who approved the signer as operator) to `to`.",
+     "If `to` is a contract, its onERC1155Received hook is called with the hidden `data` bytes; sending to this airdrop contract itself reverts."
+    ],
+    "shown": "Transfer N of token <collection #id> to <recipient>, with From, To, Artwork and Amount fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "safeTransferFrom: the `data` bytes passed to the receiver hook are not shown.",
+      "evidence": "ERC1155.sol _safeTransferFrom -> _doSafeTransferAcceptanceCheck(operator, from, to, id, amount, data); descriptor has no field for `data`. The bytes move none of the signer's assets.",
+      "fix": "None needed; leaving out callback data is acceptable.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 90
+   },
+   {
+    "key": "safeBatchTransferFrom(address from,address to,uint256[] ids,uint256[] amounts,bytes data)",
+    "effects": [
+     "Moves amounts[i] units of each token ids[i] of this collection from `from` (the signer or an owner who approved the signer) to `to`.",
+     "If `to` is a contract, its onERC1155BatchReceived hook is called with the hidden `data` bytes."
+    ],
+    "shown": "Batch transfer airdrop tokens, with From, To, a list of Artworks and a separate list of Amounts.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "safeBatchTransferFrom: ids and amounts are two separate lists the signer must pair by position.",
+      "evidence": "descriptor fields `ids.[]` 'Artworks' and `amounts.[]` 'Amounts' are listed one after the other. ERC1155.sol _safeBatchTransferFrom moves amounts[i] of ids[i].",
+      "fix": "Make the labels say they pair by position (e.g. 'Artworks (in order)' and 'Amount per artwork (same order)'), or group them if the wallet supports it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "safeBatchTransferFrom: no interpolatedIntent, so the intent does not name the recipient.",
+      "evidence": "descriptor: intent 'Batch transfer airdrop tokens', no interpolatedIntent. The sibling safeTransferFrom has 'Transfer {amount} of token {id} to {to}'.",
+      "fix": "Add interpolatedIntent 'Transfer airdrop tokens from {from} to {to}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "safeBatchTransferFrom: the test case has one element, so the batch pairing is never tested.",
+      "evidence": "cases/1.json: ids=[1001], amounts=[1].",
+      "fix": "Add a case with two or more ids and amounts.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "setApprovalForAll(address operator,bool approved)",
+    "effects": [
+     "Grants (approved=true) or revokes (approved=false) `operator` the right to transfer every token id the signer holds in this collection, now and in the future."
+    ],
+    "shown": "Set operator approval, with the Operator and Approved shown as a raw true/false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setApprovalForAll: the intent does not say whether this grants or revokes, or that it covers all the signer's tokens.",
+      "evidence": "descriptor intent 'Set operator approval', no interpolatedIntent; field `approved` format raw renders 'true'/'false' (cases 2, 3). ERC1155.sol setApprovalForAll -> _setApprovalForAll(_msgSender(), operator, approved) covers all ids.",
+      "fix": "Add interpolatedIntent 'Allow {operator} to transfer all your airdrop tokens: {approved}', and give the Approved field a label like 'Can move all your tokens in this collection'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 72
+   },
+   {
+    "key": "burn(uint256 tokenID_,uint256 amount_)",
+    "effects": [
+     "Destroys `amount_` units of token `tokenID_` from the signer's own balance (reverts if the collection is not burnable)."
+    ],
+    "shown": "Destroy N of token <collection #id>, with Artwork and Amount fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "mint(uint256 tokenID_,uint256 amount_)",
+    "effects": [
+     "Mints `amount_` units of token `tokenID_` to the airdrop contract itself, which holds them for later airdrops (only the owner or a trustee can call). None of the signer's assets move."
+    ],
+    "shown": "Mint airdrop tokens to contract, with Artwork and Amount fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "airdrop(uint256 tokenID_,address[] to_)",
+    "effects": [
+     "Sends exactly 1 unit of token `tokenID_` from the contract's stock to each address in `to_` (only the owner or a trustee can call). None of the signer's assets move.",
+     "Marks every recipient as airdropped in a mapping shared by all token ids, so none of them can get any later airdrop from this contract."
+    ],
+    "shown": "Airdrop tokens to recipients, with Artwork and a list of recipients as raw hex addresses.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "airdrop: recipients are shown as raw hex instead of with addressName.",
+      "evidence": "descriptor field `to_.[]` 'Recipients' format 'raw'; case 6 shows '0x0000000000000000000000000000000000000003'.",
+      "fix": "Use format addressName with types ['eoa','contract'], as the other address fields do.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "airdrop: the screen does not say each recipient gets exactly 1 token and is then blocked from later airdrops.",
+      "evidence": "FeralFileAirdropV1.sol airdrop: _safeTransferFrom(address(this), to_[i], tokenID_, 1, \"\"); airdroppedAddresses[to_[i]] = true. The intent is 'Airdrop tokens to recipients'.",
+      "fix": "Change the intent to 'Airdrop 1 token to each recipient'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "end()",
+    "effects": [
+     "Permanently ends the airdrop: mint and airdrop revert from then on, and it cannot be undone (owner only). None of the signer's assets move."
+    ],
+    "shown": "End airdrop.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "end: the intent does not say the action cannot be undone and stops all future minting and airdrops.",
+      "evidence": "FeralFileAirdropV1.sol end(): _ended = true with no way to reset; mint and airdrop require(!_ended).",
+      "fix": "Change the intent to 'Permanently end airdrop (no more minting or airdrops)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "setURI(string uri_)",
+    "effects": [
+     "Replaces the metadata URI template used by every token id in the collection (owner only)."
+    ],
+    "shown": "Set token URI, with the new URI string.",
+    "findings": [],
+    "cases": [],
+    "glance": 82,
+    "depth": 88
+   },
+   {
+    "key": "setContractURI(string contractURI_)",
+    "effects": [
+     "Replaces the collection-level contract metadata URI and emits ContractURIUpdated (owner only)."
+    ],
+    "shown": "Set contract URI, with the new URI string.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "burnRemaining(uint256 tokenID_)",
+    "effects": [
+     "Burns the contract's whole remaining balance of token `tokenID_` (owner only). None of the signer's own tokens are touched."
+    ],
+    "shown": "Burn remaining airdrop supply, with the Artwork.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "burnRemaining: the amount burned is the contract's balance read from storage, so the screen cannot show it.",
+      "evidence": "FeralFileAirdropV1.sol burnRemaining: _burn(address(this), tokenID_, balanceOf(address(this), tokenID_)).",
+      "fix": "None possible in the descriptor; the intent already says 'remaining'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.314,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 71,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "safeTransferFrom(address from,address to,uint256 id,uint256 amount,bytes data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "safeBatchTransferFrom(address from,address to,uint256[] ids,uint256[] amounts,bytes data)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "safeBatchTransferFrom: ids and amounts are two separate lists the signer must pair by position.",
+   "comprehension": null
+  },
+  "setApprovalForAll(address operator,bool approved)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setApprovalForAll: the intent does not say whether this grants or revokes, or that it covers all the signer's tokens.",
+   "comprehension": null
+  },
+  "burn(uint256 tokenID_,uint256 amount_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 tokenID_,uint256 amount_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "airdrop(uint256 tokenID_,address[] to_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "airdrop: recipients are shown as raw hex instead of with addressName.",
+   "comprehension": null
+  },
+  "end()": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setURI(string uri_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setContractURI(string contractURI_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "burnRemaining(uint256 tokenID_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 77,
+  "functions": "6A 2B 2C",
+  "incomplete": false,
+  "worst": "safeBatchTransferFrom: ids and amounts are two separate lists the signer must pair by position."
+ }
+}

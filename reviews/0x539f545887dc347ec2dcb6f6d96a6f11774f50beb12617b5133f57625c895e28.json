@@ -1,0 +1,679 @@
+{
+ "hash": "0x539f545887dc347ec2dcb6f6d96a6f11774f50beb12617b5133f57625c895e28",
+ "file": "registry/feral-file/calldata-feralfile-exhibition-v4_4-0.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x614d5475fe81ef4b6dd8093b5c73efeee03167e0"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "transferFrom(address from,address to,uint256 tokenId)",
+    "effects": [
+     "The artwork tokenId moves from `from` (the signer or an owner who approved the signer) to `to`. The signer's per-token approval on it is cleared.",
+     "The call reverts when `to` is the exhibition contract or the operator filter blocks the caller."
+    ],
+    "shown": "Transfer artwork: the screen names the token, the From address and the To address.",
+    "findings": [],
+    "cases": [],
+    "glance": 92,
+    "depth": 95
+   },
+   {
+    "key": "safeTransferFrom(address from,address to,uint256 tokenId)",
+    "effects": [
+     "The artwork tokenId moves from `from` to `to`. A contract recipient must accept it through onERC721Received."
+    ],
+    "shown": "Safely transfer the named artwork to To. From is shown as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "safeTransferFrom interpolated intent leaves out `from`, which matters when the signer is an operator.",
+      "evidence": "descriptor safeTransferFrom: \"interpolatedIntent\": \"Safely transfer token {tokenId} to {to}\". The From field is shown. FeralfileArtworkV4.safeTransferFrom passes `from` to super.safeTransferFrom.",
+      "fix": "Use \"Safely transfer token {tokenId} from {from} to {to}\", as the transferFrom format does.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 95
+   },
+   {
+    "key": "safeTransferFrom(address from,address to,uint256 tokenId,bytes data)",
+    "effects": [
+     "The artwork tokenId moves from `from` to `to`. The `data` goes to the recipient's onERC721Received callback and moves none of the signer's assets."
+    ],
+    "shown": "Safely transfer the named artwork to To. From is shown as a field. The callback data is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "safeTransferFrom(bytes) interpolated intent leaves out `from`, which is shown only as a field.",
+      "evidence": "descriptor: \"interpolatedIntent\": \"Safely transfer token {tokenId} to {to}\"; FeralfileArtworkV4.safeTransferFrom(from,to,tokenId,data).",
+      "fix": "Use \"Safely transfer token {tokenId} from {from} to {to}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 93
+   },
+   {
+    "key": "approve(address operator,uint256 tokenId)",
+    "effects": [
+     "The operator is approved to transfer the single artwork tokenId. Any earlier approval on that token is replaced."
+    ],
+    "shown": "Allow the named operator to transfer the named artwork.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "setApprovalForAll(address operator,bool approved)",
+    "effects": [
+     "When approved is true, the operator can transfer every artwork the signer holds in this collection, now and later. When it is false, that right is revoked."
+    ],
+    "shown": "\"true all tokens for Test Operator\", with Operator shown by name and Approved shown as a raw true/false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setApprovalForAll sentence reads \"true all tokens for X\" and does not say grant or revoke.",
+      "evidence": "descriptor: \"interpolatedIntent\": \"{approved} all tokens for {operator}\", the field `approved` uses format raw; case 4 shows \"true all tokens for Test Operator\". The intent \"Set operator approval\" does not say that the operator can move every artwork.",
+      "fix": "Map `approved` to \"Grant\"/\"Revoke\" with an enum, and use the sentence \"{approved} {operator} control of all your artworks\". Use the intent \"Approve operator for all artworks\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "burnArtworks(uint256[] tokenIds)",
+    "effects": [
+     "Each listed artwork that the signer owns or is approved for is destroyed for good. Series supply and total supply go down."
+    ],
+    "shown": "Burn artworks: Permanently destroy selected artworks, with each artwork named.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 92
+   },
+   {
+    "key": "buyArtworks(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)",
+    "effects": [
+     "Without vault payment: the signer sends msg.value ETH, and the contract requires it to equal saleData_.price.",
+     "With vault payment (payByVaultContract=true): the vault pays the price. msg.value is not checked, so any ETH the signer attaches is taken and stays in the contract.",
+     "Each artwork in tokenIds goes from the contract to `destination`.",
+     "The price is split between the revenue-share recipients (after advances are deducted) and costReceiver. `cost` is a part of the price, not an extra charge."
+    ],
+    "shown": "Purchase artworks for Recipient. The screen shows Price, Platform cost, Recipient, Artworks, Offer expires and \"Pay via vault\" as raw true/false. The native value is not shown, and the revenue shares do not render.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "buyArtworks has no @.value field, and in vault mode nothing ties the ETH sent to the Price shown.",
+      "evidence": "FeralfileArtworkV4_1.buyArtworks: `saleData_.payByVaultContract ? vault.payForSale(r_, s_, v_, saleData_) : require(saleData_.price == msg.value, ...)`. The vault branch does not check msg.value, and leftOver = price - distributedRevenue leaves any extra ETH in the contract. The descriptor has no `@.value` field, and the Price field shows saleData_.price.",
+      "fix": "Add a field {\"path\": \"@.value\", \"label\": \"You pay\", \"format\": \"amount\"} and put it in the interpolated intent: \"Buy artworks for {saleData_.destination} paying {@.value}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "buyArtworks label \"Platform cost\" reads like a fee on top of Price, but it is part of Price.",
+      "evidence": "FeralfileArtworkV4_1.buyArtworks: itemRevenue = (price - cost) / tokenIds.length; leftOver = price - distributedRevenue goes to costReceiver. Case 6 shows Price 0.5 ETH and Platform cost 0.05 ETH, with msg.value 0.5 ETH.",
+      "fix": "Change the label to \"Platform share (included in price)\", or hide the field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "buyArtworks interpolated intent leaves out the price the signer pays.",
+      "evidence": "descriptor: \"interpolatedIntent\": \"Buy artworks for {saleData_.destination}\"; case 6 shows \"Buy artworks for Receiver\".",
+      "fix": "Use \"Buy artworks for {saleData_.destination} for {saleData_.price}\" (or for {@.value}).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "buyArtworks shows \"Pay via vault\" as a raw true/false with no meaning.",
+      "evidence": "descriptor field saleData_.payByVaultContract uses format raw; case 6 shows \"Pay via vault: false\". When it is true, the vault pays and the signer should send no ETH.",
+      "fix": "Map the bool with an enum: true = \"Paid by Feral File vault\", false = \"Paid by you\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "buyArtworks test case would revert: revenueShares is empty and the expiry is past.",
+      "evidence": "In the case 6 calldata, tokenIds = [1001] and revenueShares has length 0. FeralfileSaleData.validateSaleData requires tokenIds.length == revenueShares.length and expiryTime > block.timestamp (expiry 2025-01-01).",
+      "fix": "Add one revenue share per token and a future expiry. Add a case with payByVaultContract=true.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "buyArtworks revenue share recipients and bps sit in a nested array that runners do not render.",
+      "evidence": "descriptor fields saleData_.revenueShares.[].[].recipient and .bps; case 6 renders neither. These splits move no extra signer funds.",
+      "fix": "Waits on runner support for nested arrays.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "startSale()",
+    "effects": [
+     "The owner sets mintable to false for good, because no function sets it back. Selling of contract-held artworks starts."
+    ],
+    "shown": "Start artwork sale.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "startSale intent does not say it permanently ends minting.",
+      "evidence": "FeralfileArtworkV4.startSale: `mintable = false; resumeSale();`. No function sets mintable back to true, and mintArtworks requires mintable.",
+      "fix": "Change the intent to \"Start sale and close minting for good\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "resumeSale()",
+    "effects": [
+     "Sets _selling to true so that buyers can purchase the contract-held artworks."
+    ],
+    "shown": "Resume artwork sale.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "pauseSale()",
+    "effects": [
+     "Sets _selling to false, which blocks purchases."
+    ],
+    "shown": "Pause artwork sale.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "stopSaleAndBurn()",
+    "effects": [
+     "Pauses the sale and burns every artwork the contract still holds, for good."
+    ],
+    "shown": "Stop sale and burn unsold artworks.",
+    "findings": [],
+    "cases": [],
+    "glance": 92,
+    "depth": 90
+   },
+   {
+    "key": "stopSaleAndTransfer(uint256[] seriesIds,address[] recipientAddresses)",
+    "effects": [
+     "Pauses the sale and sends every unsold artwork of each listed series to the paired recipient address. It reverts if any unsold artwork is left."
+    ],
+    "shown": "Stop sale and return unsold artworks, with the series IDs and the recipients as raw lists.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "stopSaleAndTransfer shows recipients as raw hex, in a list not paired with the series IDs.",
+      "evidence": "descriptor field recipientAddresses.[] uses format raw; case 11 shows \"Recipients: 0x0000…0003\". The code sends series j to recipientAddresses[j].",
+      "fix": "Use format addressName for recipientAddresses.[], and label the fields \"Series (in order)\" and \"Recipient per series\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "stopSaleAndTransfer intent says \"return\", but artworks go to any listed address.",
+      "evidence": "intent \"Stop sale and return unsold artworks\"; FeralfileArtworkV4.stopSaleAndTransfer: `_safeTransfer(from, to, tokenId, \"\")`, where to = recipientAddresses[j].",
+      "fix": "Change the intent to \"Stop sale and send unsold artworks\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 65
+   },
+   {
+    "key": "mintArtworks((uint256 seriesId,uint256 tokenId,address owner)[] data)",
+    "effects": [
+     "An authorized caller mints each listed artwork in its series to the listed owner, while minting is open."
+    ],
+    "shown": "Mint artworks, with each series ID, artwork and owner.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "setVault(address vault_)",
+    "effects": [
+     "The owner replaces the vault contract that pays for vault sales and may send ETH to the exhibition."
+    ],
+    "shown": "Set vault contract, with the vault address.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "setCostReceiver(address costReceiver_)",
+    "effects": [
+     "The owner sets the address that receives the platform share and every leftover of each sale."
+    ],
+    "shown": "Set cost receiver, with the address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setCostReceiver intent does not say this address receives the sale proceeds.",
+      "evidence": "FeralfileArtworkV4_1.buyArtworks: `payable(costReceiver).transfer(leftOver)` with leftOver = price - distributedRevenue.",
+      "fix": "Change the intent to \"Set receiver of platform sale proceeds\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 88
+   },
+   {
+    "key": "setTokenBaseURI(string baseURI_)",
+    "effects": [
+     "The owner changes the metadata base URI of every artwork that has no renderer."
+    ],
+    "shown": "Set token base URI, with the URI.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 92
+   },
+   {
+    "key": "setAdvanceSetting(address[] addresses_,uint256[] amounts_)",
+    "effects": [
+     "The owner sets an advance amount in ETH for each address. Later sale revenue for that address goes to the platform until the advance is paid back."
+    ],
+    "shown": "Set advance payment settings, with addresses as raw hex and amounts in ETH.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setAdvanceSetting shows addresses as raw hex instead of named addresses.",
+      "evidence": "descriptor field addresses_.[] uses format raw; case 16 shows \"Addresses: 0x0000…0003\".",
+      "fix": "Use format addressName with types [\"eoa\",\"contract\"] for addresses_.[].",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "replaceAdvanceAddresses(address[] oldAddresses_,address[] newAddresses_)",
+    "effects": [
+     "The owner moves each old address's remaining advance balance to the paired new address and deletes the old one."
+    ],
+    "shown": "Replace advance payment addresses, with the old and new addresses as raw hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "replaceAdvanceAddresses shows old and new addresses as raw hex.",
+      "evidence": "descriptor fields oldAddresses_.[] and newAddresses_.[] use format raw; case 17 shows 0x0000…0001 and 0x0000…0003.",
+      "fix": "Use format addressName for both fields.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "setSeriesRenderer(uint256 seriesId,bytes blob)",
+    "effects": [
+     "An authorized caller replaces the on-chain renderer code (up to 72 KB) of a series. This changes the metadata of every artwork in the series."
+    ],
+    "shown": "Set series renderer, with the series ID and the renderer bytes as raw hex.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "setSeriesRenderer shows up to 72 KB of renderer code as raw hex.",
+      "evidence": "FeralfileArtworkV4_4: RENDERER_BLOB_MAX_SIZE = 72000; descriptor field blob uses format raw.",
+      "fix": "No format can summarize the code. Consider hiding it with a notice.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "setSeriesRenderer test sends an empty blob, which reverts.",
+      "evidence": "case 19 shows \"Renderer data: 0x\"; setSeriesRenderer: `if (blob.length == 0) revert ErrEmptyBytes();`",
+      "fix": "Use a non-empty blob in the test.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 60
+   },
+   {
+    "key": "setSeriesNames(uint256[] seriesIds,string[] names)",
+    "effects": [
+     "An authorized caller sets the display name of each listed renderer series."
+    ],
+    "shown": "Set series names, with the series IDs and the names.",
+    "findings": [],
+    "cases": [],
+    "glance": 88,
+    "depth": 85
+   },
+   {
+    "key": "setRendererTokenData(uint256[] tokenIds,(string imageURI,string textureURI,string tokenName)[] data)",
+    "effects": [
+     "An authorized caller sets the imageURI, textureURI and tokenName that the renderer uses for each listed artwork."
+    ],
+    "shown": "Set renderer token data, with the artworks, token names and image URIs. The textureURI is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "setRendererTokenData hides textureURI, which the code stores and uses to render the artwork.",
+      "evidence": "FeralfileArtworkV4_4.setRendererTokenData stores data[i], and tokenURI calls renderer.tokenURI(data.textureURI, data.imageURI, name). The descriptor shows only data.[].tokenName and data.[].imageURI.",
+      "fix": "Add a field {\"path\": \"data.[].textureURI\", \"label\": \"Texture URI\", \"format\": \"raw\"}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.659,
+ "account": "ethereum_foundation",
+ "hiddenValue": [
+  "buyArtworks(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)"
+ ],
+ "seconds": 113,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "transferFrom(address from,address to,uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 94,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "safeTransferFrom(address from,address to,uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "safeTransferFrom(address from,address to,uint256 tokenId,bytes data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "approve(address operator,uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setApprovalForAll(address operator,bool approved)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setApprovalForAll sentence reads \"true all tokens for X\" and does not say grant or revoke.",
+   "comprehension": null
+  },
+  "burnArtworks(uint256[] tokenIds)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 91,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "buyArtworks(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 4,
+   "worst": "buyArtworks has no @.value field, and in vault mode nothing ties the ETH sent to the Price shown.",
+   "comprehension": null
+  },
+  "startSale()": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "startSale intent does not say it permanently ends minting.",
+   "comprehension": null
+  },
+  "resumeSale()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "pauseSale()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "stopSaleAndBurn()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 91,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "stopSaleAndTransfer(uint256[] seriesIds,address[] recipientAddresses)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "stopSaleAndTransfer shows recipients as raw hex, in a list not paired with the series IDs.",
+   "comprehension": null
+  },
+  "mintArtworks((uint256 seriesId,uint256 tokenId,address owner)[] data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setVault(address vault_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setCostReceiver(address costReceiver_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setTokenBaseURI(string baseURI_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 91,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setAdvanceSetting(address[] addresses_,uint256[] amounts_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAdvanceSetting shows addresses as raw hex instead of named addresses.",
+   "comprehension": null
+  },
+  "replaceAdvanceAddresses(address[] oldAddresses_,address[] newAddresses_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "replaceAdvanceAddresses shows old and new addresses as raw hex.",
+   "comprehension": null
+  },
+  "setSeriesRenderer(uint256 seriesId,bytes blob)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setSeriesNames(uint256[] seriesIds,string[] names)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setRendererTokenData(uint256[] tokenIds,(string imageURI,string textureURI,string tokenName)[] data)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setRendererTokenData hides textureURI, which the code stores and uses to render the artwork.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 94,
+  "clarity": 81,
+  "functions": "13A 7B 1F",
+  "incomplete": false,
+  "worst": "buyArtworks has no @.value field, and in vault mode nothing ties the ETH sent to the Price shown."
+ }
+}

@@ -1,0 +1,243 @@
+{
+ "hash": "0xfc502cd6426c539dd76028f52fad2dce65de4688380ddc2988698e4c64d096cf",
+ "file": "registry/morpho/calldata-clearstar-YCSUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xe74c499fa461af1844fca84204490877787ced56"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC to the vault, and the vault supplies it to Morpho Blue.",
+     "The vault mints shares to `receiver`, computed from the current share price rounded down, with no minimum.",
+     "Performance-fee shares go to the fee recipient on accrual. This does not change what the signer pays."
+    ],
+    "shown": "Deposit: the exact USDC amount, a fixed ticker 'YCSUSDC' and the share receiver; the share amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the receiver gets; the share price comes from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0: the signer received 22.726693573119148577 shares, and the screen shows only 'Share ticker: YCSUSDC'.",
+      "fix": "None possible in ERC-7730: the share amount depends on vault totals in storage.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit shows share ticker 'YCSUSDC', but the vault token's symbol is HYCSUSDC on chain.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"YCSUSDC\". The receipts of cases 0-3 show the vault token with symbol \"HYCSUSDC\". The constructor __symbol was \"CSUSDC\", and setSymbol (onlyOwner) can change it.",
+      "fix": "Set vaultTicker to the current on-chain symbol, or drop the raw ticker field.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows 24.488083 USDC out correctly. It names the shares and the receiver but not the share amount (22.73 shares)."
+     }
+    ],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` vault shares to `receiver`.",
+     "The signer pays USDC equal to previewMint (rounded up), from storage totals, with no maximum bound.",
+     "The vault supplies the USDC it takes to Morpho Blue."
+    ],
+    "shown": "Mint: the deposit asset ticker USDC, the exact share amount and the share receiver; the USDC amount taken is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDC leaves the signer; the amount is computed from storage.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. Case 1: the signer sent 1 unit (0.000001) of USDC, and the screen shows only 'Deposit asset: USDC'.",
+      "fix": "None possible in ERC-7730. ERC-4626 mint has no maxAssets argument to display.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent 'Mint' does not say that the signer pays USDC for the shares.",
+      "evidence": "descriptor mint intent \"Mint\". The USDC payment appears only as the raw field 'Deposit asset: USDC'.",
+      "fix": "Change the intent to \"Deposit USDC to mint vault shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "USDC out (1 unit) is shown as asset only, with no amount. The shares to 0xdead are not a signer effect, and the reader understood that correctly."
+     }
+    ],
+    "glance": 40,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns shares from `owner`, computed from the share price and rounded up, with no maximum.",
+     "When the caller is not `owner`, the call spends the caller's share allowance from `owner`.",
+     "The vault withdraws exactly `assets` USDC from Morpho and sends it to `receiver`."
+    ],
+    "shown": "Withdraw: the exact USDC amount, the receiver and the owner; the shares burned are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares it burns from the owner; the amount comes from storage.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 2: 46.525242004153414189 shares were burned, and no field shows shares.",
+      "fix": "None possible in ERC-7730. ERC-4626 withdraw has no maxShares argument.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows 50 USDC in to the signer correctly. The shares burned have no amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` vault shares from `owner`, and spends the caller's allowance when the caller is not the owner.",
+     "The vault sends USDC to `receiver`, computed from the share price and rounded down, with no minimum."
+    ],
+    "shown": "Redeem: the exact share amount, the receiver and the owner; the USDC paid out, both asset and amount, is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDC the receiver gets; the amount is computed from storage.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 3: the signer received 32.632653 USDC, and no field shows it.",
+      "fix": "None possible for the amount. ERC-4626 redeem has no minAssets argument.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDC as the asset paid out; the reader had to guess it.",
+      "evidence": "descriptor redeem fields: only 'Shares to redeem', 'To', 'Owner'. Mint has a constant field for the underlying asset, and redeem has none. Case 3 reader: 'Which token is paid out; I assume USDC from the name but it isn't stated'.",
+      "fix": "Add {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and change the intent to \"Redeem shares for USDC\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows 30.285415 shares out correctly. The 32.632653 USDC in is not shown at all, and the reader guessed USDC with no amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.45,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 82,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit shows share ticker 'YCSUSDC', but the vault token's symbol is HYCSUSDC on chain.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say that the signer pays USDC for the shares.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset paid out; the reader had to guess it.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 75,
+  "clarity": 63,
+  "functions": "1B 1C 2D",
+  "incomplete": false,
+  "worst": "deposit shows share ticker 'YCSUSDC', but the vault token's symbol is HYCSUSDC on chain."
+ }
+}

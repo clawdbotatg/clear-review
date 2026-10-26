@@ -1,0 +1,122 @@
+{
+ "hash": "0xa545cdfa0a177b9c1352f7002742bbdfb0eb8f84d5f5d7562642e9f2aff102f8",
+ "file": "registry/symbiotic/calldata-WithdrawalQueue-prestoUSDCv.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5344664abde308cf9f4668a0f4b1e3a312c244b0"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "requestRedeem(uint256 shares,address receiver)",
+    "effects": [
+     "The signer sends `shares` prestoUSDCv vault shares to the withdrawal queue with safeTransferFrom. This spends the signer's share allowance to the queue.",
+     "The queue mints a withdrawal NFT (a new tokenId) to `receiver`. Only the NFT owner can later claim the underlying assets.",
+     "The assets come later, at the rate of the fill. Nothing arrives in this transaction.",
+     "The queue calls the vault delegator's sweepPending(). This does not move the signer's assets."
+    ],
+    "shown": "Request queued withdrawal: queue {shares} prestoUSDCv, with the withdrawal NFT sent to {receiver}, and the vault shown as an address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedeem labels receiver 'NFT recipient' but never says that address alone can claim the withdrawn assets",
+      "evidence": "WithdrawalQueue.sol requestRedeem: `_mint(receiver, tokenId);` and claim: `if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();`. Descriptor: label \"NFT recipient\", interpolatedIntent \"Queue {shares}, NFT to {receiver}\".",
+      "fix": "Change the label to \"Withdrawal claim owner\". Change interpolatedIntent to \"Queue {shares} for withdrawal, claim right to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestRedeem cannot show the underlying asset amount, which the later fill rate decides",
+      "evidence": "WithdrawalQueue.sol fill: `assets = IERC4626(vault).redeem(shares, address(this), address(this));` runs later, and claimable() computes assets from the fill checkpoints.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "claim(uint256 tokenId,address receiver)",
+    "effects": [
+     "The signer (who must own NFT `tokenId`) sends the filled part of the withdrawal, paid in the vault's underlying asset, to `receiver`.",
+     "The claimed shares are recorded on the request. The NFT stays with the signer, and an unfilled remainder can be claimed later.",
+     "If nothing is filled yet, the transfer is 0."
+    ],
+    "shown": "Claim filled withdrawal {tokenId} to {receiver}, with the vault address and the raw NFT id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim cannot show the asset amount or token: both come from storage and the vault",
+      "evidence": "WithdrawalQueue.sol claim: `(assets, shares) = claimable(tokenId);` and `IERC20(IERC4626(vault).asset()).safeTransfer(receiver, assets);`. The descriptor shows only the tokenId and the receiver.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "claim intent does not say the claim can be partial or zero while the NFT stays with the signer",
+      "evidence": "WithdrawalQueue.sol claimable: `uint256 endShares = Math.min(request.prevRequestSum + request.shares, totalFilled());`. claim does not burn the NFT. Intent: \"Claim filled withdrawal\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.291,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 53,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "requestRedeem(uint256 shares,address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "requestRedeem labels receiver 'NFT recipient' but never says that address alone can claim the withdrawn assets",
+   "comprehension": null
+  },
+  "claim(uint256 tokenId,address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 65,
+  "functions": "2B",
+  "incomplete": false,
+  "worst": "requestRedeem labels receiver 'NFT recipient' but never says that address alone can claim the withdrawn assets"
+ }
+}

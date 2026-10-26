@@ -1,0 +1,182 @@
+{
+ "hash": "0x8bd2a5847e44e0eeb9461ecc541cffb31bc4ab8a956810fd64f8239411368ecb",
+ "file": "registry/morpho/calldata-galaxy_curation-gUSDTq-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x71ffb6a81786ec285d429d531cf655107b9d878d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` USDT from the signer into the vault (safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints gUSDTq vault shares to `onBehalf`. The number of shares comes from previewDeposit after accrueInterest.",
+     "Needs an existing USDT allowance to the vault. No new approval is set."
+    ],
+    "shown": "Deposit 1 USDT, with gUSDTq shares going to onBehalf (0x…dEaD in the test case).",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is computed on chain and not shown, with no minimum.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The share price comes from storage after accrueInterest. The calldata has no min-shares parameter.",
+      "fix": "None possible in the descriptor. The share recipient and ticker are already shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1 USDT out is shown right. The 1e18 gUSDTq went to 0xdEaD (not the signer), and the screen says so in 'Send shares to'. The reader saw that correctly."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns gUSDTq shares from `onBehalf`. The amount comes from previewWithdraw(assets) and is rounded up.",
+     "When the caller is not `onBehalf`, it spends that many shares of the share allowance onBehalf gave the caller.",
+     "Sends exactly `assets` USDT from the vault to `receiver`.",
+     "May pull liquidity from the liquidity adapter first. That does not change the signer's amounts."
+    ],
+    "shown": "Withdraw exactly 10 USDT to the receiver, with the Owner whose position pays for it.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of gUSDTq shares burned from the Owner is computed on chain and never shown.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`, and exit calls `deleteShares(onBehalf, shares)`. In case 1 the signer lost 9.996788749140481981 gUSDTq, and the screen shows no share amount. The reader wrote 'Nothing is shown leaving my wallet'.",
+      "fix": "No amount can be shown. The intent could say 'Withdraw {assets} by burning gUSDTq shares of {onBehalf}' so the share burn is explicit.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "10 USDT in is shown right. The gUSDTq burn has no amount on screen; the reader only guessed that their position shrinks by about 10 USDT."
+     }
+    ],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` gUSDTq from `onBehalf`.",
+     "When the caller is not `onBehalf`, it spends `shares` of the share allowance onBehalf gave the caller.",
+     "Sends USDT from the vault to `receiver`. The amount comes from previewRedeem(shares), and the calldata sets no minimum."
+    ],
+    "shown": "Redeem 118989.947… gUSDTq to the receiver, with the Owner shown. The asset and amount received are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT received is computed from the share price, and no amount or minimum can be shown.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. In case 1 the signer received 119057.847309 USDT, and no field shows it.",
+      "fix": "None for the amount. The calldata has no minAssets.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the screen never names USDT as the asset received, though it is a known constant.",
+      "evidence": "descriptor redeem has intent 'Redeem' and interpolatedIntent 'Redeem {#.shares} to {#.receiver}'. metadata.constants.underlyingTicker 'USDT' is not used. The case 2 reader was 'unsure: Which token is paid out (USDT is only inferred from the name)'.",
+      "fix": "Use the intent 'Redeem gUSDTq for USDT' / 'Redeem {#.shares} for USDT to {#.receiver}', or add a constant field 'Receive' = $.metadata.constants.underlyingTicker.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The gUSDTq burned is shown right (18 decimals through @.to). The USDT received (119057.847309) has no asset or amount on screen; the reader guessed USDT and did not know the amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.282,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 94,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDT as the asset received, though it is a known constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 78,
+  "functions": "1A 2B",
+  "incomplete": false,
+  "worst": null
+ }
+}

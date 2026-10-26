@@ -1,0 +1,209 @@
+{
+ "hash": "0xa6ac9318be45576b4f6e37bbc515c72c75ccdb76d4b4a7fe9321b9ef044956d2",
+ "file": "registry/morpho/calldata-b_protocol-reGOLD.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x45c1875f1c48622b3d9740af2d7dc62bc9a72422"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` XAUM (0x2103…8682) to the vault through transferFrom, spending the signer's XAUM allowance to the vault.",
+     "The vault mints reGOLD shares to `receiver`. The number is assets × (totalSupply+10^offset)/(totalAssets+1), rounded down, after fees accrue. There is no minimum."
+    ],
+    "shown": "Deposit: an XAUM amount, a fixed 'Share ticker: reGOLD' line, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the screen does not show how many reGOLD shares the signer gets, and the code sets no minimum.",
+      "evidence": "MetaMorpho.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. No min-shares parameter exists, so the share count depends on vault state that is not in the calldata.",
+      "fix": "None in the descriptor. A message such as 'Shares received depend on the vault share price' could help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' names neither the asset nor the vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\", with no interpolatedIntent. The 'Share ticker' field shows only the constant 'reGOLD' and no amount.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into reGOLD vault for {receiver}\", and relabel the ticker field 'Receive shares of' or drop it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends XAUM to the vault. The amount is computed as shares × (totalAssets+1)/(totalSupply+10^offset), rounded up. It is not in the calldata and has no maximum except the signer's allowance and balance.",
+     "The vault mints exactly `shares` reGOLD to `receiver`."
+    ],
+    "shown": "Mint: 'Deposit asset: XAUM' as text only, the share amount in the vault token, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the XAUM amount taken from the signer is not shown and has no bound in the calldata.",
+      "evidence": "MetaMorpho.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(...)` → ERC4626._deposit `safeTransferFrom(_asset, caller, address(this), assets)`. The descriptor's 'Deposit asset' field is the raw constant 'XAUM' with no amount.",
+      "fix": "None in the descriptor, because the amount comes from the vault price. A label such as 'Pays XAUM (amount set by vault price)' would state it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the 'Deposit asset' field shows only a ticker, which can read as if nothing or an unknown amount is paid.",
+      "evidence": "descriptor.json mint: {\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}. The intent 'Mint' does not say that XAUM is paid.",
+      "fix": "Use interpolatedIntent \"Mint {shares} reGOLD by paying XAUM\" and relabel the field 'Pays with'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns reGOLD shares from `owner`. The number is computed as assets × (totalSupply+10^offset)/(totalAssets+1), rounded up, with no maximum.",
+     "When the signer is not `owner`, the code spends the signer's reGOLD allowance from `owner` for that share count.",
+     "The vault sends exactly `assets` XAUM to `receiver`."
+    ],
+    "shown": "Withdraw: an exact XAUM amount, the receiving address, and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the screen does not show the number of reGOLD shares burned, and the code sets no maximum.",
+      "evidence": "MetaMorpho.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` → ERC4626._withdraw `_burn(owner, shares)`.",
+      "fix": "None in the descriptor. The share count comes from the vault price.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' names neither the asset nor the vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", with no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} from reGOLD vault to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 82
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` reGOLD from `owner`. When the signer is not `owner`, this spends the signer's allowance from `owner`.",
+     "The vault sends XAUM to `receiver`. The amount is computed as shares × (totalAssets+1)/(totalSupply+10^offset), rounded down, with no minimum."
+    ],
+    "shown": "Redeem: the share amount in the vault token, the receiving address, and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the XAUM amount received is not shown, and the code sets no minimum.",
+      "evidence": "MetaMorpho.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` → `SafeERC20.safeTransfer(_asset, receiver, assets)`.",
+      "fix": "None in the descriptor. The amount comes from the vault price.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the screen never says the signer receives XAUM. The intent is 'Redeem' and no field names the asset.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", and the fields are shares, receiver and owner only. The underlyingTicker constant is not used here.",
+      "fix": "Add interpolatedIntent \"Redeem {shares} for XAUM to {receiver}\" or a 'Receive asset: XAUM' field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.272,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 46,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent 'Deposit' names neither the asset nor the vault, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the 'Deposit asset' field shows only a ticker, which can read as if nothing or an unknown amount is paid.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent 'Withdraw' names neither the asset nor the vault, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says the signer receives XAUM. The intent is 'Redeem' and no field names the asset.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 58,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "mint: the 'Deposit asset' field shows only a ticker, which can read as if nothing or an unknown amount is paid."
+ }
+}

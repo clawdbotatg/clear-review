@@ -1,0 +1,586 @@
+{
+ "hash": "0xf11301c71b26b892d49d820260f565cc776d8d54c89538f6b439272519322683",
+ "file": "registry/aave/calldata-lpv3.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xa238dd80c259a72e81d7e4664a9801593f98d1c5"
+  },
+  {
+   "chainId": 42220,
+   "address": "0x3e59a31363e2ad014dcbc521c4a0d5757d9f3402"
+  },
+  {
+   "chainId": 59144,
+   "address": "0xc47b8c00b0f69a36fa203ffeac0334874574a8ac"
+  },
+  {
+   "chainId": 59144,
+   "address": "0xc47b8c00b0f69a36fa203ffeac0334874574a8ac"
+  },
+  {
+   "chainId": 1088,
+   "address": "0x90df02551bb792286e8d4f13e0e357b4bf1d6a57"
+  },
+  {
+   "chainId": 146,
+   "address": "0x5362dbb1e601abf3a4c14c22ffeda64042e5eaa3"
+  },
+  {
+   "chainId": 100,
+   "address": "0xb50201558b00496a145fe76f7424749556e326d8"
+  },
+  {
+   "chainId": 534352,
+   "address": "0x11fcfe756c05ad438e312a7fd934381537d3cffe"
+  },
+  {
+   "chainId": 137,
+   "address": "0x794a61358d6845594f94dc1db02a252b5b4814ad"
+  },
+  {
+   "chainId": 1868,
+   "address": "0xdd3d7a7d03d9fd9ef45f3e587287922ef65ca38b"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x794a61358d6845594f94dc1db02a252b5b4814ad"
+  },
+  {
+   "chainId": 10,
+   "address": "0x794a61358d6845594f94dc1db02a252b5b4814ad"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x794a61358d6845594f94dc1db02a252b5b4814ad"
+  },
+  {
+   "chainId": 9745,
+   "address": "0x925a2a7214ed92428b5b1b090f80b25700095e12"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf)",
+    "effects": [
+     "Pulls up to `amount` of `asset` from the signer into the aToken reserve (the whole debt when amount is max, which is allowed only when onBehalfOf is the signer).",
+     "Burns variable debt tokens of `onBehalfOf`, which lowers that account's debt by the amount repaid."
+    ],
+    "shown": "\"Repay loan\" with the amount and token (or \"All\"), the rate mode, and the debt holder whose loan is reduced.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "997 USDC out and 992.85 variableDebtEthUSDC burned. The screen shows 997 USDC and the signer as debt holder."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "repayWithPermit(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf, uint256 deadline, uint8 permitV, bytes32 permitR, bytes32 permitS)",
+    "effects": [
+     "Submits the signer's EIP-2612 permit, which sets the signer's `asset` allowance to the Pool to `amount`. The allowance stays unlimited when amount is max.",
+     "Pulls up to `amount` of `asset` from the signer (the whole debt when amount is max).",
+     "Burns variable debt tokens of `onBehalfOf`, which lowers that account's debt."
+    ],
+    "shown": "\"Repay loan\" with the amount (\"All USDC\" for max), the rate mode and the debt holder. The permit and deadline are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "repayWithPermit: the permit's allowance to the Pool is never stated, and with \"All\" it stays effectively unlimited.",
+      "evidence": "Pool.sol repayWithPermit: IERC20WithPermit(asset).permit(_msgSender(), address(this), amount, deadline, ...). Descriptor: permitV/R/S and deadline are visible: never, and no field or intent mentions an approval. Case 6: approval grant of USDC 2^256-1 to the Pool, then only 100017.08 USDC is spent, so an effectively unlimited allowance remains.",
+      "fix": "Say it in the intent or a label, e.g. interpolatedIntent \"Approve and repay {amount} of debt for {onBehalfOf}\", and show the deadline as a date.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "repayWithPermit: \"All\" hides the exact amount, which comes from the debt in storage.",
+      "evidence": "Case 6: the screen shows \"All USDC\", while 100017.082621 USDC actually left the signer. The debt balance is in Pool storage, not in the calldata.",
+      "fix": "None possible in the descriptor; the wallet would need a simulation.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "missed",
+       "right",
+       "right"
+      ],
+      "notes": "Effects: an unlimited USDC permit approval to the Pool, the debt burned, and 100017.08 USDC out. The screen shows \"All USDC\" and the debt holder. The approval is not shown, and the reader only guessed that one might exist."
+     }
+    ],
+    "glance": 75,
+    "depth": 72
+   },
+   {
+    "key": "repayWithATokens(address asset, uint256 amount, uint256 interestRateMode)",
+    "effects": [
+     "Burns up to `amount` of the signer's aTokens for `asset`, which reduces the signer's supplied position.",
+     "Burns the signer's variable debt tokens by the same amount."
+    ],
+    "shown": "\"Repay with aTokens\" with the amount and token (or \"All\"), the rate mode and the signer as debt holder.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "0.012 aEthWBTC burned and the WBTC debt reduced. The screen shows 0.012 WBTC, the aToken intent and the signer."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "setUserUseReserveAsCollateral(address asset, bool useAsCollateral)",
+    "effects": [
+     "Turns the signer's supplied `asset` on or off as collateral, which changes their borrowing power and liquidation exposure. No tokens move."
+    ],
+    "shown": "\"Manage collateral\" with the asset address and a raw true/false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setUserUseReserveAsCollateral: the intent never says enable or disable, and the flag is a raw boolean.",
+      "evidence": "Descriptor: intent \"Manage collateral\"; field useAsCollateral format \"raw\". Case 1 shows \"Use as collateral: true\".",
+      "fix": "Use an enum {\"true\":\"Enable\",\"false\":\"Disable\"} and an interpolatedIntent such as \"{useAsCollateral} {asset} as collateral\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "There are no token movements. Collateral was enabled for 0x9Bf4…, and the reader understood that, though the token was not named."
+     }
+    ],
+    "glance": 50,
+    "depth": 72
+   },
+   {
+    "key": "setUserUseReserveAsCollateralOnBehalfOf(address asset, bool useAsCollateral, address onBehalfOf)",
+    "effects": [
+     "As an approved position manager, the signer turns `asset` on or off as collateral in the `onBehalfOf` account's position. None of the signer's own assets move."
+    ],
+    "shown": "\"Manage collateral\" with the asset, a raw true/false and the account labelled \"Debtor\".",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setUserUseReserveAsCollateralOnBehalfOf: \"Debtor\" mislabels the account whose collateral changes, and the intent omits it.",
+      "evidence": "Pool.sol: onlyPositionManager(onBehalfOf); executeUseReserveAsCollateral(..., _usersConfig[onBehalfOf], onBehalfOf, ...). Descriptor: label \"Debtor\", types [\"eoa\"], intent \"Manage collateral\". The account need not owe anything and may be a smart account.",
+      "fix": "Label it \"Position owner\", allow types eoa/wallet/contract, and use interpolatedIntent \"{useAsCollateral} {asset} as collateral for {onBehalfOf}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setUserUseReserveAsCollateralOnBehalfOf: the enable/disable flag is shown as a raw boolean.",
+      "evidence": "Descriptor: useAsCollateral format \"raw\"; case 9 shows \"true\".",
+      "fix": "Use an enum mapping true/false to Enable/Disable.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 62
+   },
+   {
+    "key": "withdraw(address asset, uint256 amount, address to)",
+    "effects": [
+     "Burns the signer's aTokens for `amount` of `asset` (the whole balance when amount is max), which reduces their supply position and collateral.",
+     "Sends `amount` of the underlying `asset` to `to`."
+    ],
+    "shown": "\"Withdraw\" with the amount and token (or \"Max\") and the recipient.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "51 aEthWETH burned and 51 WETH received by the signer, matching the screen."
+     }
+    ],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf)",
+    "effects": [
+     "Mints variable debt of `amount` of `asset` to `onBehalfOf` (the signer, or a credit delegator who approved the signer).",
+     "Sends `amount` of `asset` to the signer (msg.sender)."
+    ],
+    "shown": "\"Borrow\" with the amount and token, the rate mode and the debtor.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "0.30817 WBTC received and the same amount of debt tokens minted to the signer. The missing recipient field is the signer itself."
+     }
+    ],
+    "glance": 80,
+    "depth": 90
+   },
+   {
+    "key": "deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)",
+    "effects": [
+     "Pulls `amount` of `asset` from the signer into the aToken reserve.",
+     "Mints aTokens (a supply position) to `onBehalfOf`."
+    ],
+    "shown": "\"Supply\" with the amount and token and the recipient of the position.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)",
+    "effects": [
+     "Pulls `amount` of `asset` from the signer into the aToken reserve.",
+     "Mints aTokens (a supply position) to `onBehalfOf`."
+    ],
+    "shown": "\"Supply\" with the amount and token and the recipient of the position.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "22213.17 USDC out and 22213.17 aEthUSDC in to the signer."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "supplyWithPermit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode, uint256 deadline, uint8 permitV, bytes32 permitR, bytes32 permitS)",
+    "effects": [
+     "Submits the signer's permit, which sets an `amount` allowance of `asset` to the Pool.",
+     "Pulls `amount` of `asset` from the signer, which uses up that allowance.",
+     "Mints aTokens to `onBehalfOf`."
+    ],
+    "shown": "\"Supply\" with the amount and token and the recipient. The permit fields are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "supplyWithPermit: the permit approval is not mentioned, but the supply uses it up in the same call.",
+      "evidence": "Pool.sol supplyWithPermit: permit(_msgSender(), address(this), amount, ...). Case 5: approval grant of 470 wstETH to the Pool, then the allowance is 0 after the transfer. This is a prerequisite of the named action.",
+      "fix": "Optionally say \"Approve and supply\" in the intent.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "missed",
+       "right",
+       "partial"
+      ],
+      "notes": "A transient 470 wstETH permit approval, 470 wstETH out and 470 aEthwstETH in. The reader did not see an approval, and knew the aToken arrived but not its amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "approvePositionManager(address positionManager, bool approve)",
+    "effects": [
+     "Grants (approve=true) or revokes (approve=false) the right of `positionManager` to toggle collateral and change the eMode of every position of the signer."
+    ],
+    "shown": "\"Approve Manager\" with the manager address and a raw true/false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approvePositionManager: the intent says \"Approve Manager\" even when approve=false revokes the manager.",
+      "evidence": "Pool.sol approvePositionManager: _positionManager[_msgSender()][positionManager] = approve; emits PositionManagerRevoked when false. Descriptor: intent \"Approve Manager\", field approve format \"raw\".",
+      "fix": "Use an enum {\"true\":\"Approve\",\"false\":\"Revoke\"} and interpolatedIntent \"{approve} {positionManager} as position manager\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "approvePositionManager: the screen does not say which rights the manager gets over the signer's positions.",
+      "evidence": "Pool.sol: onlyPositionManager guards setUserUseReserveAsCollateralOnBehalfOf and setUserEModeOnBehalfOf. The userdoc says the manager can call both on behalf of the user. Descriptor: intent \"Approve Manager\" only.",
+      "fix": "State the scope, e.g. intent \"Allow manager to change your collateral and eMode settings\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "renouncePositionManagerRole(address user)",
+    "effects": [
+     "The signer gives up their position manager role over `user`. None of the signer's assets move."
+    ],
+    "shown": "\"Revoke Manager Role\" with the signer as manager and the user.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "multicall(bytes[] data)",
+    "effects": [
+     "Runs each entry of `data` as a self-delegatecall on the Pool with the signer as msg.sender, so each inner call has its usual effects (supply, borrow, repay, withdraw, eMode, collateral changes)."
+    ],
+    "shown": "\"Multicall\" with each inner call decoded through this descriptor. Inner calls with no format are shown as raw hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "multicall: an inner setUserEMode call is shown as raw hex, which hides an eMode change to the position.",
+      "evidence": "Case 8: the first Call is shown as \"0x28530a47…0029\" (setUserEMode(41)). The descriptor has no format for setUserEMode(uint8) or setUserEModeOnBehalfOf(uint8,address), which Pool.sol exposes and which change the signer's LTV and liquidation thresholds.",
+      "fix": "Add formats for setUserEMode and setUserEModeOnBehalfOf (category id with a label), so nested calls decode.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "multicall: the intent \"Multicall\" tells the signer nothing about the batched actions.",
+      "evidence": "Descriptor: intent \"Multicall\". Case 8 reader: \"What the first call (0x28530a47...29) does; it is undecoded\".",
+      "fix": "Use an intent such as \"Batch Aave actions\". Per-call intents come from the nested formats.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 8,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "200313.31 EURC out and 200313.31 aEthEURC in, both shown in the nested Supply. The eMode change is not among the mined token effects."
+     }
+    ],
+    "glance": 20,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.973,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 478,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "repay(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "repayWithPermit(address asset, uint256 amount, uint256 interestRateMode, address onBehalfOf, uint256 deadline, uint8 permitV, bytes32 permitR, bytes32 permitS)": {
+   "grade": "C",
+   "truth": 67,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "repayWithPermit: the permit's allowance to the Pool is never stated, and with \"All\" it stays effectively unlimited.",
+   "comprehension": 67
+  },
+  "repayWithATokens(address asset, uint256 amount, uint256 interestRateMode)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "setUserUseReserveAsCollateral(address asset, bool useAsCollateral)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setUserUseReserveAsCollateral: the intent never says enable or disable, and the flag is a raw boolean.",
+   "comprehension": 100
+  },
+  "setUserUseReserveAsCollateralOnBehalfOf(address asset, bool useAsCollateral, address onBehalfOf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 41,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "setUserUseReserveAsCollateralOnBehalfOf: \"Debtor\" mislabels the account whose collateral changes, and the intent omits it.",
+   "comprehension": null
+  },
+  "withdraw(address asset, uint256 amount, address to)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 94,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "supplyWithPermit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode, uint256 deadline, uint8 permitV, bytes32 permitR, bytes32 permitS)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "approvePositionManager(address positionManager, bool approve)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "approvePositionManager: the screen does not say which rights the manager gets over the signer's positions.",
+   "comprehension": null
+  },
+  "renouncePositionManagerRole(address user)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "multicall(bytes[] data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "multicall: an inner setUserEMode call is shown as raw hex, which hides an eMode change to the position.",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 97,
+  "clarity": 76,
+  "functions": "6A 4B 3C",
+  "incomplete": false,
+  "worst": "repayWithPermit: the permit's allowance to the Pool is never stated, and with \"All\" it stays effectively unlimited."
+ }
+}

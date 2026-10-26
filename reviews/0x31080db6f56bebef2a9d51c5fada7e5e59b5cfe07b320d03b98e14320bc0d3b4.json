@@ -1,0 +1,249 @@
+{
+ "hash": "0x31080db6f56bebef2a9d51c5fada7e5e59b5cfe07b320d03b98e14320bc0d3b4",
+ "file": "registry/morpho/calldata-steakhouse_financial-bbqWSTETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x833adaef212c5cd3f78906b44bbfb18258f238f0"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:26Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` wstETH from the signer into the vault (ERC4626._deposit, safeTransferFrom), which spends the signer's wstETH allowance to the vault by that amount.",
+     "Mints bbqWSTETH shares to `receiver`. The number is computed on chain: _convertToSharesWithTotals(assets, …, Floor), after _accrueInterest mints fee shares to the fee recipient.",
+     "The vault supplies the wstETH to Morpho Blue markets (_supplyMorpho). This moves none of the signer's assets."
+    ],
+    "shown": "Deposit: the exact wstETH amount, the constant share ticker bbqWSTETH, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is computed on chain, so the screen cannot show it.",
+      "evidence": "MetaMorphoV1_1.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor)`. Case 0: the signer received 812393857280849 bbqWSTETH, and no field shows an amount. The 'Share ticker' field shows only 'bbqWSTETH'.",
+      "fix": "Nothing in calldata bounds it. A label like 'Receive shares (bbqWSTETH)' would make clear that a share amount arrives.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' has no interpolatedIntent naming the asset or the receiver.",
+      "evidence": "descriptor deposit: `\"intent\": \"Deposit\"`, no interpolatedIntent.",
+      "fix": "Add interpolatedIntent 'Deposit {assets} for bbqWSTETH shares to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "The wstETH out is shown exactly. The shares go to the signer (bluetable.eth = the signer 0xc27d…). The reader did not recognise their own ENS name and did not see a share amount. The allowance decrease is the transferFrom spend, which the deposit implies."
+     }
+    ],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` bbqWSTETH to `receiver`.",
+     "Pulls wstETH from the signer. The amount is computed on chain with rounding up: _convertToAssetsWithTotals(shares, …, Ceil). No maximum is in the calldata.",
+     "Spends the signer's wstETH allowance to the vault by that amount.",
+     "Before pricing, _accrueInterest mints fee shares to the fee recipient."
+    ],
+    "shown": "Mint: the deposit asset as the ticker 'wstETH' with no amount, the exact number of shares, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the wstETH amount pulled from the signer is computed on chain and never shown.",
+      "evidence": "MetaMorphoV1_1.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil)`. Case 1: 1009731752 wei of wstETH left the signer. The screen shows only 'Deposit asset: wstETH'.",
+      "fix": "ERC4626 mint has no maxAssets parameter, so no descriptor can bound it. A label like 'Pay with (amount set by vault rate)' would warn the signer.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say that wstETH is paid in.",
+      "evidence": "descriptor mint: `\"intent\": \"Mint\"`, no interpolatedIntent. The payment appears only as the field 'Deposit asset: wstETH'.",
+      "fix": "Use the intent 'Deposit wstETH for shares' and interpolatedIntent 'Mint {shares} to {receiver} paying wstETH'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 0,
+      "reader": [
+       "partial",
+       "missed"
+      ],
+      "notes": "The wstETH out is shown as an asset with no amount. The allowance spend is not shown, but the deposit implies it. The shares to 0xdead are shown correctly, and they are not the signer's."
+     }
+    ],
+    "glance": 50,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns bbqWSTETH shares from `owner`. The number is computed with rounding up: _convertToSharesWithTotals(assets, …, Ceil). When the caller is not the owner, the caller's share allowance from the owner is spent.",
+     "Sends exactly `assets` wstETH to `receiver` after pulling it from Morpho Blue.",
+     "Before pricing, _accrueInterest mints fee shares to the fee recipient."
+    ],
+    "shown": "Withdraw: the exact wstETH amount, the receiver and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is computed on chain, so the screen cannot show it.",
+      "evidence": "MetaMorphoV1_1.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil)`. Case 2: 3153858060305075481 bbqWSTETH were burned from the signer, and no field shows it.",
+      "fix": "No calldata bound exists. A label like 'Owner (shares burned)' would make the debit clearer.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The wstETH in is shown exactly, with the receiver = the signer. The reader knew shares were burned but saw no amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` bbqWSTETH from `owner`. When the caller is not the owner, the caller's share allowance is spent.",
+     "Sends wstETH to `receiver`. The amount is computed with rounding down: _convertToAssetsWithTotals(shares, …, Floor).",
+     "Before pricing, _accrueInterest mints fee shares to the fee recipient."
+    ],
+    "shown": "Redeem: the exact shares redeemed, the receiver and the owner. The asset received is not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the screen never names wstETH as the asset received, though mint shows it from a constant.",
+      "evidence": "descriptor redeem has fields only for shares, receiver and owner. mint uses `\"value\": \"$.metadata.constants.underlyingTicker\"`. Case 3: the signer received 14620122263161616 wstETH. The reader wrote 'Underlying asset of the vault (probably wstETH), amount not shown'.",
+      "fix": "Add a field `{\"label\": \"Receive\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}` and an interpolatedIntent 'Redeem {shares} for wstETH to {receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the wstETH amount received is computed on chain and has no minimum.",
+      "evidence": "MetaMorphoV1_1.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor)`. Case 3: 14620122263161616 wstETH came in, and no amount appears on screen.",
+      "fix": "ERC4626 redeem has no minAssets parameter, so no descriptor can bound it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out are shown exactly. The wstETH in has no asset or amount on screen, and the reader only guessed the asset."
+     }
+    ],
+    "glance": 50,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.356,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 115,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 37,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 25
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names wstETH as the asset received, though mint shows it from a constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 57,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": null
+ }
+}

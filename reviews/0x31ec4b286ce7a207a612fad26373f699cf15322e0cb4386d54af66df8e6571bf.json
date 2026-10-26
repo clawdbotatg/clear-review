@@ -1,0 +1,243 @@
+{
+ "hash": "0x31ec4b286ce7a207a612fad26373f699cf15322e0cb4386d54af66df8e6571bf",
+ "file": "registry/morpho/calldata-sparkdao-spDAI.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x73e65dbd630f90604062f6e02fab9138e713edd9"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` DAI from the signer via transferFrom, spending the signer's DAI allowance to the vault (ERC4626._deposit).",
+     "Mints spDAI shares to `receiver`; the count is computed at execution as assets*(supply+offset)/(totalAssets+1), rounded down (MetaMorpho.deposit), with no minimum in calldata.",
+     "Accrues the performance fee first, which mints fee shares to the fee recipient and sets the share price the signer gets."
+    ],
+    "shown": "Deposit: the DAI amount, a constant 'Share ticker: spDAI', and the address that gets the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of spDAI shares received is not shown and no minimum can be enforced.",
+      "evidence": "MetaMorpho.deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Floor). Case 0: signer received 78.214694723077189094 spDAI; the screen shows only 'Share ticker: spDAI'.",
+      "fix": "None possible from calldata. Optionally label the field 'Receive spDAI shares (amount set by vault price)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the intent 'Deposit' names no asset, and 'Share ticker' does not say shares arrive.",
+      "evidence": "descriptor deposit: intent \"Deposit\", no interpolatedIntent; field {label:'Share ticker', value:$.metadata.constants.vaultTicker}.",
+      "fix": "Add interpolatedIntent 'Deposit {assets} for spDAI shares to {receiver}' and relabel the constant field 'Receive' or 'Shares received'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "89 DAI out is shown exactly. spDAI in: the asset and receiver are shown, the amount is not (computed by the vault)."
+     }
+    ],
+    "glance": 60,
+    "depth": 72
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Takes DAI from the signer via transferFrom; the amount is computed at execution as shares*(totalAssets+1)/(supply+offset), rounded up (MetaMorpho.mint), with no maximum in calldata.",
+     "Mints exactly `shares` spDAI to `receiver`.",
+     "Spends the signer's DAI allowance to the vault, and accrues the fee before pricing."
+    ],
+    "shown": "Mint: a constant 'Deposit asset: DAI' with no amount, the exact spDAI shares minted, and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the amount of DAI taken from the signer is not shown; no max-assets bound exists in calldata.",
+      "evidence": "MetaMorpho.mint: assets = _convertToAssetsWithTotals(shares, ..., Ceil); _deposit(_msgSender(), ...). Case 1: 1153892240 wei of DAI left the signer; the screen shows 'Deposit asset: DAI' with no amount.",
+      "fix": "None possible from calldata. Label the field 'Pay DAI (amount set by vault price)' so the signer knows DAI leaves in an amount not shown.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' hides that the signer pays DAI for the shares.",
+      "evidence": "descriptor mint: intent \"Mint\", interpolatedIntent absent. The function pulls DAI from msg.sender.",
+      "fix": "Use intent 'Deposit DAI for spDAI' and interpolatedIntent 'Mint {shares} spDAI to {receiver}, paying DAI'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "DAI out: the asset is shown, the amount is not. The minted shares went to 0xdead (not the signer), shown correctly."
+     }
+    ],
+    "glance": 35,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns spDAI shares from `owner`; the count is computed as assets*(supply+offset)/(totalAssets+1), rounded up, with no maximum in calldata.",
+     "Spends the caller's spDAI allowance from `owner` when the caller is not the owner (ERC4626._withdraw).",
+     "Sends exactly `assets` DAI to `receiver`."
+    ],
+    "shown": "Withdraw: exactly X DAI, the recipient, and the owner address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of spDAI shares burned from the owner is not shown; no max bound exists in calldata.",
+      "evidence": "MetaMorpho.withdraw: shares = _convertToSharesWithTotals(assets, ..., Ceil). Case 2: 0.882681594298551703 spDAI burned from the signer; no field mentions it.",
+      "fix": "None possible for the amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: the 'Owner' label and 'Withdraw' intent never say the owner's spDAI shares are burned.",
+      "evidence": "descriptor withdraw: field owner label 'Owner'; no field or intent names spDAI; ERC4626._withdraw burns from owner and spends allowance.",
+      "fix": "Relabel owner 'Burn spDAI shares from' and add interpolatedIntent 'Withdraw {assets} DAI to {receiver}, burning spDAI from {owner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "DAI in is shown exactly with the recipient. The spDAI burned from the signer is not named or quantified."
+     }
+    ],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` spDAI from `owner`, spending the caller's allowance when the caller is not the owner.",
+     "Sends DAI to `receiver`; the amount is computed as shares*(totalAssets+1)/(supply+offset), rounded down, with no minimum in calldata."
+    ],
+    "shown": "Redeem: the spDAI shares to redeem, the recipient, and the owner. The underlying asset is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the asset received (DAI) appears nowhere on the screen, though a constant is available.",
+      "evidence": "descriptor redeem fields: shares, receiver, owner only. metadata.constants.underlyingTicker 'DAI' is used in mint but not here. MetaMorpho.redeem sends `assets` of DAI to receiver.",
+      "fix": "Add a field {label:'Receive asset', value:$.metadata.constants.underlyingTicker} and an interpolatedIntent 'Redeem {shares} spDAI for DAI to {receiver}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the DAI amount received is computed by the vault, with no minimum in calldata.",
+      "evidence": "MetaMorpho.redeem: assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Floor).",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.465,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 150,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent 'Deposit' names no asset, and 'Share ticker' does not say shares arrive.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' hides that the signer pays DAI for the shares.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the 'Owner' label and 'Withdraw' intent never say the owner's spDAI shares are burned.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the asset received (DAI) appears nowhere on the screen, though a constant is available.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 56,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem: the asset received (DAI) appears nowhere on the screen, though a constant is available."
+ }
+}

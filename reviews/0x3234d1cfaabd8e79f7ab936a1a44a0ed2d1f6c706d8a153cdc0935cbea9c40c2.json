@@ -1,0 +1,238 @@
+{
+ "hash": "0x3234d1cfaabd8e79f7ab936a1a44a0ed2d1f6c706d8a153cdc0935cbea9c40c2",
+ "file": "registry/morpho/calldata-sentora-senPYUSDmWIN-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x7cbcfc4f64be199ede6db1d916ddcdb69f666b57"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` PYUSD to the vault (safeTransferFrom msg.sender to vault).",
+     "The vault mints previewDeposit(assets) senPYUSDmWIN shares to `onBehalf`; the share amount comes from the stored share price."
+    ],
+    "shown": "Deposit {assets} PYUSD for {onBehalf}, with the share ticker senPYUSDmWIN and the share recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the signer receives; the amount comes from the stored share price",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The descriptor has only the constant field 'Share ticker' = senPYUSDmWIN. In case 0 the signer received 2000000000000000000 senPYUSDmWIN and the screen shows no amount.",
+      "fix": "No descriptor fix exists, because the share amount is not in calldata and the function has no minimum-shares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 2 PYUSD out correctly. For the shares in, it shows the ticker and the recipient (the signer) but no amount, so the reader's understanding is partial."
+     }
+    ],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns previewWithdraw(assets) senPYUSDmWIN shares from `onBehalf`; the share amount comes from the stored price and has no maximum.",
+     "If msg.sender is not onBehalf, the call spends that many shares of the owner's allowance to the signer.",
+     "The vault sends exactly `assets` PYUSD to `receiver`."
+    ],
+    "shown": "Withdraw exactly {assets} PYUSD to {receiver}, with an Owner field; nothing mentions the vault shares that are burned.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw never states that senPYUSDmWIN shares are burned from the owner",
+      "evidence": "VaultV2.exit: `deleteShares(onBehalf, shares);`. The descriptor has the intent 'Withdraw', the sentence 'Withdraw {#.assets} to {#.receiver}', and no share field. In case 2 the signer gave 999601107758894293 senPYUSDmWIN, and the reader wrote 'Possibly a vault share/position token ... (screen doesn't say)'.",
+      "fix": "Add a constant field {\"label\":\"Shares burned\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}. Change interpolatedIntent to 'Withdraw {#.assets} to {#.receiver} by burning senPYUSDmWIN shares'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw cannot show the number of shares burned; previewWithdraw computes it from storage",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets);`. The calldata has no maxShares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows the 1 PYUSD in correctly. It does not show the shares out, and the reader only guessed at them."
+     }
+    ],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` senPYUSDmWIN from `onBehalf`; if msg.sender is not onBehalf, the call spends the owner's allowance to the signer.",
+     "The vault sends previewRedeem(shares) PYUSD to `receiver`; the amount comes from the stored price and has no minimum."
+    ],
+    "shown": "Redeem {shares} senPYUSDmWIN to {receiver}, with an Owner field; the screen never names the asset received or its amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names PYUSD as the asset the receiver gets",
+      "evidence": "VaultV2.exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The redeem fields are only 'Shares to redeem', 'To' and 'Owner'. In case 3 the signer received 1700028778288 PYUSD, and the reader wrote 'Underlying asset (likely PYUSD, based on the name) ... amount not shown'.",
+      "fix": "Add {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}, as the mint format does. Change interpolatedIntent to 'Redeem {#.shares} for PYUSD to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem cannot show the PYUSD amount received; previewRedeem computes it from storage",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares);`. The calldata has no minAssets parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the shares out exactly. The reader only guessed the PYUSD in, from the vault name, and saw no amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer sends previewMint(shares) PYUSD to the vault; the amount comes from the stored price and has no maximum.",
+     "The vault mints exactly `shares` senPYUSDmWIN to `onBehalf`."
+    ],
+    "shown": "Mint {shares} senPYUSDmWIN for {onBehalf}, with a 'Deposit asset: PYUSD' field that has no amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint's intent and sentence do not say that PYUSD leaves the signer's wallet",
+      "evidence": "VaultV2.enter: `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets);`. The descriptor has the intent 'Mint' and the sentence 'Mint {#.shares} for {#.onBehalf}'. In case 1 the signer paid 1000000 PYUSD, and the summary line does not mention it.",
+      "fix": "Change the intent to 'Deposit PYUSD to mint shares'. Change interpolatedIntent to 'Deposit PYUSD to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint cannot show the PYUSD amount taken; previewMint computes it from storage with no cap",
+      "evidence": "VaultV2.mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. The screen field 'Deposit asset' shows 'PYUSD' with no amount. Case 1 took 1000000 PYUSD.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The screen names PYUSD as the deposit asset but gives no amount. The shares went to 0xdead, which is not the signer, and the screen shows that correctly."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.489,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 125,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw never states that senPYUSDmWIN shares are burned from the owner",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names PYUSD as the asset the receiver gets",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint's intent and sentence do not say that PYUSD leaves the signer's wallet",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 65,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never names PYUSD as the asset the receiver gets"
+ }
+}

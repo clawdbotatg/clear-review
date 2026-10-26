@@ -1,0 +1,134 @@
+{
+ "hash": "0x51b483239771d4c9ee6aa94b815be9c8a7d9f414d6d3a0d43b315c9d06dff16b",
+ "file": "registry/symbiotic/calldata-WithdrawalQueue-CSWUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x494db3070b8b5e95cdb6d0b3dd8950c31fcccf63"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "requestRedeem(uint256 shares,address receiver)",
+    "effects": [
+     "The signer sends `shares` vault share tokens (the vault contract itself as ERC-20, CSWUSDC) to the withdrawal queue, which spends the signer's share allowance to the queue.",
+     "The queue mints a new withdrawal NFT to `receiver`. The holder of that NFT is the only one who can later claim the underlying assets.",
+     "The underlying assets are not paid now. Their amount is set later by fill(), at the vault's redeem rate at that time.",
+     "The queue calls UniversalDelegator.sweepPending() as itself. This does not move the signer's assets."
+    ],
+    "shown": "Request queued withdrawal: queue N CSWUSDC shares from vault 0x9902…, with the withdrawal NFT sent to the receiver address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedeem labels the receiver 'NFT recipient' and does not say this address gets the right to claim the assets.",
+      "evidence": "WithdrawalQueue.sol requestRedeem: `_mint(receiver, tokenId);`. claim: `if (ownerOf(tokenId) != msg.sender) revert NotTokenOwner();`. Descriptor: label \"NFT recipient\", interpolatedIntent \"Queue {shares}, NFT to {receiver}\". Cases 0 and 2 send the NFT to an address other than the signer.",
+      "fix": "Rename the label to \"Withdrawal claim right (NFT) to\". Change the interpolatedIntent to \"Queue {shares} for withdrawal, claimable by {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestRedeem cannot show the asset amount the signer later receives, because fill() sets it at a later rate.",
+      "evidence": "WithdrawalQueue.sol fill: `assets = IERC4626(vault).redeem(shares, address(this), address(this));` sets the cumulative asset checkpoints after the request. No calldata value fixes the amount the signer gets back.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 82
+   },
+   {
+    "key": "claim(uint256 tokenId,address receiver)",
+    "effects": [
+     "The signer must own withdrawal NFT `tokenId`. The NFT stays with the signer and is not burned.",
+     "The queue sends the filled, unclaimed part of the request to `receiver`, paid in the vault's underlying asset (vault.asset()). The amount comes from storage and can be zero or only part of the request.",
+     "The request's sharesClaimed goes up by the claimed shares, so this part of the NFT's claim right is used up."
+    ],
+    "shown": "Claim filled withdrawal for NFT #ID to the receiver address, with vault 0x9902… shown. No asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claim does not name the asset paid out; 'Asset recipient' leaves the token the receiver gets unstated.",
+      "evidence": "WithdrawalQueue.sol claim: `IERC20(IERC4626(vault).asset()).safeTransfer(receiver, assets);`. Descriptor: intent \"Claim filled withdrawal\", field label \"Asset recipient\". Neither names the underlying token.",
+      "fix": "Name the vault's underlying asset in the intent or the label after you confirm it, for example \"Claim filled USDC withdrawal\" and the label \"USDC recipient\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim cannot show the amount paid, because it comes from fill checkpoints in storage and may be partial or zero.",
+      "evidence": "WithdrawalQueue.sol claim: `(assets, shares) = claimable(tokenId);`. claimable caps `endShares` at `totalFilled()`, so only the filled part is paid.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "claim shows the withdrawal NFT ID raw, not as an NFT of this queue's collection.",
+      "evidence": "Descriptor field `#.tokenId` with format \"raw\", label \"Withdrawal NFT ID\". The queue contract is the ERC721 collection (WithdrawalQueue is ERC721Upgradeable).",
+      "fix": "Use format \"nftName\" with params {\"collectionPath\": \"@.to\"} for `#.tokenId`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "VaultV2 at the constant 0x9902420048aEC155f1f1DF077f115595530Df216 has no source in the directory. I could not confirm that it is the queue's storage `vault`, that its share transferFrom in requestRedeem behaves as a plain ERC-20 transfer, or which token `asset()` returns for the claim payout."
+  ]
+ },
+ "cost": 0.281,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 50,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "requestRedeem(uint256 shares,address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "requestRedeem labels the receiver 'NFT recipient' and does not say this address gets the right to claim the assets.",
+   "comprehension": null
+  },
+  "claim(uint256 tokenId,address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim does not name the asset paid out; 'Asset recipient' leaves the token the receiver gets unstated.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 66,
+  "functions": "1B 1C",
+  "incomplete": true,
+  "worst": "claim does not name the asset paid out; 'Asset recipient' leaves the token the receiver gets unstated."
+ }
+}

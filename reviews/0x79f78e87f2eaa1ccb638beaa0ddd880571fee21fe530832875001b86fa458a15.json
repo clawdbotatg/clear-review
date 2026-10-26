@@ -1,0 +1,299 @@
+{
+ "hash": "0x79f78e87f2eaa1ccb638beaa0ddd880571fee21fe530832875001b86fa458a15",
+ "file": "registry/flare/calldata-AssetManager-FXRP-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0x2a3fe068cd92178554cabcf7c95adf49b4b0b6a8"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "redeemAmount(uint256 _amountUBA, string _redeemerUnderlyingAddressString, address _executor)",
+    "effects": [
+     "Burns up to _amountUBA FXRP from the signer; less when the redemption queue or the ticket limit stops it.",
+     "Creates redemption requests for the signer: agents must pay XRP to _redeemerUnderlyingAddressString, the redeemed value minus a redemption fee read from storage.",
+     "Takes msg.value in FLR as an executor fee, split across the requests; it goes to the executor if the executor confirms or defaults, otherwise it is burned.",
+     "Appoints _executor, who may call redemption default for the signer's requests."
+    ],
+    "shown": "Intent 'Redeem FXRP, fee deducted' with the FXRP amount to burn, the XRP address, the executor and the FLR executor fee.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeemAmount shows 'FXRP to burn' as exact, but the code burns only what the queue can redeem.",
+      "evidence": "RedemptionRequestsFacet._redeem: loop is bounded by maxRedeemedTickets; 'Redemptions.burnFAssets(msg.sender, redeemedUBA)' where redeemedUBA can be less than _amountUBA. Descriptor label 'FXRP to burn'.",
+      "fix": "Change the label to 'FXRP to burn (max)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeemAmount does not show the XRP amount received; the redemption fee rate is in storage.",
+      "evidence": "NatSpec: '_amountUBA ... this is NOT the amount of assets that will be received by the redeemer - the redemption fee will be subtracted'. Intent 'Redeem FXRP, fee deducted' states the fee but no amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeemAmount 'Executor Fee' is burned, not paid, when the executor is zero or never acts.",
+      "evidence": "Redemptions.payOrBurnExecutorFee: 'if (msg.sender == _request.executor) depositWNat(...) else transferNAT(getBurnAddress(), executorFeeNatWei)'. Field 'Executor Fee' (@.value).",
+      "fix": "Change the label to 'Executor fee (burned if unused)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   },
+   {
+    "key": "redeemWithTag(uint256 _amountUBA, string _redeemerUnderlyingAddressString, address _executor, uint256 _destinationTag)",
+    "effects": [
+     "Burns up to _amountUBA FXRP from the signer; less when the redemption queue or the ticket limit stops it.",
+     "Creates redemption requests that oblige agents to pay XRP, the value minus a storage fee, to the given XRP address with the destination tag.",
+     "Takes msg.value in FLR as an executor fee; it goes to the executor if the executor acts, otherwise it is burned.",
+     "Appoints _executor, who may call redemption default for the signer's requests."
+    ],
+    "shown": "Intent 'Redeem FXRP, fee deducted' with the FXRP amount to burn, the XRP address, the executor, the destination tag and the FLR executor fee.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeemWithTag shows 'FXRP to burn' as exact, but the code burns only what the queue can redeem.",
+      "evidence": "RedemptionRequestsFacet._redeem: 'Redemptions.burnFAssets(msg.sender, redeemedUBA)'; redeemedUBA can be less than _amountUBA and RedemptionAmountIncomplete is emitted. Label 'FXRP to burn'.",
+      "fix": "Change the label to 'FXRP to burn (max)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeemWithTag does not show the XRP amount received; the redemption fee rate is in storage.",
+      "evidence": "NatSpec of redeemWithTag: 'the redemption fee will be subtracted'. Intent 'Redeem FXRP, fee deducted' gives no amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeemWithTag 'Executor Fee' is burned, not paid, when the executor does not act.",
+      "evidence": "Redemptions.payOrBurnExecutorFee: else branch 'Transfers.transferNAT(Globals.getBurnAddress(), executorFeeNatWei)'. Field 'Executor Fee' (@.value).",
+      "fix": "Change the label to 'Executor fee (burned if unused)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   },
+   {
+    "key": "redemptionPaymentDefault((bytes32[] merkleProof, (bytes32 attestationType, bytes32 sourceId, uint64 votingRound, uint64 lowestUsedTimestamp, (uint64 minimalBlockNumber, uint64 deadlineBlockNumber, uint64 deadlineTimestamp, bytes32 destinationAddressHash, uint256 amount, bytes32 standardPaymentReference, bool checkSourceAddresses, bytes32 sourceAddressesRoot) responseBody) data) _proof, uint256 _redemptionRequestId)",
+    "effects": [
+     "When the signer is the redeemer: the signer receives the agent's vault collateral, and pool collateral if needed, worth the redeemed value times a default factor. The amount comes from prices and settings in storage.",
+     "When the signer is the appointed executor: the signer receives the stored executor fee as WNat.",
+     "When the signer is the agent owner: the agent vault's collateral is paid to the redeemer and the executor fee is burned.",
+     "Marks the redemption request DEFAULTED and releases the agent's remaining backing."
+    ],
+    "shown": "Intent 'claim redemption default' with the request id, an 'Unpaid amount' in FXRP and the payment deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redemptionPaymentDefault labels the unpaid XRP as FXRP and never says the payout is in agent collateral.",
+      "evidence": "RedemptionDefaults.executeDefaultOrCancel: 'AgentPayout.tryPayoutFromVault(_agent, _request.redeemer, paidC1Wei)' and 'payoutFromPool(...)'. The proof amount is 'request.underlyingValueUBA - request.underlyingFeeUBA' (XRP). Descriptor: 'Unpaid amount' tokenAmount with token fxrp; case 2 shows '10 FXRP'.",
+      "fix": "Change the intent to 'Claim collateral for unpaid redemption' and the label to 'Unpaid XRP amount'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redemptionPaymentDefault intent 'claim' assumes the redeemer; when the agent owner signs, their collateral is paid out.",
+      "evidence": "RedemptionDefaultsFacet._executePaymentDefault: 'msg.sender == _request.redeemer || msg.sender == _request.executor || Agents.isOwner(agent, msg.sender)'; then executeDefaultOrCancel pays the redeemer from the agent vault. Intent 'claim redemption default'.",
+      "fix": "Change the intent to 'Default redemption: agent pays in collateral'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redemptionPaymentDefault cannot show the collateral token, the collateral amount or the executor fee, which come from storage.",
+      "evidence": "RedemptionDefaults._collateralAmountForRedemption: 'convertAmgToTokenWei(_request.valueAMG, cdAgent.amgToTokenWeiPrice).mulBips(settings.redemptionDefaultFactorVaultCollateralBIPS)'; Redemptions.payOrBurnExecutorFee: 'depositWNat(Globals.getWNat(), _request.executor, executorFeeNatWei)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 40
+   },
+   {
+    "key": "executeDirectMinting((bytes32[] merkleProof, (bytes32 attestationType, bytes32 sourceId, uint64 votingRound, uint64 lowestUsedTimestamp, (bytes32 transactionId, address proofOwner) requestBody, (uint64 blockNumber, uint64 blockTimestamp, string sourceAddress, bytes32 sourceAddressHash, bytes32 receivingAddressHash, bytes32 intendedReceivingAddressHash, int256 spentAmount, int256 intendedSpentAmount, int256 receivedAmount, int256 intendedReceivedAmount, bool hasMemoData, bytes firstMemoData, bool hasDestinationTag, uint256 destinationTag, uint8 status) responseBody) data) _payment)",
+    "effects": [
+     "Sends msg.value FLR. It is refunded if the minting is delayed, forwarded to the smart account manager on the smart-account path, and must be zero on the direct-recipient path.",
+     "On the direct-recipient path, mints the executor fee (executorFeeAmg from storage) in FXRP to the signer.",
+     "Mints the received XRP amount minus the minting fee and executor fee as FXRP to a recipient. The recipient comes from the tag registry or the memo, or it is the smart account manager.",
+     "Mints the minting fee in FXRP to the fee receiver."
+    ],
+    "shown": "Intent 'Execute minting, fee deducted' with 'XRP paid' as an FXRP amount, the XRPL source, the destination tag and the native value sent.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "executeDirectMinting shows the XRP received on the XRPL as an FXRP amount, which reads like the minted amount.",
+      "evidence": "DirectMintingFacet._mintToRecipient: 'mintedAmountUBA = _receivedAmountUBA - _mintingFeeUBA - _executorFeeUBA'. Descriptor: 'XRP paid' tokenAmount with token fxrp; case 3 shows 'XRP paid: 10 FXRP'.",
+      "fix": "Change the label to 'XRP received by core vault' and use a unit or a ticker 'XRP', not the FXRP token.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "executeDirectMinting hides the FXRP recipient, which the memo or the tag registry decides.",
+      "evidence": "DirectMintingFacet._decodeTarget: 'recipient: address(uint160(addressNumeric))' from firstMemoData, or 'DirectMinting.mintingRecipientForTag(destinationTag)'. Field 'Memo Data' is visible never.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "executeDirectMinting does not show the FXRP executor fee the signer receives; the rate is in storage.",
+      "evidence": "DirectMintingFacet._mintToRecipient: '_mintFAssets(msg.sender, _executorFeeUBA)'; _computeFees reads 'state.executorFeeAmg'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 50
+   },
+   {
+    "key": "executeDirectMintingWithData((bytes32[] merkleProof, (bytes32 attestationType, bytes32 sourceId, uint64 votingRound, uint64 lowestUsedTimestamp, (bytes32 transactionId, address proofOwner) requestBody, (uint64 blockNumber, uint64 blockTimestamp, string sourceAddress, bytes32 sourceAddressHash, bytes32 receivingAddressHash, bytes32 intendedReceivingAddressHash, int256 spentAmount, int256 intendedSpentAmount, int256 receivedAmount, int256 intendedReceivedAmount, bool hasMemoData, bytes firstMemoData, bool hasDestinationTag, uint256 destinationTag, uint8 status) responseBody) data) _payment, bytes _data)",
+    "effects": [
+     "Sends msg.value FLR. On the smart-account path it goes with _data to the smart account manager, which must pay the executor. It is refunded if the minting is delayed.",
+     "Mints the received XRP minus the minting fee as FXRP to the smart account manager, then calls handleMintedFAssets with _data and the signer as executor.",
+     "On the direct-recipient path, reverts because data is not allowed there (NoDataExpectedForDirectMinting).",
+     "Mints the minting fee in FXRP to the fee receiver."
+    ],
+    "shown": "Intent 'Execute minting, fee deducted' with 'XRP paid' as an FXRP amount, the XRPL source, the destination tag, the native value sent and 'User Op' as raw bytes.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "executeDirectMintingWithData shows the XRP received on the XRPL as an FXRP amount, which reads like the minted amount.",
+      "evidence": "DirectMintingFacet._mintToSmartAccounts: 'mintedAmountUBA = _receivedAmountUBA - _mintingFeeUBA'. Descriptor: 'XRP paid' tokenAmount with token fxrp; case 4 shows 'XRP paid: 10 FXRP'.",
+      "fix": "Change the label to 'XRP received by core vault' and use the ticker 'XRP', not the FXRP token.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "executeDirectMintingWithData does not say that the native value and User Op go to the smart account manager.",
+      "evidence": "DirectMintingFacet._mintToSmartAccounts: 'state.smartAccountManager.handleMintedFAssets{ value: msg.value }(..., payable(msg.sender), _data)'. Intent 'Execute minting, fee deducted'; field 'Native value sent'.",
+      "fix": "Change the intent to 'Mint FXRP to smart account, run user op'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "executeDirectMintingWithData shows User Op as raw bytes that another contract decodes.",
+      "evidence": "Field 'User Op' format raw on #._data; _data is passed to smartAccountManager.handleMintedFAssets. Case 4 shows '0xdeadbeef'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 45
+   }
+  ],
+  "couldNotCheck": [
+   "smartAccountManager.handleMintedFAssets (address read from DirectMinting storage, source not in the directory): it receives the signer's msg.value and _data in executeDirectMinting and executeDirectMintingWithData, so what happens to that FLR and how the executor is paid cannot be checked."
+  ]
+ },
+ "cost": 0.862,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 391,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "redeemAmount(uint256 _amountUBA, string _redeemerUnderlyingAddressString, address _executor)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeemWithTag(uint256 _amountUBA, string _redeemerUnderlyingAddressString, address _executor, uint256 _destinationTag)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redemptionPaymentDefault((bytes32[] merkleProof, (bytes32 attestationType, bytes32 sourceId, uint64 votingRound, uint64 lowestUsedTimestamp, (uint64 minimalBlockNumber, uint64 deadlineBlockNumber, uint64 deadlineTimestamp, bytes32 destinationAddressHash, uint256 amount, bytes32 standardPaymentReference, bool checkSourceAddresses, bytes32 sourceAddressesRoot) responseBody) data) _proof, uint256 _redemptionRequestId)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redemptionPaymentDefault labels the unpaid XRP as FXRP and never says the payout is in agent collateral.",
+   "comprehension": null
+  },
+  "executeDirectMinting((bytes32[] merkleProof, (bytes32 attestationType, bytes32 sourceId, uint64 votingRound, uint64 lowestUsedTimestamp, (bytes32 transactionId, address proofOwner) requestBody, (uint64 blockNumber, uint64 blockTimestamp, string sourceAddress, bytes32 sourceAddressHash, bytes32 receivingAddressHash, bytes32 intendedReceivingAddressHash, int256 spentAmount, int256 intendedSpentAmount, int256 receivedAmount, int256 intendedReceivedAmount, bool hasMemoData, bytes firstMemoData, bool hasDestinationTag, uint256 destinationTag, uint8 status) responseBody) data) _payment)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "executeDirectMinting shows the XRP received on the XRPL as an FXRP amount, which reads like the minted amount.",
+   "comprehension": null
+  },
+  "executeDirectMintingWithData((bytes32[] merkleProof, (bytes32 attestationType, bytes32 sourceId, uint64 votingRound, uint64 lowestUsedTimestamp, (bytes32 transactionId, address proofOwner) requestBody, (uint64 blockNumber, uint64 blockTimestamp, string sourceAddress, bytes32 sourceAddressHash, bytes32 receivingAddressHash, bytes32 intendedReceivingAddressHash, int256 spentAmount, int256 intendedSpentAmount, int256 receivedAmount, int256 intendedReceivedAmount, bool hasMemoData, bytes firstMemoData, bool hasDestinationTag, uint256 destinationTag, uint8 status) responseBody) data) _payment, bytes _data)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 32,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "executeDirectMintingWithData shows the XRP received on the XRPL as an FXRP amount, which reads like the minted amount.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 49,
+  "functions": "2B 3C",
+  "incomplete": true,
+  "worst": "redemptionPaymentDefault labels the unpaid XRP as FXRP and never says the payout is in agent collateral."
+ }
+}

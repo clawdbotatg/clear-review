@@ -1,0 +1,244 @@
+{
+ "hash": "0xeb09bac87543c1b7947eeca869ed7ca7bf8a31445534ef3958afabeb11df98de",
+ "file": "registry/morpho/calldata-singularv-svETH-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf39ac02dec8fae8292d5f42202e4cd885356256b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` WETH from the signer and sends it to the vault, using the signer's WETH allowance to the vault.",
+     "Mints svETH shares to `onBehalf`. The vault computes the share count from its exchange rate after it accrues interest, and the code sets no minimum.",
+     "Sends the deposited WETH on to the liquidity adapter (Morpho) inside the vault. The signer gets nothing extra from this step."
+    ],
+    "shown": "Deposit an exact WETH amount into the vault, with the svETH share ticker and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the screen does not show how many svETH shares arrive, and no minimum exists.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets);` uses the stored exchange rate, and calldata has no minShares. Case 0: the signer receives 99219988645322 svETH, and the screen shows no share amount.",
+      "fix": "No descriptor change can show a value computed from storage. The label could say the share amount depends on the vault rate.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the 'Share ticker' constant field adds a line with no amount.",
+      "evidence": "descriptor deposit field `{label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'}` shows only 'svETH'.",
+      "fix": "Join it into the recipient label, for example 'svETH shares sent to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the exact WETH out. The svETH share amount is computed and not shown, so the reader knew the asset and the recipient but not the amount."
+     }
+    ],
+    "glance": 82,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns svETH shares from `onBehalf`. The vault computes the count, rounded up, from its exchange rate, and the code sets no maximum.",
+     "When the signer is not `onBehalf`, uses up the signer's svETH allowance from `onBehalf` by the number of shares burned.",
+     "Sends exactly `assets` WETH from the vault to `receiver`, and takes it from the liquidity adapter first if needed."
+    ],
+    "shown": "Withdraw an exact WETH amount to a receiver, with the owner whose shares pay for it.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the screen does not show the svETH shares burned, and no maximum exists.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets);` then exit() calls `deleteShares(onBehalf, shares)`. Case 2: the signer loses 137044805015190659 svETH, and the screen shows no share amount.",
+      "fix": "No descriptor change can show a value computed from storage. The 'Owner' label could say 'svETH shares burned from'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows the exact WETH in and the receiver. The reader knew shares leave but did not know how many."
+     }
+    ],
+    "glance": 82,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` svETH from `onBehalf`.",
+     "When the signer is not `onBehalf`, uses up the signer's svETH allowance from `onBehalf` by `shares`.",
+     "Sends WETH from the vault to `receiver`. The vault computes the amount, rounded down, from its exchange rate, and the code sets no minimum."
+    ],
+    "shown": "Redeem an exact svETH amount to a receiver for an owner. The screen does not name the asset that comes back.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: no field or sentence names WETH as the asset the receiver gets.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets);` with asset WETH. The descriptor redeem fields show only svETH shares, receiver and owner. Case 3: the signer receives 4903942656469123374 WETH, and the reader guessed 'likely ETH or a wrapped ETH'.",
+      "fix": "Add a field `{label:'Receive asset', format:'raw', value:'$.metadata.constants.underlyingTicker'}`, as mint does, and use 'Redeem {#.shares} for WETH to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the screen does not show the WETH amount received, and no minimum exists.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);` uses the stored exchange rate, and calldata has no minAssets.",
+      "fix": "No descriptor change can show a value computed from storage.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The svETH out is exact and right. The WETH in has no token and no amount on screen, so the reader was unsure which asset arrives."
+     }
+    ],
+    "glance": 62,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes WETH from the signer. The vault computes the amount, rounded up, from its exchange rate, and the code sets no maximum. It uses the signer's WETH allowance to the vault.",
+     "Mints exactly `shares` svETH to `onBehalf`.",
+     "Sends the WETH on to the liquidity adapter inside the vault."
+    ],
+    "shown": "Mint an exact svETH amount for an address, paid in WETH, with no WETH amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the screen does not show the WETH amount taken from the signer, and no maximum exists.",
+      "evidence": "VaultV2.sol mint(): `uint256 assets = previewMint(shares);` then enter() calls `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: the signer spends 10000 wei of WETH, and the screen shows only 'Deposit asset: WETH'.",
+      "fix": "No descriptor change can show a value computed from storage. The label could say 'WETH amount set by the vault rate'. The signer's WETH allowance limits the loss.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint' does not say that WETH leaves the signer's wallet.",
+      "evidence": "descriptor mint intent 'Mint' and interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. The WETH payment appears only in a separate raw 'Deposit asset' field.",
+      "fix": "Use intent 'Deposit WETH for shares' and interpolatedIntent 'Pay WETH to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The WETH out is named but has no amount. The shares went to 0xdead, which is not the signer, and the screen showed this correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.529,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 167,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: no field or sentence names WETH as the asset the receiver gets.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that WETH leaves the signer's wallet.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 66,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: no field or sentence names WETH as the asset the receiver gets."
+ }
+}

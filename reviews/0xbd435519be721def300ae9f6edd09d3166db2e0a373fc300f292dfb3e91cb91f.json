@@ -1,0 +1,974 @@
+{
+ "hash": "0xbd435519be721def300ae9f6edd09d3166db2e0a373fc300f292dfb3e91cb91f",
+ "file": "registry/ekubo/calldata-Orders.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x3325428adb409c239e88ca472f50b0efe00e98b4"
+  },
+  {
+   "chainId": 1,
+   "address": "0xff6cf0ca6d7a30a60539acd4bb20b3df84ea0644"
+  },
+  {
+   "chainId": 4326,
+   "address": "0x3325428adb409c239e88ca472f50b0efe00e98b4"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x3325428adb409c239e88ca472f50b0efe00e98b4"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x3325428adb409c239e88ca472f50b0efe00e98b4"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xff6cf0ca6d7a30a60539acd4bb20b3df84ea0644"
+  },
+  {
+   "chainId": 46630,
+   "address": "0xff6cf0ca6d7a30a60539acd4bb20b3df84ea0644"
+  },
+  {
+   "chainId": 421614,
+   "address": "0x3325428adb409c239e88ca472f50b0efe00e98b4"
+  },
+  {
+   "chainId": 421614,
+   "address": "0xff6cf0ca6d7a30a60539acd4bb20b3df84ea0644"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x3325428adb409c239e88ca472f50b0efe00e98b4"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xff6cf0ca6d7a30a60539acd4bb20b3df84ea0644"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "mintAndIncreaseSellAmount((address token0, address token1, bytes32 config) orderKey, uint112 amount, uint112 maxSaleRate)",
+    "effects": [
+     "Mints a new order NFT to the signer (the order position).",
+     "Pulls about `amount` of the sell token from the signer through ACCOUNTANT.payFrom(msg.sender, sellToken, amount). The sell token is token0 or token1, chosen by the isToken1 byte in config.",
+     "When the sell token is native (address 0), it pays the order from the ETH the signer sent as msg.value. Any extra ETH stays in Orders, and anyone can take it with refundNativeToken.",
+     "Starts a TWAMM order that sells over the start/end window in config, at a sale rate capped by maxSaleRate."
+    ],
+    "shown": "\"Create DCA order\" / \"Sell 1000000\". The fields show token0 and token1 as addresses, the raw sell amount and the raw max sale rate, and an optional raw config. The sentence does not say which token is sold, and the ETH value is not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mintAndIncreaseSellAmount is payable and the descriptor has no @.value field, so the ETH sent is hidden.",
+      "evidence": "Orders.sol mintAndIncreaseSellAmount is `public payable`. handleLockData: `if (sellToken == NATIVE_TOKEN_ADDRESS) { SafeTransferLib.safeTransferETH(address(ACCOUNTANT), uint256(amount)); }`. PayableMulticallable.refundNativeToken sends `address(this).balance` to any caller. The descriptor fields have no `@.value`.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"ETH sent\",\"format\":\"amount\",\"visible\":\"always\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "mintAndIncreaseSellAmount does not say which token is sold; the isToken1 flag sits in raw optional config.",
+      "evidence": "orderKey.sol sellToken: `bool _isToken1 = ok.config.isToken1();`. orderConfig.sol isToken1: `byte(8, config)`. The descriptor shows 'Order token 0' and 'Order token 1', and 'Order config' is raw and `visible: optional`.",
+      "fix": "Add a field for `orderKey.config.[8:9]` with an enum {\"0\":\"Sell token 0, buy token 1\",\"1\":\"Sell token 1, buy token 0\"}. Show start and end time with slices `[16:24]` and `[24:32]` as dates. Rename the labels to 'Token 0' and 'Token 1'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "mintAndIncreaseSellAmount shows the sell amount and max sale rate raw, with no token or decimals.",
+      "evidence": "descriptor: `\"path\": \"amount\", \"format\": \"raw\"`, `\"path\": \"maxSaleRate\", \"format\": \"raw\"`. interpolatedIntent `Sell {amount}` renders 'Sell 1000000' for 1 USDC in case 0. maxSaleRate is a 80.32 fixed-point rate (twamm.sol computeSaleRate `shl(32, amount)`).",
+      "fix": "Name the token in the label or the sentence, for example 'Sell {amount} of the sell token'. Label maxSaleRate as a slippage limit ('Max sale rate (tokens per second, x2^32)'). A tokenAmount cannot be used because the sell token depends on the config flag.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "mintAndIncreaseSellAmount test case 0 uses config 0x00, so endTime is 0 and the call reverts.",
+      "evidence": "cases/0.json config `0x000…000`. In Orders.increaseSellAmount, `if (orderKey.config.endTime() <= realStart) revert OrderAlreadyEnded();` The mined lookup reports 'tx not found'.",
+      "fix": "Use a real order config with a fee, an isToken1 flag, and start and end times. Add a native-token sell case with a non-zero value.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "mintAndIncreaseSellAmount: Core decides the amount pulled from the sale rate, so it can differ from `amount` by rounding.",
+      "evidence": "Orders.increaseSellAmount: `saleRate = computeSaleRate(amount, duration)`. handleLockData: `int256 amount = CORE.updateSaleRate(...)`, then `ACCOUNTANT.payFrom(recipientOrPayer, sellToken, uint256(amount))`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 35
+   },
+   {
+    "key": "increaseSellAmount(uint256 id, (address token0, address token1, bytes32 config) orderKey, uint128 amount, uint112 maxSaleRate)",
+    "effects": [
+     "Pulls about `amount` of the sell token (token0 or token1, set by the config flag) from the signer into the order `id`.",
+     "When the sell token is native, it pays from the ETH sent. Any extra ETH stays in Orders, and anyone can take it with refundNativeToken.",
+     "Increases the sale rate of order `id`. The order may belong to another owner whose NFT the signer is approved for."
+    ],
+    "shown": "\"Increase DCA order\" / \"Add {amount} to order\". The fields show the raw id, token0, token1, the raw amount, the raw max sale rate and an optional raw config. No ETH value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "increaseSellAmount is payable and the descriptor has no @.value field, so the ETH sent is hidden.",
+      "evidence": "Orders.sol `function increaseSellAmount(...) public payable`. handleLockData sends ETH from the contract balance for native orders. The descriptor fields have no `@.value`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "increaseSellAmount does not say which token is sold; the isToken1 flag sits in raw optional config.",
+      "evidence": "orderKey.sol sellToken reads `config.isToken1()` (byte 8). The descriptor shows 'Order token 0' and 'Order token 1', and 'Order config' is raw and optional.",
+      "fix": "Add a field for `orderKey.config.[8:9]` with an enum that names the sell side.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "increaseSellAmount shows the extra sell amount raw, and the sentence has no token.",
+      "evidence": "descriptor: `\"path\": \"amount\", \"label\": \"Extra sell amount\", \"format\": \"raw\"`; interpolatedIntent `Add {amount} to order`.",
+      "fix": "Change interpolatedIntent to 'Add {amount} of the sell token to order {id}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 35
+   },
+   {
+    "key": "decreaseSaleRate(uint256 id, (address token0, address token1, bytes32 config) orderKey, uint112 saleRateDecrease)",
+    "effects": [
+     "Lowers the sale rate of order `id` by saleRateDecrease, so the order sells less over its remaining time.",
+     "Refunds the unsold part of the sell token (token0 or token1, set by the config flag) to the signer (msg.sender). Core computes the amount.",
+     "Any ETH sent stays in Orders; the function does not use it."
+    ],
+    "shown": "\"Reduce DCA order\" / \"Reduce order {id}\". The fields show the raw id, token0, token1, the raw sale rate decrease and an optional config. The refund is not mentioned.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "decreaseSaleRate is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+      "evidence": "Orders.sol `function decreaseSaleRate(uint256 id, OrderKey memory orderKey, uint112 saleRateDecrease) external payable`. PayableMulticallable.refundNativeToken lets any caller take `address(this).balance`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "decreaseSaleRate intent does not say that unsold sell tokens return to the signer.",
+      "evidence": "handleLockData: `ACCOUNTANT.withdraw(sellToken, recipientOrPayer, uint128(uint256(-amount)))`. The intent is 'Reduce DCA order'; the sentence is 'Reduce order {id}'.",
+      "fix": "Change interpolatedIntent to 'Reduce order {id} and refund unsold tokens'. Add a sell-side enum from `orderKey.config.[8:9]`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "decreaseSaleRate shows the sale rate decrease as a raw 80.32 fixed-point rate; Core computes the refund amount.",
+      "evidence": "descriptor: `\"path\": \"saleRateDecrease\", \"format\": \"raw\"`. The refund is `-abi.decode(lock(...), (int256))`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 40
+   },
+   {
+    "key": "decreaseSaleRate(uint256 id, (address token0, address token1, bytes32 config) orderKey, uint112 saleRateDecrease, address recipient)",
+    "effects": [
+     "Lowers the sale rate of order `id` by saleRateDecrease.",
+     "Sends the unsold part of the sell token to `recipient`, which can be any address. Core computes the amount.",
+     "Any ETH sent stays in Orders; the function does not use it."
+    ],
+    "shown": "\"Reduce DCA order\" / \"Reduce order {id}\". The fields include 'Refund recipient' and the raw sale rate decrease. The sentence does not name the recipient or say that tokens leave the order.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "decreaseSaleRate with recipient is payable and the descriptor has no @.value field.",
+      "evidence": "Orders.sol `function decreaseSaleRate(..., address recipient) public payable authorizedForNft(id)`. The descriptor fields have no `@.value`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "decreaseSaleRate with recipient: the sentence omits that the refund goes to the recipient.",
+      "evidence": "handleLockData: `ACCOUNTANT.withdraw(sellToken, recipientOrPayer, ...)`. interpolatedIntent: 'Reduce order {id}'.",
+      "fix": "Change interpolatedIntent to 'Reduce order {id}, refund to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "decreaseSaleRate with recipient does not say which token is refunded; the flag is in raw config.",
+      "evidence": "orderKey.sol sellToken uses `config.isToken1()`. 'Order config' is raw and optional.",
+      "fix": "Add a field for `orderKey.config.[8:9]` with an enum that names the sell side.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 45
+   },
+   {
+    "key": "collectProceeds(uint256 id, (address token0, address token1, bytes32 config) orderKey)",
+    "effects": [
+     "Withdraws all proceeds of order `id` to the signer, in the buy token (token0 or token1, set by the config flag).",
+     "Any ETH sent stays in Orders; the function does not use it."
+    ],
+    "shown": "\"Collect DCA proceeds\" / \"Collect order {id}\". The fields show the raw id, token0, token1 and an optional config.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "collectProceeds is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+      "evidence": "Orders.sol `function collectProceeds(uint256 id, OrderKey memory orderKey) external payable`. refundNativeToken lets any caller take the balance.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "collectProceeds does not say which token is received; the buy side depends on the raw config flag.",
+      "evidence": "handleLockData: `ACCOUNTANT.withdraw(orderKey.buyToken(), recipient, proceeds)`. buyToken reads `!ok.config.isToken1()`.",
+      "fix": "Add a field for `orderKey.config.[8:9]` with an enum that names the buy side.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "collectProceeds(uint256 id, (address token0, address token1, bytes32 config) orderKey, address recipient)",
+    "effects": [
+     "Withdraws all proceeds of order `id`, in the buy token, to `recipient`, which can be any address.",
+     "Any ETH sent stays in Orders; the function does not use it."
+    ],
+    "shown": "\"Collect DCA proceeds\" / \"Collect order {id}\". A 'Recipient' field is shown, but the sentence does not name the recipient.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "collectProceeds with recipient is payable and the descriptor has no @.value field.",
+      "evidence": "Orders.sol `function collectProceeds(uint256 id, OrderKey memory orderKey, address recipient) public payable`. The descriptor fields have no `@.value`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "collectProceeds with recipient: the sentence omits the recipient, who can be a third party.",
+      "evidence": "handleLockData: `ACCOUNTANT.withdraw(orderKey.buyToken(), recipient, proceeds)`. interpolatedIntent: 'Collect order {id}'.",
+      "fix": "Change interpolatedIntent to 'Collect order {id} to {recipient}'. Add a buy-side enum from `orderKey.config.[8:9]`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 60
+   },
+   {
+    "key": "executeVirtualOrdersAndGetCurrentOrderInfo(uint256 id, (address token0, address token1, bytes32 config) orderKey)",
+    "effects": [
+     "Executes pending virtual orders of the TWAMM pool and returns order info. It moves none of the signer's assets."
+    ],
+    "shown": "\"Refresh DCA order state\" / \"Refresh DCA order {id}\", with the id, the tokens and the config.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "burn(uint256 id)",
+    "effects": [
+     "Burns order NFT `id`. While it is burned, nobody can decrease the order or collect its proceeds (authorizedForNft fails), until the minter re-mints with the same salt.",
+     "Any ETH sent stays in Orders; the function does not use it."
+    ],
+    "shown": "\"Burn order NFT\" / \"Burn order NFT {id}\", with the raw id.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "burn is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+      "evidence": "BaseNonfungibleToken.sol `function burn(uint256 id) external payable authorizedForNft(id)`; the dev note says 'any msg.value sent is ignored'. refundNativeToken lets any caller take the balance.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "burn does not warn that funds left in the order become locked until the NFT is re-minted.",
+      "evidence": "Orders.decreaseSaleRate and Orders.collectProceeds both need `authorizedForNft(id)`; `_burn(id)` removes the owner. The intent is 'Burn order NFT'.",
+      "fix": "Change intent to 'Burn order NFT (unclaimed funds get locked)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "multicall(bytes[] data)",
+    "effects": [
+     "Runs each inner call on Orders as the signer (delegatecall to self, msg.sender kept): create, increase, decrease, collect, transfer, approve and so on.",
+     "The ETH sent is shared by all inner calls that pay native-token orders. Any ETH left stays in Orders unless the batch includes refundNativeToken."
+    ],
+    "shown": "\"Batch order actions\", then each inner call decoded as an 'Action' through calleePath @.to. No ETH value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multicall is payable and the descriptor has no @.value field, so the ETH funding inner orders is hidden.",
+      "evidence": "PayableMulticallable.sol `function multicall(bytes[] calldata data) public payable override`. Inner native orders spend it through `safeTransferETH(address(ACCOUNTANT), ...)`. The descriptor has only the `data.[]` field.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "multicall intent 'Batch order actions' says nothing of what the batch does.",
+      "evidence": "descriptor: intent 'Batch order actions', interpolatedIntent 'Batch order actions'.",
+      "fix": "Keep the nested calldata fields. Change the intent to 'Run several DCA order actions' and mention the ETH value.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "refundNativeToken()",
+    "effects": [
+     "Sends the whole ETH balance of Orders to the signer, including ETH that other users left there. Any ETH sent with the call comes back in the same call."
+    ],
+    "shown": "\"Refund unused native token\", with Recipient = the signer.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "refundNativeToken: the refund amount is the contract balance, which comes from storage.",
+      "evidence": "PayableMulticallable.refundNativeToken: `SafeTransferLib.safeTransferETH(msg.sender, address(this).balance)`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "approve(address account, uint256 id)",
+    "effects": [
+     "Lets `account` manage order NFT `id`. It can then transfer the NFT, decrease the order, and send the refund and proceeds to any address.",
+     "Any ETH sent stays in Orders; the function does not use it."
+    ],
+    "shown": "\"Approve order NFT\" / \"Approve order NFT {id}\", with the approved account and the raw id.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "approve is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+      "evidence": "The ABI marks approve(address,uint256) payable (Solady ERC721). The descriptor fields are only `account` and `id`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "approve does not name the approved account in the sentence or say it can withdraw the order's funds.",
+      "evidence": "Orders.decreaseSaleRate/collectProceeds use `authorizedForNft(id)` and take any `recipient`. interpolatedIntent: 'Approve order NFT {id}'.",
+      "fix": "Change interpolatedIntent to 'Let {account} manage order {id} and its funds'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "setApprovalForAll(address operator, bool isApproved)",
+    "effects": [
+     "Grants or revokes `operator` control over all of the signer's order NFTs, including withdrawing refunds and proceeds to any address."
+    ],
+    "shown": "\"Approve order operator\" / \"Set NFT operator\", with the operator and a raw bool.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setApprovalForAll reads as an approval even when isApproved is false, and it hides the all-orders scope.",
+      "evidence": "descriptor: intent 'Approve order operator', `\"path\": \"isApproved\", \"format\": \"raw\"`. Orders functions use `authorizedForNft`, which accepts operators approved for all.",
+      "fix": "Use an enum on isApproved, {\"true\":\"Grant\",\"false\":\"Revoke\"}. Change interpolatedIntent to '{isApproved} {operator} control of all your orders'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "transferFrom(address from, address to, uint256 id)",
+    "effects": [
+     "Moves order NFT `id`, and with it the order's remaining sell tokens and proceeds, from `from` to `to`.",
+     "Any ETH sent stays in Orders; the function does not use it."
+    ],
+    "shown": "\"Transfer order NFT\" / \"Transfer order NFT {id}\", with from, to and the raw id.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "transferFrom is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+      "evidence": "The ABI marks transferFrom payable (Solady ERC721). The descriptor fields are from, to and id.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`. Add {to} to the sentence: 'Transfer order NFT {id} to {to}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "safeTransferFrom(address from, address to, uint256 id)",
+    "effects": [
+     "Moves order NFT `id` and the funds in its order from `from` to `to`. If `to` is a contract, it calls onERC721Received.",
+     "Any ETH sent stays in Orders; the function does not use it."
+    ],
+    "shown": "\"Transfer order NFT\" / \"Transfer order NFT {id}\", with from, to and the raw id.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "safeTransferFrom is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+      "evidence": "The ABI marks safeTransferFrom(address,address,uint256) payable. The descriptor fields are from, to and id.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "safeTransferFrom(address from, address to, uint256 id, bytes data)",
+    "effects": [
+     "Moves order NFT `id` and the funds in its order from `from` to `to`, and passes `data` to the receiver hook.",
+     "Any ETH sent stays in Orders; the function does not use it."
+    ],
+    "shown": "\"Transfer order NFT\" / \"Transfer order NFT {id}\", with from, to, the raw id and optional data.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "safeTransferFrom with data is payable and the descriptor has no @.value field.",
+      "evidence": "The ABI marks safeTransferFrom(address,address,uint256,bytes) payable. The descriptor fields are from, to, id and data.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "mint()",
+    "effects": [
+     "Mints an empty order NFT to the signer, with a pseudo-random salt.",
+     "Any ETH sent stays in Orders; the function ignores it, and anyone can take it with refundNativeToken."
+    ],
+    "shown": "\"Mint order NFT\", with no fields.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mint() is payable and ignores msg.value, and the descriptor has no @.value field.",
+      "evidence": "BaseNonfungibleToken.mint(): `function mint() public payable`, with the note 'any msg.value sent is ignored'. The descriptor has `\"fields\": []`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "mint(bytes32 salt)",
+    "effects": [
+     "Mints an empty order NFT to the signer, with id = hash(signer, salt, chainId, contract).",
+     "Any ETH sent stays in Orders; the function ignores it."
+    ],
+    "shown": "\"Mint salted order NFT\", with the raw salt.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mint(bytes32) is payable and ignores msg.value, and the descriptor has no @.value field.",
+      "evidence": "BaseNonfungibleToken.mint(bytes32): `public payable`, with the note 'any msg.value sent is ignored'. The only field is `salt`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "setMetadata(string newName, string newSymbol, string newBaseUrl)",
+    "effects": [
+     "Owner only: sets the NFT collection name, symbol and base URL."
+    ],
+    "shown": "\"Update NFT metadata\", with name, symbol and base URL.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "transferOwnership(address newOwner)",
+    "effects": [
+     "Owner only: makes newOwner the owner of the Orders contract (metadata control).",
+     "Any ETH sent stays in Orders."
+    ],
+    "shown": "\"Transfer contract ownership\" / \"Transfer ownership\", with the new owner.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "transferOwnership is payable and the descriptor has no @.value field.",
+      "evidence": "The ABI marks transferOwnership payable (Solady Ownable). The only field is `newOwner`.",
+      "fix": "Add an `@.value` field with format `amount`. Change interpolatedIntent to 'Transfer ownership to {newOwner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "renounceOwnership()",
+    "effects": [
+     "Owner only: removes the owner forever, so the metadata cannot change again.",
+     "Any ETH sent stays in Orders."
+    ],
+    "shown": "\"Renounce ownership\", with no fields.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "renounceOwnership is payable and the descriptor has no @.value field.",
+      "evidence": "The ABI marks renounceOwnership payable (Solady Ownable). The descriptor has `\"fields\": []`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "requestOwnershipHandover()",
+    "effects": [
+     "Records a 48-hour request for the signer to become owner.",
+     "Any ETH sent stays in Orders."
+    ],
+    "shown": "\"Request ownership handover\", with no fields.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "requestOwnershipHandover is payable and the descriptor has no @.value field.",
+      "evidence": "The ABI marks requestOwnershipHandover payable (Solady Ownable). The descriptor has `\"fields\": []`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "cancelOwnershipHandover()",
+    "effects": [
+     "Cancels the signer's pending ownership handover request.",
+     "Any ETH sent stays in Orders."
+    ],
+    "shown": "\"Cancel ownership handover\", with no fields.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "cancelOwnershipHandover is payable and the descriptor has no @.value field.",
+      "evidence": "The ABI marks cancelOwnershipHandover payable (Solady Ownable). The descriptor has `\"fields\": []`.",
+      "fix": "Add an `@.value` field with format `amount`, `visible: always`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "completeOwnershipHandover(address pendingOwner)",
+    "effects": [
+     "Owner only: transfers ownership to pendingOwner, who has a request pending.",
+     "Any ETH sent stays in Orders."
+    ],
+    "shown": "\"Complete ownership handover\", with the pending owner.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "completeOwnershipHandover is payable and the descriptor has no @.value field.",
+      "evidence": "The ABI marks completeOwnershipHandover payable (Solady Ownable). The only field is `pendingOwner`.",
+      "fix": "Add an `@.value` field with format `amount`. Change interpolatedIntent to 'Hand ownership to {pendingOwner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "Ekubo Core (0x00000000000014aA86C5d3c41765bb24e11bd701), which also acts as the flash accountant, and the TWAMM extension (0xd47f1B1eDCfEaBb08F6eBd8FC337c27E636C75BA) have no source in the directory. They compute how much sell token updateSaleRate pulls or refunds and how many proceeds collectProceeds pays, and they run payFrom/withdraw.",
+   "Deployment 0xfF6cF0Ca6d7a30a60539AcD4bB20B3df84EA0644 (chains 1, 42161, 46630, 421614, 11155111) has no source directory here, so its functions could not be checked against the formats."
+  ]
+ },
+ "cost": 0.779,
+ "account": "ethereum_foundation",
+ "hiddenValue": [
+  "mintAndIncreaseSellAmount((address token0, address token1, bytes32 config) orderKey, uint112 amount, uint112 maxSaleRate)",
+  "increaseSellAmount(uint256 id, (address token0, address token1, bytes32 config) orderKey, uint128 amount, uint112 maxSaleRate)",
+  "decreaseSaleRate(uint256 id, (address token0, address token1, bytes32 config) orderKey, uint112 saleRateDecrease)",
+  "decreaseSaleRate(uint256 id, (address token0, address token1, bytes32 config) orderKey, uint112 saleRateDecrease, address recipient)",
+  "collectProceeds(uint256 id, (address token0, address token1, bytes32 config) orderKey)",
+  "collectProceeds(uint256 id, (address token0, address token1, bytes32 config) orderKey, address recipient)",
+  "burn(uint256 id)",
+  "multicall(bytes[] data)",
+  "refundNativeToken()",
+  "approve(address account, uint256 id)",
+  "transferFrom(address from, address to, uint256 id)",
+  "safeTransferFrom(address from, address to, uint256 id)",
+  "safeTransferFrom(address from, address to, uint256 id, bytes data)",
+  "mint()",
+  "mint(bytes32 salt)",
+  "transferOwnership(address newOwner)",
+  "renounceOwnership()",
+  "requestOwnershipHandover()",
+  "cancelOwnershipHandover()",
+  "completeOwnershipHandover(address pendingOwner)"
+ ],
+ "seconds": 204,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "mintAndIncreaseSellAmount((address token0, address token1, bytes32 config) orderKey, uint112 amount, uint112 maxSaleRate)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 17,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "mintAndIncreaseSellAmount is payable and the descriptor has no @.value field, so the ETH sent is hidden.",
+   "comprehension": null
+  },
+  "increaseSellAmount(uint256 id, (address token0, address token1, bytes32 config) orderKey, uint128 amount, uint112 maxSaleRate)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 22,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "increaseSellAmount is payable and the descriptor has no @.value field, so the ETH sent is hidden.",
+   "comprehension": null
+  },
+  "decreaseSaleRate(uint256 id, (address token0, address token1, bytes32 config) orderKey, uint112 saleRateDecrease)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "decreaseSaleRate is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+   "comprehension": null
+  },
+  "decreaseSaleRate(uint256 id, (address token0, address token1, bytes32 config) orderKey, uint112 saleRateDecrease, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "decreaseSaleRate with recipient is payable and the descriptor has no @.value field.",
+   "comprehension": null
+  },
+  "collectProceeds(uint256 id, (address token0, address token1, bytes32 config) orderKey)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "collectProceeds is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+   "comprehension": null
+  },
+  "collectProceeds(uint256 id, (address token0, address token1, bytes32 config) orderKey, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "collectProceeds with recipient is payable and the descriptor has no @.value field.",
+   "comprehension": null
+  },
+  "executeVirtualOrdersAndGetCurrentOrderInfo(uint256 id, (address token0, address token1, bytes32 config) orderKey)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "burn(uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "burn is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+   "comprehension": null
+  },
+  "multicall(bytes[] data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "multicall is payable and the descriptor has no @.value field, so the ETH funding inner orders is hidden.",
+   "comprehension": null
+  },
+  "refundNativeToken()": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "refundNativeToken takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "approve(address account, uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "approve is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+   "comprehension": null
+  },
+  "setApprovalForAll(address operator, bool isApproved)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setApprovalForAll reads as an approval even when isApproved is false, and it hides the all-orders scope.",
+   "comprehension": null
+  },
+  "transferFrom(address from, address to, uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "transferFrom is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+   "comprehension": null
+  },
+  "safeTransferFrom(address from, address to, uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "safeTransferFrom is payable and the descriptor has no @.value field; ETH sent stays in the contract.",
+   "comprehension": null
+  },
+  "safeTransferFrom(address from, address to, uint256 id, bytes data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "safeTransferFrom with data is payable and the descriptor has no @.value field.",
+   "comprehension": null
+  },
+  "mint()": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "mint() is payable and ignores msg.value, and the descriptor has no @.value field.",
+   "comprehension": null
+  },
+  "mint(bytes32 salt)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "mint(bytes32) is payable and ignores msg.value, and the descriptor has no @.value field.",
+   "comprehension": null
+  },
+  "setMetadata(string newName, string newSymbol, string newBaseUrl)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferOwnership(address newOwner)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "transferOwnership is payable and the descriptor has no @.value field.",
+   "comprehension": null
+  },
+  "renounceOwnership()": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "renounceOwnership is payable and the descriptor has no @.value field.",
+   "comprehension": null
+  },
+  "requestOwnershipHandover()": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "requestOwnershipHandover is payable and the descriptor has no @.value field.",
+   "comprehension": null
+  },
+  "cancelOwnershipHandover()": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "cancelOwnershipHandover is payable and the descriptor has no @.value field.",
+   "comprehension": null
+  },
+  "completeOwnershipHandover(address pendingOwner)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "completeOwnershipHandover is payable and the descriptor has no @.value field.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 14,
+  "clarity": 57,
+  "functions": "1A 1B 1C 20F",
+  "incomplete": true,
+  "worst": "mintAndIncreaseSellAmount is payable and the descriptor has no @.value field, so the ETH sent is hidden."
+ }
+}

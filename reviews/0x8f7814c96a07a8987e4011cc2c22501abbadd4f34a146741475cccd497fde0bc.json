@@ -1,0 +1,235 @@
+{
+ "hash": "0x8f7814c96a07a8987e4011cc2c22501abbadd4f34a146741475cccd497fde0bc",
+ "file": "registry/symbiotic/calldata-VaultV1-LBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x087cbb1a89aa038a167e27588b5ec01484b40fb7"
+  },
+  {
+   "chainId": 1,
+   "address": "0x3d5ccde8e2fb939b36f2234ad4a93a455276a223"
+  },
+  {
+   "chainId": 1,
+   "address": "0x6daa2f7952d51d9bd1551a3b4360027109a33b56"
+  },
+  {
+   "chainId": 1,
+   "address": "0xd4e20eca1f996dab35883dc0ad5e3428af888d45"
+  },
+  {
+   "chainId": 1,
+   "address": "0xdc47953c816531a8ca9e1d461ab53687d48eea26"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` of the vault collateral (LBTC, 0x8236…4494) to the vault through transferFrom, which spends the signer's LBTC allowance to the vault.",
+     "The vault credits newly minted active shares to `onBehalfOf`, not necessarily to the signer."
+    ],
+    "shown": "Deposit of the amount in LBTC into the named vault, with the beneficiary address that receives the vault position.",
+    "findings": [],
+    "cases": [],
+    "glance": 88,
+    "depth": 92
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The vault burns the signer's active shares, enough to cover `amount` LBTC at the current share price.",
+     "The vault moves `amount` LBTC from active stake into the next epoch's withdrawal pool. The vault credits that withdrawal claim to `claimer`, who can claim it after the epoch ends.",
+     "No tokens move in this call."
+    ],
+    "shown": "A withdrawal request for the amount in LBTC, with the claim owner who can collect it later.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many vault shares the signer burns; the share price is in storage.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` Shares come from storage, not calldata. The descriptor shows only `#.amount` 'Requested assets'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "withdraw shows the requested LBTC, but slashing before the claim can reduce what the claimer receives.",
+      "evidence": "Vault.sol onSlash: `withdrawals[currentEpoch_ + 1] = nextWithdrawals - nextWithdrawalsSlashed;` This reduces the pool the claim is paid from. The descriptor shows 'Requested assets'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The vault burns `shares` of the signer's active vault shares.",
+     "The vault converts the shares to LBTC at the current share price and queues that LBTC as a withdrawal claim for `claimer` in the next epoch.",
+     "No tokens move in this call."
+    ],
+    "shown": "Queues a raw share count for withdrawal and names the claim owner. It does not show the LBTC value.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "redeem shows shares as a raw integer, so the signer cannot see the LBTC value queued.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`. The descriptor field `#.shares` has format 'raw', and case 6 shows 'Queue 987654321123456789 raw shares'. Vault V1 shares are not an ERC-20 token, so no tokenAmount format applies.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault marks the signer's withdrawal claim for `epoch` as used.",
+     "The vault sends the signer's whole LBTC withdrawal for that epoch to `recipient`. The amount comes from storage."
+    ],
+    "shown": "Claims the withdrawal of a raw epoch number to the recipient address. No asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim intent and fields never name LBTC, the asset sent to the recipient.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);`. The descriptor intent is 'Claim withdrawal', and the interpolatedIntent is 'Claim epoch {epoch} to {recipient}'. No field names the token.",
+      "fix": "Change the intent to \"Claim LBTC withdrawal\" and the interpolatedIntent to \"Claim LBTC of epoch {epoch} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim cannot show the LBTC amount because the vault reads it from storage.",
+      "evidence": "Vault._claim: `amount = withdrawalsOf(epoch, msg.sender);`. The amount is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The vault marks the signer's withdrawal claims for every listed epoch as used.",
+     "The vault sends the sum of the signer's LBTC withdrawals for those epochs to `recipient`. The amount comes from storage."
+    ],
+    "shown": "Claims withdrawals for the listed epochs to the recipient address. No asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimBatch intent and fields never name LBTC, the asset sent to the recipient.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);`. The descriptor intent is 'Claim withdrawals', and the interpolatedIntent is 'Claim epochs {epochs.[]} to {recipient}'.",
+      "fix": "Change the intent to \"Claim LBTC withdrawals\" and the interpolatedIntent to \"Claim LBTC of epochs {epochs.[]} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch cannot show the total LBTC amount because the vault reads it from storage.",
+      "evidence": "Vault.claimBatch: `amount += _claim(epochs[i]);`, where `_claim` reads `withdrawalsOf(epoch, msg.sender)` from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "The directory has source and constructor arguments only for 0x087cbb1a…40fb7 (collateral 0x8236a870…4494, LBTC). Deployments 0x3d5ccde8…a223, 0x6daa2f79…3b56, 0xd4e20eca…8d45 and 0xdc47953c…ea26 have no contract folder. Their collateral is not confirmed as LBTC, so the `underlyingToken` constant in deposit and withdraw is not confirmed for them."
+  ]
+ },
+ "cost": 0.407,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 52,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim intent and fields never name LBTC, the asset sent to the recipient.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch intent and fields never name LBTC, the asset sent to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 72,
+  "functions": "2A 3B",
+  "incomplete": true,
+  "worst": null
+ }
+}

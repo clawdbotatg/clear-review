@@ -1,0 +1,221 @@
+{
+ "hash": "0x9adc853487d3dbf24bb1b5f2038f55b9f8520aa5b1c404364abc87eb4d1d3341",
+ "file": "registry/morpho/calldata-gauntlet-gtUSDC-747474.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 747474,
+   "address": "0xe4248e2105508fcbad3fe95691551d1af14015f7"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` vbUSDC (0x203A…FD36) to the vault.",
+     "`receiver` gets newly minted gtUSDC shares. The vault works out how many at its current rate, rounded down.",
+     "The vault supplies the deposited vbUSDC to Morpho markets. This moves the vault's funds, not the signer's."
+    ],
+    "shown": "Deposit, with the vbUSDC amount, a constant 'Share ticker: gtUSDC' line, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit has no interpolatedIntent; 'Deposit' names neither the amount, the asset nor the vault.",
+      "evidence": "descriptor.json deposit format: \"intent\": \"Deposit\" and no interpolatedIntent. Case 0 shows only the intent 'Deposit'. The amount '1 vbUSDC' and the share token appear only in the fields.",
+      "fix": "Add an interpolatedIntent like \"Deposit {assets} into Gauntlet gtUSDC vault for {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares are minted; the vault's rate decides it from storage.",
+      "evidence": "MetaMorphoV1_1.sol deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor). The descriptor shows only 'Share ticker: gtUSDC' (a raw constant).",
+      "fix": "None possible from calldata. You could relabel 'Share ticker' as 'Receive (shares)' so its meaning is clear.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer pays vbUSDC to the vault. The amount is computed by the vault from `shares` at its current rate, rounded up, and has no cap in the call.",
+     "`receiver` gets exactly `shares` gtUSDC.",
+     "The vault supplies the vbUSDC to Morpho markets, using the vault's own funds."
+    ],
+    "shown": "Mint, with 'Deposit asset: vbUSDC' (a ticker only, no amount), the exact gtUSDC shares minted, and the address that receives them.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much vbUSDC leaves the signer; the vault rate in storage decides it, with no cap.",
+      "evidence": "MetaMorphoV1_1.sol mint: assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); ERC4626._deposit: SafeERC20.safeTransferFrom(_asset, caller, address(this), assets). The screen in case 1 shows 'Deposit asset: vbUSDC' with no amount.",
+      "fix": "None possible from calldata. Change the label to something like 'Pays in (amount set by vault rate)' so the signer knows an unstated vbUSDC amount leaves.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint intent 'Mint' does not say the signer pays vbUSDC to get vault shares.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", no interpolatedIntent. The field 'Deposit asset' with value 'vbUSDC' looks like an asset name, not a payment.",
+      "fix": "Use an intent like 'Deposit vbUSDC for shares' and interpolatedIntent \"Mint {shares} by depositing vbUSDC, shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Gives `receiver` exactly `assets` vbUSDC.",
+     "Burns gtUSDC shares from `owner`. The vault computes the number from `assets`, rounded up.",
+     "If the signer is not `owner`, the burned shares come out of owner's gtUSDC allowance to the signer.",
+     "Pulls the vbUSDC out of Morpho markets, using the vault's own position."
+    ],
+    "shown": "Withdraw, with the exact vbUSDC amount, the recipient ('To') and the owner whose shares pay for it.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many gtUSDC shares are burned from owner; the vault rate in storage decides it.",
+      "evidence": "MetaMorphoV1_1.sol withdraw: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); ERC4626._withdraw: _burn(owner, shares).",
+      "fix": "None from calldata. You could relabel 'Owner' as 'Burn shares from' so the signer knows shares leave that account.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw has no interpolatedIntent; 'Withdraw' states neither the amount nor the recipient.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", no interpolatedIntent. Case 2 shows '200 vbUSDC' and 'To' only as fields.",
+      "fix": "Add an interpolatedIntent like \"Withdraw {assets} to {receiver} from {owner}'s shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` gtUSDC from `owner`.",
+     "If the signer is not `owner`, the burned shares come out of owner's gtUSDC allowance to the signer.",
+     "Gives `receiver` vbUSDC. The vault computes the amount from `shares`, rounded down, with no minimum enforced.",
+     "Pulls the vbUSDC out of Morpho markets, using the vault's own position."
+    ],
+    "shown": "Redeem, with the exact gtUSDC shares, the recipient ('To') and the owner; nothing says which asset or how much arrives.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names vbUSDC as the asset sent to the receiver, unlike the mint format.",
+      "evidence": "ERC4626._withdraw: SafeERC20.safeTransfer(_asset, receiver, assets) with _asset = vbUSDC (immutable 0x203a…fd36). Case 3 screen: 'Shares to redeem 37.985… gtUSDC', 'To', 'Owner'. No vbUSDC anywhere.",
+      "fix": "Add a constant field 'Receive asset' with value $.metadata.constants.underlyingTicker, as mint does, and relabel 'To' as 'Send vbUSDC to'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much vbUSDC is paid out, and the function has no minimum to show.",
+      "evidence": "MetaMorphoV1_1.sol redeem: assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor). No minAssets parameter exists.",
+      "fix": "None from calldata. A router with a slippage bound would be needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem has no interpolatedIntent; 'Redeem' names neither the shares nor what the signer receives.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", no interpolatedIntent.",
+      "fix": "Add an interpolatedIntent like \"Redeem {shares} for vbUSDC to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.361,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 70,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit has no interpolatedIntent; 'Deposit' names neither the amount, the asset nor the vault.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say the signer pays vbUSDC to get vault shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw has no interpolatedIntent; 'Withdraw' states neither the amount nor the recipient.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem never names vbUSDC as the asset sent to the receiver, unlike the mint format.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 58,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem never names vbUSDC as the asset sent to the receiver, unlike the mint format."
+ }
+}

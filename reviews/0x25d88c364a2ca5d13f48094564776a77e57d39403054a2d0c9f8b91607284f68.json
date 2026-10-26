@@ -1,0 +1,181 @@
+{
+ "hash": "0x25d88c364a2ca5d13f48094564776a77e57d39403054a2d0c9f8b91607284f68",
+ "file": "registry/morpho/calldata-felix-feUSDEv2-v2-999.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 999,
+   "address": "0x3d2e92b54fb4b906246539bcd91617ebcb391616"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` USDe is pulled from the signer into the vault (safeTransferFrom in enter).",
+     "feUSDEv2 vault shares are minted to `onBehalf`. The amount is previewDeposit(assets), set by the share price after accrueInterest, and the call has no minimum.",
+     "The deposited USDe may be moved on into the liquidity adapter. That is vault-internal and changes nothing the signer holds."
+    ],
+    "shown": "Deposit 10 USDe for <onBehalf>, with the deposit amount, the share ticker feUSDEv2 and the share recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of feUSDEv2 shares minted is not shown; the vault computes it and the call has no minimum.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0 minted 10 feUSDEv2 to the signer, and the screen shows only 'Share ticker: feUSDEv2'.",
+      "fix": "No calldata field holds the share amount. The 'Share ticker' field already names the asset received; it is fine as is.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDe out 10 is shown exactly. feUSDEv2 in is shown by asset and recipient but not by amount, which comes from the share price."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `assets` USDe is sent from the vault to `receiver`.",
+     "feUSDEv2 shares are burned from `onBehalf`. The amount is previewWithdraw(assets), rounded up, and the call has no maximum.",
+     "When the signer is not `onBehalf`, the signer's share allowance from `onBehalf` is reduced by the shares burned."
+    ],
+    "shown": "Withdraw exactly 600 USDe to <receiver>, with the amount, the recipient and the owner whose shares are used as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of feUSDEv2 shares burned from the owner is not shown; the vault computes it and the call has no cap.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);`. Case 1 burned 600 feUSDEv2 from the signer, and no share amount is on screen.",
+      "fix": "No calldata field holds the share amount. The intent could say 'Withdraw {assets} from feUSDEv2 vault' so the signer knows which position shrinks.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDe in 600 to the signer is shown exactly. Burning feUSDEv2 is implied by 'Owner' but neither the share asset nor its amount is shown."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` feUSDEv2 are burned from `onBehalf`. When the signer is not the owner, the signer's share allowance is spent.",
+     "USDe equal to previewRedeem(shares), rounded down, is sent from the vault to `receiver`. The call has no minimum."
+    ],
+    "shown": "Redeem 10 feUSDEv2 to <receiver>, with the share amount, the recipient and the owner as fields. The asset received is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says that USDe is what the receiver gets; only the shares going out are named.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. Descriptor redeem interpolatedIntent is 'Redeem {#.shares} to {#.receiver}' and no field names USDe. Case 2: 9.999999999999999998 USDe arrived at the signer, and the blind reader only guessed 'likely USDe'.",
+      "fix": "Name the underlying, e.g. interpolatedIntent 'Redeem {#.shares} for USDe to {#.receiver}', or add a constant field 'Receive: USDe' from $.metadata.constants.underlyingTicker.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDe amount received is set by the share price and has no minimum in the calldata.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. Case 2 paid 9.999999999999999998 USDe for 10 shares.",
+      "fix": "No calldata value to show. Naming the asset (see the warning) is the most a descriptor can do.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "feUSDEv2 out 10 is shown exactly. USDe in is shown only as 'to receiver', with no asset and no amount; the reader guessed the asset."
+     }
+    ],
+    "glance": 70,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.328,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 66,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says that USDe is what the receiver gets; only the shares going out are named.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 77,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says that USDe is what the receiver gets; only the shares going out are named."
+ }
+}

@@ -1,0 +1,100 @@
+{
+ "hash": "0xa7ab783891a1a422930d9ad0e067ddcbdda3c54947357d07275bcd7310fd25b0",
+ "file": "registry/permit/eip712-permit-polygon-bridged-usdc.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 137,
+   "address": "0x2791bca1f2de4661ed88a30c99a7a9449aa84174"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Sets the allowance of `spender` over the owner's USDC.e (Polygon bridged USDC) to exactly `value`, and replaces any earlier allowance.",
+     "The allowance can be used by `spender` with transferFrom to move up to `value` USDC.e out of the owner's account; a maximum value is not treated as infinite and decreases with each spend.",
+     "The signature is valid only until `deadline` and uses the owner's current nonce, which increases when the permit is used.",
+     "Anyone can submit the signature; the owner pays no gas and moves no tokens when signing."
+    ],
+    "shown": "\"Authorize spending of tokens\" with the spender as a raw address, the max spending amount in USDC.e (\"Unlimited\" above 2^255), the valid-until date and the owner.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "Permit descriptor binds to domain version \"2\", but the contract verifies permits with version \"1\".",
+      "evidence": "UChildAdministrableERC20.sol, UChildERC20: `string public constant EIP712_VERSION = \"1\";` and `_setDomainSeparator(newName, EIP712_VERSION);` in initialize and updateMetadata. descriptor.json context.eip712.domain: `\"name\": \"USD Coin\", \"version\": \"2\"`. The domain name also comes from initialize (`newName`), and metadata.owner gives \"USD Coin (PoS)\", not \"USD Coin\".",
+      "fix": "Set the domain to the values the contract uses: `\"domain\": {\"name\": \"USD Coin (PoS)\", \"version\": \"1\"}`. Read `name()` on 0x2791…4174 to confirm the name.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "Permit domain uses salt = chainId instead of a chainId member; wallets may not bind it.",
+      "evidence": "UChildAdministrableERC20.sol, EIP712 library: `// keccak256(\"EIP712Domain(string name,string version,address verifyingContract,bytes32 salt)\")` and `makeDomainSeparator` encodes `bytes32(chainId)` as the salt. The descriptor binds by `chainId: 137` in deployments.",
+      "fix": "Check that wallets match a domain that has `salt` and no `chainId` to deployment 137; add a test case with this exact domain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "Permit format has no test case, so the wrong domain version and name are not caught.",
+      "evidence": "FORMATS.md: `cases: 0 (no tx)` for the Permit format.",
+      "fix": "Add a typed-message test that uses the real domain (name from `name()`, version \"1\", verifyingContract 0x2791…4174, salt 0x…89), with a finite value and a value of 2^256-1 to show the \"Unlimited\" message.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Permit intent does not say that it replaces the existing USDC.e allowance for this spender.",
+      "evidence": "Permit._permit calls `_approve(owner, spender, value)`, which sets `_allowances[owner][spender] = amount;`. Descriptor intent: \"Authorize spending of tokens\"; no interpolatedIntent.",
+      "fix": "Change the intent to \"Set USDC.e spending allowance\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.325,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 52,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 2,
+   "worst": "Permit descriptor binds to domain version \"2\", but the contract verifies permits with version \"1\".",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 50,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "Permit descriptor binds to domain version \"2\", but the contract verifies permits with version \"1\"."
+ }
+}

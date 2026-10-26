@@ -1,0 +1,189 @@
+{
+ "hash": "0xb900ca409a6d18f0765272f8629d33c1c1b35c443e8abf1703806673cce439ac",
+ "file": "registry/morpho/calldata-gauntlet-ionicWETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x9ab2d181e4b87ba57d5ed564d3ef652c4e710707"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` WETH (0x4200…0006 on Base) to the vault through transferFrom, which uses the signer's WETH allowance to the vault.",
+     "The vault mints ionicWETH shares to `receiver`. The share count comes from the current share price after fee accrual, rounded down.",
+     "The vault supplies the WETH to Morpho Blue markets. This is internal to the vault and does not change what the signer holds."
+    ],
+    "shown": "Intent 'Deposit', the WETH amount sent, the share ticker 'ionicWETH', and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the receiver gets; the vault's share price decides it",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` The descriptor has no shares field because `shares` is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends WETH to the vault through transferFrom. The amount comes from the share price, rounded up, and is not in the calldata. Only the signer's WETH allowance to the vault limits it.",
+     "The vault mints exactly `shares` ionicWETH shares to `receiver`.",
+     "The vault supplies the WETH to Morpho Blue markets. This is internal to the vault."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: WETH' as a ticker only, the exact shares minted in the vault token, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint shows only the WETH ticker; the vault price decides the WETH amount and nothing bounds it",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then `_deposit(_msgSender(), receiver, assets, shares)` -> `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets)`. The descriptor shows `\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint label 'Deposit asset' shows the ticker 'WETH', and a reader can take it for an amount field",
+      "evidence": "descriptor mint format: `{\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}`. The WETH amount taken is computed in MetaMorpho.mint and is not shown.",
+      "fix": "Rename the label to 'Pays with (amount set by vault price)', or change the intent to 'Mint ionicWETH shares by paying WETH'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns ionicWETH shares from `owner`. The share count comes from the share price, rounded up, and is not in the calldata.",
+     "If the signer is not `owner`, the vault spends the signer's share allowance from `owner` by that share count.",
+     "The vault sends exactly `assets` WETH to `receiver`. It first takes this WETH back from Morpho Blue markets."
+    ],
+    "shown": "Intent 'Withdraw', the exact WETH amount, the receiver, and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares the vault burns from the owner; the vault price decides it",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` ERC4626._withdraw: `_burn(owner, shares);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` ionicWETH shares from `owner`. If the signer is not `owner`, the vault spends the signer's share allowance by that amount.",
+     "The vault sends WETH to `receiver`. The amount comes from the share price, rounded down, and the call has no minimum amount."
+    ],
+    "shown": "Intent 'Redeem', the exact shares redeemed in the vault token, the receiver, and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the WETH the receiver gets, and the call has no minimum amount",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);`",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem intent does not say that the signer receives WETH, and no field names WETH",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"`. Its fields are only `shares` (tokenPath @.to), `receiver` and `owner`. Nothing names the asset that the receiver gets.",
+      "fix": "Change the intent to 'Redeem ionicWETH shares for WETH'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.292,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint label 'Deposit asset' shows the ticker 'WETH', and a reader can take it for an amount field",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem intent does not say that the signer receives WETH, and no field names WETH",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 61,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "mint label 'Deposit asset' shows the ticker 'WETH', and a reader can take it for an amount field"
+ }
+}

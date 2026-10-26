@@ -1,0 +1,213 @@
+{
+ "hash": "0x0191c6e226ecfd49cf7c1e31f111104954e7298eb0de37ed42f917c78b6dc701",
+ "file": "registry/symbiotic/calldata-VaultV1Tokenized-rETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xaf07131c497e06361dc2f75de63dc1d3e113f7cb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` rETH (the vault collateral, 0xae78…6393) from the signer into the vault with safeTransferFrom.",
+     "Mints vault shares (gtrrETH) to `onBehalfOf`. The number of shares comes from the vault's current stake-to-share rate."
+    ],
+    "shown": "Deposit 123.25 rETH for the beneficiary address, with the vault, the rETH amount and the beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of gtrrETH shares minted to onBehalfOf is not shown; it comes from vault state.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)`; VaultTokenized.deposit emits Transfer(0, onBehalfOf, mintedShares). The calldata has only onBehalfOf and amount.",
+      "fix": "None possible from the calldata. The beneficiary is already shown as 'Deposit beneficiary'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's vault shares worth `amount` rETH, rounded up (previewWithdraw), and reverts if the signer holds too few.",
+     "Queues `amount` rETH in the withdrawals of the next epoch and credits withdrawal shares for that epoch to `claimer`. Only `claimer` can claim them after the epoch ends.",
+     "No asset is paid out now, and the queued amount can be slashed before it is claimed."
+    ],
+    "shown": "Request a 2.5 rETH withdrawal for the claim owner address, with the vault, the rETH amount and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of the signer's vault shares burned is derived on-chain and not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`; _withdraw reduces `_activeSharesOf[msg.sender]` by burnedShares.",
+      "fix": "None from the calldata. The rETH amount and the claim owner are shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "withdraw: the queued rETH is claimable only after the next epoch ends and can be slashed before the claim.",
+      "evidence": "Vault.sol _withdraw: `epoch = currentEpoch() + 1; withdrawals[epoch] += withdrawnAssets`; onSlash reduces `withdrawals[currentEpoch_ + 1]`. The screen says 'Request 2.5 rETH withdrawal'.",
+      "fix": "Optionally label the amount 'Requested assets (claimable next epoch, subject to slashing)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 82
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's vault shares (gtrrETH) and reverts if the signer holds too few.",
+     "Converts them to rETH at the current rate and queues that rETH for the next epoch, crediting withdrawal shares to `claimer`. Only `claimer` can claim them after the epoch ends."
+    ],
+    "shown": "Queue 0.987654321123456789 gtrrETH for the claim owner address, with the vault, the share amount (token from @.to) and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the rETH value of the redeemed shares is derived from vault state and not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())`. Only the share count is in the calldata.",
+      "fix": "None from the calldata. The intent could say 'Queue rETH withdrawal of {shares} for {claimer}' to name the asset that will come out.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 82
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Sends the signer's full claimable rETH for `epoch` (withdrawalsOf(epoch, msg.sender)) from the vault to `recipient`.",
+     "Marks the signer's withdrawal for that epoch as claimed."
+    ],
+    "shown": "Claim epoch 42 to the recipient address, with the vault, the epoch and the recipient as fields; no asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the rETH amount sent to the recipient is read from storage; the screen never names rETH.",
+      "evidence": "Vault.sol claim: `amount = _claim(epoch); IERC20(collateral).safeTransfer(recipient, amount);` with collateral = rETH. Screen: 'Claim epoch 42 to 0x2222…'.",
+      "fix": "The amount cannot be shown. The intent could name the asset: 'Claim rETH withdrawal for epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 68,
+    "depth": 72
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Sends the total of the signer's claimable rETH across all listed epochs from the vault to `recipient` in one transfer.",
+     "Marks the signer's withdrawal as claimed for each listed epoch."
+    ],
+    "shown": "Claim the listed epochs to the recipient address, with the vault, each epoch and the recipient as fields; no asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total rETH sent to the recipient is read from storage; the screen never names rETH.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]); ... IERC20(collateral).safeTransfer(recipient, amount);`. Screen: 'Claim epochs 42 and 44 and 128 to 0x2222…'.",
+      "fix": "The amount cannot be shown. The intent could name the asset: 'Claim rETH withdrawals for epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 68,
+    "depth": 72
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.34,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 56,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 77,
+  "functions": "2A 3B",
+  "incomplete": false,
+  "worst": null
+ }
+}

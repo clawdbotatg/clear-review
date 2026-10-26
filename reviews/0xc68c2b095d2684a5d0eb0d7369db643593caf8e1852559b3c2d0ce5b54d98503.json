@@ -1,0 +1,475 @@
+{
+ "hash": "0xc68c2b095d2684a5d0eb0d7369db643593caf8e1852559b3c2d0ce5b54d98503",
+ "file": "registry/swell/calldata-swell.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xfae103dc9cf190ed75350761e95403b7b8afa6c0"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addToWhitelist(address _address)",
+    "effects": [
+     "Admin-only (PLATFORM_ADMIN): sets whitelistedAddresses[_address] = true so that address can deposit ETH while the whitelist is on. No assets move."
+    ],
+    "shown": "Add to whitelist, with the address being added.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "approve(address spender, uint256 amount)",
+    "effects": [
+     "Sets the signer's rswETH allowance for spender to exactly amount, replacing any earlier allowance. No tokens move."
+    ],
+    "shown": "Approve spender, with the spender address and the amount in rswETH, or 'Unlimited' at or above 2^255.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The 0.25 RSWETH approval to 0x6a00…1068 matches the screen."
+     },
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The max-uint approval to 0x40aa…cd7f is shown as 'Unlimited rswETH'."
+     }
+    ],
+    "glance": 80,
+    "depth": 95
+   },
+   {
+    "key": "batchAddToWhitelist(address[] _addresses)",
+    "effects": [
+     "Admin-only: adds each listed address to the deposit whitelist. Reverts if any address is zero or already listed. No assets move."
+    ],
+    "shown": "Add to whitelist, with every address listed.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "batchRemoveFromWhitelist(address[] _addresses)",
+    "effects": [
+     "Admin-only: removes each listed address from the deposit whitelist, so it can no longer deposit while the whitelist is on. No assets move."
+    ],
+    "shown": "Remove addresses, with every address listed.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "batchRemoveFromWhitelist intent 'Remove addresses' does not say they are removed from the whitelist.",
+      "evidence": "Whitelist.sol batchRemoveFromWhitelist → _checkAndRemoveFromWhitelist sets whitelistedAddresses[_address] = false; descriptor intent \"Remove addresses\"",
+      "fix": "Use the intent \"Remove from whitelist\", matching the add formats.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "burn(uint256 amount)",
+    "effects": [
+     "Destroys amount of the signer's rswETH (_burn(msg.sender, amount)). Nothing is returned for it."
+    ],
+    "shown": "Burn tokens, with the amount in rswETH.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 95
+   },
+   {
+    "key": "decreaseAllowance(address spender, uint256 subtractedValue)",
+    "effects": [
+     "Lowers the signer's rswETH allowance for spender by subtractedValue. Reverts if the result would go below zero. No tokens move."
+    ],
+    "shown": "Decrease allowance, with the spender and the amount subtracted in rswETH.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 95
+   },
+   {
+    "key": "depositViaDepositManager(uint256 _amount, address _to, uint256 _minRswETH)",
+    "effects": [
+     "Callable only by the DepositManager contract. Mints rswETH to _to: _amount divided by the stored rswETH/ETH rate, and at least _minRswETH or the call reverts.",
+     "No ETH moves in this call (the function is not payable). _amount is only used for the calculation."
+    ],
+    "shown": "Deposit via Manager, with Amount '2 ETH', the To address and a raw Min Rsw ETH integer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "depositViaDepositManager shows the minimum rswETH minted as a raw integer.",
+      "evidence": "descriptor field 'Min Rsw ETH' format raw on #._minRswETH; case 8 shows \"1900000000000000000\". RswETH.sol depositViaDepositManager reverts if rswETHAmount < _minRswETH.",
+      "fix": "Use tokenAmount with token $.metadata.constants.swellToken and the label 'Minimum rswETH received'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "depositViaDepositManager shows 'Amount 2 ETH', but no ETH leaves in this call.",
+      "evidence": "RswETH.sol depositViaDepositManager is non-payable and only uses _amount to compute rswETHAmount; descriptor field 'Amount' format amount on #._amount renders \"2 ETH\" (case 8).",
+      "fix": "Label it 'ETH credited (already held by Deposit Manager)'. Make the intent say 'Mint rswETH to recipient for ETH already deposited'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "depositViaDepositManager intent does not say that rswETH is minted to _to.",
+      "evidence": "RswETH.sol depositViaDepositManager: _mint(_to, rswETHAmount); descriptor intent \"Deposit via Manager\"; field label 'To' does not say rswETH goes there.",
+      "fix": "Use the intent 'Mint rswETH for deposited ETH' and relabel _to as 'rswETH recipient'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "depositWithReferral(address referral)",
+    "effects": [
+     "Sends msg.value ETH from the signer, which is forwarded to the DepositManager.",
+     "Mints rswETH to the signer: msg.value divided by the stored rswETH/ETH rate.",
+     "Records the referral address in an event only. The signer cannot refer itself, and must be whitelisted while the whitelist is on."
+    ],
+    "shown": "Deposit, with the referral address and the ETH amount sent (@.value).",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "depositWithReferral does not show how much rswETH the signer receives; it depends on the stored rate.",
+      "evidence": "RswETH.sol _deposit: rswETHAmount = msg.value * 1e18 / _rswETHToETHRate(); _mint(msg.sender, rswETHAmount). There is no calldata parameter for a minimum.",
+      "fix": "No field can show it. Optionally say 'receive rswETH' in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "depositWithReferral intent 'Deposit' does not name ETH in or rswETH out.",
+      "evidence": "descriptor intent \"Deposit\"; RswETH.sol _deposit mints rswETH to msg.sender in exchange for msg.value.",
+      "fix": "Use the intent 'Stake ETH for rswETH' and an interpolatedIntent like 'Stake {@.value} for rswETH (referral {referral})'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "increaseAllowance(address spender, uint256 addedValue)",
+    "effects": [
+     "Raises the signer's rswETH allowance for spender by addedValue. No tokens move."
+    ],
+    "shown": "Increase allowance, with the spender and the added amount in rswETH, or 'Unlimited' at or above 2^255.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "increaseAllowance test case 11 sends value 1 to a non-payable function, which would revert.",
+      "evidence": "cases/11.json input.value \"1\"; ERC20Upgradeable.increaseAllowance is not payable.",
+      "fix": "Set value to 0 in the test case.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 90
+   },
+   {
+    "key": "removeFromWhitelist(address _address)",
+    "effects": [
+     "Admin-only: sets whitelistedAddresses[_address] = false, so that address can no longer deposit while the whitelist is on. No assets move."
+    ],
+    "shown": "Unwhitelist, with the address.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 90
+   },
+   {
+    "key": "reprice(uint256 _preRewardETHReserves, uint256 _newETHRewards, uint256 _rswETHTotalSupply)",
+    "effects": [
+     "REPRICER-only: sets the new rswETH/ETH rate from the given reserves, rewards and supply. This changes the value of every holder's rswETH.",
+     "Mints reward rswETH to node operator reward addresses and to the Swell treasury. None goes to the signer."
+    ],
+    "shown": "Reprice, with three raw integers: pre-reward reserves, new ETH rewards and rswETH total supply.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "reprice shows ETH reserves, rewards and rswETH supply as raw wei integers.",
+      "evidence": "descriptor fields on #._preRewardETHReserves, #._newETHRewards and #._rswETHTotalSupply all use format raw; case 13 shows \"100000000000000000000\" etc.",
+      "fix": "Use format amount for the two ETH values, and tokenAmount with token $.metadata.constants.swellToken for the supply.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "reprice intent does not say it updates the exchange rate and mints reward rswETH to operators and the treasury.",
+      "evidence": "RswETH.sol reprice: rswETHToETHRateFixed = updatedRswETHToETHRateFixed; _mint(rewardAddress, …); _mint(AccessControlManager.SwellTreasury(), …)",
+      "fix": "Use the intent 'Update rswETH rate and mint rewards'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 35
+   },
+   {
+    "key": "transfer(address to, uint256 amount)",
+    "effects": [
+     "Sends amount rswETH from the signer to to."
+    ],
+    "shown": "Transfer Tokens, with the recipient and the amount in rswETH.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.8856 RSWETH out to 0x7e70…6966 matches the screen."
+     }
+    ],
+    "glance": 85,
+    "depth": 95
+   },
+   {
+    "key": "transferFrom(address from, address to, uint256 amount)",
+    "effects": [
+     "Moves amount rswETH from from to to, spending the signer's allowance from from by amount (unless it is unlimited)."
+    ],
+    "shown": "Transfer From, with the from address, the to address and the amount in rswETH.",
+    "findings": [],
+    "cases": [],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "withdrawERC20(address _token)",
+    "effects": [
+     "PLATFORM_ADMIN-only: sends the rswETH contract's entire balance of _token to the signer."
+    ],
+    "shown": "Withdraw ERC-20 token, with the token address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdrawERC20 does not show the amount: the contract's whole balance, read from storage.",
+      "evidence": "RswETH.sol withdrawERC20: contractBalance = _token.balanceOf(address(this)); _token.safeTransfer(msg.sender, contractBalance)",
+      "fix": "No field can show the balance. Say 'Withdraw all of this token held by rswETH to you' in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.452,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 96,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "addToWhitelist(address _address)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "approve(address spender, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "batchAddToWhitelist(address[] _addresses)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "batchRemoveFromWhitelist(address[] _addresses)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "batchRemoveFromWhitelist intent 'Remove addresses' does not say they are removed from the whitelist.",
+   "comprehension": null
+  },
+  "burn(uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "decreaseAllowance(address spender, uint256 subtractedValue)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "depositViaDepositManager(uint256 _amount, address _to, uint256 _minRswETH)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "depositViaDepositManager shows the minimum rswETH minted as a raw integer.",
+   "comprehension": null
+  },
+  "depositWithReferral(address referral)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "depositWithReferral intent 'Deposit' does not name ETH in or rswETH out.",
+   "comprehension": null
+  },
+  "increaseAllowance(address spender, uint256 addedValue)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "removeFromWhitelist(address _address)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "reprice(uint256 _preRewardETHReserves, uint256 _newETHRewards, uint256 _rswETHTotalSupply)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "reprice shows ETH reserves, rewards and rswETH supply as raw wei integers.",
+   "comprehension": null
+  },
+  "transfer(address to, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "transferFrom(address from, address to, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdrawERC20(address _token)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 75,
+  "functions": "9A 3B 2C",
+  "incomplete": false,
+  "worst": "depositViaDepositManager shows the minimum rswETH minted as a raw integer."
+ }
+}

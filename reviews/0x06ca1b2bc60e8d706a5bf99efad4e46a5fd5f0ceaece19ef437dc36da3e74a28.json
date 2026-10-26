@@ -1,0 +1,487 @@
+{
+ "hash": "0x06ca1b2bc60e8d706a5bf99efad4e46a5fd5f0ceaece19ef437dc36da3e74a28",
+ "file": "registry/tether/calldata-usdt0-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0xe7cd86e13ac4309349f30b3435a9d337750fc82d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "transfer(address recipient, uint256 amount)",
+    "effects": [
+     "The signer's USDT0 balance drops by `amount` and `recipient` receives exactly `amount`, with no fee (ERC20Upgradeable._transfer).",
+     "The call reverts if the signer is blocked or `recipient` is the token contract (TetherToken._beforeTokenTransfer)."
+    ],
+    "shown": "Intent 'Send USDT0', with the amount in USDT0 and the recipient address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transfer limits recipient types to eoa, but the code lets contracts receive USDT0.",
+      "evidence": "descriptor transfer format, field 'To': \"types\": [\"eoa\"]; ERC20Upgradeable._transfer only requires recipient != address(0), and TetherToken._beforeTokenTransfer only blocks address(this).",
+      "fix": "Change the recipient types to [\"eoa\", \"contract\"], or remove `types`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 95
+   },
+   {
+    "key": "approve(address spender, uint256 amount)",
+    "effects": [
+     "Sets the signer's USDT0 allowance for `spender` to exactly `amount`, replacing the earlier value (ERC20Upgradeable.approve -> _approve)."
+    ],
+    "shown": "Intent 'Approve USDT0', with the spender and the amount in USDT0, or 'Unlimited' at or above 2^255.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "approve has one test with 100 USDT0, so the 'Unlimited' threshold path is never tested.",
+      "evidence": "case 1 data amount 0x05f5e100 renders 'Amount: 100 USDT0'; descriptor approve field 'Amount' has \"threshold\": \"0x8000…\", \"message\": \"Unlimited\".",
+      "fix": "Add a test case that approves type(uint256).max and expects 'Unlimited'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 92
+   },
+   {
+    "key": "transferFrom(address _sender, address _recipient, uint256 _amount)",
+    "effects": [
+     "Moves `_amount` USDT0 from `_sender` to `_recipient` (ERC20Upgradeable.transferFrom -> _transfer).",
+     "Uses `_amount` of the allowance that `_sender` gave the signer (the caller), via _approve(sender, _msgSender(), currentAllowance - amount).",
+     "The signer's own balance changes only when the signer is `_sender` or `_recipient`."
+    ],
+    "shown": "Intent 'Send USDT0', with From, To and the amount in USDT0.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transferFrom uses the same 'Send USDT0' intent as transfer, so the use of an allowance is not stated.",
+      "evidence": "descriptor transferFrom \"intent\": \"Send USDT0\" is the same as transfer; ERC20Upgradeable.transferFrom spends `_allowances[sender][_msgSender()]`. Case 2 is named 'Send USDT0 from another account', but its screen intent is only 'Send USDT0'.",
+      "fix": "Change the intent to \"Send USDT0 using an allowance\" or \"Send USDT0 from another account\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 90
+   },
+   {
+    "key": "increaseAllowance(address spender, uint256 addedValue)",
+    "effects": [
+     "Raises the signer's USDT0 allowance for `spender` by `addedValue`. The new allowance is the current allowance plus `addedValue` (ERC20Upgradeable.increaseAllowance)."
+    ],
+    "shown": "Intent 'Increase USDT0 allowance', with the spender and 'Amount', which holds the increment in USDT0.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "increaseAllowance shows the increment, not the total allowance, because the total depends on storage.",
+      "evidence": "ERC20Upgradeable.increaseAllowance: _approve(_msgSender(), spender, _allowances[_msgSender()][spender] + addedValue); descriptor field 'Amount' on #.addedValue.",
+      "fix": "Rename the label to 'Increase by'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 88
+   },
+   {
+    "key": "decreaseAllowance(address spender, uint256 subtractedValue)",
+    "effects": [
+     "Lowers the signer's USDT0 allowance for `spender` by `subtractedValue`. The call reverts if this would go below zero (ERC20Upgradeable.decreaseAllowance)."
+    ],
+    "shown": "Intent 'Decrease USDT0 allowance', with the spender and 'Amount', which holds the decrement in USDT0.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "decreaseAllowance shows the decrement, not the remaining allowance, because the remainder depends on storage.",
+      "evidence": "ERC20Upgradeable.decreaseAllowance: _approve(_msgSender(), spender, currentAllowance - subtractedValue); descriptor field 'Amount' on #.subtractedValue.",
+      "fix": "Rename the label to 'Decrease by'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 88
+   },
+   {
+    "key": "multiTransfer(address[] _recipients, uint256[] _values)",
+    "effects": [
+     "For each index i, the signer sends `_values[i]` USDT0 to `_recipients[i]` through transfer (TetherToken.multiTransfer).",
+     "The signer's total outflow is the sum of `_values`. The arrays must be the same length."
+    ],
+    "shown": "Intent 'Send USDT0', with To and Amount pairs for each recipient, bundled per index.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "multiTransfer limits recipient types to eoa, but contracts can receive.",
+      "evidence": "descriptor multiTransfer bundled field 'To': \"types\": [\"eoa\"]; TetherToken.multiTransfer calls transfer(_recipients[i], _values[i]) with no EOA check.",
+      "fix": "Change the recipient types to [\"eoa\", \"contract\"], or remove `types`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "multiTransfer does not show the total amount sent across all recipients.",
+      "evidence": "TetherToken.multiTransfer loops transfer over _values; the descriptor shows only the per-recipient amounts (case 5: 100 USDT0 and 50 USDT0).",
+      "fix": "None today: ERC-7730 cannot sum an array.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "permit(address owner_, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Sets the USDT0 allowance of `owner_` for `spender` to `value` after it checks `owner_`'s EIP-712 signature (TetherTokenV2._permit -> _approve).",
+     "Uses one permit nonce of `owner_`. The call reverts after `deadline`."
+    ],
+    "shown": "Intent 'Permit USDT0', with Owner, Spender, Amount (or 'Unlimited') and Deadline as a date. The signature parts are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "permit (v,r,s) tests only a 100 USDT0 value, so the 'Unlimited' threshold is never tested.",
+      "evidence": "descriptor permit field 'Amount' has \"threshold\"/\"message\": \"Unlimited\"; test case 6 uses a finite value.",
+      "fix": "Add a test case with value = type(uint256).max that expects 'Unlimited'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "permit(address owner_, address spender, uint256 value, uint256 deadline, bytes signature)",
+    "effects": [
+     "Sets the USDT0 allowance of `owner_` for `spender` to `value` after it checks the packed or ERC-1271 signature (TetherTokenV2._permit -> _approve).",
+     "Uses one permit nonce of `owner_`. The call reverts after `deadline`, and max uint256 means the permit never expires."
+    ],
+    "shown": "Intent 'Permit USDT0', with Owner, Spender, Amount (or 'Unlimited') and Deadline as a date. The signature is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "permit (bytes) renders a deadline of max uint256 as a date, but the contract docs say it means no expiration.",
+      "evidence": "TetherTokenV2 natspec: 'deadline … or max uint256 value to signal no expiration'; descriptor field 'Deadline' uses format date, encoding timestamp, with no special value.",
+      "fix": "Add a test case with deadline = type(uint256).max, and label the special value if the wallet supports it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Moves `value` USDT0 from `from` to `to`, using a signature that `from` made earlier (TetherTokenV2.transferWithAuthorization -> _transfer).",
+     "Marks `nonce` of `from` as used. The call works only between validAfter and validBefore."
+    ],
+    "shown": "Intent 'Send USDT0', with From, To, Amount in USDT0, Valid after and Valid before. The nonce and the signature are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transferWithAuthorization limits types to wallet for From and eoa for To, but the code accepts any address.",
+      "evidence": "descriptor field 'From' \"types\": [\"wallet\"], field 'To' \"types\": [\"eoa\"]; EIP3009 _requireValidSignature uses SignatureChecker, which accepts EOAs and ERC-1271 contracts.",
+      "fix": "Change the types to [\"eoa\", \"contract\"] for both fields, or remove `types`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 90
+   },
+   {
+    "key": "transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)",
+    "effects": [
+     "Moves `value` USDT0 from `from` to `to`, using a signature that `from` made earlier (TetherTokenV2.transferWithAuthorization bytes variant -> _transfer).",
+     "Marks `nonce` of `from` as used. The call works only between validAfter and validBefore."
+    ],
+    "shown": "Intent 'Send USDT0', with From, To, Amount in USDT0, Valid after and Valid before. The nonce and the signature are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transferWithAuthorization (bytes) limits From to wallet and To to eoa, but any address is valid.",
+      "evidence": "descriptor field 'From' \"types\": [\"wallet\"], field 'To' \"types\": [\"eoa\"]; SignatureChecker.isValidSignatureNow accepts EOAs and contracts.",
+      "fix": "Change the types to [\"eoa\", \"contract\"] for both fields, or remove `types`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 90
+   },
+   {
+    "key": "receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "The signer (who must equal `to`) receives `value` USDT0 from `from`, using a signature that `from` made earlier (EIP3009._receiveWithAuthorizationValidityCheck requires to == msg.sender; then _transfer).",
+     "Marks `nonce` of `from` as used."
+    ],
+    "shown": "Intent 'Receive USDT0', with From, To, Amount in USDT0 and the validity window.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 92
+   },
+   {
+    "key": "receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)",
+    "effects": [
+     "The signer (who must equal `to`) receives `value` USDT0 from `from`, using a signature that `from` made earlier (bytes variant, same checks).",
+     "Marks `nonce` of `from` as used."
+    ],
+    "shown": "Intent 'Receive USDT0', with From, To, Amount in USDT0 and the validity window.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 92
+   },
+   {
+    "key": "cancelAuthorization(address authorizer, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Marks the EIP-3009 authorization `nonce` of `authorizer` as used, so a pending transfer or receive authorization with that nonce can never run (EIP3009._cancelAuthorization).",
+     "Moves no tokens."
+    ],
+    "shown": "Intent 'Cancel USDT0 authorization', with the Authorizer and the raw nonce as an optional field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "cancelAuthorization shows the nonce only as a raw hash, which does not say which transfer it cancels.",
+      "evidence": "EIP3009._cancelAuthorization sets _authorizationStates[authorizer][nonce] = true; descriptor field 'Authorization nonce' has format raw and visible optional.",
+      "fix": "None: the nonce is a random id with no terms in calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "cancelAuthorization(address authorizer, bytes32 nonce, bytes signature)",
+    "effects": [
+     "Marks the EIP-3009 authorization `nonce` of `authorizer` as used, so a pending authorization with that nonce can never run (EIP3009._cancelAuthorization).",
+     "Moves no tokens."
+    ],
+    "shown": "Intent 'Cancel USDT0 authorization', with the Authorizer and the raw nonce as an optional field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "cancelAuthorization (bytes) shows the nonce only as a raw hash and does not name the transfer it cancels.",
+      "evidence": "EIP3009._cancelAuthorization; descriptor field 'Authorization nonce' has format raw and visible optional. Case 13 renders 0x4444…4444.",
+      "fix": "None: the nonce is a random id with no terms in calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.604,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 99,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "transfer(address recipient, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 83,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transfer limits recipient types to eoa, but the code lets contracts receive USDT0.",
+   "comprehension": null
+  },
+  "approve(address spender, uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "approve has one test with 100 USDT0, so the 'Unlimited' threshold path is never tested.",
+   "comprehension": null
+  },
+  "transferFrom(address _sender, address _recipient, uint256 _amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferFrom uses the same 'Send USDT0' intent as transfer, so the use of an allowance is not stated.",
+   "comprehension": null
+  },
+  "increaseAllowance(address spender, uint256 addedValue)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "decreaseAllowance(address spender, uint256 subtractedValue)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "multiTransfer(address[] _recipients, uint256[] _values)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "multiTransfer limits recipient types to eoa, but contracts can receive.",
+   "comprehension": null
+  },
+  "permit(address owner_, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "permit (v,r,s) tests only a 100 USDT0 value, so the 'Unlimited' threshold is never tested.",
+   "comprehension": null
+  },
+  "permit(address owner_, address spender, uint256 value, uint256 deadline, bytes signature)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferWithAuthorization limits types to wallet for From and eoa for To, but the code accepts any address.",
+   "comprehension": null
+  },
+  "transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferWithAuthorization (bytes) limits From to wallet and To to eoa, but any address is valid.",
+   "comprehension": null
+  },
+  "receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "cancelAuthorization(address authorizer, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "cancelAuthorization(address authorizer, bytes32 nonce, bytes signature)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 78,
+  "functions": "6A 8B",
+  "incomplete": false,
+  "worst": "approve has one test with 100 USDT0, so the 'Unlimited' threshold path is never tested."
+ }
+}

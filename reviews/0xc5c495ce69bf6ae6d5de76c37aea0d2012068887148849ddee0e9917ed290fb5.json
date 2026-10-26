@@ -1,0 +1,209 @@
+{
+ "hash": "0xc5c495ce69bf6ae6d5de76c37aea0d2012068887148849ddee0e9917ed290fb5",
+ "file": "registry/morpho/calldata-felix-feUSDhl.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 999,
+   "address": "0x9c59a9389d8f72de2cdaf1126f36ea4790e2275e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDHL to the vault, spending the signer's USDHL allowance to the vault.",
+     "The vault mints feUSDhl shares to `receiver`; the number comes from the vault's exchange rate in storage, rounded down.",
+     "The vault supplies the USDHL to Morpho Blue markets; the signer's position is the feUSDhl share balance."
+    ],
+    "shown": "Intent \"Deposit\" with the USDHL amount deposited, a fixed \"Share ticker: feUSDhl\" line, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many feUSDhl shares the receiver gets; the exchange rate in storage sets it.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0: signer receives 10.5 feUSDhl; screen shows only 'Share ticker: feUSDhl'. Reader: 'feUSDhl shares, amount not shown'.",
+      "fix": "No calldata value holds the share amount. The descriptor cannot show it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent \"Deposit\" names neither the asset deposited nor the shares received.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`; the asset and shares appear only in the fields 'Deposit asset' and 'Share ticker'.",
+      "fix": "Change the intent to \"Deposit USDHL for feUSDhl shares\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit shows a constant 'Share ticker' line with no amount, which reads like a parameter.",
+      "evidence": "descriptor deposit format: `{\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}`; case 0 renders 'Share ticker: feUSDhl'.",
+      "fix": "Remove the field and put the share token in the intent, as in \"Deposit USDHL for feUSDhl shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDHL out 10.5 shown right. feUSDhl in: the asset and the recipient are shown, but no amount (set by the rate in storage)."
+     }
+    ],
+    "glance": 50,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns feUSDhl shares from `owner`; the number comes from the exchange rate in storage, rounded up.",
+     "If the signer is not `owner`, the call spends the signer's feUSDhl allowance from `owner`.",
+     "The vault withdraws USDHL from Morpho Blue and sends exactly `assets` USDHL to `receiver`."
+    ],
+    "shown": "Intent \"Withdraw\" with the exact USDHL amount, the receiver and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many feUSDhl shares the owner burns; the rate in storage sets it.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 1: signer burns 0.009999999971764485 feUSDhl; no field shows it.",
+      "fix": "No calldata value holds the share amount. The descriptor cannot show it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent \"Withdraw\" does not say that feUSDhl shares are burned for USDHL.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`; no field names feUSDhl. Case 1 reader: 'Which Felix vault or market is being withdrawn from is not shown'.",
+      "fix": "Change the intent to \"Withdraw USDHL by burning feUSDhl\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDHL in 0.01 to the signer is shown right. feUSDhl burned is not shown; the reader guessed a position decrease without the share token."
+     }
+    ],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` feUSDhl from `owner`.",
+     "If the signer is not `owner`, the call spends the signer's feUSDhl allowance from `owner`.",
+     "The vault withdraws USDHL from Morpho Blue and sends USDHL to `receiver`; the amount comes from the rate in storage, rounded down."
+    ],
+    "shown": "Intent \"Redeem\" with the feUSDhl shares burned, the receiver and the owner; the USDHL received is not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDHL as the asset that the receiver gets.",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"`, fields only 'Shares to redeem', 'To', 'Owner'. Case 2: signer receives 1996.272708 USDHL. Reader: 'Which token I get back; the screen only names the share token'.",
+      "fix": "Change the intent to \"Redeem feUSDhl for USDHL\". The label of `receiver` can be \"Send USDHL to\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDHL amount received; the rate in storage sets it and there is no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 2: 1996.272708 USDHL arrives; no field shows an amount.",
+      "fix": "No calldata value holds the amount. The descriptor cannot show it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "1995.58 feUSDhl burned is shown right. USDHL in: only the recipient is shown. The asset and amount are absent, and the reader guessed a stablecoin."
+     }
+    ],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.363,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 55,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit intent \"Deposit\" names neither the asset deposited nor the shares received.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent \"Withdraw\" does not say that feUSDhl shares are burned for USDHL.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDHL as the asset that the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 64,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem never names USDHL as the asset that the receiver gets."
+ }
+}

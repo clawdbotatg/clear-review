@@ -1,0 +1,243 @@
+{
+ "hash": "0xe623ea4d1867fc24ca0cba648089415a06493aa9ebf81de999da248edc6b804b",
+ "file": "registry/morpho/calldata-sentora-senRLUSDv2-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x6dc58a0fdfc8d694e571dc59b9a52eeea780e6bf"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` RLUSD to the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "The vault mints previewDeposit(assets) senRLUSDv2 shares to `onBehalf`; the share count comes from the current share price, with no minimum in the call.",
+     "The deposited RLUSD may be allocated to the liquidity adapter; this does not change the signer's balances."
+    ],
+    "shown": "Deposit 2 RLUSD for a named address, with the share ticker senRLUSDv2 and the share recipient; the number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the signer receives; the share price sets it and no minimum exists.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0: signer receives 2000000037999999962 senRLUSDv2; the screen shows only 'Share ticker: senRLUSDv2' and 'Send shares to'.",
+      "fix": "No descriptor change can show a storage-derived share count. Optionally rename 'Share ticker' to 'Receive shares (amount set by share price)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit labels the RLUSD amount 'Deposit asset' when it holds an amount, not an asset.",
+      "evidence": "descriptor deposit field `assets`: \"label\": \"Deposit asset\", format tokenAmount; case 0 renders 'Deposit asset: 2 RLUSD'.",
+      "fix": "Change the label to \"Deposit amount\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "RLUSD out (2) is shown right. senRLUSDv2 in: ticker and recipient are shown, the amount (2.000000038) is not, and the code sets no bound. The reader knew shares arrive but not how many."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns previewWithdraw(assets) senRLUSDv2 shares from `onBehalf`, rounded up, with no maximum in the call.",
+     "If the signer is not `onBehalf`, the signer spends that many shares of the owner's share allowance.",
+     "`receiver` receives exactly `assets` RLUSD from the vault."
+    ],
+    "shown": "Withdraw an exact RLUSD amount to a named receiver, with the share owner named; the number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many senRLUSDv2 shares it burns; the share price sets it with no cap.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`; exit: `deleteShares(onBehalf, shares);`. Case 2: signer loses 1514166.207643334206842215 senRLUSDv2; the screen shows only 'Withdraw exactly: 1514000 RLUSD' and 'Owner'.",
+      "fix": "No descriptor change can show the computed share count. Optionally add a constant field naming the shares burned, e.g. label 'Shares burned from owner' with value $.metadata.constants.vaultTicker.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "RLUSD in (1514000 to the signer) is shown right. Shares out: the owner is shown, but the share token and amount (1514166.2 senRLUSDv2) are not. The reader understood that a position shrinks but not the share token or amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` senRLUSDv2 from `onBehalf`.",
+     "If the signer is not `onBehalf`, the signer spends `shares` of the owner's share allowance.",
+     "`receiver` receives previewRedeem(shares) RLUSD; the share price sets the amount and no minimum exists."
+    ],
+    "shown": "Redeem an exact amount of senRLUSDv2 shares to a named receiver, with the owner named; the screen never names RLUSD or an amount received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names RLUSD as the asset the receiver gets; the reader had to guess it.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` with asset = RLUSD. Descriptor redeem fields: only 'Shares to redeem', 'To', 'Owner'. Case 3: signer receives 173083.456684971756044295 RLUSD; reader: 'Underlying asset (likely RLUSD) ... exact amount not shown'.",
+      "fix": "Add a constant field like the mint format: {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}, and change interpolatedIntent to \"Redeem {#.shares} for RLUSD to {#.receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem cannot show the RLUSD amount received; the share price sets it and no minimum exists.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. No minAssets parameter.",
+      "fix": "No descriptor change can show it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Shares out (173087.74 senRLUSDv2) are shown right. RLUSD in: the receiver is shown, but neither the asset nor the amount (173083.46). The reader guessed 'likely RLUSD' with no amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer pays previewMint(shares) RLUSD to the vault; the share price sets the amount and no maximum exists.",
+     "The vault mints exactly `shares` senRLUSDv2 to `onBehalf`."
+    ],
+    "shown": "Mint an exact number of senRLUSDv2 shares for a named address, with 'Deposit asset: RLUSD'; the RLUSD amount paid is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent and sentence say 'Mint' and never say that RLUSD leaves the signer's wallet.",
+      "evidence": "descriptor mint: \"intent\": \"Mint\", \"interpolatedIntent\": \"Mint {#.shares} for {#.onBehalf}\"; VaultV2.sol enter: `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets);`. Case 1: signer sends 0.000000001 RLUSD; screen sentence 'Mint 0.000000001 senRLUSDv2 for 0x...dEaD'.",
+      "fix": "Change intent to \"Deposit RLUSD for shares\" and interpolatedIntent to \"Pay RLUSD to mint {#.shares} for {#.onBehalf}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint cannot show the RLUSD amount the signer pays; the share price sets it with no cap.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. No maxAssets parameter. Case 1: RLUSD out 1000000000 wei; the screen shows 'Deposit asset: RLUSD' only.",
+      "fix": "No descriptor change can show the computed amount. Optionally relabel to 'Pay with (amount set by share price)'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "RLUSD out: the asset is named in a field, but the amount (0.000000001 RLUSD) is not shown and has no bound. The shares go to 0xdead (signer null), and the screen shows that correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.498,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 122,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names RLUSD as the asset the receiver gets; the reader had to guess it.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent and sentence say 'Mint' and never say that RLUSD leaves the signer's wallet.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 68,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never names RLUSD as the asset the receiver gets; the reader had to guess it."
+ }
+}

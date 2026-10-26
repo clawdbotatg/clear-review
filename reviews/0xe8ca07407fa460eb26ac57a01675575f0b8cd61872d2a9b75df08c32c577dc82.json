@@ -1,0 +1,153 @@
+{
+ "hash": "0xe8ca07407fa460eb26ac57a01675575f0b8cd61872d2a9b75df08c32c577dc82",
+ "file": "registry/figment/calldata-PoolDynamic-USDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe1b1252652a2ff0cc3a4214ee73d9fed1fea5b4f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address lender)",
+    "effects": [
+     "The signer sends `assets` USDC to the pool with transferFrom; the pool then forwards the same USDC to the borrower wallet stored in the pool controller.",
+     "The signer receives newly minted xSOLY pool shares; the number comes from the stored exchange rate (982147 shares for 1 USDC in case 0).",
+     "The call reverts unless `lender` equals the signer, so the shares always go to the signer.",
+     "The function is not payable; no native value moves."
+    ],
+    "shown": "Deposit into Stablecoin Vault, with the USDC amount and the depositing wallet (the signer); nothing about the xSOLY shares received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit does not say that the signer receives xSOLY vault shares in return for the USDC.",
+      "evidence": "PoolDynamic.deposit: `_mint(lender, shares);`. Case 0 mined: 982147 xSOLY minted to the signer (signer in). Descriptor intent \"Deposit into Stablecoin Vault\" and fields only 'Amount to deposit' and 'Depositing wallet'. Blind reader: \"What I receive back (shares/token) is not shown\".",
+      "fix": "Change the intent to \"Deposit USDC for vault shares\" and add an interpolatedIntent such as \"Deposit {assets} for vault shares\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit share amount comes from a stored exchange rate and cannot be shown from calldata.",
+      "evidence": "PoolDynamic.deposit: `shares = PoolLibDynamic.executeDeposit(address(this), _accountings, _lenderData, assets, lender);` and convertToShares uses `exchangeRate()`. Case 0: 1 USDC gave 0.982147 xSOLY.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit forwards the USDC at once to a borrower wallet from storage, not kept in the vault.",
+      "evidence": "PoolDynamic.deposit: `address borrowerWalletAddr_ = poolControllerDynamic.borrowerWalletAddr(); _liquidityAsset.safeTransfer(borrowerWalletAddr_, assets);`. Case 0 mined: 1 USDC pool -> 0x4e3b90df… (signer null). Intent says \"Deposit into Stablecoin Vault\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "1 USDC out is shown right. 0.982147 xSOLY in is not shown; the reader guessed shares but had no asset or amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 65
+   },
+   {
+    "key": "requestRedeem(uint256 shares)",
+    "effects": [
+     "The signer records a redemption request for `shares` xSOLY; the shares stay in the signer's wallet but are reserved and can no longer be transferred or requested again.",
+     "No USDC arrives in this transaction; a borrower manager must accept the request and the pool admin later repays it.",
+     "At repayment the pool burns all the requested shares and sends an admin-chosen repayment (can be partial) in USDC, minus admin-chosen fees sent to the fee collector.",
+     "The function is not payable; no native value moves."
+    ],
+    "shown": "Redeem from Stablecoin Vault, with the number of xSOLY shares to redeem.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedeem intent \"Redeem\" suggests an immediate payout, but the call only queues a request.",
+      "evidence": "PoolDynamic.requestRedeem calls `requestRedeemExecute(msg.sender, shares, false)`; payout happens only in `repayRedemption` (onlyPoolAdmin). Case 1 mined: no token movement at all. Descriptor intent \"Redeem from Stablecoin Vault\". Blind reader expected \"Unknown amount of an underlying asset … presumably from the vault\".",
+      "fix": "Change the intent to \"Request redemption from vault\" and add interpolatedIntent \"Request redemption of {shares}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestRedeem payout and fees are set later by the pool admin and are not in calldata.",
+      "evidence": "PoolDynamic.repayRedemption: `// the cash repayment is operator-provided and can be partial`, `_liquidityAsset.safeTransfer(feeCollectorAddress, fees);`. Devdoc of requestRedeem: \"Submits a withdrawal request, incurring a fee.\"",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The mined tx moved no tokens; it only reserved 0.982147 xSOLY in storage. The reader wrongly expected to receive underlying assets in this call."
+     }
+    ],
+    "glance": 40,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "PoolLibDynamic (contracts/libraries/PoolLibDynamic.sol) is omitted from the sources. deposit uses its executeDeposit to compute the shares minted. requestRedeem uses its requestRedeemExecute to lock the shares and record the request. Neither library body could be read."
+  ]
+ },
+ "cost": 0.43,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 69,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address lender)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit does not say that the signer receives xSOLY vault shares in return for the USDC.",
+   "comprehension": 75
+  },
+  "requestRedeem(uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "requestRedeem intent \"Redeem\" suggests an immediate payout, but the call only queues a request.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 54,
+  "functions": "1B 1C",
+  "incomplete": true,
+  "worst": "requestRedeem intent \"Redeem\" suggests an immediate payout, but the call only queues a request."
+ }
+}

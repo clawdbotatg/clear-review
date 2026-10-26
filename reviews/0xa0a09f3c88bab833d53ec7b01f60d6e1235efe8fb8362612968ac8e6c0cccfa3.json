@@ -1,0 +1,559 @@
+{
+ "hash": "0xa0a09f3c88bab833d53ec7b01f60d6e1235efe8fb8362612968ac8e6c0cccfa3",
+ "file": "registry/wormhole/calldata-TokenBridge.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x3ee18b2214aff97000d974cf647e7c347e8fa585"
+  },
+  {
+   "chainId": 56,
+   "address": "0xb6f6d86a8f9879a9c87f643768d9efc38c1da6e7"
+  },
+  {
+   "chainId": 137,
+   "address": "0x5a58505a96d1dbf8df91cb21b54419fc36e93fde"
+  },
+  {
+   "chainId": 10,
+   "address": "0x1d68124e65fafc907325e3edbf8c4d84499daa8b"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x0b2402144bb366a632d14b83f244d2e0e21bd39c"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x8d2de8d2f73f1f4cab472ac9a881c9b123c79627"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "transferTokens(address token,uint256 amount,uint16 recipientChain,bytes32 recipient,uint256 arbiterFee,uint32 nonce)",
+    "effects": [
+     "The bridge pulls `amount` of `token` from the signer via transferFrom. It first rounds the amount down to 8 decimals, so less can leave than the number shown.",
+     "For a Wormhole-wrapped token, the bridge burns the tokens it pulled. For a native token, it locks them in the bridge.",
+     "msg.value goes to the Wormhole core contract as the message fee.",
+     "On the destination chain, `recipient` receives the amount minus `arbiterFee`. The relayer who redeems gets `arbiterFee`."
+    ],
+    "shown": "The screen says \"Bridge tokens\" and shows the Wormhole fee, the token as a raw address, the amount, the destination chain, the recipient as raw bytes32 and the relayer fee.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transferTokens: the wormholeChain enum lists only 8 chains, so other destination chains have no name.",
+      "evidence": "descriptor metadata.enums.wormholeChain has keys 1,2,4,5,6,23,24,30 only. Bridge.sol transferTokens accepts any uint16 recipientChain, for example Sui (21), Aptos (22) or Celo (14).",
+      "fix": "Add every Wormhole chain ID that the bridge registers to the wormholeChain enum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "transferTokens shows the recipient as raw bytes32 with no address formatting.",
+      "evidence": "Case 0 shows Recipient '0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045'. The descriptor has field #.recipient with format raw. A Solana recipient uses all 32 bytes, so a [12:32] slice does not fit every chain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "transferTokens: the Token field renders as a raw address, not the token name.",
+      "evidence": "Case 0 shows Token '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', while Amount shows '1 USDC'. The descriptor uses addressName with sources ['local'].",
+      "fix": "Use the 'token' format or drop the sources restriction so the wallet can name the token.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "transferTokens rounds the amount down to 8 decimals and bridges what arrives, which may be less than shown.",
+      "evidence": "Bridge._transferTokens runs `amount = deNormalizeAmount(normalizeAmount(amount, decimals), decimals);` and then `amount = balanceAfter - balanceBefore;`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "transferTokensWithPayload(address token,uint256 amount,uint16 recipientChain,bytes32 recipient,uint32 nonce,bytes payload)",
+    "effects": [
+     "The bridge pulls `amount` of `token` from the signer (rounded down to 8 decimals). It locks the tokens, or burns them for a wrapped token.",
+     "msg.value goes to the Wormhole core contract as the message fee.",
+     "On the destination chain, only `recipient` (usually a contract) can redeem the full amount. It acts on the payload, which also carries the signer's address."
+    ],
+    "shown": "The screen says \"Bridge tokens with payload\" and shows the fee, the token address, the amount, the destination chain, the recipient as raw bytes32 and the payload as raw bytes.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "transferTokensWithPayload shows the payload as raw bytes. Its meaning is set by the destination contract.",
+      "evidence": "The descriptor has field #.payload with format raw. Bridge.logTransferWithPayload copies `payload: payload` into the message, and the destination recipient contract consumes it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transferTokensWithPayload: the wormholeChain enum lists only 8 chains, so other destinations have no name.",
+      "evidence": "metadata.enums.wormholeChain has keys 1,2,4,5,6,23,24,30 only, but recipientChain is any uint16.",
+      "fix": "Add every registered Wormhole chain ID to the enum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "transferTokensWithPayload shows the recipient as raw bytes32 and the token as a raw address.",
+      "evidence": "Case 1 shows Recipient '0x0000…d8da6bf26964af9d7eed9e03e53415d37aa96045' and Token '0xA0b86991…'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "wrapAndTransferETH(uint16 recipientChain,bytes32 recipient,uint256 arbiterFee,uint32 nonce)",
+    "effects": [
+     "The signer sends msg.value in native coin. The bridge keeps the Wormhole message fee from it, wraps the rest into WETH and locks it.",
+     "The bridge refunds dust below 8-decimal precision to the signer.",
+     "On the destination chain, `recipient` receives the wrapped amount minus `arbiterFee`. The relayer gets `arbiterFee`."
+    ],
+    "shown": "The screen says \"Wrap native coin and bridge\" and shows the total sent with the fee included, the destination chain, the recipient as raw bytes32 and the relayer fee in native coin.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "wrapAndTransferETH does not show the net bridged amount. It is msg.value minus a fee read from storage.",
+      "evidence": "Bridge._wrapAndTransferETH runs `uint wormholeFee = wormhole().messageFee(); uint amount = msg.value - wormholeFee;`. The descriptor label reads 'Total sent (Wormhole fee included)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "wrapAndTransferETH: the wormholeChain enum lists only 8 chains, so other destinations have no name.",
+      "evidence": "metadata.enums.wormholeChain has keys 1,2,4,5,6,23,24,30 only.",
+      "fix": "Add every registered Wormhole chain ID to the enum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "wrapAndTransferETH shows the recipient as raw bytes32.",
+      "evidence": "Case 2 shows Recipient '0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045'. The field is #.recipient with format raw.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "wrapAndTransferETHWithPayload(uint16 recipientChain,bytes32 recipient,uint32 nonce,bytes payload)",
+    "effects": [
+     "The signer sends msg.value in native coin. The bridge keeps the Wormhole fee, wraps the rest into WETH, locks it and refunds dust.",
+     "On the destination chain, only `recipient` can redeem the full amount. It acts on the payload."
+    ],
+    "shown": "The screen says \"Wrap native coin + bridge payload\" and shows the total sent, the destination chain, the recipient as raw bytes32 and the payload as raw bytes.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "wrapAndTransferETHWithPayload shows the payload as raw bytes. The destination contract decides its meaning.",
+      "evidence": "The descriptor has field #.payload with format raw. Case 3 shows Payload '0x'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "wrapAndTransferETHWithPayload: the wormholeChain enum lists only 8 chains.",
+      "evidence": "metadata.enums.wormholeChain has keys 1,2,4,5,6,23,24,30 only.",
+      "fix": "Add every registered Wormhole chain ID to the enum.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "attestToken(address tokenAddress,uint32 nonce)",
+    "effects": [
+     "msg.value goes to the Wormhole core contract as the message fee.",
+     "The bridge publishes the token's metadata. No signer tokens move."
+    ],
+    "shown": "The screen says \"Attest token for bridging\" and shows the Wormhole fee and the token address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "attestToken shows the token as a raw address, not its name.",
+      "evidence": "Case 4 shows Token '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 85
+   },
+   {
+    "key": "completeTransfer(bytes encodedVm)",
+    "effects": [
+     "The bridge sends the bridged tokens to the recipient named in the VAA, minting them for a wrapped token.",
+     "When the signer is not the recipient, the signer receives the relayer fee in that token.",
+     "Nothing leaves the signer."
+    ],
+    "shown": "The screen says \"Complete token bridge transfer\" with no fields. The VAA is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "completeTransfer hides the token, amount, recipient and fee inside a variable-length VAA.",
+      "evidence": "Bridge._completeTransfer parses `transfer.to`, `transfer.amount` and `transfer.fee` from vm.payload. The descriptor has #.encodedVm with visible never. The signature count varies, so fixed slices cannot reach the payload.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 30
+   },
+   {
+    "key": "completeTransferWithPayload(bytes encodedVm)",
+    "effects": [
+     "The signer must be the recipient (`require(msg.sender == transferRecipient)`). The signer receives the full bridged amount of the token in the VAA."
+    ],
+    "shown": "The screen says \"Complete transfer with payload\" with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "completeTransferWithPayload hides the token and amount the signer receives inside the VAA.",
+      "evidence": "Bridge._completeTransfer runs `if (transfer.payloadID == 3) { require(msg.sender == transferRecipient ...` and then `safeTransfer(transferToken, transferRecipient, transferAmount)`. The field #.encodedVm is visible never.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 30
+   },
+   {
+    "key": "completeTransferAndUnwrapETH(bytes encodedVm)",
+    "effects": [
+     "The bridge unwraps WETH and sends native coin to the recipient in the VAA.",
+     "When the signer is not the recipient, the signer receives the relayer fee in native coin."
+    ],
+    "shown": "The screen says \"Complete transfer, unwrap native coin\" with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "completeTransferAndUnwrapETH hides the amount and the recipient inside the VAA.",
+      "evidence": "Bridge._completeTransfer runs `WETH().withdraw(transferAmount); payable(transferRecipient).transfer(transferAmount);`. The field #.encodedVm is visible never.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 30
+   },
+   {
+    "key": "completeTransferAndUnwrapETHWithPayload(bytes encodedVm)",
+    "effects": [
+     "The signer must be the recipient. The signer receives the full bridged amount as native coin after WETH unwrapping."
+    ],
+    "shown": "The screen says \"Complete with payload, unwrap native coin\" with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "completeTransferAndUnwrapETHWithPayload hides the native amount received inside the VAA.",
+      "evidence": "Bridge.completeTransferAndUnwrapETHWithPayload calls `_completeTransfer(encodedVm, true)`. The field #.encodedVm is visible never.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 30
+   },
+   {
+    "key": "createWrapped(bytes encodedVm)",
+    "effects": [
+     "The bridge deploys a wrapped token for the foreign asset in the VAA. No signer assets move."
+    ],
+    "shown": "The screen says \"Create wrapped token\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "updateWrapped(bytes encodedVm)",
+    "effects": [
+     "The bridge updates the name and symbol of an existing wrapped token. No signer assets move."
+    ],
+    "shown": "The screen says \"Update wrapped token\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "initialize()",
+    "effects": [
+     "The bridge marks the current implementation as initialized. No signer assets move."
+    ],
+    "shown": "The screen says \"Initialize Token Bridge\".",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "registerChain(bytes encodedVM)",
+    "effects": [
+     "The bridge registers a foreign bridge emitter from a guardian-signed governance VAA. No signer assets move."
+    ],
+    "shown": "The screen says \"Register chain\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "upgrade(bytes encodedVM)",
+    "effects": [
+     "The bridge proxy switches to a new implementation named in a governance VAA and runs its initialize(). No signer assets move."
+    ],
+    "shown": "The screen says \"Upgrade Token Bridge\" with no fields. The new implementation address is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "upgrade hides the new implementation address inside the governance VAA.",
+      "evidence": "BridgeGovernance.upgrade runs `upgradeImplementation(address(uint160(uint256(implementation.newContract))))` from vm.payload. The field #.encodedVM is visible never.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 50
+   },
+   {
+    "key": "submitRecoverChainId(bytes encodedVM)",
+    "effects": [
+     "On a forked chain, the bridge sets new evmChainId and chainId values from a governance VAA. No signer assets move."
+    ],
+    "shown": "The screen says \"Recover chain ID\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.583,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 433,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "transferTokens(address token,uint256 amount,uint16 recipientChain,bytes32 recipient,uint256 arbiterFee,uint32 nonce)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferTokens: the wormholeChain enum lists only 8 chains, so other destination chains have no name.",
+   "comprehension": null
+  },
+  "transferTokensWithPayload(address token,uint256 amount,uint16 recipientChain,bytes32 recipient,uint32 nonce,bytes payload)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferTokensWithPayload: the wormholeChain enum lists only 8 chains, so other destinations have no name.",
+   "comprehension": null
+  },
+  "wrapAndTransferETH(uint16 recipientChain,bytes32 recipient,uint256 arbiterFee,uint32 nonce)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "wrapAndTransferETH: the wormholeChain enum lists only 8 chains, so other destinations have no name.",
+   "comprehension": null
+  },
+  "wrapAndTransferETHWithPayload(uint16 recipientChain,bytes32 recipient,uint32 nonce,bytes payload)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "wrapAndTransferETHWithPayload: the wormholeChain enum lists only 8 chains.",
+   "comprehension": null
+  },
+  "attestToken(address tokenAddress,uint32 nonce)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "completeTransfer(bytes encodedVm)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "completeTransferWithPayload(bytes encodedVm)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "completeTransferAndUnwrapETH(bytes encodedVm)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "completeTransferAndUnwrapETHWithPayload(bytes encodedVm)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "createWrapped(bytes encodedVm)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "updateWrapped(bytes encodedVm)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "initialize()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "registerChain(bytes encodedVM)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "upgrade(bytes encodedVM)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "submitRecoverChainId(bytes encodedVM)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 60,
+  "functions": "2A 7B 6C",
+  "incomplete": false,
+  "worst": "transferTokensWithPayload: the wormholeChain enum lists only 8 chains, so other destinations have no name."
+ }
+}

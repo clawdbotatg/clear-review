@@ -1,0 +1,240 @@
+{
+ "hash": "0xea35339361a564eaba947dfa53265baa8df5fe4ada543e06a5e243b894e914cd",
+ "file": "registry/morpho/calldata-hyperithm-hyperUSDCa-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x093272c07700d3ca5301c3bf9b3a392624179e2f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDC to the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "The vault mints hyperUSDCa shares to `onBehalf`. The share amount comes from previewDeposit and the stored share price, and the signer sets no minimum."
+    ],
+    "shown": "Deposit 0.1 USDC, with hyperUSDCa shares sent to the onBehalf address. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many hyperUSDCa shares onBehalf receives, and has no minimum.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The share count comes from storage (accrueInterestView) and is not in the calldata. The descriptor only shows 'Share ticker' = $.metadata.constants.vaultTicker.",
+      "fix": "None possible in the descriptor. Change the 'Share ticker' label to 'Receive shares (amount set by vault price)' to make this clear.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The signer sends 0.1 USDC, and the screen shows this exactly. The 0.1 hyperUSDCa shares go to 0x…01. This does not involve the signer, and the screen names the receiver correctly."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer pays USDC to the vault. The amount is previewMint(shares), which the vault computes from its stored share price (rounded up), and the signer sets no maximum.",
+     "The vault mints exactly `shares` hyperUSDCa to `onBehalf`."
+    ],
+    "shown": "Mint N hyperUSDCa for onBehalf, with 'Deposit asset: USDC'. No USDC amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDC leaves the signer, because the price is read from storage.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` then `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: the signer paid 1.030402 USDC, but the screen shows only 'Deposit asset: USDC'.",
+      "fix": "No calldata value holds the amount. Change the label to 'Pay with USDC (amount set by vault price)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent 'Mint' and its sentence do not say that the signer pays USDC.",
+      "evidence": "descriptor mint: intent \"Mint\", interpolatedIntent \"Mint {#.shares} for {#.onBehalf}\". Case 1: the reader was not sure how much USDC leaves and guessed about 1 USDC; the real amount was 1.030402 USDC.",
+      "fix": "Set intent to \"Deposit USDC for vault shares\" and interpolatedIntent to \"Pay USDC to mint {#.shares} for {#.onBehalf}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer sends 1.030402 USDC. The screen names the USDC asset but no amount, so the reader estimated about 1 USDC. The shares go to 0xdEaD, and the screen shows this correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns hyperUSDCa shares from `onBehalf`. The amount is previewWithdraw(assets), rounded up from the stored price, with no maximum.",
+     "When the signer is not onBehalf, the call spends the signer's share allowance from onBehalf (allowance[onBehalf][msg.sender] -= shares).",
+     "The vault sends exactly `assets` USDC to `receiver`."
+    ],
+    "shown": "Withdraw exactly X USDC to the receiver, with the owner shown. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many hyperUSDCa shares it burns from the owner.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 2: 2252.802392 hyperUSDCa left the signer, and the screen shows no share amount.",
+      "fix": "None possible in the descriptor, because the share amount comes from storage.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw does not say that vault shares are burned from the Owner, and the sentence omits the owner.",
+      "evidence": "descriptor withdraw: field label 'Owner' and interpolatedIntent \"Withdraw {#.assets} to {#.receiver}\". Code: `deleteShares(onBehalf, shares)`. Case 2: the reader had to guess that shares leave.",
+      "fix": "Change the label to 'Burn hyperUSDCa from' and set interpolatedIntent to \"Withdraw {#.assets} from {#.onBehalf} to {#.receiver}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows the 2279.729396 USDC received exactly. The screen does not show the 2252.80 hyperUSDCa burned. The reader guessed that shares leave, but without asset or amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` hyperUSDCa from `onBehalf`. When the signer is not onBehalf, the call spends the signer's share allowance.",
+     "The vault sends USDC to `receiver`. The amount is previewRedeem(shares) from the stored price, with no minimum."
+    ],
+    "shown": "Redeem N hyperUSDCa to the receiver, with the owner shown. The screen names neither the asset nor the amount received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem does not name USDC as the asset the receiver gets, unlike the mint format.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)`, where asset = USDC (immutable 0xa0b8…eb48). The redeem fields are only shares, receiver and onBehalf. Case 3: the signer received 10.003374 USDC, and the reader was 'unsure which token I get back'.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and set interpolatedIntent to \"Redeem {#.shares} for USDC to {#.receiver}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount received, and the call has no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. The amount comes from storage and is not in the calldata. Case 3: 10.003374 USDC arrived, and the screen did not show this amount.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 9.8303 hyperUSDCa burned exactly. The 10.003374 USDC received is not shown. The reader guessed USDC with no amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.515,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 100,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' and its sentence do not say that the signer pays USDC.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw does not say that vault shares are burned from the Owner, and the sentence omits the owner.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem does not name USDC as the asset the receiver gets, unlike the mint format.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 69,
+  "functions": "1A 1B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem does not name USDC as the asset the receiver gets, unlike the mint format."
+ }
+}

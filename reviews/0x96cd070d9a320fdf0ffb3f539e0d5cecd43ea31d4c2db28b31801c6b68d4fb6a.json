@@ -1,0 +1,199 @@
+{
+ "hash": "0x96cd070d9a320fdf0ffb3f539e0d5cecd43ea31d4c2db28b31801c6b68d4fb6a",
+ "file": "registry/morpho/calldata-pangolins-pUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x1401d1271c47648ac70cbcdfa3776d4a87ce006b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC to the vault, which supplies it to Morpho markets.",
+     "The vault mints pUSDC shares to `receiver`; the share count is computed from the vault's totals after interest accrues (rounded down).",
+     "Interest accrual first mints fee shares to the fee recipient; this sets the share price but moves none of the signer's assets."
+    ],
+    "shown": "\"Deposit\" with the exact USDC amount, the share ticker pUSDC as a constant, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many pUSDC shares the receiver gets; the code computes it from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 0: the signer receives 28.502719712915503307 pUSDC, and the screen shows only 'Share ticker: pUSDC'.",
+      "fix": "No descriptor change can show a computed share count. You can keep the ticker field.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' names no asset and no vault share.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`; the asset (USDC) and the share (pUSDC) appear only in fields.",
+      "fix": "Change the intent to \"Deposit USDC for pUSDC shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows 29.588713 USDC out correctly. The reader saw pUSDC arriving but no amount (28.5027 pUSDC minted). The code computes that amount, so no descriptor can show it."
+     }
+    ],
+    "glance": 60,
+    "depth": 82
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault sends exactly `assets` USDC to `receiver`, after it withdraws that amount from Morpho markets.",
+     "The vault burns pUSDC shares from `owner`; the count is computed from the vault's totals and rounded up.",
+     "When `owner` is not the caller, the call spends the caller's pUSDC allowance from `owner` by the burned share count."
+    ],
+    "shown": "\"Withdraw\" with the exact USDC amount, the recipient and the owner whose shares pay for it.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw never says that pUSDC shares are burned from the owner to pay for the USDC.",
+      "evidence": "MetaMorphoV1_1.withdraw → `_withdraw(_msgSender(), receiver, owner, assets, shares)`, which burns `shares` from `owner`. Descriptor withdraw format: intent \"Withdraw\" and fields 'Withdraw exactly', 'To', 'Owner'. No field names pUSDC. Case 1: the signer loses 867137.83 pUSDC, and the reader guessed 'Probably a position ... is reduced (screen doesn't say)'.",
+      "fix": "Change the intent to \"Withdraw USDC by burning pUSDC shares\" and add {\"label\":\"Shares burned\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the pUSDC share count burned; the code computes it from storage.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. Case 1: 867137.829806011530792353 pUSDC is burned from the signer and appears nowhere on the screen.",
+      "fix": "No descriptor change can show a computed share count.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows 900000 USDC arriving at the signer correctly. The reader only guessed the pUSDC burn: the screen names no share token and no amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` pUSDC from `owner`, and spends the caller's allowance when the caller is not `owner`.",
+     "The vault sends USDC to `receiver`; the amount is computed from the vault's totals and rounded down."
+    ],
+    "shown": "\"Redeem\" with the exact pUSDC share amount, the recipient and the owner. Nothing says which asset arrives or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDC as the asset the receiver gets for the burned shares.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(...)` and then `_withdraw(...)`, which sends the underlying USDC to `receiver`. Descriptor redeem format: intent \"Redeem\" and fields 'Shares to redeem', 'To', 'Owner'; it does not use the underlyingTicker constant. Case 2: the signer receives 19.223709 USDC, and the reader wrote 'probably USDC ... Which token is actually paid out'.",
+      "fix": "Change the intent to \"Redeem pUSDC for USDC\" and add {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount received; the code computes it from the share price.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 2: 19.223709 USDC arrives and the screen shows no amount.",
+      "fix": "No descriptor change can show a computed output amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 18.518157 pUSDC burn correctly. The reader expected an unknown amount of 'probably USDC'. The screen names neither the asset nor the amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.338,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 87,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw never says that pUSDC shares are burned from the owner to pay for the USDC.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset the receiver gets for the burned shares.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 68,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem never names USDC as the asset the receiver gets for the burned shares."
+ }
+}

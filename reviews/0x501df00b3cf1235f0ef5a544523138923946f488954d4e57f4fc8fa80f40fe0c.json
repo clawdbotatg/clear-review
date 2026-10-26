@@ -1,0 +1,195 @@
+{
+ "hash": "0x501df00b3cf1235f0ef5a544523138923946f488954d4e57f4fc8fa80f40fe0c",
+ "file": "registry/teraswap/calldata-TeraSwapFeeCollector.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x47f24068932ac49bcbed3ad105af57c6ecdf7459"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "swapTokenWithFee(address token,uint256 totalAmount,address router,bytes routerData,address tokenOut,uint256 minimumOutput)",
+    "effects": [
+     "Pulls exactly totalAmount of `token` from the signer into the fee collector, spending the signer's allowance to the collector.",
+     "Sends 0.1% of totalAmount (FEE_BPS = 10) to TeraSwap's feeRecipient. Only the other 99.9% is approved to the router and swapped.",
+     "Calls the whitelisted router with the hidden routerData. The router uses the collector's tokens, not the signer's, and the call decides how the output is routed.",
+     "Sends any leftover input tokens and any ETH the contract holds back to the signer, so totalAmount is a ceiling on what is actually swapped.",
+     "Requires the signer's balance of tokenOut (or of ETH when tokenOut = 0) to rise by at least minimumOutput. If minimumOutput is 0, there is no check at all.",
+     "Sets the router's allowance back to 0 after the swap (this is the collector's allowance, not the signer's)."
+    ],
+    "shown": "\"Swap tokens via TeraSwap\", followed by the input token, the amount in, the output token, the minimum output and the router name. The 0.1% fee and the router calldata are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapTokenWithFee: the fixed 0.1% TeraSwap fee taken from Amount In appears nowhere on the screen.",
+      "evidence": "TeraSwapFeeCollector.sol swapTokenWithFee: `uint256 fee = (totalAmount * FEE_BPS) / BPS_DENOMINATOR; ... IERC20(token).safeTransfer(feeRecipient, fee);` with FEE_BPS = 10. Descriptor intent: \"Swap tokens via TeraSwap\", and no fee field. Case 0: 639831 USDT (0.1%) goes from the collector to 0x107f…3aba, and only 639191569 is swapped. The reader thought all 639.8314 USDT went to the Augustus router. The minimum output is still enforced on the signer, so the outcome stays inside what is shown.",
+      "fix": "State the fee in the intent, e.g. \"Swap tokens via TeraSwap (0.1% fee)\", or add an interpolatedIntent that mentions it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapTokenWithFee: a Minimum Output of 0 disables the output check, but the screen shows it as a plain amount.",
+      "evidence": "swapTokenWithFee: `if (minimumOutput > 0 && actualOutput < minimumOutput) revert` and the NatSpec says \"0 disables the check\". The descriptor shows `minimumOutput` as tokenAmount labelled 'Minimum Output', so a 0 would read as \"0 QNT\", not as \"no protection\".",
+      "fix": "Change the label to 'Minimum Output (0 = no slippage protection)', or flag a zero value with a message.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swapTokenWithFee: the intent has no amounts or tokens, and there is no interpolatedIntent.",
+      "evidence": "Descriptor: intent \"Swap tokens via TeraSwap\", interpolatedIntent absent. Case 0 needs four fields to state what the code guarantees: 639.8314 USDT out, at least 8.95 QNT back to the signer.",
+      "fix": "Add interpolatedIntent \"Swap {totalAmount} for at least {minimumOutput}\". The code sends the output to the signer's own balance, so the sentence can also say \"to your wallet\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "swapTokenWithFee: hidden routerData decides output routing above the minimum; only minimumOutput binds the signer's share.",
+      "evidence": "swapTokenWithFee: `router.call(routerData)` with routerData set to `visible: never`. Case 0: 899671552994048 QNT goes from Augustus to 0x0070…10cc (signer null), and the signer gets 8.9958 QNT, at or above the shown minimum of 8.95097. The balance-delta check on msg.sender is what bounds the outcome.",
+      "fix": "Nothing a descriptor can do beyond showing minimumOutput, which it already does.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "639.8314 USDT out: the asset and amount are shown correctly. The reader thought it all went to the router, but 0.1% went to TeraSwap's fee recipient, which the screen does not show. 8.9958 QNT in is at or above the shown minimum of 8.950969 QNT, and the reader got it right."
+     }
+    ],
+    "glance": 45,
+    "depth": 75
+   },
+   {
+    "key": "swapETHWithFee(address router,bytes routerData,address tokenOut,uint256 minimumOutput)",
+    "effects": [
+     "Takes msg.value in ETH from the signer.",
+     "Sends 0.1% of msg.value to TeraSwap's feeRecipient and forwards the other 99.9% to the whitelisted router with the hidden routerData.",
+     "Refunds any ETH left in the contract to the signer.",
+     "Requires the signer's balance of tokenOut (or of ETH when tokenOut = 0) to rise by at least minimumOutput. If minimumOutput is 0, there is no check."
+    ],
+    "shown": "\"Swap ETH via TeraSwap\", followed by the ETH amount, the output token, the minimum output and the router name. The 0.1% fee and the router calldata are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapETHWithFee: the fixed 0.1% fee taken from the ETH sent appears nowhere on the screen.",
+      "evidence": "TeraSwapFeeCollector.sol swapETHWithFee: `uint256 fee = (msg.value * FEE_BPS) / BPS_DENOMINATOR; ... feeRecipient.call{value: fee}`. Descriptor intent: \"Swap ETH via TeraSwap\". Case 1: 0.00005 ETH goes to 0x107f…3aba, only 0.04995 ETH reaches KyberSwap, and the signer gets 0.04995 WETH for 0.05 ETH. The reader thought the full 0.05 ETH went to the router.",
+      "fix": "Use the intent \"Swap ETH via TeraSwap (0.1% fee)\", or say it in an interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapETHWithFee: a Minimum Output of 0 disables the output check, but the screen shows it as a plain amount.",
+      "evidence": "swapETHWithFee: `if (minimumOutput > 0 && actualOutput < minimumOutput) revert`, and the NatSpec says \"0 disables the check\". The descriptor field 'Minimum Output' is a tokenAmount with no hint of this.",
+      "fix": "Change the label to 'Minimum Output (0 = no slippage protection)', or flag a zero value with a message.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swapETHWithFee: minimumOutput has no nativeCurrencyAddress, so an ETH output (tokenOut = 0) cannot be formatted.",
+      "evidence": "In swapETHWithFee, `tokenOut == address(0)` means the minimum is measured on the signer's ETH balance. The descriptor's minimumOutput params are only {\"tokenPath\":\"tokenOut\"}, while the sibling swapTokenWithFee sets \"nativeCurrencyAddress\": \"0x000…0\".",
+      "fix": "Add \"nativeCurrencyAddress\": \"0x0000000000000000000000000000000000000000\" to the minimumOutput params.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swapETHWithFee: the intent has no amount or output token, and there is no interpolatedIntent.",
+      "evidence": "Descriptor: intent \"Swap ETH via TeraSwap\", interpolatedIntent absent. The reader had to put \"0.05 ETH for at least 0.04970025 WETH\" together from separate fields.",
+      "fix": "Add interpolatedIntent \"Swap {@.value} for at least {minimumOutput}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "swapETHWithFee: hidden routerData decides routing; only the minimumOutput balance check binds the signer's share.",
+      "evidence": "swapETHWithFee: `router.call{value: netValue}(routerData)` with routerData set to `visible: never`. The output check is on msg.sender's balance delta. In case 1 the signer received 0.04995 WETH, above the minimum of 0.04970025.",
+      "fix": "Nothing a descriptor can do beyond showing minimumOutput, which it already does.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "0.05 ETH out: the amount is shown correctly. The reader thought it all went to KyberSwap, but 0.1% went to TeraSwap's fee recipient. 0.04995 WETH in is above the shown minimum of 0.04970025 WETH, and the reader got it right."
+     }
+    ],
+    "glance": 50,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.376,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 84,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "swapTokenWithFee(address token,uint256 totalAmount,address router,bytes routerData,address tokenOut,uint256 minimumOutput)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 59,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "swapTokenWithFee: the fixed 0.1% TeraSwap fee taken from Amount In appears nowhere on the screen.",
+   "comprehension": 75
+  },
+  "swapETHWithFee(address router,bytes routerData,address tokenOut,uint256 minimumOutput)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 55,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "swapETHWithFee: the fixed 0.1% fee taken from the ETH sent appears nowhere on the screen.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 57,
+  "functions": "2C",
+  "incomplete": false,
+  "worst": "swapTokenWithFee: the fixed 0.1% TeraSwap fee taken from Amount In appears nowhere on the screen."
+ }
+}

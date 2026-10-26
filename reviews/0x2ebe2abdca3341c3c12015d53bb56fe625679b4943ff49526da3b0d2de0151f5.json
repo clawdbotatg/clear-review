@@ -1,0 +1,245 @@
+{
+ "hash": "0x2ebe2abdca3341c3c12015d53bb56fe625679b4943ff49526da3b0d2de0151f5",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakETH-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef050ecd6a16c4e7bffbb52ebba7846c4b8cd4"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The vault pulls exactly `assets` WETH from the signer, using the signer's WETH allowance to the vault.",
+     "The vault mints steakETH shares to `receiver`. The count comes from the vault's exchange rate in storage, rounded down, and has no minimum.",
+     "Before the conversion, the vault mints accrued performance-fee shares to the fee recipient. This lowers the share price the signer gets."
+    ],
+    "shown": "Intent \"Deposit\", then the WETH amount, a fixed \"Share ticker: steakETH\" line and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many steakETH shares the receiver gets; the vault's exchange rate sets the count.",
+      "evidence": "MetaMorpho.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` and `_accrueFee()` mints fee shares first. The screen only has 'Share ticker: steakETH'. Case 0: the signer receives 252436277349273 steakETH and no screen field shows this amount.",
+      "fix": "No descriptor change can show this, because ERC-4626 deposit has no minShares parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The deposit label 'Deposit asset' is on an amount, and 'Share ticker' is a constant, not a value the signer sends.",
+      "evidence": "descriptor deposit: field `assets` has label 'Deposit asset' (tokenAmount). The next field is `{\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}`.",
+      "fix": "Rename it to 'Deposit amount'. Change the intent to 'Deposit WETH for steakETH shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "WETH out 0.00026 is shown right. steakETH in: the screen shows the asset and the receiver but not the amount (252436277349273 wei)."
+     }
+    ],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault pulls WETH from the signer: the amount is convertToAssets(shares), rounded up, from the vault's exchange rate in storage, with no maximum in the calldata.",
+     "The vault mints exactly `shares` steakETH to `receiver`.",
+     "Before the conversion, the vault mints accrued performance-fee shares to the fee recipient. This raises the WETH cost."
+    ],
+    "shown": "Intent \"Mint\", then 'Deposit asset: WETH' with no amount, the exact shares minted, and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint takes an amount of WETH from the signer that the screen does not show and nothing bounds.",
+      "evidence": "MetaMorpho.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. The screen shows 'Deposit asset: WETH' only. Case 1: the signer sends 1035214733 wei WETH and no screen field shows this amount.",
+      "fix": "No calldata value holds the cost. ERC-4626 mint has no maxAssets parameter. A label such as 'Pay WETH (amount set by vault price)' can say so.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The mint intent 'Mint' does not say that the signer pays WETH for the shares.",
+      "evidence": "descriptor mint: `\"intent\": \"Mint\"`. The only sign of payment is the raw constant field 'Deposit asset' = 'WETH'. MetaMorpho.sol mint calls `_deposit(_msgSender(), ...)`, and this pulls WETH from the signer.",
+      "fix": "Change the intent to 'Deposit WETH to mint steakETH'. Rename 'Deposit asset' to 'Pay with'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The screen names WETH as the asset that leaves but not its amount (1035214733 wei). The shares go to 0xdEaD, shown right, and are not an effect on the signer."
+     }
+    ],
+    "glance": 40,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns steakETH shares from `owner`: the count is convertToShares(assets), rounded up, from storage, with no maximum.",
+     "When the signer is not `owner`, the vault spends the owner's share allowance to the signer.",
+     "The vault sends exactly `assets` WETH to `receiver`.",
+     "Before the conversion, the vault mints accrued performance-fee shares to the fee recipient. This raises the share count burned."
+    ],
+    "shown": "Intent \"Withdraw\", then 'Withdraw exactly' with the WETH amount, the receiver ('To') and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many steakETH shares the vault burns from the owner.",
+      "evidence": "MetaMorpho.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); ... _withdraw(_msgSender(), receiver, owner, assets, shares);`. Case 2: the vault burns 2038925100258679246874 steakETH from the signer and no screen field shows this amount.",
+      "fix": "No calldata value bounds the shares, because ERC-4626 withdraw has no maxShares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "WETH in 2125 to the signer is shown right. steakETH out: the reader knew shares burn but saw no amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` steakETH from `owner`. When the signer is not `owner`, the vault spends the owner's share allowance.",
+     "The vault sends WETH to `receiver`: the amount is convertToAssets(shares), rounded down, from storage, with no minimum.",
+     "Before the conversion, the vault mints accrued performance-fee shares to the fee recipient. This lowers the WETH paid out."
+    ],
+    "shown": "Intent \"Redeem\", then the steakETH shares to redeem, the receiver ('To') and the share owner. No field names the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "The redeem screen never says that the receiver gets WETH. The mint format names WETH, but redeem does not.",
+      "evidence": "descriptor redeem fields: only `shares`, `receiver`, `owner`. MetaMorpho.sol redeem calls `_withdraw(...)`, and this sends the underlying asset (WETH, constructor `_asset` 0xC02a...6Cc2) to receiver. Case 3: the signer receives 205992687195325 wei WETH. The reader was unsure whether ETH or WETH arrives.",
+      "fix": "Add a field `{\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}`. Change the intent to 'Redeem steakETH for WETH'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much WETH the receiver gets; the vault's exchange rate sets it.",
+      "evidence": "MetaMorpho.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. Case 3: 205992687195325 wei WETH arrives and no screen field shows this amount.",
+      "fix": "No descriptor change can show this, because ERC-4626 redeem has no minAssets parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "steakETH out 0.0002 is shown right. WETH in: the screen gives neither the asset nor the amount, so the reader guessed ETH or WETH."
+     }
+    ],
+    "glance": 50,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.469,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 108,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The deposit label 'Deposit asset' is on an amount, and 'Share ticker' is a constant, not a value the signer sends.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The mint intent 'Mint' does not say that the signer pays WETH for the shares.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The redeem screen never says that the receiver gets WETH. The mint format names WETH, but redeem does not.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 61,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "The redeem screen never says that the receiver gets WETH. The mint format names WETH, but redeem does not."
+ }
+}

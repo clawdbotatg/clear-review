@@ -1,0 +1,217 @@
+{
+ "hash": "0x2da3bd4d7f5839af54d469878d66d6a70a9d1f81f35799db4108a847cac89e05",
+ "file": "registry/ondo-finance/calldata-GMTokenManager.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2c158bc456e027b2affccadf1bdbd9f5fc4c5c8c"
+  },
+  {
+   "chainId": 56,
+   "address": "0x91f8aff3738825e8eb16fc6f6b1a7a4647bdb299"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "mintWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address depositToken, uint256 depositTokenAmount)",
+    "effects": [
+     "If depositToken is not USDon, the contract takes exactly depositTokenAmount of depositToken from the signer and sends it to the USDonManager to buy USDon.",
+     "If depositToken is USDon, the contract takes quote.quantity * quote.price / 1e18 USDon from the signer and ignores depositTokenAmount.",
+     "The signer receives exactly quote.quantity of the GM token quote.asset, minted to msg.sender.",
+     "On the non-USDon path, the signer receives a refund in USDon (not in the deposit token) of any USDon bought above quote.quantity * quote.price.",
+     "The transferFrom spends the signer's existing allowance of the deposit token to the GMTokenManager.",
+     "The attestation id is marked as used; the call reverts after quote.expiration."
+    ],
+    "shown": "Mint {quantity} {GM token} using {depositTokenAmount} {depositToken}, with the GM token, both amounts and the quote expiry as fields; price, refund and recipient are not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "mintWithAttestation shows depositTokenAmount, but with USDon as deposit token it takes quantity times price instead.",
+      "evidence": "GMTokenManager.sol mintWithAttestation: `if (depositToken == address(usdon)) { IERC20(usdon).safeTransferFrom(_msgSender(), address(this), mintUSDonValue);` with `mintUSDonValue = (quote.quantity * quote.price) / GM_NORMALIZER`. Descriptor: field `depositTokenAmount` 'Deposit Amount' (tokenAmount, tokenPath depositToken) and interpolatedIntent 'Mint {quote.quantity} using {depositTokenAmount}'; `quote.price` is `visible: never`.",
+      "fix": "Show `quote.price` (for example format `unit`, base USD, decimals 18, label 'Price per GM Token'), and relabel the deposit field 'Deposit Amount (USDon: quantity x price)'. Add a test case with depositToken = USDon.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "mintWithAttestation hides the USDon refund of excess deposit that the signer receives.",
+      "evidence": "GMTokenManager.sol mintWithAttestation: `uint256 refund = receivedOnUsd - mintUSDonValue; if (refund > 0) { IERC20(usdon).safeTransfer(_msgSender(), refund); }`. Case 0: signer receives 0.037783085287415162 USDon; case 2: signer receives 1 wei USDon. Nothing on screen mentions USDon.",
+      "fix": "Make `quote.price` visible so the signer can see the cost basis, and state the refund in the intent, e.g. intent 'Mint GM Token, excess refunded in USDon'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mintWithAttestation hides quote.price, the signed price that sets the USDon cost and the refund.",
+      "evidence": "Descriptor: `{\"path\": \"quote.price\", \"label\": \"Quote Price\", \"visible\": \"never\"}`. Code: `mintUSDonValue = (quote.quantity * quote.price) / GM_NORMALIZER` decides the refund and, on the USDon path, the amount taken.",
+      "fix": "Set `quote.price` visible with format `unit` (base 'USD', decimals 18) and label 'Price per GM Token'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "mintWithAttestation tests only non-USDon deposits; the USDon branch that ignores depositTokenAmount is not tested.",
+      "evidence": "Cases 0 and 2 use USDC (0xa0b8…eb48) and BSC USDT (0x55d3…7955). The `depositToken == address(usdon)` branch changes the amount taken.",
+      "fix": "Add a test case with depositToken = USDon (0xAcE8E719899F6E91831B18AE746C9A965c2119F1 on Ethereum).",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "missed",
+       "right"
+      ],
+      "notes": "USDC out 3778.299782 and MSFTon in 9.258010320826351 shown right. USDon refund 0.0378 not shown."
+     },
+     {
+      "index": 2,
+      "signerEffects": 4,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "partial",
+       "missed",
+       "right"
+      ],
+      "notes": "USDT out and GOOGLon in shown right. Existing USDT allowance spent (Approval event) not shown; reader guessed a prior approval. 1 wei USDon refund not shown."
+     }
+    ],
+    "glance": 78,
+    "depth": 62
+   },
+   {
+    "key": "redeemWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address receiveToken, uint256 minimumReceiveAmount)",
+    "effects": [
+     "The contract takes exactly quote.quantity of the GM token quote.asset from the signer and burns it.",
+     "If receiveToken is not USDon, the signer receives the receiveToken amount returned by USDonManager.redeem, which gets minimumReceiveAmount as its minimum.",
+     "If receiveToken is USDon, the signer receives quote.quantity * quote.price / 1e18 USDon and minimumReceiveAmount is not checked.",
+     "The transferFrom spends the signer's existing allowance of the GM token to the GMTokenManager.",
+     "The attestation id is marked as used; the call reverts after quote.expiration."
+    ],
+    "shown": "Redeem {quantity} {GM token} for {minimumReceiveAmount} {receiveToken}+, with the GM token, amounts and quote expiry as fields; price and recipient are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "redeemWithAttestation shows a minimum received that the code does not check when receiveToken is USDon.",
+      "evidence": "GMTokenManager.sol redeemWithAttestation: `if (receiveToken == address(usdon)) { IERC20(usdon).safeTransfer(_msgSender(), redemptionUSDonValue); }` and minimumReceiveAmount is only passed to `usdonManager.redeem` in the else branch. NatSpec: 'ONLY applicable if the user requests a non-USDon token'. Descriptor shows 'Min Receive Amount' and 'Redeem {quote.quantity} for {minimumReceiveAmount}+'; `quote.price` is `visible: never`.",
+      "fix": "Show `quote.price` (format `unit`, base USD, decimals 18, label 'Price per GM Token') so the USDon amount is checkable, and relabel the minimum 'Min Receive (not applied for USDon)'. Add a test case with receiveToken = USDon.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeemWithAttestation interpolated intent uses a trailing '+' that readers do not understand as 'at least'.",
+      "evidence": "interpolatedIntent 'Redeem {quote.quantity} for {minimumReceiveAmount}+' renders 'for 2307.598294 USDC+' (case 1) and '81.751666303999999999 USDT+' (case 3). Both blind readers listed the meaning of '+' as unsure.",
+      "fix": "Change interpolatedIntent to 'Redeem {quote.quantity} for at least {minimumReceiveAmount}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeemWithAttestation hides quote.price, which sets the USDon value redeemed.",
+      "evidence": "Descriptor: `quote.price` `visible: never`. Code: `redemptionUSDonValue = (quote.quantity * quote.price) / GM_NORMALIZER` is the amount sent to the signer on the USDon path and redeemed via USDonManager otherwise.",
+      "fix": "Set `quote.price` visible with format `unit` (base 'USD', decimals 18) and label 'Price per GM Token'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "redeemWithAttestation tests only non-USDon receive tokens; the USDon branch that skips the minimum is untested.",
+      "evidence": "Cases 1 and 3 use USDC and BSC USDT as receiveToken. The `receiveToken == address(usdon)` branch ignores minimumReceiveAmount.",
+      "fix": "Add a test case with receiveToken = USDon.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right",
+       "missed"
+      ],
+      "notes": "COINon out 11.074373021490512 shown right; USDC in 2307.621370 is above the shown minimum 2307.598294. Spend of the existing COINon allowance (Approval event, 26877 left) not shown; it is the prerequisite of the transfer."
+     },
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "SLVon out 1.0208 and USDT in 81.751666304 (at least the shown minimum) shown right."
+     }
+    ],
+    "glance": 70,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": [
+   "USDonManager (address in storage `usdonManager`) is not in the directory: its `subscribe` decides the USDon bought and so the refund to the signer in mintWithAttestation, and its `redeem` enforces minimumReceiveAmount and the amount returned to the signer in redeemWithAttestation."
+  ]
+ },
+ "cost": 0.576,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 142,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "mintWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address depositToken, uint256 depositTokenAmount)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 3,
+   "worst": "mintWithAttestation shows depositTokenAmount, but with USDon as deposit token it takes quantity times price instead.",
+   "comprehension": 64
+  },
+  "redeemWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address receiveToken, uint256 minimumReceiveAmount)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 3,
+   "worst": "redeemWithAttestation shows a minimum received that the code does not check when receiveToken is USDon.",
+   "comprehension": 80
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 68,
+  "functions": "2F",
+  "incomplete": true,
+  "worst": "mintWithAttestation shows depositTokenAmount, but with USDon as deposit token it takes quantity times price instead."
+ }
+}

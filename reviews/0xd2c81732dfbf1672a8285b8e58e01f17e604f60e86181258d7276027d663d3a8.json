@@ -1,0 +1,123 @@
+{
+ "hash": "0xd2c81732dfbf1672a8285b8e58e01f17e604f60e86181258d7276027d663d3a8",
+ "file": "registry/flare/calldata-FXRP-OFT-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0xd70659a6396285bf7214d7ea9673184e7c72e07e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)",
+    "effects": [
+     "Takes amountLD FXRP from the signer into the adapter with safeTransferFrom. This spends the signer's FXRP allowance to the adapter (OFTAdapterFeeUpgradeable._debit).",
+     "The recipient `to` on chain dstEid is credited amountLD minus the Flare BPS fee, rounded down to remove dust. The call reverts if that is below minAmountLD (_debitView, SlippageExceeded).",
+     "The fee and dust stay locked in the adapter as feeBalance, which the owner can withdraw.",
+     "Exactly nativeFee in FLR must be sent as msg.value (_payNative reverts otherwise). It is paid to the LayerZero endpoint, which refunds any excess to _refundAddress.",
+     "If lzTokenFee > 0, the LZ token is taken from the signer for the endpoint (_payLzToken). The descriptor forces this value to 0.",
+     "If composeMsg is not empty, the message becomes SEND_AND_CALL and the destination calls `to` with composeMsg after crediting it. extraOptions set destination gas and options, such as native drops paid from nativeFee.",
+     "The call reverts if `to` is zero or does not match the address format of the destination peer (RecipientChecking.checkRecipient)."
+    ],
+    "shown": "Intent 'Bridge FXRP', with the FXRP amount sent, the minimum FXRP received, the destination chain name, the raw bytes32 recipient, the FLR bridge fee and the refund address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "send: the intent 'Bridge FXRP' gives no amount, destination or recipient, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json: \"intent\": \"Bridge FXRP\", no interpolatedIntent. The amount, dstEid and recipient appear only in the fields.",
+      "fix": "Add \"interpolatedIntent\": \"Bridge {_sendParam.amountLD} to {_sendParam.dstEid}\" (the amount and the destination enum).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "send: composeMsg is visible: never, but a non-empty one makes the destination call the recipient with hidden data.",
+      "evidence": "OFTCoreUpgradeable._buildMsgAndOptions: msgType = hasCompose ? SEND_AND_CALL : SEND. _lzReceive encodes _message.composeMsg() for lzCompose on `to`. descriptor.json: composeMsg has \"visible\": \"never\". When `to` is a composer, what happens to the credited FXRP depends on bytes the signer never sees.",
+      "fix": "Use \"visible\": {\"mustMatch\": [\"0x\"]} for composeMsg, or show it when it is not empty.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "send: extraOptions is visible: never, but it can direct part of the shown bridge fee to native drops on the destination.",
+      "evidence": "OFTCoreUpgradeable._buildMsgAndOptions: options = combineOptions(_sendParam.dstEid, msgType, _sendParam.extraOptions). The options go to endpoint.send with nativeFee (OAppSenderUpgradeable._lzSend). descriptor.json: extraOptions has \"visible\": \"never\".",
+      "fix": "Show extraOptions when it is not empty, or note that the bridge fee may include destination gas or native drops.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "send: the recipient is shown as a raw bytes32 with 24 leading zero hex digits.",
+      "evidence": "descriptor.json: #._sendParam.to has \"format\": \"raw\". Case 0 shows Recipient '0x0000000000000000000000001111111111111111111111111111111111111111'. Every enum destination is EVM, and RecipientChecking makes EVM recipients left-padded.",
+      "fix": "For the EVM destinations, show `#._sendParam.to.[12:32]` as addressName. Keep raw only if non-EVM peers such as Solana must be supported.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "send: the Flare system fee kept from the amount is read from storage and not shown, only bounded by the minimum to receive.",
+      "evidence": "OFTAdapterFeeUpgradeable._debitView: fee = getFee(_dstEid, _amountLD), then amountReceivedLD = _removeDust(_amountLD - fee), and the call reverts if that is below _minAmountLD. The fee goes to feeBalance. The screen shows 'Amount to send' and 'Minimum to receive', and the code enforces the minimum.",
+      "fix": "None needed. A label such as 'Minimum to receive (after Flare fee)' would explain the gap.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "send: the destination enum lists only four endpoint IDs, so any other configured peer shows as a raw number.",
+      "evidence": "descriptor.json metadata.enums.destination lists only 30101, 30102, 30184 and 30375. Peers are set in storage (peers(_dstEid)) and cannot be checked here.",
+      "fix": "Add every endpoint ID that the adapter has a peer for.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.503,
+ "account": "ethereum_foundation",
+ "hiddenValue": [
+  "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)"
+ ],
+ "seconds": 137,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 3,
+   "worst": "send takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 65,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "send takes ETH but never shows how much (@.value)"
+ }
+}

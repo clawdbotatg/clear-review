@@ -1,0 +1,158 @@
+{
+ "hash": "0x150a2faf3f5c1ba36eb43509e3662fc0f647b1da113441459fce5d5c7be98c52",
+ "file": "registry/ondo-finance/calldata-OUSGInstantManager.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x93358db73b6cd4b98d89c8f5f230e81a95c2643a"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "subscribe(address depositToken, uint256 depositAmount, uint256 minimumRwaReceived)",
+    "effects": [
+     "The signer sends depositAmount of depositToken to the manager. The manager approves the OndoTokenRouter and deposits the tokens there (_processSubscription: safeTransferFrom(_msgSender(), address(this), depositAmount)).",
+     "OUSG (0x1B19…ee92) is minted to the signer. The amount is (depositUSDValue - fee) / OUSG price, and the call reverts below minimumRwaReceived (subscribe: IRWALike(rwaToken).mint(_msgSender(), rwaAmountOut)).",
+     "A subscription fee taken from storage (ondoSubscriptionFees) lowers the OUSG minted. The signer's KYC/compliance status and rate limits are checked and updated."
+    ],
+    "shown": "Subscribe to OUSG: deposit {depositAmount} of the deposit token, receive at least {minimumRwaReceived} OUSG. The sentence adds a stray '+' after the OUSG amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "subscribe interpolatedIntent adds a trailing '+' that renders as 'OUSG+', which is the name of another Ondo token.",
+      "evidence": "descriptor.json subscribe interpolatedIntent: \"Subscribe with {depositAmount} for at least {minimumRwaReceived}+\". Case 0 screen: \"…for at least 583.5187459421566 OUSG+\". The blind reader was unsure \"Whether the token received is OUSG or OUSG+\".",
+      "fix": "Remove the '+': \"Subscribe with {depositAmount} for at least {minimumRwaReceived}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "subscribe: the fee, price and compliance checks come from storage contracts and are bounded only by the minimum OUSG shown.",
+      "evidence": "BaseRWAManager._processSubscription: fee = ondoSubscriptionFees.getAndUpdateFee(...); rwaAmountOut = ((depositUSDValue - fee) * RWA_NORMALIZER) / _getRwaPrice(); if (rwaAmountOut < minimumRwaReceived) revert.",
+      "fix": "None needed. 'Min OUSG Received' already bounds the outcome.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out, 70001.493265, is shown exactly. 607.83 OUSG arrived, at or above the 583.52 minimum shown. The reader was unsure whether the token was OUSG or OUSG+ because of the stray '+'."
+     }
+    ],
+    "glance": 80,
+    "depth": 88
+   },
+   {
+    "key": "redeem(uint256 rwaAmount, address receivingToken, uint256 minimumTokenReceived)",
+    "effects": [
+     "The signer's OUSG (rwaAmount) is pulled to the manager with transferFrom, which spends the signer's OUSG allowance to the manager. The OUSG is then burned.",
+     "The signer receives receivingToken equal to (OUSG USD value - redemption fee) / token price. The call reverts below minimumTokenReceived (_processRedemption: safeTransfer(_msgSender(), receiveTokenAmount)).",
+     "The redemption fee and rate limits are read and updated in storage contracts. The signer's compliance/KYC status is checked."
+    ],
+    "shown": "Redeem OUSG: send {rwaAmount} OUSG, receive at least {minimumTokenReceived} of the receiving token. The sentence adds a stray '+' after the token amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem interpolatedIntent adds a trailing '+' that renders as 'USDC+', which suggests a different token.",
+      "evidence": "descriptor.json redeem interpolatedIntent: \"Redeem {rwaAmount} for at least {minimumTokenReceived}+\". Case 1 screen: \"…for at least 24002.303129 USDC+\". The reader was unsure \"Whether the 'USDC+' wording means a different token or just a typo\".",
+      "fix": "Remove the '+': \"Redeem {rwaAmount} for at least {minimumTokenReceived}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem spends the signer's OUSG allowance to the manager; this is the prerequisite of the stated redemption.",
+      "evidence": "OUSG_InstantManager.redeem: IRWALike(rwaToken).transferFrom(_msgSender(), address(this), rwaAmount). In case 1 the OUSG approval from the signer to 0x9335…643a went to 0 (signer: grant).",
+      "fix": "None needed. Spending the allowance is part of the redemption.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the fee and oracle price come from storage and are bounded only by the minimum received shown.",
+      "evidence": "BaseRWAManager._processRedemption: fee = ondoRedemptionFees.getAndUpdateFee(...); receiveTokenAmount = ((redemptionUSDValue - fee) * 10**decimals) / getAssetPrice; if (receiveTokenAmount < minimumTokenReceived) revert.",
+      "fix": "None needed.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right",
+       "missed"
+      ],
+      "notes": "217 OUSG out is shown exactly. 25002.399093 USDC arrived, at or above the 24002.303129 minimum shown. The OUSG allowance spent is not on screen (a prerequisite, info)."
+     }
+    ],
+    "glance": 82,
+    "depth": 88
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.383,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 60,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "subscribe(address depositToken, uint256 depositAmount, uint256 minimumRwaReceived)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "subscribe interpolatedIntent adds a trailing '+' that renders as 'OUSG+', which is the name of another Ondo token.",
+   "comprehension": 75
+  },
+  "redeem(uint256 rwaAmount, address receivingToken, uint256 minimumTokenReceived)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem interpolatedIntent adds a trailing '+' that renders as 'USDC+', which suggests a different token.",
+   "comprehension": 67
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 72,
+  "functions": "2B",
+  "incomplete": false,
+  "worst": "subscribe interpolatedIntent adds a trailing '+' that renders as 'OUSG+', which is the name of another Ondo token."
+ }
+}

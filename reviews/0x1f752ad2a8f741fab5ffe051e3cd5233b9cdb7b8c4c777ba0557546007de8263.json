@@ -1,0 +1,1673 @@
+{
+ "hash": "0x1f752ad2a8f741fab5ffe051e3cd5233b9cdb7b8c4c777ba0557546007de8263",
+ "file": "registry/ekubo/calldata-VeToken.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 4663,
+   "address": "0x9d7008e169d040b6c0140eb92e7ca82b12643497"
+  },
+  {
+   "chainId": 46630,
+   "address": "0x9d7008e169d040b6c0140eb92e7ca82b12643497"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "stake(uint128 amount, uint64 end)",
+    "effects": [
+     "Takes `amount` STONX from the signer by transferFrom to the Ekubo Core accountant (payFrom), spending the signer's STONX allowance to VeToken.",
+     "Mints a new veSTONX NFT with a random ID to the signer. The NFT controls the stake.",
+     "Locks the STONX in Ve33 until timestamp `end`.",
+     "Any native value sent is not used, because the stake token is an ERC20. It stays in the contract, and anyone can take it with refundNativeToken."
+    ],
+    "shown": "Says 'Stake {amount} STONX', with the amount and the stake end date.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "stake is payable but no @.value field is shown, and native value sent is left in the contract.",
+      "evidence": "VeToken.sol stake(uint128,uint64) is `public payable`. stakeToken is the ERC20 0x570C…70C5, so handleLockData never uses msg.value. receive() is payable, and PayableMulticallable.refundNativeToken() sends address(this).balance to any caller. The descriptor format has only amount and end.",
+      "fix": "Add a field {path:'@.value', label:'Native value', format:'amount'}, or state that the value must be 0.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "stake: the minted NFT ID is random, so it is not shown.",
+      "evidence": "stake(uint128,uint64) calls stake(amount,end,_randomSalt()). The ID comes from prevrandao and gas.",
+      "fix": "None needed. The intent 'Create vote-escrow stake' already implies a new position.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "stake(uint128 amount, uint64 end, bytes32 salt)",
+    "effects": [
+     "Takes `amount` STONX from the signer to the Core accountant.",
+     "Mints the veSTONX NFT with ID saltToId(signer, salt) to the signer.",
+     "Locks the stake until `end`.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Stake {amount} STONX', with the amount, the end date and an optional raw salt.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "stake with salt is payable but no @.value field is shown.",
+      "evidence": "VeToken.sol stake(uint128,uint64,bytes32) is `public payable`. The stake token is an ERC20, so msg.value is unused and can be taken with refundNativeToken(). The descriptor has no '@.value' field.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "stakeForDuration(uint128 amount, uint32 duration)",
+    "effects": [
+     "Takes `amount` STONX from the signer to the Core accountant.",
+     "Mints a veSTONX NFT to the signer.",
+     "Locks the stake until block.timestamp + duration (at most 4 years).",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Stake {amount} STONX', with the amount and the duration in HH:MM:SS.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "stakeForDuration is payable but no @.value field is shown.",
+      "evidence": "VeToken.sol stakeForDuration(uint128,uint32) is `external payable`. The ERC20 stake token means msg.value is unused, and refundNativeToken() lets anyone take it. The descriptor has no '@.value' field.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "stakeForDuration: a one-year lock renders as '8760:00:00', which is hard to read.",
+      "evidence": "Case 0 screen shows 'Stake duration' = '8760:00:00' for 31536000 s. The spec's duration format only renders HH:MM:ss.",
+      "fix": "Nothing until the spec has a days/years duration format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "stakeForDuration(uint128 amount, uint32 duration, bytes32 salt)",
+    "effects": [
+     "Takes `amount` STONX from the signer.",
+     "Mints the veSTONX NFT with a salt-derived ID to the signer.",
+     "Locks the stake for `duration`.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Stake {amount} STONX', with the amount, the duration and an optional raw salt.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "stakeForDuration with salt is payable but no @.value field is shown.",
+      "evidence": "VeToken.sol stakeForDuration(uint128,uint32,bytes32) is `external payable`. msg.value is unused and can be taken with refundNativeToken(). The descriptor has no '@.value' field.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "stakeMaxDuration(uint128 amount)",
+    "effects": [
+     "Takes `amount` STONX from the signer.",
+     "Mints a veSTONX NFT to the signer.",
+     "Locks the stake for the maximum duration, 4 years from now.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Stake {amount} STONX' with intent 'Create maximum stake'. No lock end or length is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "stakeMaxDuration is payable but no @.value field is shown.",
+      "evidence": "VeToken.sol stakeMaxDuration(uint128) is `external payable`. msg.value is unused and can be taken with refundNativeToken(). The descriptor has no '@.value' field.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "stakeMaxDuration: the intent says 'maximum stake' and never states the 4-year lock.",
+      "evidence": "_maxStakeEnd() = block.timestamp + VE33_MAX_STAKE_DURATION (4 * 365 days, IVe33.sol). The intent is 'Create maximum stake', which reads like a maximum amount.",
+      "fix": "Use the intent 'Stake {amount}, locked for 4 years (maximum)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "stakeMaxDuration(uint128 amount, bytes32 salt)",
+    "effects": [
+     "Takes `amount` STONX from the signer.",
+     "Mints the veSTONX NFT with a salt-derived ID to the signer.",
+     "Locks the stake for 4 years.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Stake {amount} STONX' with intent 'Create maximum stake', plus an optional salt.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "stakeMaxDuration with salt is payable but no @.value field is shown.",
+      "evidence": "VeToken.sol stakeMaxDuration(uint128,bytes32) is `external payable`. msg.value is unused and can be taken with refundNativeToken(). The descriptor has no '@.value' field.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "stakeMaxDuration with salt: the 4-year lock is not stated.",
+      "evidence": "_maxStakeEnd() uses VE33_MAX_STAKE_DURATION = 4 * 365 days. The intent is 'Create maximum stake'.",
+      "fix": "Say 'locked for 4 years' in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "stakeAndVote(uint128 amount, uint64 end, bytes32 salt, (address token0, address token1, bytes32 config) poolKey, uint64 swapFee)",
+    "effects": [
+     "Takes `amount` STONX from the signer.",
+     "Mints the veSTONX NFT to the signer and locks the stake until `end`.",
+     "Puts the stake's full voting power on the pool (token0, token1, config), with a swap-fee vote of `swapFee`.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Stake {amount} and vote', with the amount, the end date, the pool tokens, the swap fee as a raw Q64 number, and an optional config and salt.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "stakeAndVote is payable but no @.value field is shown.",
+      "evidence": "VeToken.sol stakeAndVote is `external payable`. msg.value is unused and can be taken with refundNativeToken(). The descriptor has no '@.value' field.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "stakeAndVote: the swap fee vote is shown as a raw Q64 integer.",
+      "evidence": "Field swapFee uses format 'raw' with label 'Swap fee (Q64)'. A normal signer cannot read it as a percentage.",
+      "fix": "Show it as a percentage, for example with a unit/decimals representation, or explain the scale in the label.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "increaseStakeAmount(uint256 veId, uint128 amount)",
+    "effects": [
+     "Takes `amount` STONX from the signer (msg.sender is the payer) and adds it to stake veId. The stake keeps its end date.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Add {amount} STONX to stake', with the stake ID raw and the amount.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "increaseStakeAmount is payable but no @.value field is shown.",
+      "evidence": "VeToken.sol increaseStakeAmount is `external payable`. msg.value is unused and can be taken with refundNativeToken(). The descriptor has no '@.value' field.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "increaseStakeAmount: the stake's lock end comes from storage and is not shown.",
+      "evidence": "stakeId(veId) reads the end from _getExtraData(veId). The added STONX is locked until then.",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "extendStake(uint256 veId, uint64 end)",
+    "effects": [
+     "Moves the whole stake veId to a later end timestamp `end`, so the STONX stays locked longer.",
+     "Clears the stake's pool vote in Ve33 and discards its unclaimed voter fees (per the devdoc).",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Extend stake {veId}', with the stake ID and the new end date.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "extendStake clears the stake's vote and discards unclaimed voter fees, and the screen does not say so.",
+      "evidence": "VeToken.sol extendStake devdoc: 'Extending clears votes in Ve33.' claimPoolFeesAndExtendStake devdoc: 'pending fees are discarded when votes are cleared.' The descriptor intent is 'Extend vote-escrow stake' and its fields are veId and end only.",
+      "fix": "Use the intent 'Extend stake {veId} (clears vote, forfeits unclaimed fees)', or point users to claimPoolFeesAndExtendStake.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "extendStake is payable but no @.value field is shown.",
+      "evidence": "extendStake is `public payable`. msg.value is unused and can be taken with refundNativeToken().",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 45
+   },
+   {
+    "key": "extendStakeForDuration(uint256 veId, uint32 duration)",
+    "effects": [
+     "Moves stake veId to end at now + duration.",
+     "Clears the stake's vote and discards its unclaimed voter fees.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Extend stake {veId}', with the new duration.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "extendStakeForDuration clears the vote and forfeits unclaimed fees, and nothing on screen says so.",
+      "evidence": "extendStakeForDuration calls extendStake. Its devdoc says 'Extending clears votes in Ve33', and fees are discarded on clearing. The descriptor intent is 'Extend vote-escrow stake'.",
+      "fix": "State the vote clearing and fee loss in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "extendStakeForDuration is payable but no @.value field is shown.",
+      "evidence": "extendStakeForDuration is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 45
+   },
+   {
+    "key": "extendStakeMaxDuration(uint256 veId)",
+    "effects": [
+     "Moves stake veId to end 4 years from now.",
+     "Clears the stake's vote and discards its unclaimed voter fees.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Extend stake {veId}' with only the stake ID. The new end is not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "extendStakeMaxDuration clears the vote and forfeits unclaimed fees, and the screen does not say so.",
+      "evidence": "extendStakeMaxDuration calls extendStake. Its devdoc says 'Extending clears votes in Ve33.' The descriptor fields are veId only.",
+      "fix": "State the vote clearing and fee loss in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "extendStakeMaxDuration: the new 4-year lock is not stated.",
+      "evidence": "_maxStakeEnd() = now + 4*365 days. The intent is 'Extend vote-escrow stake'.",
+      "fix": "Use the intent 'Extend stake {veId} to 4 years'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "extendStakeMaxDuration is payable but no @.value field is shown.",
+      "evidence": "extendStakeMaxDuration is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 40
+   },
+   {
+    "key": "claimPoolFeesAndExtendStake(uint256 veId, uint64 end, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+    "effects": [
+     "Withdraws the stake's accrued voter fees in pool token0 and token1 to `recipient`.",
+     "Moves stake veId to the new end `end`.",
+     "Clears the stake's pool vote.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees + extend {veId}', with the new end, the recipient and the pool tokens.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "claimPoolFeesAndExtendStake clears the stake's pool vote, and the screen does not say so.",
+      "evidence": "It calls extendStake(veId,end). The devdoc says 'Useful before a vote-clearing extension'. The descriptor intent is 'Claim fees and extend'.",
+      "fix": "Add 'clears your vote' to the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFeesAndExtendStake is payable but no @.value field is shown.",
+      "evidence": "It is `public payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimPoolFeesAndExtendStake: the fee amounts come from Ve33 storage and are not shown.",
+      "evidence": "handleLockData CALL_TYPE_CLAIM_POOL_FEES calls withdrawTwo(token0, token1, recipient, amount0, amount1). The amounts come from Ve33.",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "claimPoolFeesAndExtendStakeForDuration(uint256 veId, uint32 duration, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+    "effects": [
+     "Withdraws the voter fees in token0 and token1 to `recipient`.",
+     "Moves the stake to end at now + duration.",
+     "Clears the stake's vote.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees + extend {veId}', with the duration, the recipient and the pool tokens.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "claimPoolFeesAndExtendStakeForDuration clears the vote, and the screen does not say so.",
+      "evidence": "It calls claimPoolFeesAndExtendStake, which calls extendStake ('Extending clears votes in Ve33'). The intent is 'Claim fees and extend'.",
+      "fix": "Add 'clears your vote' to the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFeesAndExtendStakeForDuration is payable but no @.value field is shown.",
+      "evidence": "It is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "claimPoolFeesAndExtendStakeMaxDuration(uint256 veId, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+    "effects": [
+     "Withdraws the voter fees in token0 and token1 to `recipient`.",
+     "Moves the stake to end 4 years from now.",
+     "Clears the stake's vote.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees + extend {veId}', with the recipient and the pool tokens. No end is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "claimPoolFeesAndExtendStakeMaxDuration clears the vote, and the screen does not say so.",
+      "evidence": "It calls extendStake, which clears votes per the devdoc. The intent is 'Claim fees and extend'.",
+      "fix": "Add 'clears your vote' to the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimPoolFeesAndExtendStakeMaxDuration: the 4-year lock is not stated.",
+      "evidence": "_maxStakeEnd() = now + 4*365 days. No end or duration field exists.",
+      "fix": "Say 'extend to 4 years' in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFeesAndExtendStakeMaxDuration is payable but no @.value field is shown.",
+      "evidence": "It is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 50
+   },
+   {
+    "key": "claimPoolFeesAndExtendStakeToSelf(uint256 veId, uint64 end, (address token0, address token1, bytes32 config) poolKey)",
+    "effects": [
+     "Withdraws the voter fees in token0 and token1 to the signer.",
+     "Moves the stake to `end`.",
+     "Clears the stake's vote.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees + extend {veId}', with the new end and the pool tokens.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "claimPoolFeesAndExtendStakeToSelf clears the vote, and the screen does not say so.",
+      "evidence": "It calls extendStake(veId,end), which clears votes per the devdoc. The intent is 'Claim fees and extend'.",
+      "fix": "Add 'clears your vote' to the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFeesAndExtendStakeToSelf is payable but no @.value field is shown.",
+      "evidence": "It is `public payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "claimPoolFeesAndExtendStakeToSelfForDuration(uint256 veId, uint32 duration, (address token0, address token1, bytes32 config) poolKey)",
+    "effects": [
+     "Withdraws the voter fees to the signer.",
+     "Moves the stake to now + duration.",
+     "Clears the stake's vote.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees + extend {veId}', with the duration and the pool tokens.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "claimPoolFeesAndExtendStakeToSelfForDuration clears the vote, and the screen does not say so.",
+      "evidence": "It calls extendStake, which clears votes per the devdoc. The intent is 'Claim fees and extend'.",
+      "fix": "Add 'clears your vote' to the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFeesAndExtendStakeToSelfForDuration is payable but no @.value field is shown.",
+      "evidence": "It is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "claimPoolFeesAndExtendStakeToSelfMaxDuration(uint256 veId, (address token0, address token1, bytes32 config) poolKey)",
+    "effects": [
+     "Withdraws the voter fees to the signer.",
+     "Moves the stake to end 4 years from now.",
+     "Clears the stake's vote.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees + extend {veId}', with the pool tokens only.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "claimPoolFeesAndExtendStakeToSelfMaxDuration clears the vote, and the screen does not say so.",
+      "evidence": "It calls extendStake, which clears votes per the devdoc. The intent is 'Claim fees and extend'.",
+      "fix": "Add 'clears your vote' to the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimPoolFeesAndExtendStakeToSelfMaxDuration: the 4-year lock is not stated.",
+      "evidence": "_maxStakeEnd(). No end field.",
+      "fix": "Say 'extend to 4 years' in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFeesAndExtendStakeToSelfMaxDuration is payable but no @.value field is shown.",
+      "evidence": "It is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 50
+   },
+   {
+    "key": "splitStake(uint256 veId, uint128 amount)",
+    "effects": [
+     "Moves `amount` of stake veId into a new veSTONX NFT with the same end date, minted to the owner of veId.",
+     "The source stake keeps its vote with reduced weight. The new stake has no vote.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Split {amount} STONX', with the source stake ID and the amount.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "splitStake is payable but no @.value field is shown.",
+      "evidence": "splitStake(uint256,uint128) is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "splitStake: the screen does not say the new NFT goes to the stake owner or that it starts with no vote.",
+      "evidence": "_mintAndSetExtraData(ownerOf(veId), splitVeId, end). The devdoc says 'The source stake keeps its vote'. The intent is 'Split vote-escrow stake'.",
+      "fix": "Use the intent 'Move {amount} from stake {veId} into a new stake NFT (unvoted)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "splitStake(uint256 veId, uint128 amount, bytes32 salt)",
+    "effects": [
+     "Moves `amount` of stake veId into a new NFT with a salt-derived ID, minted to the owner of veId.",
+     "The source stake keeps its vote. The new stake has no vote.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Split {amount} STONX', with the source ID, the amount and an optional salt.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "splitStake with salt is payable but no @.value field is shown.",
+      "evidence": "splitStake(uint256,uint128,bytes32) is `public payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "mergeStakes(uint256 fromVeId, uint256 toVeId)",
+    "effects": [
+     "Moves the whole stake of fromVeId into toVeId, so it is locked until toVeId's end date.",
+     "Burns the NFT fromVeId.",
+     "Discards fromVeId's unclaimed voter fees, because the NFT is burned without claiming them.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Merge stake {fromVeId}', with the source and destination IDs.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "mergeStakes burns the source NFT and loses its unclaimed voter fees, and the screen does not say so.",
+      "evidence": "VeToken.sol mergeStakes: `_burn(fromVeId)` after moveStake. The claimPoolFeesAndMergeStakes devdoc says '`fromVeId` is burned after its stake is moved, so claiming first preserves source-stake fees.' The intent is 'Merge vote-escrow stakes'.",
+      "fix": "Use the intent 'Merge stake {fromVeId} into {toVeId} (burns source NFT, forfeits its unclaimed fees)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mergeStakes: the lock extension to the destination's end date comes from storage and is not shown.",
+      "evidence": "toEnd = _stakeEndTime(toVeId). The source STONX is relocked until toEnd.",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mergeStakes is payable but no @.value field is shown.",
+      "evidence": "mergeStakes is `public payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 50
+   },
+   {
+    "key": "claimPoolFeesAndMergeStakes(uint256 fromVeId, uint256 toVeId, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+    "effects": [
+     "Withdraws fromVeId's voter fees in token0 and token1 to `recipient`.",
+     "Moves fromVeId's stake into toVeId.",
+     "Burns NFT fromVeId.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees + merge {fromVeId}', with both IDs, the recipient and the pool tokens.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFeesAndMergeStakes is payable but no @.value field is shown.",
+      "evidence": "It is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimPoolFeesAndMergeStakes: the intent does not name the destination or say the source NFT is burned.",
+      "evidence": "mergeStakes calls _burn(fromVeId). The interpolated intent is 'Claim fees + merge {fromVeId}'.",
+      "fix": "Use 'Claim fees + merge {fromVeId} into {toVeId} (burns {fromVeId})'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "claimPoolFeesAndMergeStakesToSelf(uint256 fromVeId, uint256 toVeId, (address token0, address token1, bytes32 config) poolKey)",
+    "effects": [
+     "Withdraws fromVeId's voter fees to the signer.",
+     "Moves the stake into toVeId.",
+     "Burns NFT fromVeId.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees + merge {fromVeId}', with both IDs and the pool tokens.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFeesAndMergeStakesToSelf is payable but no @.value field is shown.",
+      "evidence": "It is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimPoolFeesAndMergeStakesToSelf: the intent does not say the source NFT is burned.",
+      "evidence": "_burn(fromVeId) in mergeStakes. The intent is 'Claim fees and merge'.",
+      "fix": "Name the destination and the burn in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "withdrawStake(uint256 veId, address recipient)",
+    "effects": [
+     "Unstakes all of expired stake veId and sends the STONX to `recipient`.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Withdraw stake {veId}', with the stake ID and the recipient.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "withdrawStake is payable but no @.value field is shown.",
+      "evidence": "withdrawStake is `public payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdrawStake: the intent does not name STONX or the recipient.",
+      "evidence": "handleLockData CALL_TYPE_UNSTAKE calls ACCOUNTANT.withdraw(stakeToken, recipient, unstaked). The interpolated intent is 'Withdraw stake {veId}'.",
+      "fix": "Use 'Withdraw staked STONX of {veId} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdrawStake: the amount comes from Ve33 storage and is not shown.",
+      "evidence": "unstaked = Ve33Lib.unstake(CORE, ve33, id).",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 65
+   },
+   {
+    "key": "withdrawStakeToSelf(uint256 veId)",
+    "effects": [
+     "Unstakes all of expired stake veId and sends the STONX to the signer.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Withdraw stake {veId}', with the stake ID.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "withdrawStakeToSelf is payable but no @.value field is shown.",
+      "evidence": "withdrawStakeToSelf is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdrawStakeToSelf: the amount and asset are not in the calldata.",
+      "evidence": "ACCOUNTANT.withdraw(stakeToken, msg.sender, unstaked).",
+      "fix": "Name STONX in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "burn(uint256 veId)",
+    "effects": [
+     "Burns the veSTONX NFT veId and clears its stored end date, without checking that the stake is empty.",
+     "If the stake still holds STONX or fees, they become permanently unreachable, because stakeId(veId) reverts with TokenDoesNotExist after the burn.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Burn empty vote-escrow NFT', with the stake ID.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "burn says the NFT is 'empty', but the code burns any NFT and any remaining stake is lost for good.",
+      "evidence": "VeToken.sol burn(): `_burn(veId); _setExtraData(veId, 0);` has no check on ve33.stakeAmount. _stakeEndTime reverts TokenDoesNotExist afterwards, so withdrawStake can never reach the stake. The descriptor intent is 'Burn empty vote-escrow NFT'.",
+      "fix": "Use the intent 'Burn stake NFT {veId}: any STONX or fees still in it are lost forever'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "burn is payable but no @.value field is shown.",
+      "evidence": "burn is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 20,
+    "depth": 25
+   },
+   {
+    "key": "vote(uint256 veId, (address token0, address token1, bytes32 config) poolKey, uint64 swapFee)",
+    "effects": [
+     "Replaces stake veId's vote with its full voting power on the given pool, voting for swap fee `swapFee`.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Vote stake {veId}', with the pool tokens, an optional config and the swap fee as raw Q64.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "vote: the swap fee is shown as a raw Q64 integer.",
+      "evidence": "Field swapFee has format 'raw' and label 'Swap fee (Q64)'.",
+      "fix": "Render it as a percentage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "vote is payable but no @.value field is shown.",
+      "evidence": "vote is `public payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "vote: whether replacing a vote forfeits unclaimed fees on the old pool cannot be checked.",
+      "evidence": "ve33.vote(stakeId(veId), poolKey, swapFee). The Ve33 source is not in the directory.",
+      "fix": "If it does, say so in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "clearVote(uint256 veId)",
+    "effects": [
+     "Clears stake veId's active pool vote.",
+     "Discards the stake's unclaimed voter fees (per the devdoc).",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Clear vote for stake {veId}'.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "clearVote discards unclaimed voter fees, and the screen does not say so.",
+      "evidence": "VeToken.sol claimPoolFeesAndExtendStake devdoc: 'pending fees are discarded when votes are cleared.' clearVote calls ve33.clearVote(stakeId(veId)). The intent is 'Clear pool vote'.",
+      "fix": "Use the intent 'Clear vote for stake {veId} (unclaimed fees are forfeited)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "clearVote is payable but no @.value field is shown.",
+      "evidence": "clearVote is `external payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 50
+   },
+   {
+    "key": "claimPoolFees(uint256 veId, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+    "effects": [
+     "Withdraws stake veId's accrued voter fees in pool token0 and token1 to `recipient`.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees for {veId}', with the recipient and the pool tokens.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFees is payable but no @.value field is shown.",
+      "evidence": "claimPoolFees is `public payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimPoolFees: the fee amounts come from Ve33 storage.",
+      "evidence": "withdrawTwo(poolKey.token0, poolKey.token1, recipient, amount0, amount1).",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "claimPoolFeesToSelf(uint256 veId, (address token0, address token1, bytes32 config) poolKey)",
+    "effects": [
+     "Withdraws stake veId's voter fees in token0 and token1 to the signer.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Claim fees for {veId}', with the pool tokens.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimPoolFeesToSelf is payable but no @.value field is shown.",
+      "evidence": "claimPoolFeesToSelf is `public payable`. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "maybeInitializePool((address token0, address token1, bytes32 config) poolKey, int32 tick)",
+    "effects": [
+     "Initializes the Ve33 pool in Core at `tick` if it is not initialized yet. No signer assets move.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Initialize Ve33 pool', with the pool tokens, an optional config and the raw tick.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "maybeInitializePool is payable but no @.value field is shown.",
+      "evidence": "maybeInitializePool is `external payable`. It is meant for a payable multicall, and msg.value is unused here.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "maybeInitializePool: the initial tick is shown raw, with no price meaning.",
+      "evidence": "Field tick has format 'raw'.",
+      "fix": "None in the spec.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   },
+   {
+    "key": "multicall(bytes[] data)",
+    "effects": [
+     "Delegatecalls each action in `data` on VeToken as the signer. Each inner action has its own effects.",
+     "Native value sent is shared by the inner calls and is never used by them, because the stake token is an ERC20."
+    ],
+    "shown": "Says 'Vote-escrow batch', with each action decoded as nested calldata on this contract.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multicall is payable but no @.value field is shown.",
+      "evidence": "PayableMulticallable.multicall is `public payable`. The descriptor has no '@.value' field.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "refundNativeToken()",
+    "effects": [
+     "Sends VeToken's entire native balance, including any value attached to this call, to the signer."
+    ],
+    "shown": "Says 'Refund native token', with the signer as recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "refundNativeToken: the refunded amount is the contract balance, which is not shown.",
+      "evidence": "PayableMulticallable.refundNativeToken: safeTransferETH(msg.sender, address(this).balance).",
+      "fix": "None possible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "approve(address account, uint256 id)",
+    "effects": [
+     "Lets `account` manage stake NFT `id`: transfer it, withdraw its STONX to any recipient, claim its fees, split, merge, burn.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Approve NFT {id}', with the approved account and the stake ID.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "approve is payable but no @.value field is shown.",
+      "evidence": "The ABI marks approve(address,uint256) payable (solady ERC721). msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "approve: the stake ID is raw, not shown as a veSTONX NFT.",
+      "evidence": "Field id has format 'raw'.",
+      "fix": "Use format nftName with collection '@.to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "setApprovalForAll(address operator, bool isApproved)",
+    "effects": [
+     "Grants or revokes `operator`'s control over all of the signer's stake NFTs, including withdrawing their STONX and claiming their fees."
+    ],
+    "shown": "Says 'Set NFT operator', with the operator and a raw boolean.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setApprovalForAll: the intent does not say whether this grants or revokes control of all stakes.",
+      "evidence": "Field isApproved has format 'raw'. The intent is 'Set Stake operator'.",
+      "fix": "Use an enum or label such as 'Grant / Revoke', and the intent 'Allow {operator} to manage all your stake NFTs'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "transferFrom(address from, address to, uint256 id)",
+    "effects": [
+     "Transfers stake NFT `id`, with the locked STONX and claimable fees it controls, from `from` to `to`.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Transfer NFT {id}', with from, to and the stake ID.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "transferFrom is payable but no @.value field is shown.",
+      "evidence": "The ABI marks transferFrom payable (solady ERC721). msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "transferFrom: the stake ID is raw, not shown as a veSTONX NFT.",
+      "evidence": "Field id has format 'raw'.",
+      "fix": "Use format nftName with collection '@.to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "safeTransferFrom(address from, address to, uint256 id)",
+    "effects": [
+     "Transfers stake NFT `id` and the stake it controls from `from` to `to`, with a receiver check.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Transfer NFT {id}', with from, to and the ID.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "safeTransferFrom is payable but no @.value field is shown.",
+      "evidence": "The ABI marks safeTransferFrom(address,address,uint256) payable. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "safeTransferFrom: the stake ID is raw.",
+      "evidence": "Field id has format 'raw'.",
+      "fix": "Use format nftName with collection '@.to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "safeTransferFrom(address from, address to, uint256 id, bytes data)",
+    "effects": [
+     "Transfers stake NFT `id` and its stake from `from` to `to`, and passes `data` to the receiver hook.",
+     "Any native value sent is not used and is left claimable by anyone."
+    ],
+    "shown": "Says 'Transfer NFT {id}', with from, to, the ID and optional raw data.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "safeTransferFrom with data is payable but no @.value field is shown.",
+      "evidence": "The ABI marks safeTransferFrom(address,address,uint256,bytes) payable. msg.value is unused.",
+      "fix": "Add an '@.value' amount field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "safeTransferFrom with data: the stake ID is raw.",
+      "evidence": "Field id has format 'raw'.",
+      "fix": "Use format nftName with collection '@.to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": [
+   "Ve33 extension 0xD18685a514E59b06d59824e16Db07e73345d9953: its source (src/extensions/Ve33.sol) is not in the directory. Its moveStake, vote, clearVote, unstake and claim-pool-fees logic decides whether extend, merge, vote and clearVote clear votes or forfeit fees. That was taken from the VeToken devdoc only.",
+   "Ekubo Core / FlashAccountant 0x00000000000014aA86C5d3c41765bb24e11bd701: not in the directory. It settles payFrom and withdraw/withdrawTwo, which move the signer's STONX and fee tokens."
+  ]
+ },
+ "cost": 1.054,
+ "account": "austingriffith",
+ "hiddenValue": [
+  "stake(uint128 amount, uint64 end)",
+  "stake(uint128 amount, uint64 end, bytes32 salt)",
+  "stakeForDuration(uint128 amount, uint32 duration)",
+  "stakeForDuration(uint128 amount, uint32 duration, bytes32 salt)",
+  "stakeMaxDuration(uint128 amount)",
+  "stakeMaxDuration(uint128 amount, bytes32 salt)",
+  "stakeAndVote(uint128 amount, uint64 end, bytes32 salt, (address token0, address token1, bytes32 config) poolKey, uint64 swapFee)",
+  "increaseStakeAmount(uint256 veId, uint128 amount)",
+  "extendStake(uint256 veId, uint64 end)",
+  "extendStakeForDuration(uint256 veId, uint32 duration)",
+  "extendStakeMaxDuration(uint256 veId)",
+  "claimPoolFeesAndExtendStake(uint256 veId, uint64 end, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+  "claimPoolFeesAndExtendStakeForDuration(uint256 veId, uint32 duration, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+  "claimPoolFeesAndExtendStakeMaxDuration(uint256 veId, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+  "claimPoolFeesAndExtendStakeToSelf(uint256 veId, uint64 end, (address token0, address token1, bytes32 config) poolKey)",
+  "claimPoolFeesAndExtendStakeToSelfForDuration(uint256 veId, uint32 duration, (address token0, address token1, bytes32 config) poolKey)",
+  "claimPoolFeesAndExtendStakeToSelfMaxDuration(uint256 veId, (address token0, address token1, bytes32 config) poolKey)",
+  "splitStake(uint256 veId, uint128 amount)",
+  "splitStake(uint256 veId, uint128 amount, bytes32 salt)",
+  "mergeStakes(uint256 fromVeId, uint256 toVeId)",
+  "claimPoolFeesAndMergeStakes(uint256 fromVeId, uint256 toVeId, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+  "claimPoolFeesAndMergeStakesToSelf(uint256 fromVeId, uint256 toVeId, (address token0, address token1, bytes32 config) poolKey)",
+  "withdrawStake(uint256 veId, address recipient)",
+  "withdrawStakeToSelf(uint256 veId)",
+  "burn(uint256 veId)",
+  "vote(uint256 veId, (address token0, address token1, bytes32 config) poolKey, uint64 swapFee)",
+  "clearVote(uint256 veId)",
+  "claimPoolFees(uint256 veId, (address token0, address token1, bytes32 config) poolKey, address recipient)",
+  "claimPoolFeesToSelf(uint256 veId, (address token0, address token1, bytes32 config) poolKey)",
+  "maybeInitializePool((address token0, address token1, bytes32 config) poolKey, int32 tick)",
+  "multicall(bytes[] data)",
+  "refundNativeToken()",
+  "approve(address account, uint256 id)",
+  "transferFrom(address from, address to, uint256 id)",
+  "safeTransferFrom(address from, address to, uint256 id)",
+  "safeTransferFrom(address from, address to, uint256 id, bytes data)"
+ ],
+ "seconds": 218,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "stake(uint128 amount, uint64 end)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "stake is payable but no @.value field is shown, and native value sent is left in the contract.",
+   "comprehension": null
+  },
+  "stake(uint128 amount, uint64 end, bytes32 salt)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "stake with salt is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "stakeForDuration(uint128 amount, uint32 duration)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "stakeForDuration is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "stakeForDuration(uint128 amount, uint32 duration, bytes32 salt)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "stakeForDuration with salt is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "stakeMaxDuration(uint128 amount)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "stakeMaxDuration is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "stakeMaxDuration(uint128 amount, bytes32 salt)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "stakeMaxDuration with salt is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "stakeAndVote(uint128 amount, uint64 end, bytes32 salt, (address token0, address token1, bytes32 config) poolKey, uint64 swapFee)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "stakeAndVote is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "increaseStakeAmount(uint256 veId, uint128 amount)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "increaseStakeAmount is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "extendStake(uint256 veId, uint64 end)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "extendStake clears the stake's vote and discards unclaimed voter fees, and the screen does not say so.",
+   "comprehension": null
+  },
+  "extendStakeForDuration(uint256 veId, uint32 duration)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "extendStakeForDuration clears the vote and forfeits unclaimed fees, and nothing on screen says so.",
+   "comprehension": null
+  },
+  "extendStakeMaxDuration(uint256 veId)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "extendStakeMaxDuration clears the vote and forfeits unclaimed fees, and the screen does not say so.",
+   "comprehension": null
+  },
+  "claimPoolFeesAndExtendStake(uint256 veId, uint64 end, (address token0, address token1, bytes32 config) poolKey, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "claimPoolFeesAndExtendStake clears the stake's pool vote, and the screen does not say so.",
+   "comprehension": null
+  },
+  "claimPoolFeesAndExtendStakeForDuration(uint256 veId, uint32 duration, (address token0, address token1, bytes32 config) poolKey, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "claimPoolFeesAndExtendStakeForDuration clears the vote, and the screen does not say so.",
+   "comprehension": null
+  },
+  "claimPoolFeesAndExtendStakeMaxDuration(uint256 veId, (address token0, address token1, bytes32 config) poolKey, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "claimPoolFeesAndExtendStakeMaxDuration clears the vote, and the screen does not say so.",
+   "comprehension": null
+  },
+  "claimPoolFeesAndExtendStakeToSelf(uint256 veId, uint64 end, (address token0, address token1, bytes32 config) poolKey)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "claimPoolFeesAndExtendStakeToSelf clears the vote, and the screen does not say so.",
+   "comprehension": null
+  },
+  "claimPoolFeesAndExtendStakeToSelfForDuration(uint256 veId, uint32 duration, (address token0, address token1, bytes32 config) poolKey)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 52,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "claimPoolFeesAndExtendStakeToSelfForDuration clears the vote, and the screen does not say so.",
+   "comprehension": null
+  },
+  "claimPoolFeesAndExtendStakeToSelfMaxDuration(uint256 veId, (address token0, address token1, bytes32 config) poolKey)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "claimPoolFeesAndExtendStakeToSelfMaxDuration clears the vote, and the screen does not say so.",
+   "comprehension": null
+  },
+  "splitStake(uint256 veId, uint128 amount)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "splitStake is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "splitStake(uint256 veId, uint128 amount, bytes32 salt)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "splitStake with salt is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "mergeStakes(uint256 fromVeId, uint256 toVeId)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "mergeStakes burns the source NFT and loses its unclaimed voter fees, and the screen does not say so.",
+   "comprehension": null
+  },
+  "claimPoolFeesAndMergeStakes(uint256 fromVeId, uint256 toVeId, (address token0, address token1, bytes32 config) poolKey, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "claimPoolFeesAndMergeStakes is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "claimPoolFeesAndMergeStakesToSelf(uint256 fromVeId, uint256 toVeId, (address token0, address token1, bytes32 config) poolKey)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "claimPoolFeesAndMergeStakesToSelf is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "withdrawStake(uint256 veId, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "withdrawStake is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "withdrawStakeToSelf(uint256 veId)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "withdrawStakeToSelf is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "burn(uint256 veId)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 22,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "burn says the NFT is 'empty', but the code burns any NFT and any remaining stake is lost for good.",
+   "comprehension": null
+  },
+  "vote(uint256 veId, (address token0, address token1, bytes32 config) poolKey, uint64 swapFee)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "vote is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "clearVote(uint256 veId)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "clearVote discards unclaimed voter fees, and the screen does not say so.",
+   "comprehension": null
+  },
+  "claimPoolFees(uint256 veId, (address token0, address token1, bytes32 config) poolKey, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "claimPoolFees is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "claimPoolFeesToSelf(uint256 veId, (address token0, address token1, bytes32 config) poolKey)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "claimPoolFeesToSelf is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "maybeInitializePool((address token0, address token1, bytes32 config) poolKey, int32 tick)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "maybeInitializePool is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "multicall(bytes[] data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "multicall is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "refundNativeToken()": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "refundNativeToken takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "approve(address account, uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "approve is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "setApprovalForAll(address operator, bool isApproved)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setApprovalForAll: the intent does not say whether this grants or revokes control of all stakes.",
+   "comprehension": null
+  },
+  "transferFrom(address from, address to, uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "transferFrom is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "safeTransferFrom(address from, address to, uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "safeTransferFrom is payable but no @.value field is shown.",
+   "comprehension": null
+  },
+  "safeTransferFrom(address from, address to, uint256 id, bytes data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "safeTransferFrom with data is payable but no @.value field is shown.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 3,
+  "clarity": 58,
+  "functions": "1C 36F",
+  "incomplete": true,
+  "worst": "stake is payable but no @.value field is shown, and native value sent is left in the contract."
+ }
+}

@@ -1,0 +1,237 @@
+{
+ "hash": "0x235aea9a9aafcd00456a4b259285939aacf95c8be5582c48994444718afc618d",
+ "file": "registry/symbiotic/calldata-VaultV1-XAUM.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe72696546379d6961b5ee368fc82cc28a8c57e29"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` XAUM (the vault's collateral 0x2103…8682) to the vault through transferFrom, which spends the signer's allowance to the vault.",
+     "The vault credits active shares, worth the amount actually received, to `onBehalfOf`. The signer gets nothing unless `onBehalfOf` is the signer.",
+     "The deposited stake can be slashed by the vault's slasher, and the burner receives the slashed amount."
+    ],
+    "shown": "Deposit 123.25 XAUM into the vault for the beneficiary address, with the vault, amount and beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the number of shares the beneficiary receives; the code derives it from storage.",
+      "evidence": "Vault.deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` The share count depends on activeStake and activeShares in storage, so no calldata field can show it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 88
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The signer's active shares are burned, rounded up, so `amount` XAUM leaves the signer's active stake.",
+     "`amount` XAUM is queued for the next epoch. The withdrawal shares are credited to `claimer`, not to the signer.",
+     "No tokens move now. Only `claimer` can claim the XAUM after the next epoch ends, and slashing can reduce it until then."
+    ],
+    "shown": "Request 2.5 XAUM withdrawal for the claim owner, with the vault, amount and claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show that the queued XAUM stays slashable and can be claimed only after the next epoch.",
+      "evidence": "Vault._withdraw: `uint256 epoch = currentEpoch() + 1; ... withdrawalSharesOf[epoch][claimer] += mintedShares;` and Vault.onSlash reduces `withdrawals[currentEpoch_ + 1]`. The epoch timing and slashing come from storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw labels the claimer 'Claim owner', which does not say this address receives the withdrawn assets.",
+      "evidence": "Descriptor withdraw field `#.claimer` label 'Claim owner'. In Vault._withdraw, `withdrawalSharesOf[epoch][claimer] += mintedShares`, so only the claimer can later claim the XAUM.",
+      "fix": "Rename the label to 'Assets claimable by'. Keep the interpolatedIntent as it is.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 80
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "`shares` of the signer's active shares are burned.",
+     "The XAUM value of those shares, computed from storage, is queued for the next epoch and credited to `claimer`.",
+     "No tokens move now. The claimer can claim after the next epoch ends, and slashing can reduce the amount until then."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claim owner, with the shares shown as a raw integer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem shows the shares as a raw 18-decimal integer that a signer cannot read.",
+      "evidence": "Descriptor redeem field `#.shares` format 'raw', rendered as '987654321123456789' in case 2. ERC4626Math `_decimalsOffset()` returns 0, so shares use the XAUM scale of 18 decimals.",
+      "fix": "Use format 'unit' with params {\"decimals\": 18, \"base\": \"shares\"} on `#.shares`, and change the interpolatedIntent to 'Queue {shares} for {claimer}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much XAUM the shares queue; the code computes it from storage.",
+      "evidence": "Vault.redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault marks the signer's withdrawal for `epoch` as claimed.",
+     "The vault sends XAUM equal to the signer's withdrawal for that epoch to `recipient`. The amount comes from storage."
+    ],
+    "shown": "Claim epoch 42 to the recipient. The fields show the vault, the epoch and the recipient, but not the asset or the amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim never names XAUM as the asset sent to the recipient.",
+      "evidence": "Vault.claim: `IERC20(collateral).safeTransfer(recipient, amount);` The descriptor intent is 'Claim withdrawal' and the interpolatedIntent is 'Claim epoch {epoch} to {recipient}'. Neither one names the token.",
+      "fix": "Change the intent to 'Claim XAUM withdrawal' and the interpolatedIntent to 'Claim XAUM of epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim does not show the XAUM amount; the code reads it from storage.",
+      "evidence": "Vault._claim: `amount = withdrawalsOf(epoch, msg.sender);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 62
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The vault marks the signer's withdrawal for each listed epoch as claimed.",
+     "The vault sends the sum of those XAUM withdrawals to `recipient` in one transfer. The amount comes from storage."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient, with each epoch as a field. The asset and the amount are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch never names XAUM as the asset sent to the recipient.",
+      "evidence": "Vault.claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);` The descriptor intent is 'Claim withdrawals' and the interpolatedIntent is 'Claim epochs {epochs.[]} to {recipient}'.",
+      "fix": "Change the intent to 'Claim XAUM withdrawals' and the interpolatedIntent to 'Claim XAUM of epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch does not show the total XAUM amount; the code sums it from storage.",
+      "evidence": "Vault.claimBatch: `amount += _claim(epochs[i]);` and Vault._claim reads `withdrawalsOf(epoch, msg.sender)`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 62,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.396,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 65,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw labels the claimer 'Claim owner', which does not say this address receives the withdrawn assets.",
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem shows the shares as a raw 18-decimal integer that a signer cannot read.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim never names XAUM as the asset sent to the recipient.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch never names XAUM as the asset sent to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 65,
+  "functions": "1A 1B 3C",
+  "incomplete": false,
+  "worst": "redeem shows the shares as a raw 18-decimal integer that a signer cannot read."
+ }
+}

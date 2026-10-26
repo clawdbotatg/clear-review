@@ -1,0 +1,177 @@
+{
+ "hash": "0xe18a214a91f0f947a6eee6c9a6c73313e76150fb8874c254000d69c527318351",
+ "file": "registry/tesseract/calldata-vault-deployer-USDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe4d85722db649d3890f9dba4510f1a16ad942fd9"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deployVault(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee)",
+    "effects": [
+     "Pulls initialDeposit USDC from the signer to the deployer, using an allowance the signer gave earlier (safeTransferFrom(msg.sender, address(this), initialDeposit)).",
+     "Deposits that USDC into the newly cloned PlasmaVault and mints the vault shares (teUSDC) to the signer (deposit(initialDeposit, msg.sender)).",
+     "Grants the signer WHITELIST_ROLE on the new vault.",
+     "Control of the new vault goes to parties Tesseract stored in the deployer, not to the signer: vaultOwner gets OWNER_ROLE, plus the atomist, guardian, alpha, fuseManager and rewards manager.",
+     "Sets the vault's management and performance fees from storage, paid to the stored feeRecipient. The call reverts if either fee is above the signer's maxManagementFee or maxPerformanceFee.",
+     "Reverts if initialDeposit is below the stored minInitialDeposit."
+    ],
+    "shown": "\"Deploy Vault\" with the share ticker teUSDC, the initial deposit in USDC, and the maximum management and performance fees as percentages.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deployVault intent 'Deploy Vault' leaves out the USDC deposit and the shares the signer receives.",
+      "evidence": "descriptor intent \"Deploy Vault\", interpolatedIntent absent. TesseractVaultDeployer._deployVault: safeTransferFrom(msg.sender, ..., initialDeposit) and PlasmaVault.deposit(initialDeposit, msg.sender). Case 0: 50 USDC out, 5000000000 teUSDC in to the signer.",
+      "fix": "Add an interpolatedIntent such as \"Deploy teUSDC vault and deposit {initialDeposit}\", and an intent like \"Deploy vault and deposit USDC\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deployVault screen never says vault shares are minted to the signer; it only shows a share ticker.",
+      "evidence": "Case 0 mined: teUSDC 5000000000 from 0x0 to the signer (signer: in). The screen only has 'Vault share ticker: teUSDC', and the reader wrote 'amount not shown; presumably to my wallet'.",
+      "fix": "Relabel the ticker field as something like 'You receive shares of' or 'Shares received (teUSDC)', or say it in the interpolated intent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deployVault 'Deploy Vault' suggests the signer owns the vault, but Tesseract-set addresses get all admin roles.",
+      "evidence": "_deployVault: grantRole(OWNER_ROLE, vaultOwner), grantRole(ATOMIST_ROLE, atomist), GUARDIAN_ROLE to guardian, etc. The signer only gets WHITELIST_ROLE. Case 0 reader: 'A new vault is created, likely with me as its owner or manager'.",
+      "fix": "Use an intent such as \"Deploy Tesseract-managed vault\", or add a constant field noting that Tesseract manages the vault.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deployVault: actual fee rates, fee recipient and vault managers are read from storage and cannot be shown.",
+      "evidence": "_deployVault reads managementFee, performanceFee and feeRecipient (updateManagementFee/updatePerformanceFee), plus vaultOwner, atomist, guardian and alpha, from storage. The screen shows only the signer's maximums.",
+      "fix": "None in the descriptor. The max-fee fields already bound the fees.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 50 USDC out is shown with the right token and amount. The teUSDC shares in are only hinted by the ticker field: no amount, and it never says they go to the signer. The reader inferred the shares but not their amount."
+     }
+    ],
+    "glance": 40,
+    "depth": 65
+   },
+   {
+    "key": "deployVaultWithPermit(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Uses the signer's EIP-2612 permit to set the deployer's USDC allowance to initialDeposit (valid until deadline). If the permit fails, it falls back to an existing allowance of at least initialDeposit.",
+     "Pulls initialDeposit USDC from the signer to the deployer, which spends that allowance.",
+     "Deposits that USDC into the new PlasmaVault and mints the vault shares (teUSDC) to the signer.",
+     "Grants the signer WHITELIST_ROLE on the new vault.",
+     "Admin roles on the vault go to Tesseract-configured addresses (vaultOwner, atomist, guardian, alpha, fuseManager, rewards manager), not to the signer.",
+     "Sets the vault fees from storage, paid to the stored feeRecipient. Reverts if they are above the signer's maximums or if initialDeposit is below minInitialDeposit."
+    ],
+    "shown": "\"Deploy Vault (Permit)\" with the share ticker, the initial deposit in USDC, the maximum fees as percentages, and the permit deadline as a date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deployVaultWithPermit intent says 'Deploy Vault (Permit)' but not that USDC is deposited and shares are received.",
+      "evidence": "descriptor intent \"Deploy Vault (Permit)\", interpolatedIntent absent. deployVaultWithPermit calls permit(msg.sender, address(this), initialDeposit, ...) and then _deployVault, which pulls initialDeposit and deposits it for msg.sender.",
+      "fix": "Add an interpolatedIntent such as \"Deploy teUSDC vault and deposit {initialDeposit}\". Replace the jargon '(Permit)' with something like 'using a signed approval'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deployVaultWithPermit shows a share ticker but never says shares are minted to the signer.",
+      "evidence": "_deployVault: PlasmaVault(...).deposit(initialDeposit, msg.sender). The only related field is 'Vault share ticker' (raw constant teUSDC).",
+      "fix": "Relabel the field as something like 'Shares received (teUSDC)', or put it in the interpolated intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deployVaultWithPermit intent suggests the signer gets a vault they control; Tesseract addresses get the admin roles.",
+      "evidence": "_deployVault grants OWNER_ROLE to vaultOwner and ATOMIST_ROLE to atomist. The signer only gets WHITELIST_ROLE.",
+      "fix": "Use an intent such as \"Deploy Tesseract-managed vault\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deployVaultWithPermit: actual fees, fee recipient and vault roles come from storage and cannot be shown.",
+      "evidence": "_deployVault reads managementFee, performanceFee, feeRecipient, vaultOwner, atomist and guardian from storage.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.299,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 86,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deployVault(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 51,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "deployVault intent 'Deploy Vault' leaves out the USDC deposit and the shares the signer receives.",
+   "comprehension": 75
+  },
+  "deployVaultWithPermit(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee, uint256 deadline, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "deployVaultWithPermit intent says 'Deploy Vault (Permit)' but not that USDC is deposited and shares are received.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 43,
+  "functions": "2C",
+  "incomplete": false,
+  "worst": "deployVault intent 'Deploy Vault' leaves out the USDC deposit and the shares the signer receives."
+ }
+}

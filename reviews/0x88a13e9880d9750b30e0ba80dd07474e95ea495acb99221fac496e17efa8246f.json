@@ -1,0 +1,280 @@
+{
+ "hash": "0x88a13e9880d9750b30e0ba80dd07474e95ea495acb99221fac496e17efa8246f",
+ "file": "registry/flyingtulip/calldata-PftMarketplace.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 146,
+   "address": "0x9bb958d459a97e3e37e11becf842e728167d9114"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addListing(uint256 tokenId, address token, uint256 price, uint40 expires)",
+    "effects": [
+     "Creates a standing sell order: anyone can buy the signer's pFT NFT tokenId for `price` of `token` (address(0) = native S) until `expires`.",
+     "Nothing moves now; on a fill the marketplace moves the NFT from the signer using the approval the signer already gave.",
+     "On a fill the signer receives price minus the maker fee (a rate read from storage, up to 10%)."
+    ],
+    "shown": "\"List PUT pFT NFT #N\" with the position, the price in its token and the expiry date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "addListing: 'Price' does not say the seller gets the price minus the maker fee.",
+      "evidence": "pFTMarketplace.sol buy(): sellerAmount = listing.price - makerFee; descriptor addListing field label 'Price'.",
+      "fix": "Label it 'Listing price (maker fee deducted)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "addListing: interpolatedIntent leaves out the price, which is the main term of the listing.",
+      "evidence": "descriptor interpolatedIntent 'List PUT {tokenId}'; price is only a field.",
+      "fix": "Use 'List PUT {tokenId} for {price} until {expires}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "addListing: an expiry of type(uint40).max means 'never', but it is shown as a far-future date.",
+      "evidence": "pFTMarketplace.sol addListing natspec: 'use type(uint40).max for never'; field 'Expires' format date.",
+      "fix": "No descriptor field can render it as 'Never'. The date shown is the value sent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No asset moved. The reader correctly saw a listing of NFT #55 at 0.123 S."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "editListing(uint256 tokenId, address token, uint256 price, uint256 expires)",
+    "effects": [
+     "Overwrites the payment token, price and expiry of the signer's existing listing for tokenId. This can also revive an expired listing.",
+     "Nothing moves now; on a fill the signer gets price minus the maker fee in the new token."
+    ],
+    "shown": "\"Edit PUT pFT NFT #N\" with the position, the new price in its token and the new expiry.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "editListing: 'Price' does not say the seller gets the price minus the maker fee.",
+      "evidence": "pFTMarketplace.sol buy(): sellerAmount = listing.price - makerFee; descriptor editListing field label 'Price'.",
+      "fix": "Label it 'New listing price (maker fee deducted)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "editListing: interpolatedIntent leaves out the new price and token.",
+      "evidence": "descriptor interpolatedIntent 'Edit PUT {tokenId}'.",
+      "fix": "Use 'Relist PUT {tokenId} at {price} until {expires}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No asset moved. The reader correctly saw the new price and expiry for NFT #8."
+     }
+    ],
+    "glance": 75,
+    "depth": 85
+   },
+   {
+    "key": "removeListing(uint256 tokenId)",
+    "effects": [
+     "Deletes the signer's listing for tokenId, so it can no longer be bought through the marketplace. No asset moves."
+    ],
+    "shown": "\"Remove PUT pFT NFT #N\" with the position.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "buy(uint256 tokenId, address expectedToken, uint256 expectedPrice, bytes32 expectedPutHash, (uint256 nonce, uint40 deadline, bytes signature) permit2Data)",
+    "effects": [
+     "The signer pays the listing price plus the taker fee: price + price*takerFeeRate/10000.",
+     "With native S, msg.value must be at least price + taker fee, and any excess is refunded to the signer. With an ERC20, the contract pulls price + taker fee from the signer by transferFrom, or by a Permit2 transfer the signer signed.",
+     "The seller receives price minus the maker fee; the fee recipient receives both fees.",
+     "The signer receives pFT NFT tokenId from the seller.",
+     "The listing is deleted."
+    ],
+    "shown": "\"Buy PUT pFT NFT #N\" with the position, the listing price in its token, and a permit deadline. Native value sent is not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "hidden-value",
+      "title": "buy: the signer pays price plus taker fee, but the screen shows only the price and no native value.",
+      "evidence": "Case 7: signer sent 0.123369 S (value 123369000000000000); screen 'Price' shows 0.123 S. pFTMarketplace.sol buy(): buyerPaymentAmount = listing.price + takerFee; require(msg.value >= buyerPaymentAmount). The function is payable and the descriptor has no @.value field.",
+      "fix": "Add an '@.value' field 'Total paid (incl. taker fee)' with format amount. Relabel 'Price' as 'Listing price (taker fee added)', because ERC20 buys also pull price + takerFee.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "buy: 'Permit deadline' shows 1970-01-01 when no Permit2 signature is used.",
+      "evidence": "Case 7 screen 'Permit deadline: 1970-01-01 00:00:00Z'; buy() ignores permit2Data when the signature is empty. The reader was unsure whether the transaction would fail.",
+      "fix": "Set visible: {\"ifNotIn\": [\"0\"]} on permit2Data.deadline.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "buy: the seller who gets paid comes from storage and is not shown.",
+      "evidence": "pFTMarketplace.sol buy(): _distributeNativePayment(listing.seller, ...); the seller is not in calldata.",
+      "fix": "None. The NFT, token and price are bound by expected* checks.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The NFT #55 coming in is shown right. The S paid is shown as 0.123 S but was really 0.123369 S because of the taker fee, so the reader got the amount wrong."
+     }
+    ],
+    "glance": 75,
+    "depth": 55
+   },
+   {
+    "key": "acceptBuyOffer((address buyer, address denominationToken, uint96 minAmountRemaining, uint96 minFt, uint96 minStrike, address paymentToken, uint96 price, uint256 nonce, uint40 deadline) offer, uint256 tokenId, bytes signature, bytes permit2Signature, uint256 permit2Nonce, bytes32 expectedPutHash)",
+    "effects": [
+     "The signer's pFT NFT tokenId is transferred from the signer to offer.buyer.",
+     "The signer receives offer.price minus the maker fee in offer.paymentToken (an ERC20), paid by the buyer through Permit2.",
+     "Any listing the signer had for tokenId is deleted."
+    ],
+    "shown": "\"Accept offer pFT NFT #N\" with the position, the offer price in the payment token, the buyer, and the offer expiry.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "acceptBuyOffer: the seller gets the offer price minus the maker fee, but the full price is shown.",
+      "evidence": "pFTMarketplace.sol _processOfferPayment(): sellerAmount = offer.price - makerFee; safeTransfer(msg.sender, sellerAmount). The descriptor field 'Offer price' is offer.price.",
+      "fix": "Relabel as 'Offer price (maker fee deducted)' so the screen does not imply the full amount arrives.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "acceptBuyOffer: the intent does not say the NFT is sold and leaves the wallet.",
+      "evidence": "descriptor intent 'Accept FT PUT offer' and interpolatedIntent 'Accept offer {tokenId}'; the code calls _pFT.safeTransferFrom(msg.sender, offer.buyer, tokenId).",
+      "fix": "Use 'Sell PUT {tokenId} to {offer.buyer} for {offer.price}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.503,
+ "account": "ethereum_foundation",
+ "hiddenValue": [
+  "buy(uint256 tokenId, address expectedToken, uint256 expectedPrice, bytes32 expectedPutHash, (uint256 nonce, uint40 deadline, bytes signature) permit2Data)"
+ ],
+ "seconds": 104,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "addListing(uint256 tokenId, address token, uint256 price, uint40 expires)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "addListing: 'Price' does not say the seller gets the price minus the maker fee.",
+   "comprehension": null
+  },
+  "editListing(uint256 tokenId, address token, uint256 price, uint256 expires)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "editListing: 'Price' does not say the seller gets the price minus the maker fee.",
+   "comprehension": null
+  },
+  "removeListing(uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "buy(uint256 tokenId, address expectedToken, uint256 expectedPrice, bytes32 expectedPutHash, (uint256 nonce, uint40 deadline, bytes signature) permit2Data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "buy: the signer pays price plus taker fee, but the screen shows only the price and no native value.",
+   "comprehension": 75
+  },
+  "acceptBuyOffer((address buyer, address denominationToken, uint96 minAmountRemaining, uint96 minFt, uint96 minStrike, address paymentToken, uint96 price, uint256 nonce, uint40 deadline) offer, uint256 tokenId, bytes signature, bytes permit2Signature, uint256 permit2Nonce, bytes32 expectedPutHash)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "acceptBuyOffer: the seller gets the offer price minus the maker fee, but the full price is shown.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 65,
+  "clarity": 72,
+  "functions": "1A 2B 2F",
+  "incomplete": false,
+  "worst": "buy: the signer pays price plus taker fee, but the screen shows only the price and no native value."
+ }
+}

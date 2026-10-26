@@ -1,0 +1,184 @@
+{
+ "hash": "0x449a0b2878ef58a0895d10240cd7058660f5150b2cb6c4981e9bdfbdb5bf540c",
+ "file": "registry/tesseract/calldata-vault-deployer-WETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x6701241e65d4bafc399ca4358e95960af3c041c4"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deployVault(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee)",
+    "effects": [
+     "Pulls initialDeposit WETH from the signer into the deployer, which needs a prior WETH approval, and deposits it into the newly cloned vault.",
+     "Mints teWETH vault shares to the signer for the deposit. PlasmaVault.deposit(initialDeposit, msg.sender) sets this; the share amount comes from the vault.",
+     "Grants the signer WHITELIST_ROLE on the new vault.",
+     "OWNER, ATOMIST, GUARDIAN, ALPHA, FUSE_MANAGER and rewards roles over the vault holding the signer's deposit go to addresses the deployer owner set. The signer gets no admin role.",
+     "Sets the vault's management and performance fees from deployer storage, paid to feeRecipient. Reverts if they are above maxManagementFee or maxPerformanceFee. A DAO fee package from storage also applies."
+    ],
+    "shown": "Deploy Vault: ticker teWETH, an initial deposit of 0.02 WETH, and max management and performance fees of 0.25% and 30%.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deployVault intent 'Deploy Vault' leaves out that the signer deposits WETH and receives shares.",
+      "evidence": "descriptor intent \"Deploy Vault\", interpolatedIntent absent. The code runs safeTransferFrom(msg.sender, ..., initialDeposit) and PlasmaVault.deposit(initialDeposit, msg.sender). Case 0 moves 0.02 WETH out and teWETH in.",
+      "fix": "Add interpolatedIntent \"Deploy teWETH vault and deposit {initialDeposit}\", or set intent to \"Deploy vault and deposit WETH\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "deployVault grants the signer WHITELIST_ROLE on the new vault, and the screen does not say so.",
+      "evidence": "TesseractVaultDeployer.sol _deployVault: accessManager.grantRole(Roles.WHITELIST_ROLE, msg.sender, 0). No field or intent mentions the role. Not critical: the role is the access needed for the vault being deployed (not_critical #12/#13).",
+      "fix": "Mention in the intent or a label that the signer is whitelisted as depositor of the new vault, for example \"Deploy vault (you are whitelisted depositor)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deployVault: Tesseract-set addresses, not the signer, own and operate the vault that holds the deposit.",
+      "evidence": "_deployVault: grantRole(OWNER_ROLE, vaultOwner), grantRole(ATOMIST_ROLE, atomist), grantRole(ALPHA_ROLE, alpha), GUARDIAN_ROLE to guardian, all from storage. In case 0 the reader was unsure who controls the vault.",
+      "fix": "Storage values cannot be shown. A label or intent wording such as \"Deploy Tesseract-managed vault\" would set expectations.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deployVault: actual fee rates, the fee recipient, the DAO fee package and the redemption delay come from storage.",
+      "evidence": "_deployVault uses managementFee, performanceFee, feeRecipient, daoFeePackageIndex and REDEMPTION_DELAY_IN_SECONDS from storage. The screen shows only the user's max fee bounds, which the code enforces.",
+      "fix": "None in the descriptor. The max-fee labels are correct bounds.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deployVault: the number of teWETH shares received is not shown. The vault decides it at deposit.",
+      "evidence": "Case 0: the signer receives 2000000000000000000 teWETH (decimals 20), and no field shows the amount. The screen only shows the ticker 'teWETH'.",
+      "fix": "No calldata value carries the share amount. Wording like \"receive teWETH shares\" in the intent helps.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "0.02 WETH out is shown exactly. teWETH shares in: only the ticker is shown, with no amount and no explicit recipient. The reader inferred shares to self but did not know the amount."
+     }
+    ],
+    "glance": 50,
+    "depth": 68
+   },
+   {
+    "key": "deployVaultWithPermit(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Tries WETH.permit(signer, deployer, initialDeposit, deadline, v, r, s). If that fails, it requires an existing allowance of at least initialDeposit.",
+     "Pulls initialDeposit WETH from the signer and deposits it into the newly cloned vault.",
+     "Mints teWETH vault shares to the signer.",
+     "Grants the signer WHITELIST_ROLE on the new vault.",
+     "Admin roles over the vault go to Tesseract-configured addresses. Fees from storage, bounded by the max fee inputs, are set with feeRecipient."
+    ],
+    "shown": "Deploy Vault (Permit): ticker teWETH, the initial deposit in WETH, max management and performance fees, and the permit deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deployVaultWithPermit intent leaves out the WETH deposit and the shares received.",
+      "evidence": "intent \"Deploy Vault (Permit)\", no interpolatedIntent. _deployVault pulls initialDeposit from msg.sender and deposits to msg.sender.",
+      "fix": "Add interpolatedIntent \"Deploy teWETH vault and deposit {initialDeposit}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "deployVaultWithPermit grants the signer WHITELIST_ROLE on the new vault, and the screen does not say so.",
+      "evidence": "_deployVault: accessManager.grantRole(Roles.WHITELIST_ROLE, msg.sender, 0). Not shown.",
+      "fix": "Mention the depositor whitelisting in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deployVaultWithPermit: WETH9 has no permit, so 'Permit deadline' suggests a permit that does nothing.",
+      "evidence": "deployVaultWithPermit: try IERC20Permit(UNDERLYING_TOKEN).permit(...). Mainnet WETH9 (0xC02a...) has no permit. Its payable fallback calls deposit() and succeeds silently, so the tx only works with a prior approve. The descriptor shows the field 'Permit deadline'.",
+      "fix": "Consider a note that WETH needs a prior approval, or drop the deadline field for this WETH-bound deployer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deployVaultWithPermit: vault control, actual fees, recipient and share amount come from storage or the vault.",
+      "evidence": "_deployVault: roles granted to vaultOwner/atomist/alpha/guardian, fees from managementFee/performanceFee to feeRecipient, shares from PlasmaVault.deposit.",
+      "fix": "None in the descriptor. Wording like \"Tesseract-managed vault\" could help.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 48,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.317,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 81,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deployVault(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deployVault grants the signer WHITELIST_ROLE on the new vault, and the screen does not say so.",
+   "comprehension": 75
+  },
+  "deployVaultWithPermit(uint256 initialDeposit, uint256 maxManagementFee, uint256 maxPerformanceFee, uint256 deadline, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 51,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deployVaultWithPermit grants the signer WHITELIST_ROLE on the new vault, and the screen does not say so.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 58,
+  "functions": "1B 1C",
+  "incomplete": false,
+  "worst": "deployVaultWithPermit grants the signer WHITELIST_ROLE on the new vault, and the screen does not say so."
+ }
+}

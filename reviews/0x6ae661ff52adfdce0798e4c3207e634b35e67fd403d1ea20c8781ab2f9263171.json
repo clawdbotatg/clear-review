@@ -1,0 +1,199 @@
+{
+ "hash": "0x6ae661ff52adfdce0798e4c3207e634b35e67fd403d1ea20c8781ab2f9263171",
+ "file": "registry/morpho/calldata-gauntlet-uniETH-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x98d2b241da14c5dd848812708eb8a1f3c5512f9d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` WETH from the signer and sends it to the vault (safeTransferFrom in enter).",
+     "Mints vault shares (previewDeposit(assets), rounded down) to `onBehalf`, which may not be the signer.",
+     "The vault may then send the WETH on to its liquidity adapter. The signer's balances do not change from this."
+    ],
+    "shown": "Deposit a set amount of WETH into the vault, with uniETH-labelled shares sent to the onBehalf address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "deposit: the share ticker constant 'uniETH' is not the vault share token's on-chain symbol ('wethpv').",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"uniETH\", shown as the 'Share ticker' field. Case 0 mined: the share mint of 0x98d2…2f9d has symbol \"wethpv\". uniETH is also the name of a separate liquid staking token. VaultV2.setSymbol lets the owner change the symbol.",
+      "fix": "Drop the hard-coded ticker and use the vault's real symbol, or rename the constant to match it, e.g. 'Gauntlet WETH vault shares'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted comes from the share price in storage and is not shown.",
+      "evidence": "VaultV2.deposit: uint256 shares = previewDeposit(assets); the value is not in the calldata.",
+      "fix": "None possible today.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.000000001 WETH out to the vault matches the screen. The shares went to 0xdead, which the screen shows."
+     }
+    ],
+    "glance": 85,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns vault shares (previewWithdraw(assets), rounded up) from `onBehalf`. If the caller is not onBehalf, this spends the caller's share allowance from onBehalf.",
+     "Sends exactly `assets` WETH from the vault to `receiver`.",
+     "Can pull liquidity out of the liquidity adapter to cover the withdrawal. The signer's balances do not change from this."
+    ],
+    "shown": "Withdraw an exact amount of WETH to the receiver, with the owner of the shares shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is set by the share price in storage and is not shown.",
+      "evidence": "VaultV2.withdraw: uint256 shares = previewWithdraw(assets); deleteShares(onBehalf, shares). Case 1 burned 7.2398 shares, and no field shows this.",
+      "fix": "None possible from calldata. The intent could say 'burns vault shares from Owner'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "8.000504946525092365 WETH in to the signer matches the screen exactly. The burn of 7.2398 shares is not shown on screen. The reader inferred it but had no amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf`. If the caller is not onBehalf, this spends the caller's share allowance from onBehalf.",
+     "Sends previewRedeem(shares) WETH from the vault to `receiver`. That amount comes from the share price in storage.",
+     "Can pull liquidity out of the liquidity adapter. The signer's balances do not change from this."
+    ],
+    "shown": "Redeem a number of 'uniETH' shares to the receiver, with the owner shown. The asset received is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says WETH is received, though the underlying token is a known constant.",
+      "evidence": "VaultV2.exit: SafeERC20Lib.safeTransfer(asset, receiver, assets), and asset is the WETH immutable. The descriptor intent is 'Redeem {#.shares} to {#.receiver}', with no field for the underlying. Case 2: the signer received 48500648071 wei of WETH, and the reader was unsure which asset or how much.",
+      "fix": "Name the underlying in the intent, e.g. 'Redeem vault shares for WETH to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the amount of WETH received comes from the share price in storage and cannot be shown.",
+      "evidence": "VaultV2.redeem: uint256 assets = previewRedeem(shares); there is no minimum-out parameter.",
+      "fix": "None possible today.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "redeem: shares are shown as 'uniETH', but the vault token's on-chain symbol is 'wethpv'.",
+      "evidence": "Case 2 screen: '0.000000043881285521 uniETH'. Mined effect: shares of 0x98d2…2f9d with symbol \"wethpv\" burned from the signer. uniETH is the name of a different real token.",
+      "fix": "Remove the uniETH ticker metadata so the vault's real symbol shows, or relabel it 'vault shares'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares burned match the screen amount, though the ticker label differs. The WETH received (48500648071 wei) is not shown on screen. The reader knew something comes back but not the asset or the amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.337,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 70,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the share ticker constant 'uniETH' is not the vault share token's on-chain symbol ('wethpv').",
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never says WETH is received, though the underlying token is a known constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 80,
+  "clarity": 80,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says WETH is received, though the underlying token is a known constant."
+ }
+}

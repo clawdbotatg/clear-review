@@ -1,0 +1,190 @@
+{
+ "hash": "0x318506e47d4f8099a6b47b3bb581fc4e9bf61edbafe5dd34ee89c4dec2c810fe",
+ "file": "registry/morpho/calldata-gauntlet-uniUSDT-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb8274efadb953fe9ae052d481a3fc5b6a3ced703"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` USDT is pulled from the signer into the vault with transferFrom, using the signer's USDT allowance to the vault.",
+     "Vault shares, previewDeposit(assets) at the current share price after interest and fees accrue, are minted to `onBehalf`.",
+     "The deposited USDT is then allocated to the liquidity adapter. This is internal to the vault and moves nothing more of the signer's."
+    ],
+    "shown": "Deposit the USDT amount, a fixed 'uniUSDT' share ticker, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the 'Share ticker' field is a hardcoded constant 'uniUSDT'; on-chain share symbol reads 'usdtpv'.",
+      "evidence": "descriptor.json deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'} = 'uniUSDT'. cases/0.json mined effect: shares minted with symbol 'usdtpv'. VaultV2.sol setSymbol() lets the owner change symbol at any time.",
+      "fix": "Drop the constant ticker field, or show the share token through a field bound to the vault contract (tokenPath @.to) so it follows the real symbol.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is computed from storage and is not shown.",
+      "evidence": "VaultV2.sol deposit(): shares = previewDeposit(assets) from accrueInterestView(); there is no calldata parameter for it.",
+      "fix": "None in the descriptor. The amount depends on the share price at execution.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1 USDT out is shown right. Shares were minted to 0xdEaD, not to the signer, and the screen shows that recipient. The reader correctly saw the shares going to the dead address."
+     }
+    ],
+    "glance": 82,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Vault shares, previewWithdraw(assets) rounded up, are burned from `onBehalf`.",
+     "If the caller is not `onBehalf`, the caller's share allowance from `onBehalf` is spent by the burned shares.",
+     "Exactly `assets` USDT is sent from the vault to `receiver`."
+    ],
+    "shown": "Withdraw exactly the USDT amount to the receiver, with the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is computed from storage and is not shown.",
+      "evidence": "VaultV2.sol withdraw(): shares = previewWithdraw(assets); exit() calls deleteShares(onBehalf, shares). cases/1.json: 2.493093 usdtpv burned from the signer, and no field gives this amount.",
+      "fix": "None in the descriptor. The 'Owner' field already says whose shares are used.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "USDT in (2.501328 to the signer) is shown exactly. The shares burned were not stated (spec limitation). The reader understood that a position is reduced but did not know the share amount."
+     }
+    ],
+    "glance": 82,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` vault shares are burned from `onBehalf`.",
+     "If the caller is not `onBehalf`, the caller's share allowance from `onBehalf` is spent.",
+     "USDT, previewRedeem(shares) at the current share price with no minimum enforced, is sent from the vault to `receiver`."
+    ],
+    "shown": "Redeem the share amount (vault token) to the receiver, with the owner whose shares are burned. Nothing names what is received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: neither the intent nor any field says USDT is received; the payout asset is unnamed.",
+      "evidence": "descriptor.json redeem interpolatedIntent 'Redeem {#.shares} to {#.receiver}', fields: shares, receiver, onBehalf only. VaultV2.sol exit(): SafeERC20Lib.safeTransfer(asset, receiver, assets). cases/2.json: 63811.518819 USDT in to the signer is not stated. The reader wrote 'Underlying asset of the vault (likely USDT), amount not shown'.",
+      "fix": "Name the payout asset, for example interpolatedIntent 'Redeem {#.shares} for USDT to {#.receiver}' and intent 'Redeem shares for USDT'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT amount received is computed from storage, with no minimum, and cannot be shown.",
+      "evidence": "VaultV2.sol redeem(): assets = previewRedeem(shares); there is no min-assets parameter.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "63722.785 shares out is shown right (the share token resolves through @.to). The 63811.52 USDT in is neither named nor given an amount. The reader guessed USDT and did not know the amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.383,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 76,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the 'Share ticker' field is a hardcoded constant 'uniUSDT'; on-chain share symbol reads 'usdtpv'.",
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: neither the intent nor any field says USDT is received; the payout asset is unnamed.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 80,
+  "clarity": 80,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem: neither the intent nor any field says USDT is received; the payout asset is unnamed."
+ }
+}

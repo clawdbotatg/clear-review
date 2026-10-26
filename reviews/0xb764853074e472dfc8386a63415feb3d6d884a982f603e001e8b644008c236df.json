@@ -1,0 +1,94 @@
+{
+ "hash": "0xb764853074e472dfc8386a63415feb3d6d884a982f603e001e8b644008c236df",
+ "file": "registry/symbiotic/calldata-DefaultStakerRewards.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x41f640b4f6a12170364589bcb3835dbe0c21c20b"
+  },
+  {
+   "chainId": 1,
+   "address": "0xe7b6dafe6e5e3d6f7fa3ed7624633e4518b1bc54"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "claimRewards(address recipient,address token,bytes data)",
+    "effects": [
+     "Sends the signer's accrued rewards in `token` from the rewards contract to `recipient`. The amount is worked out on chain from the signer's vault shares at each distribution's timestamp. It is not in the calldata.",
+     "Advances the signer's lastUnclaimedReward[signer][token][network] by min(maxRewards, remaining distributions). Those distributions count as claimed and cannot be claimed again.",
+     "Reverts if recipient is the zero address or if no distributions are left to claim. Not payable, so no native value is taken. The hints in data only speed up vault lookups and move no assets."
+    ],
+    "shown": "\"Claim staker rewards\" / \"Claim <token> to <recipient> for <network>\", with fields for the rewards contract, recipient, reward token ticker, network address and the maximum number of distributions to process. Hints are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimRewards: the reward amount sent to the recipient is not shown because it is computed on chain",
+      "evidence": "DefaultStakerRewards.sol claimRewards: `amount += IVault(VAULT).activeSharesOfAt(msg.sender, reward.timestamp, activeSharesOfHints[i]).mulDiv(reward.amount, _activeSharesCache[reward.timestamp]);` then `IERC20(token).safeTransfer(recipient, amount);`. The descriptor has no amount field and none is possible, because the amount is not in the calldata.",
+      "fix": "None possible in the descriptor. The amount is derived from storage and vault snapshots.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "claimRewards: 'claim all' max distributions renders as a 78-digit number",
+      "evidence": "Cases 3 and 5 show field 'Max reward distributions (max value = all)' = 115792089237316195423570985008687907853269984665640564039457584007913129639935. The descriptor uses format `unit` with decimals 0 on `#.data.[32:64]`. The code uses `Math.min(maxRewards, rewardsByTokenNetwork.length - lastUnclaimedReward_)`, so any value at or above the remaining count claims everything.",
+      "fix": "The `unit` format has no threshold/message, so the label is the only lever. Something like 'Max distributions to claim (large value = all remaining)' would match the min() rule more closely.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimRewards: interpolated intent 'for {network}' does not say the address is the paying network",
+      "evidence": "descriptor interpolatedIntent \"Claim {token} to {recipient} for {data.[12:32]}\" renders as \"Claim USDC to 0x2222… for 0x4444…\" (case 0). The code uses this address as the network whose reward distributions are claimed: `rewards[token][network]`.",
+      "fix": "Use \"Claim {token} rewards from network {data.[12:32]} to {recipient}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 82
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.329,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 51,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "claimRewards(address recipient,address token,bytes data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 80,
+  "functions": "1A",
+  "incomplete": false,
+  "worst": null
+ }
+}

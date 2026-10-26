@@ -1,0 +1,288 @@
+{
+ "hash": "0xc308f658cfcc3d62cfbf6830067709aa67c1a1bcbe0bf3064f8a105526ce0c1c",
+ "file": "registry/symbiotic/calldata-VaultV1-MANTA.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2261e453df37b9c64176b5299c7e61da7f85057a"
+  },
+  {
+   "chainId": 1,
+   "address": "0x2377255c9a0260b4fe51eb875359f344a250e895"
+  },
+  {
+   "chainId": 1,
+   "address": "0x2e0a32d30bcabf01a849adde10ce1e28665f04b2"
+  },
+  {
+   "chainId": 1,
+   "address": "0x4b7d63af4f78b12e86183e14b867b0c211b5b67e"
+  },
+  {
+   "chainId": 1,
+   "address": "0x56fbf789e8d434f0cc8178b254dac337a24c2b2f"
+  },
+  {
+   "chainId": 1,
+   "address": "0x8cf1a34f0e8011206391b6ba56e989f68df1a708"
+  },
+  {
+   "chainId": 1,
+   "address": "0xbf624ec4dd4a52ca613b5713c97dbd71c39eaae2"
+  },
+  {
+   "chainId": 1,
+   "address": "0xcbb704c163257008582f3eed2c9466f34893ce58"
+  },
+  {
+   "chainId": 1,
+   "address": "0xd45771fdc8dc42cdd764b6187fe23191673ccbc4"
+  },
+  {
+   "chainId": 1,
+   "address": "0xdbbeed449aba85bc9afce64ade9954074697c843"
+  },
+  {
+   "chainId": 1,
+   "address": "0xdc9e761de67a419f4898ec0c449ac6e246f364ea"
+  },
+  {
+   "chainId": 1,
+   "address": "0xeb70dd367b3ce1221d4d325cb1cf71cec9d5de26"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` of the vault collateral (MANTA, 0x95CeF134… in 0x2261's init data) from the signer into the vault through transferFrom, using the signer's existing allowance.",
+     "Mints active vault shares for the deposited amount and credits them to `onBehalfOf`, not to the signer. The shares can be slashed.",
+     "Reverts when onBehalfOf is zero, when the signer is not whitelisted while the whitelist is on, or when the deposit limit would be exceeded."
+    ],
+    "shown": "Deposit 123.25 MANTA for the beneficiary address into the named vault, with the vault, amount and beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to onBehalfOf comes from vault storage and is not shown.",
+      "evidence": "Vault.sol deposit: mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...). The share count depends on activeStake and activeShares in storage, which are not in the calldata.",
+      "fix": "None needed. The beneficiary and the asset amount already state the position.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns enough of the signer's active shares to cover `amount` of collateral (rounded up). Reverts if the signer holds too few.",
+     "Moves `amount` of collateral into the next epoch's withdrawal pool and mints withdrawal shares for that epoch to `claimer`, who alone can claim the MANTA after the epoch ends.",
+     "Nothing leaves or arrives in the signer's wallet in this call."
+    ],
+    "shown": "Request a withdrawal of 2.5 MANTA for the claim owner, with the vault, amount and claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of active shares burned is computed from storage and not shown.",
+      "evidence": "Vault.sol withdraw: burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake()); the amount of assets is shown as 'Requested assets'.",
+      "fix": "None. The asset amount fixes the position change.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "withdraw: the screen does not say the funds are claimable only after the next epoch.",
+      "evidence": "Vault.sol _withdraw: uint256 epoch = currentEpoch() + 1; withdrawalSharesOf[epoch][claimer] += mintedShares. Intent: 'Request withdrawal'.",
+      "fix": "An intent such as 'Request withdrawal (claimable next epoch)' would set the right expectation.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 88
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns exactly `shares` of the signer's active vault shares. Reverts if the signer holds fewer.",
+     "Converts them at the current rate into collateral, moves that collateral into the next epoch's withdrawal pool, and mints withdrawal shares for that epoch to `claimer`.",
+     "Nothing leaves or arrives in the signer's wallet in this call. The MANTA value is decided from storage."
+    ],
+    "shown": "Queue 987654321123456789 raw shares for the claim owner, with the vault, the raw share count and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is a raw 18-digit integer that a person cannot read.",
+      "evidence": "descriptor redeem field '#.shares' 'Vault shares (raw)' format raw; case 13 shows 987654321123456789. ERC4626Math._decimalsOffset() returns 0, so shares are on the collateral's 18-decimal scale.",
+      "fix": "Use format 'unit' with decimals 18 and a 'shares' unit, or a label that explains the scale, so the signer reads about 0.99 shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the MANTA amount that gets queued comes from the vault's exchange rate and is not shown.",
+      "evidence": "Vault.sol redeem: withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares()).",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed. Reverts if the epoch has not ended, was already claimed, or holds nothing.",
+     "Sends the signer's full withdrawal amount for that epoch, in collateral (MANTA), to `recipient`."
+    ],
+    "shown": "Claim epoch 42 to the recipient, with the vault, epoch and recipient as fields. No token or amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the claimed MANTA amount comes from storage and is not shown.",
+      "evidence": "Vault.sol claim: amount = _claim(epoch); IERC20(collateral).safeTransfer(recipient, amount); _claim: amount = withdrawalsOf(epoch, msg.sender).",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: the intent and fields never name the asset (MANTA) that goes to the recipient.",
+      "evidence": "descriptor claim intent 'Claim withdrawal', interpolatedIntent 'Claim epoch {epoch} to {recipient}'. Vault.sol claim transfers IERC20(collateral).",
+      "fix": "Name the token, e.g. 'Claim MANTA withdrawal' / 'Claim MANTA from epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawal for each listed epoch as claimed. Reverts if any epoch has not ended, was already claimed, or holds nothing.",
+     "Sends the sum of those withdrawals, in collateral (MANTA), to `recipient` in one transfer."
+    ],
+    "shown": "Claim epochs 42, 44 and 128 to the recipient, with the vault, each epoch and the recipient as fields. No token or amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total MANTA claimed comes from storage and is not shown.",
+      "evidence": "Vault.sol claimBatch: amount += _claim(epochs[i]); IERC20(collateral).safeTransfer(recipient, amount).",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimBatch: the intent and fields never name the asset (MANTA) that goes to the recipient.",
+      "evidence": "descriptor claimBatch intent 'Claim withdrawals', interpolatedIntent 'Claim epochs {epochs.[]} to {recipient}'. Vault.sol claimBatch transfers IERC20(collateral).",
+      "fix": "Name the token, e.g. 'Claim MANTA withdrawals' / 'Claim MANTA from epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "The directory has source and init data only for 1:0x2261e453…, whose init data sets collateral to MANTA (0x95CeF134…). The other 11 deployments (0x2377255c…, 0x2e0a32d3…, 0x4b7d63af…, 0x56fbf789…, 0x8cf1a34f…, 0xbf624ec4…, 0xcbb704c1…, 0xd45771fd…, 0xdbbeed44…, 0xdc9e761d…, 0xeb70dd36…) have no contract files. So I could not confirm that their collateral is MANTA, which the hard-coded underlyingToken constant assumes for every tokenAmount."
+  ]
+ },
+ "cost": 0.397,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 123,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is a raw 18-digit integer that a person cannot read.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the intent and fields never name the asset (MANTA) that goes to the recipient.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the intent and fields never name the asset (MANTA) that goes to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 73,
+  "functions": "2A 3B",
+  "incomplete": true,
+  "worst": "redeem: the share amount is a raw 18-digit integer that a person cannot read."
+ }
+}

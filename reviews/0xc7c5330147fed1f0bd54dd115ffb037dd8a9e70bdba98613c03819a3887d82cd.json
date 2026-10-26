@@ -1,0 +1,198 @@
+{
+ "hash": "0xc7c5330147fed1f0bd54dd115ffb037dd8a9e70bdba98613c03819a3887d82cd",
+ "file": "registry/morpho/calldata-sparkdao-sparkUSDTbc-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb0c424116172b55cbb6dd3136f5989f7959e5b91"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDT to the vault (safeTransferFrom from msg.sender).",
+     "The vault mints sparkUSDTbc shares to `onBehalf`. The number comes from the current share price (previewDeposit), and no minimum applies.",
+     "The vault may move the deposited USDT into its liquidity adapter. This does not change what the signer pays or receives."
+    ],
+    "shown": "Deposit 1 USDT, with sparkUSDTbc shares sent to the onBehalf address. The number of shares minted is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares are minted; the contract sets the amount from the share price, with no minimum.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The calldata has no minShares parameter, so no field can show a bound.",
+      "fix": "None in the descriptor. The amount is read from storage at execution.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit shows the share ticker as a separate raw constant field instead of placing it in the recipient line.",
+      "evidence": "descriptor deposit field {\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}. The amount field label is 'Deposit asset' although it shows an amount.",
+      "fix": "Rename 'Deposit asset' to 'Amount'. Change the interpolatedIntent to 'Deposit {#.assets} for sparkUSDTbc shares to {#.onBehalf}' and drop the raw ticker field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The signer sends 1 USDT, which the screen shows. The 1e18 shares go to 0xdead (signer null). The reader saw that shares go to 0xdead."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns sparkUSDTbc shares from `onBehalf`. The number is previewWithdraw(assets), rounded up, and no maximum applies.",
+     "If msg.sender is not `onBehalf`, the vault spends that many shares from the signer's share allowance from `onBehalf`.",
+     "The receiver gets exactly `assets` USDT from the vault."
+    ],
+    "shown": "Withdraw exactly 16500 USDT to the receiver, with the Owner of the shares shown. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares it burns; the amount comes from the share price, with no maximum.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`, then `deleteShares(onBehalf, shares)` in exit. Case 1: 16394.98 sparkUSDTbc out of the signer, not on screen.",
+      "fix": "None in the descriptor. The share amount is computed from storage and the calldata has no maxShares bound.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw interpolatedIntent does not say that the Owner's sparkUSDTbc shares are burned.",
+      "evidence": "interpolatedIntent 'Withdraw {#.assets} to {#.receiver}'. The Owner field exists, but the sentence does not name the shares as the source of the USDT.",
+      "fix": "Change the interpolatedIntent to 'Withdraw {#.assets} from sparkUSDTbc to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows 16500 USDT in. The burn of 16394.98 sparkUSDTbc shares is not shown (it is computed). The reader guessed that shares leave but did not know the amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` sparkUSDTbc from `onBehalf`. If the signer is not onBehalf, the vault spends the signer's share allowance.",
+     "The receiver gets previewRedeem(shares) USDT. The share price sets this amount, and no minimum applies."
+    ],
+    "shown": "Redeem 6174.68 sparkUSDTbc to the receiver, with the Owner shown. Nothing states that USDT is received or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "The redeem screen never names USDT as the asset paid out; only the share ticker hints at it.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` with asset = USDT (immutable 0xdac17f…). Descriptor redeem shows only shares, receiver and owner. Case 2: the signer receives 6213.199789 USDT, and the screen does not name USDT.",
+      "fix": "Change interpolatedIntent to 'Redeem {#.shares} for USDT to {#.receiver}'. Or add a field labelled 'Receive' whose value is $.metadata.constants.underlyingTicker.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDT is received; the amount comes from the share price, with no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. The calldata has no minAssets parameter.",
+      "fix": "None in the descriptor. The amount is read from storage at execution.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the shares out. The USDT in (6213.199789) has no asset and no amount on screen. The reader guessed 'likely USDT' with no amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.421,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 107,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 94,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The redeem screen never names USDT as the asset paid out; only the share ticker hints at it.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 81,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "The redeem screen never names USDT as the asset paid out; only the share ticker hints at it."
+ }
+}

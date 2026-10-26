@@ -1,0 +1,140 @@
+{
+ "hash": "0xe1064de9fcd1a4a5f1817bf697c7633a63b81384697e2acb60f9c1fbd7e4bea8",
+ "file": "registry/feral-file/calldata-feralfile-vault-0.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x455464f0d369dac13002e81e9fab857f6ad21795"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "payForSale(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)",
+    "effects": [
+     "The signer (msg.sender) receives saleData_.price in ETH from the vault: payable(msg.sender).transfer(saleData_.price).",
+     "Nothing leaves the signer's wallet. The function is not payable and moves no tokens or NFTs from the signer.",
+     "The sale message keccak256(chainid, msg.sender, saleData_) is marked paid, so the same signed sale cannot be claimed again.",
+     "cost, destination, tokenIds and revenueShares are only checked against the Feral File signature. This call sends no funds or NFTs to them."
+    ],
+    "shown": "\"Pay for artwork sale\", with a Price, a Platform cost, a Recipient (the destination), the artworks resolved as NFTs of the vault contract, and the revenue-share recipients and bps.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "payForSale says the signer pays, but the vault actually pays Price in ETH to the signer.",
+      "evidence": "FeralfileVault.sol payForSale: `payable(msg.sender).transfer(saleData_.price);` with no payable modifier. Descriptor intent \"Pay for artwork sale\" and field `saleData_.price` labelled 'Price'. Case 0 screen: 'Price 0.5 ETH'.",
+      "fix": "Use an intent like \"Receive sale payment from Feral File vault\" and label the field \"You receive\". Add an interpolatedIntent such as \"Receive {saleData_.price} from vault for artwork sale\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-party",
+      "title": "payForSale shows destination as 'Recipient', but the ETH goes to msg.sender, not destination.",
+      "evidence": "payForSale transfers to `msg.sender`. `saleData_.destination` is used only inside the signed message hash. Descriptor field `saleData_.destination` label 'Recipient'. Case 0 shows 'Recipient: Receiver'.",
+      "fix": "Relabel destination as \"Sale contract\" or \"Artwork contract (FFV4)\" and state that the ETH is paid to the sender.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "payForSale 'Platform cost' suggests a charge, but no cost is taken in this call.",
+      "evidence": "payForSale never moves `saleData_.cost`. It is only hashed into the message. Descriptor field `saleData_.cost` label 'Platform cost'. Case 0 shows 'Platform cost 0.05 ETH'.",
+      "fix": "Label it \"Platform cost (in sale terms, not charged here)\" or hide it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "payForSale resolves artwork names against the vault (@.to), not the FFV4 artwork contract.",
+      "evidence": "Descriptor `saleData_.tokenIds.[]` nftName with `collectionPath: \"@.to\"`, which is the vault 0x4554...1795. The vault holds no NFTs, and the natspec says the sale goes to 'a FFV4 contract destination'. Case 0 shows 'Feral File Vault #1001'.",
+      "fix": "Set collectionPath to `saleData_.destination`, or show the token ids as raw values labelled \"Artwork token IDs\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "payForSale revenue-share fields sit in a nested array that runners do not iterate; bps is shown raw.",
+      "evidence": "Descriptor paths `saleData_.revenueShares.[].[].recipient` and `saleData_.revenueShares.[].[].bps` (format raw). Case 0 screen shows neither. These values move no signer assets in this call.",
+      "fix": "Waits on runner support for nested arrays.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "payForSale test case 0 would revert, so it does not exercise the function.",
+      "evidence": "cases/0.json sets value 0.5 ETH on a non-payable function, payByVaultContract=false (fails `require(saleData_.payByVaultContract)`), tokenIds length 1 with revenueShares length 0 (fails validateSaleData), and an empty signature.",
+      "fix": "Use a mined or realistic payForSale call with value 0, payByVaultContract=true and matching revenueShares.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 10,
+    "depth": 25
+   },
+   {
+    "key": "withdrawFund(uint256 weiAmount)",
+    "effects": [
+     "Only the owner can call this. The signer receives weiAmount in ETH from the vault balance (payable(msg.sender).transfer(weiAmount))."
+    ],
+    "shown": "\"Withdraw vault funds\" with the amount in ETH.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.296,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 39,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "payForSale(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 8,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "payForSale says the signer pays, but the vault actually pays Price in ETH to the signer.",
+   "comprehension": null
+  },
+  "withdrawFund(uint256 weiAmount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 50,
+  "clarity": 48,
+  "functions": "1A 1F",
+  "incomplete": false,
+  "worst": "payForSale says the signer pays, but the vault actually pays Price in ETH to the signer."
+ }
+}

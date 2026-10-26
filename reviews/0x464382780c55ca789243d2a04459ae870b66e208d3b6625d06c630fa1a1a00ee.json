@@ -1,0 +1,1181 @@
+{
+ "hash": "0x464382780c55ca789243d2a04459ae870b66e208d3b6625d06c630fa1a1a00ee",
+ "file": "registry/ekubo/calldata-Ve33Positions.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 4663,
+   "address": "0xda38ac72ce7220c4dd7719d114ef94edadb8f068"
+  },
+  {
+   "chainId": 46630,
+   "address": "0xda38ac72ce7220c4dd7719d114ef94edadb8f068"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 maxAmount0, uint128 maxAmount1, uint128 minLiquidity)",
+    "effects": [
+     "The signer pays up to maxAmount0 of token0 and up to maxAmount1 of token1; the contract pulls them with transferFrom from the signer to the Ekubo Core accountant.",
+     "When token0 is the native token (address(0)), amount0 is paid from the ETH the signer sends as msg.value; any ETH above amount0 stays in the contract and anyone can take it with refundNativeToken.",
+     "The liquidity of position id in the given tick range grows by at least minLiquidity; the position belongs to whoever owns NFT id, which can be another owner when the signer is only approved.",
+     "The call reverts if the liquidity is below minLiquidity or the amounts exceed the maximums."
+    ],
+    "shown": "\"Add Ve33 liquidity\" with the position ID, the maximum of each token with its token, raw minimum liquidity, raw ticks and the pool tokens; the native value sent is not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "deposit is payable and spends msg.value for a native token0, but no @.value field exists",
+      "evidence": "Ve33Positions.deposit is `public payable`; handleLockData: `if (amount0 != 0) SafeTransferLib.safeTransferETH(address(ACCOUNTANT), amount0);` pays from contract balance. PayableMulticallable.refundNativeToken sends `address(this).balance` to any msg.sender. The descriptor deposit format has no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "wrong-metadata",
+      "title": "deposit shows maxAmount0 for token0 = address(0) without nativeCurrencyAddress",
+      "evidence": "constants.sol: `address constant NATIVE_TOKEN_ADDRESS = address(0);` handleLockData branches on `poolKey.token0 != NATIVE_TOKEN_ADDRESS`. Descriptor field maxAmount0: `\"params\":{\"tokenPath\":\"poolKey.token0\"}` with no nativeCurrencyAddress.",
+      "fix": "Add \"nativeCurrencyAddress\": [\"0x0000000000000000000000000000000000000000\"] to the maxAmount0 params.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit interpolatedIntent omits the token amounts and the position shown in the fields",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Add Ve33 liquidity\"` while maxAmount0 and maxAmount1 are tokenAmount fields.",
+      "fix": "Change interpolatedIntent to \"Add up to {maxAmount0} and {maxAmount1} to position {id}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "deposit shows minimum liquidity and ticks as raw integers with no unit",
+      "evidence": "Descriptor fields minLiquidity, tickLower, tickUpper use `\"format\":\"raw\"`; maxLiquidity() in Ve33Positions.handleLockData derives liquidity from sqrt ratios.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity)",
+    "effects": [
+     "The signer removes `liquidity` from position id in the tick range.",
+     "The signer receives the token0 and token1 principal that this liquidity is worth at the current pool price; there is no minimum amount.",
+     "Native value sent stays in the contract and anyone can take it with refundNativeToken."
+    ],
+    "shown": "\"Withdraw {liquidity}\" with a raw liquidity number, the position ID, raw ticks and the pool tokens; no amounts out and no native value.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "withdraw is payable but has no @.value field; sent ETH stays claimable by anyone",
+      "evidence": "Ve33Positions.withdraw(5 args) is `external payable`; refundNativeToken sends `address(this).balance` to msg.sender. No `@.value` field in the format.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "withdraw interpolatedIntent reads 'Withdraw <raw number>' with no token or unit",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Withdraw {liquidity}\"`, field liquidity `\"format\":\"raw\"`.",
+      "fix": "Change interpolatedIntent to \"Withdraw {liquidity} liquidity from position {id}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw token amounts come from the pool price and have no minimum bound",
+      "evidence": "handleLockData CALL_TYPE_WITHDRAW: `uint128 amount0 = uint128(-balanceUpdate.delta0());` then `ACCOUNTANT.withdrawTwo(poolKey.token0, poolKey.token1, recipient, amount0, amount1);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 45
+   },
+   {
+    "key": "withdraw(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity, address recipient)",
+    "effects": [
+     "The signer removes `liquidity` from position id in the tick range.",
+     "The recipient receives the token0 and token1 principal this liquidity is worth; there is no minimum amount.",
+     "Native value sent stays in the contract and anyone can take it."
+    ],
+    "shown": "\"Withdraw {liquidity}\" with raw liquidity, the recipient, position ID, raw ticks and pool tokens; no native value.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "withdraw with recipient is payable but has no @.value field",
+      "evidence": "Ve33Positions.withdraw(6 args) is `public payable authorizedForNft(id)`; no `@.value` field in the format.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw interpolatedIntent omits the recipient and shows only raw liquidity",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Withdraw {liquidity}\"`; handleLockData sends tokens to `recipient`.",
+      "fix": "Change interpolatedIntent to \"Withdraw {liquidity} liquidity to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw token amounts come from the pool price and have no minimum bound",
+      "evidence": "handleLockData CALL_TYPE_WITHDRAW: `ACCOUNTANT.withdrawTwo(poolKey.token0, poolKey.token1, recipient, amount0, amount1);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   },
+   {
+    "key": "withdrawAndClaimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity)",
+    "effects": [
+     "The signer claims all accrued Ve33 rewards of the position, paid in stakeToken (0x570C5aa7…, STONX) to the signer.",
+     "The signer removes `liquidity` and receives the token0 and token1 principal; there is no minimum amount.",
+     "Native value sent stays in the contract and anyone can take it."
+    ],
+    "shown": "\"Withdraw + claim {liquidity}\" with raw liquidity, position ID, ticks and pool tokens; the reward token and native value are not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "withdrawAndClaimRewards is payable but has no @.value field",
+      "evidence": "Ve33Positions.withdrawAndClaimRewards(5 args) is `external payable`; no `@.value` field in the format.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "withdrawAndClaimRewards never names the reward token, though a rewardToken constant exists",
+      "evidence": "handleLockData: `ACCOUNTANT.withdraw(stakeToken, recipient, rewardAmount);` stakeToken immutable = 0x570c5aa7…; descriptor defines `\"rewardToken\": \"0x570C5aa7…\"` but no field uses it.",
+      "fix": "Add a field with \"value\": \"$.metadata.constants.rewardToken\", label \"Reward token\", format addressName.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "withdrawAndClaimRewards interpolatedIntent shows only raw liquidity",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Withdraw + claim {liquidity}\"`, liquidity `\"format\":\"raw\"`.",
+      "fix": "Change interpolatedIntent to \"Withdraw {liquidity} liquidity and claim rewards\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 45
+   },
+   {
+    "key": "withdrawAndClaimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity, address recipient)",
+    "effects": [
+     "All accrued Ve33 rewards of the position go to recipient in stakeToken (STONX).",
+     "`liquidity` is removed and the token0 and token1 principal goes to recipient; there is no minimum amount.",
+     "Native value sent stays in the contract and anyone can take it."
+    ],
+    "shown": "\"Withdraw + claim {liquidity}\" with raw liquidity, recipient, position ID, ticks and pool tokens; no reward token, no native value.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "withdrawAndClaimRewards with recipient is payable but has no @.value field",
+      "evidence": "Ve33Positions.withdrawAndClaimRewards(6 args) is `public payable`; no `@.value` field in the format.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "withdrawAndClaimRewards with recipient never names the reward token sent to the recipient",
+      "evidence": "handleLockData: `ACCOUNTANT.withdraw(stakeToken, recipient, rewardAmount);`; constant rewardToken unused in the descriptor.",
+      "fix": "Add a field with \"value\": \"$.metadata.constants.rewardToken\", label \"Reward token\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdrawAndClaimRewards interpolatedIntent omits the recipient of principal and rewards",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Withdraw + claim {liquidity}\"`.",
+      "fix": "Change interpolatedIntent to \"Withdraw {liquidity} and claim rewards to {recipient}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 50
+   },
+   {
+    "key": "claimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper)",
+    "effects": [
+     "The signer receives all accrued Ve33 rewards of the position in stakeToken (STONX); the amount comes from Ve33 state.",
+     "Native value sent stays in the contract and anyone can take it."
+    ],
+    "shown": "\"Claim rewards {id}\" with position ID, ticks and pool tokens; the reward token and native value are not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimRewards is payable but has no @.value field",
+      "evidence": "Ve33Positions.claimRewards(4 args) is `external payable`; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimRewards does not name the reward token the signer receives",
+      "evidence": "handleLockData CALL_TYPE_CLAIM_REWARDS: `ACCOUNTANT.withdraw(stakeToken, recipient, rewardAmount);`; constant rewardToken unused. Pool token fields suggest rewards in pool tokens.",
+      "fix": "Add a field with \"value\": \"$.metadata.constants.rewardToken\", label \"Reward token\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "claimRewards interpolatedIntent embeds a raw 192-bit position id",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Claim rewards {id}\"`; saltToId returns `uint192(keccak256(...))`.",
+      "fix": "Change interpolatedIntent to \"Claim Ve33 rewards for position {id}\" or drop the id.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 40
+   },
+   {
+    "key": "claimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, address recipient)",
+    "effects": [
+     "All accrued Ve33 rewards of the position go to recipient in stakeToken (STONX).",
+     "Native value sent stays in the contract and anyone can take it."
+    ],
+    "shown": "\"Claim rewards {id}\" with position ID, recipient, ticks and pool tokens; no reward token, no native value.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimRewards with recipient is payable but has no @.value field",
+      "evidence": "Ve33Positions.claimRewards(5 args) is `public payable authorizedForNft(id)`; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "claimRewards with recipient does not name the reward token",
+      "evidence": "handleLockData: `ACCOUNTANT.withdraw(stakeToken, recipient, rewardAmount);`; constant rewardToken unused.",
+      "fix": "Add a field with \"value\": \"$.metadata.constants.rewardToken\", label \"Reward token\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claimRewards interpolatedIntent omits the recipient and shows a raw id",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Claim rewards {id}\"` while recipient is a field.",
+      "fix": "Change interpolatedIntent to \"Claim Ve33 rewards to {recipient}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 45
+   },
+   {
+    "key": "maybeInitializePool((address token0, address token1, bytes32 config) poolKey, int32 tick)",
+    "effects": [
+     "If the pool is not initialized, it is created in Core at the given tick, which sets its starting price.",
+     "Native value sent stays in the contract and anyone can take it."
+    ],
+    "shown": "\"Initialize Ve33 pool\" with pool tokens, config and raw initial tick; no native value.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "maybeInitializePool is payable but has no @.value field",
+      "evidence": "Ve33Positions.maybeInitializePool is `external payable` and does not use msg.value; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "maybeInitializePool shows the starting price only as a raw tick",
+      "evidence": "`sqrtRatio = CORE.initializePool(poolKey, tick);` descriptor field tick `\"format\":\"raw\"`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 55
+   },
+   {
+    "key": "mintAndDeposit((address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 maxAmount0, uint128 maxAmount1, uint128 minLiquidity)",
+    "effects": [
+     "A new position NFT is minted to the signer.",
+     "The signer pays up to maxAmount0 of token0 and up to maxAmount1 of token1 by transferFrom to the Core accountant.",
+     "When token0 is native, amount0 is paid from msg.value; leftover ETH stays in the contract and anyone can take it.",
+     "The new position gets at least minLiquidity."
+    ],
+    "shown": "\"Create Ve33 position\" with the two maximum amounts with tokens, raw minimum liquidity, raw ticks and pool tokens; no native value.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mintAndDeposit is payable and spends msg.value for native token0, but no @.value field exists",
+      "evidence": "Ve33Positions.mintAndDeposit is `external payable`, calls deposit; handleLockData: `SafeTransferLib.safeTransferETH(address(ACCOUNTANT), amount0);`. No `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "wrong-metadata",
+      "title": "mintAndDeposit maxAmount0 lacks nativeCurrencyAddress for token0 = address(0)",
+      "evidence": "constants.sol `NATIVE_TOKEN_ADDRESS = address(0)`; field maxAmount0 params only `tokenPath: poolKey.token0`.",
+      "fix": "Add \"nativeCurrencyAddress\": [\"0x0000000000000000000000000000000000000000\"] to maxAmount0 params.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mintAndDeposit interpolatedIntent omits the token amounts",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Create Ve33 position\"`.",
+      "fix": "Change interpolatedIntent to \"Create Ve33 position with up to {maxAmount0} and {maxAmount1}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "mintAndDeposit test case uses pool config zero, which reverts in _validateVe33Pool",
+      "evidence": "cases/0.json field 'Pool config' = 0x000…000; Ve33Positions._validateVe33Pool: `if (poolKey.config.extension() != address(ve33)) revert InvalidPoolExtension();`",
+      "fix": "Use a pool config whose extension is the Ve33 extension 0xD18685a514E59b06d59824e16Db07e73345d9953, and add a native token0 case with non-zero value.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "mintAndDepositWithSalt(bytes32 salt, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 maxAmount0, uint128 maxAmount1, uint128 minLiquidity)",
+    "effects": [
+     "A position NFT with an id derived from the signer and salt is minted to the signer.",
+     "The signer pays up to maxAmount0 of token0 and up to maxAmount1 of token1.",
+     "When token0 is native, amount0 is paid from msg.value; leftover ETH stays in the contract and anyone can take it.",
+     "The new position gets at least minLiquidity."
+    ],
+    "shown": "\"Create Ve33 position\" with the two maximum amounts, raw minimum liquidity, raw ticks, optional salt and pool tokens; no native value.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mintAndDepositWithSalt is payable and spends msg.value, but no @.value field exists",
+      "evidence": "Ve33Positions.mintAndDepositWithSalt is `external payable`, calls deposit which pays native amount0 from contract balance. No `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "wrong-metadata",
+      "title": "mintAndDepositWithSalt maxAmount0 lacks nativeCurrencyAddress for token0 = address(0)",
+      "evidence": "constants.sol `NATIVE_TOKEN_ADDRESS = address(0)`; field maxAmount0 params only `tokenPath`.",
+      "fix": "Add \"nativeCurrencyAddress\": [\"0x0000000000000000000000000000000000000000\"] to maxAmount0 params.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mintAndDepositWithSalt interpolatedIntent omits the token amounts",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Create Ve33 position\"`.",
+      "fix": "Change interpolatedIntent to \"Create Ve33 position with up to {maxAmount0} and {maxAmount1}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 55
+   },
+   {
+    "key": "mint()",
+    "effects": [
+     "A new position NFT is minted to the signer.",
+     "Native value sent is ignored and stays in the contract, where anyone can take it with refundNativeToken."
+    ],
+    "shown": "\"Mint Ve33 position NFT\" with no fields.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mint() is payable and ignores msg.value, but no @.value field exists",
+      "evidence": "BaseNonfungibleToken.mint(): `function mint() public payable` with dev note \"any msg.value sent is ignored\"; refundNativeToken pays the balance to any caller. Format has `\"fields\": []`.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 60
+   },
+   {
+    "key": "mint(bytes32 salt)",
+    "effects": [
+     "A position NFT with id saltToId(signer, salt) is minted to the signer.",
+     "Native value sent is ignored and stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Mint Ve33 position NFT\" with the raw salt.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "mint(bytes32) is payable and ignores msg.value, but no @.value field exists",
+      "evidence": "BaseNonfungibleToken.mint(bytes32): `public payable` with \"any msg.value sent is ignored\"; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 60
+   },
+   {
+    "key": "burn(uint256 id)",
+    "effects": [
+     "Position NFT id is burned; any liquidity and unclaimed rewards of its positions become unreachable until the original minter re-mints the same salt.",
+     "Native value sent is ignored and stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Burn Ve33 position NFT {id}\" with the raw position ID.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "burn is payable and ignores msg.value, but no @.value field exists",
+      "evidence": "BaseNonfungibleToken.burn: `function burn(uint256 id) external payable authorizedForNft(id)`; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "burn intent does not warn that liquidity left in the position becomes unreachable",
+      "evidence": "Ve33Positions.positionId keys Core positions by `bytes24(uint192(id))`; authorizedForNft(id) fails after `_burn(id)`. Descriptor intent \"Burn Ve33 position NFT\".",
+      "fix": "Change intent to \"Burn position NFT (withdraw liquidity first)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 55
+   },
+   {
+    "key": "multicall(bytes[] data)",
+    "effects": [
+     "Each data element runs as a delegatecall into this contract with the signer as msg.sender: deposits, withdrawals, claims, mints, transfers, approvals.",
+     "msg.value is shared by every inner call; native deposits draw on it and leftover ETH stays claimable by anyone unless refundNativeToken is in the batch."
+    ],
+    "shown": "\"Ve33 position batch\" with each inner action decoded as calldata to this contract; the native value is not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multicall is payable and funds native deposits with msg.value, but no @.value field exists",
+      "evidence": "PayableMulticallable.multicall: `function multicall(bytes[] calldata data) public payable`; handleLockData pays native amount0 from contract balance. The format has only the `data.[]` calldata field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}, and pass it as amountPath to the calldata field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "multicall intent says nothing about what the batch does",
+      "evidence": "Descriptor: `\"intent\": \"Batch Ve33 position actions\"`, `\"interpolatedIntent\": \"Ve33 position batch\"`.",
+      "fix": "Keep the inner calldata fields visible; no better fixed sentence exists. Consider \"Run several Ve33 position actions\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 65
+   },
+   {
+    "key": "refundNativeToken()",
+    "effects": [
+     "The contract sends its whole native balance, including any value sent with this call, to the signer."
+    ],
+    "shown": "\"Refund native token\" with the signer as recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "refundNativeToken amount is the contract balance, which no field can show",
+      "evidence": "PayableMulticallable.refundNativeToken: `SafeTransferLib.safeTransferETH(msg.sender, address(this).balance);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "approve(address account, uint256 id)",
+    "effects": [
+     "account becomes approved for position NFT id: it can transfer the NFT, burn it, and withdraw all liquidity and rewards to any recipient.",
+     "Native value sent stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Approve NFT {id}\" with the approved account and raw position ID.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "approve is payable but has no @.value field",
+      "evidence": "Solady ERC721.approve is `public payable virtual`; ABI lists it payable; no `@.value` field in the format.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "approve interpolatedIntent omits the approved account",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Approve NFT {id}\"`; authorizedForNft lets the approved account withdraw to any recipient.",
+      "fix": "Change interpolatedIntent to \"Let {account} manage position NFT {id}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "setApprovalForAll(address operator, bool isApproved)",
+    "effects": [
+     "operator gains or loses control of every position NFT of the signer, including withdrawing all liquidity and rewards to any recipient."
+    ],
+    "shown": "\"Set NFT operator\" with the operator and a raw boolean.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setApprovalForAll shows isApproved as a raw bool and the intent does not say grant or revoke",
+      "evidence": "Descriptor field isApproved `\"format\":\"raw\"`; intent \"Set Position operator\".",
+      "fix": "Use an enum or label for isApproved (true: \"Grant control of all positions\", false: \"Revoke\"), and change interpolatedIntent to \"Set {operator} as operator of all positions\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "transferFrom(address from, address to, uint256 id)",
+    "effects": [
+     "Position NFT id, with all its liquidity and unclaimed rewards, moves from `from` to `to`.",
+     "Native value sent stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Transfer NFT {id}\" with from, to and raw position ID.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "transferFrom is payable but has no @.value field",
+      "evidence": "Solady ERC721.transferFrom is `public payable virtual`; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "transferFrom interpolatedIntent omits the recipient",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Transfer NFT {id}\"`.",
+      "fix": "Change interpolatedIntent to \"Transfer position NFT {id} to {to}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "safeTransferFrom(address from, address to, uint256 id)",
+    "effects": [
+     "Position NFT id, with its liquidity and rewards, moves from `from` to `to`; a contract recipient gets onERC721Received.",
+     "Native value sent stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Transfer NFT {id}\" with from, to and raw position ID.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "safeTransferFrom is payable but has no @.value field",
+      "evidence": "Solady ERC721.safeTransferFrom is `public payable virtual`; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "safeTransferFrom interpolatedIntent omits the recipient",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Transfer NFT {id}\"`.",
+      "fix": "Change interpolatedIntent to \"Transfer position NFT {id} to {to}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "safeTransferFrom(address from, address to, uint256 id, bytes data)",
+    "effects": [
+     "Position NFT id, with its liquidity and rewards, moves from `from` to `to`; data goes to the recipient's onERC721Received.",
+     "Native value sent stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Transfer NFT {id}\" with from, to, raw position ID and optional raw data.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "safeTransferFrom with data is payable but has no @.value field",
+      "evidence": "Solady ERC721.safeTransferFrom(address,address,uint256,bytes) is `public payable virtual`; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "safeTransferFrom with data interpolatedIntent omits the recipient",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Transfer NFT {id}\"`.",
+      "fix": "Change interpolatedIntent to \"Transfer position NFT {id} to {to}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "transferOwnership(address newOwner)",
+    "effects": [
+     "The owner role of the contract (metadata control) moves to newOwner; only the owner can call it.",
+     "Native value sent stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Transfer ownership\" with the new owner.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "transferOwnership is payable but has no @.value field",
+      "evidence": "Solady Ownable.transferOwnership is `public payable virtual onlyOwner`; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "transferOwnership interpolatedIntent omits the new owner",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Transfer ownership\"`.",
+      "fix": "Change interpolatedIntent to \"Transfer ownership to {newOwner}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "renounceOwnership()",
+    "effects": [
+     "The owner gives up the owner role permanently; metadata can never change again.",
+     "Native value sent stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Renounce ownership\" with no fields.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "renounceOwnership is payable but has no @.value field",
+      "evidence": "Solady Ownable.renounceOwnership is `public payable virtual onlyOwner`; format has `\"fields\": []`.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 60
+   },
+   {
+    "key": "requestOwnershipHandover()",
+    "effects": [
+     "The signer registers a 48-hour request to receive ownership.",
+     "Native value sent stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Request ownership handover\" with no fields.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "requestOwnershipHandover is payable but has no @.value field",
+      "evidence": "Solady Ownable.requestOwnershipHandover is `public payable virtual`; format has `\"fields\": []`.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 60
+   },
+   {
+    "key": "cancelOwnershipHandover()",
+    "effects": [
+     "The signer cancels its pending ownership handover request.",
+     "Native value sent stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Cancel ownership handover\" with no fields.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "cancelOwnershipHandover is payable but has no @.value field",
+      "evidence": "Solady Ownable.cancelOwnershipHandover is `public payable virtual`; format has `\"fields\": []`.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 60
+   },
+   {
+    "key": "completeOwnershipHandover(address pendingOwner)",
+    "effects": [
+     "The owner hands ownership to pendingOwner, who must have a live request.",
+     "Native value sent stays in the contract, where anyone can take it."
+    ],
+    "shown": "\"Complete ownership handover\" with the pending owner.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "completeOwnershipHandover is payable but has no @.value field",
+      "evidence": "Solady Ownable.completeOwnershipHandover is `public payable virtual onlyOwner`; no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "completeOwnershipHandover interpolatedIntent omits the new owner",
+      "evidence": "Descriptor: `\"interpolatedIntent\": \"Complete ownership handover\"`.",
+      "fix": "Change interpolatedIntent to \"Hand ownership to {pendingOwner}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "setMetadata(string newName, string newSymbol, string newBaseUrl)",
+    "effects": [
+     "The owner changes the NFT collection name, symbol and base URL."
+    ],
+    "shown": "\"Update position metadata\" with the new name, symbol and base URL.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": [
+   "Ekubo Core 0x00000000000014aA86C5d3c41765bb24e11bd701 (constructor arg `core`) is not in the directory: updatePosition, initializePool and forward decide the token amounts deposited and withdrawn.",
+   "Ve33 extension 0xD18685a514E59b06d59824e16Db07e73345d9953 is not in the directory: its claimRewards path and its pool hooks decide the reward amount and could change position amounts."
+  ]
+ },
+ "cost": 0.984,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [
+  "deposit(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 maxAmount0, uint128 maxAmount1, uint128 minLiquidity)",
+  "withdraw(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity)",
+  "withdraw(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity, address recipient)",
+  "withdrawAndClaimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity)",
+  "withdrawAndClaimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity, address recipient)",
+  "claimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper)",
+  "claimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, address recipient)",
+  "maybeInitializePool((address token0, address token1, bytes32 config) poolKey, int32 tick)",
+  "mintAndDeposit((address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 maxAmount0, uint128 maxAmount1, uint128 minLiquidity)",
+  "mintAndDepositWithSalt(bytes32 salt, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 maxAmount0, uint128 maxAmount1, uint128 minLiquidity)",
+  "mint()",
+  "mint(bytes32 salt)",
+  "burn(uint256 id)",
+  "multicall(bytes[] data)",
+  "refundNativeToken()",
+  "approve(address account, uint256 id)",
+  "transferFrom(address from, address to, uint256 id)",
+  "safeTransferFrom(address from, address to, uint256 id)",
+  "safeTransferFrom(address from, address to, uint256 id, bytes data)",
+  "transferOwnership(address newOwner)",
+  "renounceOwnership()",
+  "requestOwnershipHandover()",
+  "cancelOwnershipHandover()",
+  "completeOwnershipHandover(address pendingOwner)"
+ ],
+ "seconds": 197,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "deposit(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 maxAmount0, uint128 maxAmount1, uint128 minLiquidity)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "deposit is payable and spends msg.value for a native token0, but no @.value field exists",
+   "comprehension": null
+  },
+  "withdraw(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "withdraw is payable but has no @.value field; sent ETH stays claimable by anyone",
+   "comprehension": null
+  },
+  "withdraw(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "withdraw with recipient is payable but has no @.value field",
+   "comprehension": null
+  },
+  "withdrawAndClaimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "withdrawAndClaimRewards is payable but has no @.value field",
+   "comprehension": null
+  },
+  "withdrawAndClaimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 liquidity, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "withdrawAndClaimRewards with recipient is payable but has no @.value field",
+   "comprehension": null
+  },
+  "claimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "claimRewards is payable but has no @.value field",
+   "comprehension": null
+  },
+  "claimRewards(uint256 id, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "claimRewards with recipient is payable but has no @.value field",
+   "comprehension": null
+  },
+  "maybeInitializePool((address token0, address token1, bytes32 config) poolKey, int32 tick)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "maybeInitializePool is payable but has no @.value field",
+   "comprehension": null
+  },
+  "mintAndDeposit((address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 maxAmount0, uint128 maxAmount1, uint128 minLiquidity)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "mintAndDeposit is payable and spends msg.value for native token0, but no @.value field exists",
+   "comprehension": null
+  },
+  "mintAndDepositWithSalt(bytes32 salt, (address token0, address token1, bytes32 config) poolKey, int32 tickLower, int32 tickUpper, uint128 maxAmount0, uint128 maxAmount1, uint128 minLiquidity)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "mintAndDepositWithSalt is payable and spends msg.value, but no @.value field exists",
+   "comprehension": null
+  },
+  "mint()": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "mint() is payable and ignores msg.value, but no @.value field exists",
+   "comprehension": null
+  },
+  "mint(bytes32 salt)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "mint(bytes32) is payable and ignores msg.value, but no @.value field exists",
+   "comprehension": null
+  },
+  "burn(uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "burn is payable and ignores msg.value, but no @.value field exists",
+   "comprehension": null
+  },
+  "multicall(bytes[] data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "multicall is payable and funds native deposits with msg.value, but no @.value field exists",
+   "comprehension": null
+  },
+  "refundNativeToken()": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "refundNativeToken takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "approve(address account, uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "approve is payable but has no @.value field",
+   "comprehension": null
+  },
+  "setApprovalForAll(address operator, bool isApproved)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setApprovalForAll shows isApproved as a raw bool and the intent does not say grant or revoke",
+   "comprehension": null
+  },
+  "transferFrom(address from, address to, uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "transferFrom is payable but has no @.value field",
+   "comprehension": null
+  },
+  "safeTransferFrom(address from, address to, uint256 id)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "safeTransferFrom is payable but has no @.value field",
+   "comprehension": null
+  },
+  "safeTransferFrom(address from, address to, uint256 id, bytes data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "safeTransferFrom with data is payable but has no @.value field",
+   "comprehension": null
+  },
+  "transferOwnership(address newOwner)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "transferOwnership is payable but has no @.value field",
+   "comprehension": null
+  },
+  "renounceOwnership()": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "renounceOwnership is payable but has no @.value field",
+   "comprehension": null
+  },
+  "requestOwnershipHandover()": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "requestOwnershipHandover is payable but has no @.value field",
+   "comprehension": null
+  },
+  "cancelOwnershipHandover()": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 0,
+   "worst": "cancelOwnershipHandover is payable but has no @.value field",
+   "comprehension": null
+  },
+  "completeOwnershipHandover(address pendingOwner)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "completeOwnershipHandover is payable but has no @.value field",
+   "comprehension": null
+  },
+  "setMetadata(string newName, string newSymbol, string newBaseUrl)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 9,
+  "clarity": 56,
+  "functions": "1A 1C 24F",
+  "incomplete": true,
+  "worst": "deposit is payable and spends msg.value for a native token0, but no @.value field exists"
+ }
+}

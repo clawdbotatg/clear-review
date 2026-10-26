@@ -1,0 +1,241 @@
+{
+ "hash": "0xbb4ada766e6d666646f1f7ab1ab422048df0a0b7d0f6350ec11bc13e82d8d63d",
+ "file": "registry/morpho/calldata-armitage_by_wintermute-armUSDCs-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xa2eaad0d586cf9fd73bb2c09cf6a7e3e187d68cd"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer by transferFrom into the vault (VaultV2.enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints armUSDCs vault shares to `onBehalf`. The amount is previewDeposit(assets), priced from vault storage after accrueInterest, and there is no minimum."
+    ],
+    "shown": "Deposit an exact USDC amount into the vault, with armUSDCs shares going to the `onBehalf` address. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no bound in calldata.",
+      "evidence": "VaultV2.deposit: `uint256 shares = previewDeposit(assets);` is computed from storage, and there is no minShares parameter. In case 0 the signer received 100000 armUSDCs, while the screen shows only 'Share ticker: armUSDCs'.",
+      "fix": "No descriptor change can show this. Calldata has no share amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' raw constant field and the 'Deposit asset' label on an amount read awkwardly.",
+      "evidence": "descriptor deposit fields: {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'} and {path:'assets', label:'Deposit asset'}. Case 0 renders 'Share ticker: armUSDCs' with no amount.",
+      "fix": "Rename the fields to 'Amount' and 'Receive shares (armUSDCs)', or fold the ticker into the onBehalf label.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 100000 USDC out is shown exactly. The armUSDCs in has the right recipient and ticker, but no amount can be shown."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns armUSDCs shares from `onBehalf` (the signer here). The amount is previewWithdraw(assets), rounded up and priced from storage, with no maximum.",
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "If the signer is not `onBehalf`, the burned shares are deducted from the allowance `onBehalf` gave the signer (exit: allowance[onBehalf][msg.sender] -= shares)."
+    ],
+    "shown": "Withdraw an exact USDC amount to `receiver`, taken from the position of `owner`.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown, and the screen does not say vault shares are spent.",
+      "evidence": "VaultV2.withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. In case 2 the signer lost 0.187985960887271699 armUSDCs, which the screen does not mention. The reader thought the position 'drops by about 0.18808 USDC'.",
+      "fix": "The amount cannot be shown. A constant field such as 'Shares burned from owner: armUSDCs' would name the asset.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The USDC in is shown exactly with the right receiver. The armUSDCs burned is neither named nor given an amount. The reader only inferred a lower position."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` armUSDCs from `onBehalf` (the signer here), spending the signer's allowance when the signer is not the owner.",
+     "Sends USDC to `receiver`. The amount is previewRedeem(shares), priced from storage, with no minimum."
+    ],
+    "shown": "Redeem an exact number of armUSDCs shares to `receiver` from `owner`. The asset and amount paid out are not stated.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names USDC as the asset paid out to the receiver.",
+      "evidence": "VaultV2.exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` where asset is USDC. The descriptor's redeem fields hold only shares, receiver and owner. The mint format uses the constant underlyingTicker, and redeem does not. In case 3 the reader wrote 'likely USDC, not stated on screen'.",
+      "fix": "Add {label:'Receive asset', format:'raw', value:'$.metadata.constants.underlyingTicker'} and say 'for USDC' in the interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is priced from storage and has no minimum in calldata.",
+      "evidence": "VaultV2.redeem: `uint256 assets = previewRedeem(shares);`. In case 3 the signer received 0.188081 USDC, and no amount appears on the screen.",
+      "fix": "No descriptor change can show this.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The share burn is shown exactly. The USDC in has the right receiver, but the asset is unnamed and there is no amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes USDC from the signer by transferFrom. The amount is previewMint(shares), rounded up and priced from storage, with no maximum in calldata.",
+     "Mints exactly `shares` armUSDCs to `onBehalf`."
+    ],
+    "shown": "Mint an exact number of armUSDCs shares for `onBehalf`, paid in USDC. The USDC amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken from the signer is not shown and has no cap in calldata.",
+      "evidence": "VaultV2.mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` and enter does `safeTransferFrom(asset, msg.sender, address(this), assets)`. In case 1 the signer paid 1 USDC, and the screen shows only 'Deposit asset: USDC'.",
+      "fix": "No descriptor change can show the amount. The function has no maxAssets parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent and the interpolated intent do not say the signer pays USDC.",
+      "evidence": "descriptor mint: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. In case 1 the screen read 'Mint 1 armUSDCs for 0x...dEaD', while 1 USDC left the signer.",
+      "fix": "Use an intent like 'Deposit USDC to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The USDC out is named only as an asset, with no amount. The shares went to 0xdead, not the signer, and the screen shows that correctly."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.468,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 98,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDC as the asset paid out to the receiver.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent and the interpolated intent do not say the signer pays USDC.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 66,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the intent and the interpolated intent do not say the signer pays USDC."
+ }
+}

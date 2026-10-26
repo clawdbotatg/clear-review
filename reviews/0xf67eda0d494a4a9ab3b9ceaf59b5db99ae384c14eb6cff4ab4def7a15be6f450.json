@@ -1,0 +1,191 @@
+{
+ "hash": "0xf67eda0d494a4a9ab3b9ceaf59b5db99ae384c14eb6cff4ab4def7a15be6f450",
+ "file": "registry/flyingtulip/calldata-EpochRewardsVault-dev.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 146,
+   "address": "0x137d66e0a5d4ceee0a7eda011bc3aa94931c7234"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls `assets` ftUSD (0x04E6…427B) from the signer into the vault, which deposits it into the yield wrapper.",
+     "Mints `assets` sftUSD vault shares (1:1) to `receiver`, which earns FT rewards per epoch from then on.",
+     "Settles and checkpoints the receiver's accrued FT rewards before minting, so nothing already earned is lost."
+    ],
+    "shown": "\"Stake 9.020293 ftUSD\" with the ftUSD amount and the receiver address; nothing names the sftUSD shares that are minted.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the screen never says 1:1 sftUSD shares are minted to the receiver.",
+      "evidence": "EpochRewardsVault.sol _deposit: `_mint(to, shares)` with shares == assets (_convertToShares returns assets). Descriptor: intent \"Stake ftUSD\", field label \"Receiver\". Case 0: 9020293 sftUSD (0x137d…7234) 'in' to the signer. The reader said 'Unknown. The screen doesn't name a receipt token'.",
+      "fix": "Relabel the receiver field \"sftUSD shares to\", or make the intent \"Stake ftUSD for sftUSD\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the interpolatedIntent leaves out who gets the staked position.",
+      "evidence": "descriptor interpolatedIntent \"Stake {assets}\"; `receiver` is shown only as a field. deposit() mints shares to `receiver`, which can be any address.",
+      "fix": "Use \"Stake {assets} for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 9.020293 ftUSD out is shown exactly. The 9.020293 sftUSD in is implied by 'Stake' plus the receiver field, but the token is not named. The reader knew a staked position was created but not that it is a receipt token."
+     }
+    ],
+    "glance": 80,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns `assets` sftUSD shares (1:1) from `owner`. If the signer is not the owner, it spends the owner's sftUSD allowance to the signer.",
+     "Settles the owner's accrued FT rewards before the burn. Those rewards stay claimable.",
+     "The yield wrapper sends `assets` ftUSD to `receiver`, either now or through a withdrawal queue (queueId is non-zero when queued)."
+    ],
+    "shown": "\"Unstake 9.020293 ftUSD\" with the amount, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the interpolatedIntent omits the receiver and the owner.",
+      "evidence": "descriptor interpolatedIntent \"Unstake {assets}\"; withdraw() burns shares from `owner` and sends ftUSD to `receiver` through yieldWrapper.withdraw(assets, receiver).",
+      "fix": "Use \"Unstake {assets} from {owner} to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: ftUSD may be queued in the yield wrapper instead of paid now, and nothing says so.",
+      "evidence": "EpochRewardsVault.sol _withdrawWithQueueIds: `queueIdTo = yieldWrapper.withdraw(assets, receiver);` and withdrawWithQueueId doc: \"return the yield wrapper queue ID (0 when immediate)\". In case 1 the payout was immediate.",
+      "fix": "Add a note in the intent or label, e.g. \"may be queued\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "9.020293 sftUSD burned (shown as unstaking 9.020293 ftUSD) and 9.020293 ftUSD received by the signer, who is the receiver. Both match."
+     }
+    ],
+    "glance": 80,
+    "depth": 78
+   },
+   {
+    "key": "claim(address to)",
+    "effects": [
+     "Settles the signer's accrued FT rewards from settled epochs.",
+     "Sends all claimable FT (0x2638…4ad9), capped at the vault's FT balance, to `to`. Any remainder stays accrued."
+    ],
+    "shown": "\"Claim FT to <to>\" with the recipient address; no amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the FT amount comes from storage and cannot be shown.",
+      "evidence": "EpochRewardsVault.sol _claim: `uint256 claimable = user.ftAccrued; ... paidGross = claimable <= bal ? claimable : bal; FT.safeTransfer(to, paidToUser);`. Case 2: 5418757227107670144465 FT 'in', with no amount on the screen.",
+      "fix": "None in calldata. Optionally say \"all claimable FT\" in the intent.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The FT arrival and the recipient are shown. The amount is not in calldata, so the reader knew the asset and the recipient but not the amount."
+     }
+    ],
+    "glance": 78,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "The yield wrapper (IftYieldWrapperV2, 0xb3422496006383d7fa83b3218670616e550747f9) is not in the directory. withdraw relies on its withdraw(assets, receiver) to deliver ftUSD to the receiver, and that call can queue the payout, so I could not check when and how the signer receives ftUSD. Case 1 shows an immediate payout."
+  ]
+ },
+ "cost": 0.399,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 97,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit: the screen never says 1:1 sftUSD shares are minted to the receiver.",
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 87,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the interpolatedIntent omits the receiver and the owner.",
+   "comprehension": 100
+  },
+  "claim(address to)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "1A 1B 1C",
+  "incomplete": true,
+  "worst": null
+ }
+}

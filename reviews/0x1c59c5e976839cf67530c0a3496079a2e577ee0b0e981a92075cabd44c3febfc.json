@@ -1,0 +1,199 @@
+{
+ "hash": "0x1c59c5e976839cf67530c0a3496079a2e577ee0b0e981a92075cabd44c3febfc",
+ "file": "registry/morpho/calldata-clearstar-CS3JANECO-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe05fadf242331808f504661bea65972594869826"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` USDC to the vault (safeTransferFrom from msg.sender), spending an existing USDC allowance.",
+     "The vault mints CS3JANECO shares to `onBehalf`; the share count comes from previewDeposit after interest accrual and has no minimum bound.",
+     "The vault may forward the deposited USDC to its liquidity adapter; this does not change what the signer pays or gets."
+    ],
+    "shown": "Deposit 1 USDC for the onBehalf address, with a constant 'Share ticker' CS3JANECO and 'Send shares to' showing who gets the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares onBehalf receives; the vault computes the count from storage.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);` with no minShares argument. Descriptor shows only `assets` and `onBehalf`.",
+      "fix": "None possible in the descriptor; the share count depends on the vault's total assets and supply at execution.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "deposit shows a constant 'Share ticker' raw field that carries no transaction data.",
+      "evidence": "descriptor deposit field `{ \"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\" }` renders 'CS3JANECO' on every transaction.",
+      "fix": "Optionally put the share name in the label of 'Send shares to', e.g. 'Send CS3JANECO shares to', and drop the constant field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The signer sent 1 USDC, as shown. The shares went to 0xdEaD (signer null), and the screen shows that as 'Send shares to'. The reader understood both correctly."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns CS3JANECO shares from `onBehalf` (the signer when they withdraw for themselves); previewWithdraw sets the share count, rounded up, with no maximum bound.",
+     "The vault sends exactly `assets` USDC to `receiver`.",
+     "When msg.sender is not onBehalf, the call spends the signer's share allowance from onBehalf by the burned share count."
+    ],
+    "shown": "Withdraw exactly N USDC to the receiver, with the Owner (onBehalf) address shown as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares the vault burns from the owner; the code computes it from storage.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);` then `deleteShares(onBehalf, shares)`. Case 1: the signer lost 764100.551930320325378923 CS3JANECO, and the screen shows no share amount.",
+      "fix": "None possible with a fixed descriptor; the 'Owner' field already names whose shares are burned.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw intent does not say that the owner's vault shares are burned.",
+      "evidence": "descriptor intent \"Withdraw\" and interpolatedIntent \"Withdraw {#.assets} to {#.receiver}\"; exit() calls `deleteShares(onBehalf, shares)`.",
+      "fix": "Optionally change the interpolatedIntent to \"Withdraw {#.assets} from {#.onBehalf}'s shares to {#.receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The signer received 764102.627886 USDC, shown right. The burn of 764100.55 CS3JANECO from the signer has no amount on screen. The reader knew shares leave but not how many."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` CS3JANECO from `onBehalf`.",
+     "The vault sends USDC to `receiver`; previewRedeem sets the amount, rounded down, with no minimum bound.",
+     "When msg.sender is not onBehalf, the call spends the signer's share allowance from onBehalf by `shares`."
+    ],
+    "shown": "Redeem N CS3JANECO shares to the receiver, with the Owner address; nothing names the asset received or its amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never says the receiver gets USDC; the asset received is missing from the intent and the fields.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` where asset is the immutable USDC 0xa0b8...eb48. Descriptor redeem: intent \"Redeem\", fields shares/receiver/onBehalf only; constant `underlyingTicker: USDC` unused. Case 2: the signer received 5492.826824 USDC and nothing on screen names it.",
+      "fix": "Change the interpolatedIntent to \"Redeem {#.shares} for USDC to {#.receiver}\" and the 'To' label to 'USDC to'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem cannot show the USDC amount received; the vault computes it from storage with no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);` with no minAssets parameter.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The burn of 5492.832314826822 CS3JANECO is shown right. The 5492.826824 USDC received is not shown. The reader knew something arrives at their address but not which token or how much, because the screen never names USDC."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.396,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 69,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never says the receiver gets USDC; the asset received is missing from the intent and the fields.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 79,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem never says the receiver gets USDC; the asset received is missing from the intent and the fields."
+ }
+}

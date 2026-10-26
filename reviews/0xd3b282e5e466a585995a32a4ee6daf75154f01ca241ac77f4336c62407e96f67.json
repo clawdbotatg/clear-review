@@ -1,0 +1,242 @@
+{
+ "hash": "0xd3b282e5e466a585995a32a4ee6daf75154f01ca241ac77f4336c62407e96f67",
+ "file": "registry/symbiotic/calldata-VaultV1-sUSDe.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x156bd0377181b6090230b20e4d9070c04467d1bd"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The vault takes `amount` of sUSDe (the collateral, 0x9D39…3497, set at init) from the signer with transferFrom, using the signer's allowance to the vault.",
+     "Vault active shares, priced at the current share rate, are credited to `onBehalfOf`. That address may not be the signer.",
+     "It reverts if a deposit whitelist is on and the signer is not whitelisted, or if the deposit limit would be exceeded."
+    ],
+    "shown": "Deposit into vault: the sUSDe amount from the signer, the vault, and the beneficiary who gets the position.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of vault shares minted to the beneficiary is not shown.",
+      "evidence": "Vault.sol deposit: mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_). The rate comes from storage. The descriptor shows only #.amount as sUSDe.",
+      "fix": "None possible. Shares depend on the vault's state at execution.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The signer's active shares worth `amount` sUSDe, rounded up, are burned (_activeSharesOf[msg.sender] goes down).",
+     "`amount` sUSDe is queued in the next epoch's withdrawals. The withdrawal shares for that epoch go to `claimer`, who alone can claim them later. That address may not be the signer.",
+     "No tokens move now. The queued amount stays slashable until the epoch ends (7-day epochs) and must be claimed with claim/claimBatch."
+    ],
+    "shown": "Request withdrawal: the sUSDe amount, the vault, and the claim owner who will be able to claim it.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "withdraw: the screen does not say funds arrive only after the epoch ends and stay slashable until then.",
+      "evidence": "Vault.sol _withdraw: epoch = currentEpoch() + 1; withdrawals[epoch] += withdrawnAssets. onSlash can reduce withdrawals[currentEpoch_+1]. Intent: \"Request withdrawal\".",
+      "fix": "Optionally change the intent to \"Queue withdrawal (claimable after epoch ends)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of the signer's shares burned is not shown, because it comes from the vault's state.",
+      "evidence": "Vault.sol withdraw: burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake()).",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "`shares` of the signer's active vault shares are burned.",
+     "Their sUSDe value at the current rate is queued in the next epoch's withdrawals. The claim right goes to `claimer`, who may not be the signer.",
+     "No tokens move now. The amount is claimable after the epoch ends and is slashable until then."
+    ],
+    "shown": "Queue share withdrawal: the share count as a raw 18-decimal integer, and the claim owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the shares are shown as a raw integer (987654321123456789), which a person cannot read.",
+      "evidence": "descriptor redeem field #.shares format \"raw\". Case 2 screen: \"Queue 987654321123456789 raw shares\". ERC4626Math._decimalsOffset() returns 0, so shares use the collateral's 18 decimals.",
+      "fix": "Use format \"unit\" with params {\"base\":\" shares\",\"decimals\":18} so it renders as 0.9877 shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the sUSDe value queued for the shares is not shown, because it comes from the vault's state.",
+      "evidence": "Vault.sol redeem: withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares()).",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The signer's whole withdrawal entitlement for `epoch` is marked claimed (isWithdrawalsClaimed[epoch][msg.sender] = true).",
+     "That amount of sUSDe is sent from the vault to `recipient`, who may not be the signer."
+    ],
+    "shown": "Claim withdrawal: the epoch number and the recipient. Neither the asset nor the amount is named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: the token paid out (sUSDe) is not named anywhere on the screen.",
+      "evidence": "Vault.sol claim: IERC20(collateral).safeTransfer(recipient, amount). Collateral is sUSDe. Intent \"Claim withdrawal\" and interpolatedIntent \"Claim epoch {epoch} to {recipient}\" do not name the asset.",
+      "fix": "Change the intent to \"Claim sUSDe withdrawal\" and the interpolatedIntent to \"Claim sUSDe from epoch {epoch} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount sent is not shown, because it comes from the vault's state.",
+      "evidence": "Vault.sol _claim: amount = withdrawalsOf(epoch, msg.sender).",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The signer's withdrawal entitlement for every listed epoch is marked claimed.",
+     "The sum of those amounts in sUSDe is sent from the vault to `recipient`, who may not be the signer."
+    ],
+    "shown": "Claim withdrawals: every epoch listed and the recipient. Neither the asset nor the total amount is named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimBatch: the token paid out (sUSDe) is not named anywhere on the screen.",
+      "evidence": "Vault.sol claimBatch: IERC20(collateral).safeTransfer(recipient, amount). Intent \"Claim withdrawals\" and interpolatedIntent \"Claim epochs {epochs.[]} to {recipient}\" do not name sUSDe.",
+      "fix": "Change the intent to \"Claim sUSDe withdrawals\" and the interpolatedIntent to \"Claim sUSDe from epochs {epochs.[]} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total amount sent is not shown, because it comes from the vault's state.",
+      "evidence": "Vault.sol claimBatch: amount += _claim(epochs[i]), and _claim reads withdrawalsOf(epoch, msg.sender).",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.346,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 55,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the shares are shown as a raw integer (987654321123456789), which a person cannot read.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the token paid out (sUSDe) is not named anywhere on the screen.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the token paid out (sUSDe) is not named anywhere on the screen.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 68,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: the shares are shown as a raw integer (987654321123456789), which a person cannot read."
+ }
+}

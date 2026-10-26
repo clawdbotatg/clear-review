@@ -1,0 +1,490 @@
+{
+ "hash": "0x15be1585708703f65277cb738c3e97ccd443702cd7114c7e64f28b2d23a7a4c1",
+ "file": "registry/zkstables/eip712-zkemt.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x8ed36a645bef11075283524c01aca742cbafc832"
+  },
+  {
+   "chainId": 84532,
+   "address": "0x79c12772de2cfc45359eccb8a9c038c3e5ae8e31"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)",
+    "effects": [
+     "`value` zkUSD (6 decimals) leaves the signer's (`from`) public balance and goes to `to`. Anyone can submit the signature, and only between validAfter and validBefore.",
+     "If `to` has auto-encrypt on, the tokens are burned and credited to `to`'s encrypted (ZK) balance instead. The same party still receives them.",
+     "The signer's bytes32 authorization nonce is used up."
+    ],
+    "shown": "Send 21.37 zkUSD to Bob, with From, To, Amount, Valid after and Valid before.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 92
+   },
+   {
+    "key": "PublicToEncryptedTransferAuth(address owner,bytes32 recipient,uint256 amount,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "`amount` zkUSD is burned from the signer's (owner's) public balance.",
+     "The same amount is credited to the encrypted balance of the ZK address `recipient`. That ZK address may be controlled by someone other than the signer.",
+     "Anyone can relay the signature before the deadline. The signer's authorization nonce is used up."
+    ],
+    "shown": "Send 21.37 zkUSD to encrypted, with Amount, Owner, the To ZK address as raw hex, and Deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "PublicToEncryptedTransferAuth sentence 'Send {amount} to encrypted' reads like shielding your own funds, not paying a ZK address.",
+      "evidence": "ZKEMT.sol publicToEncryptedTransferWithAuth -> _publicToEncryptedTransfer: _burn(owner, amount); _addToEpkBalance(epk, amount). Here epk is any registered ZK address, whoever controls it. Descriptor interpolatedIntent: \"Send {amount} to encrypted\". The recipient appears only as the raw field 'To ZK address'.",
+      "fix": "Use an intent such as 'Send to ZK address' and an interpolatedIntent such as 'Move {amount} from your public balance to a ZK address'. Keep the ZK address field and label it as the recipient.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "PublicToEncryptedTransferAuth shows the recipient ZK address only as a raw 32-byte value.",
+      "evidence": "Descriptor field recipient 'To ZK address' format raw. The case 1 screen shows 0x1919…1919. ERC-7730 has no name format for Grumpkin-compressed keys.",
+      "fix": "Nothing needed now. Use a trusted-name source for ZK addresses if the spec gains one.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 75
+   },
+   {
+    "key": "PublicToEncryptedTransferWithCallerAuth(address caller,address owner,bytes32 recipient,uint256 amount,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "`amount` zkUSD is burned from the signer's (owner's) public balance.",
+     "The same amount is credited to the encrypted balance of the ZK address `recipient`, which may belong to someone else.",
+     "Only `caller` can submit the signature, and only before the deadline. The signer's authorization nonce is used up."
+    ],
+    "shown": "Send 21.37 zkUSD to encrypted, with Amount, Owner, Caller, the To ZK address as raw hex, and Deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "PublicToEncryptedTransferWithCallerAuth uses jargon in the intent, and the sentence hides that a ZK address receives the funds.",
+      "evidence": "Descriptor intent \"Public to encrypted (caller)\", interpolatedIntent \"Send {amount} to encrypted\". ZKEMT.sol publicToEncryptedTransferWithCallerAuth credits _addToEpkBalance(epk, amount) to the signed recipient ZK address.",
+      "fix": "Use an intent such as 'Send to ZK address (relayed)' and an interpolatedIntent such as 'Move {amount} from your public balance to a ZK address'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "PublicToEncryptedTransferWithCallerAuth shows the recipient ZK address only as raw hex.",
+      "evidence": "Descriptor field recipient 'To ZK address' format raw.",
+      "fix": "Nothing needed now.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "AutoEncryptAuth(address owner,bool enabled,bytes32 epk,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Through setAutoEncryptWithAuth: the signer's address is permanently tied to ZK address `epk` (_setAutoEncrypt reverts with AutoEncryptEpkAlreadySet once one is set), and auto-encrypt is set to `enabled`.",
+     "While it is on, every later incoming public zkUSD transfer or mint to the signer is burned and credited to the encrypted balance of `epk` (_update override). The controller of `epk` gets those funds.",
+     "Through toggleAutoEncryptWithAuth, the same signed type only switches auto-encrypt on or off for the ZK address already stored.",
+     "The signer's authorization nonce is used up."
+    ],
+    "shown": "'Set auto-encrypt', with Owner, Enabled true/false, ZK address as raw hex, and Deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "AutoEncryptAuth intent hides that future incoming tokens go to the ZK address, and that this address can never be changed.",
+      "evidence": "ZKEMT.sol _setAutoEncrypt: require($.autoEncryptEpk[owner] == COMPRESSED_IDENTITY, AutoEncryptEpkAlreadySet()); $.autoEncryptEpk[owner] = epk. _update: if isAutoEncryptActive(to) then super._update(from, address(0), value); _addToEpkBalance(toEpk, value). Descriptor intent \"Set auto-encrypt\" with no interpolatedIntent.",
+      "fix": "Use an intent such as 'Redirect incoming zkUSD to a ZK address' and add an interpolatedIntent with {enabled}. Label the epk field 'Incoming funds go to (permanent)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "AutoEncryptAuth shows the destination ZK address only as raw hex, so the signer cannot tell if it is theirs.",
+      "evidence": "Descriptor field epk 'ZK address' format raw. The case 3 screen shows 0x2020…2020.",
+      "fix": "Nothing needed now.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "EncryptedTransferAuth(bytes32 senderEpk,bytes32 recipientEpk,bytes32 paramsHash,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "An encrypted amount is taken from the encrypted balance of `senderEpk`, which the signer controls. The amount is hidden in ciphertexts bound through paramsHash.",
+     "The same encrypted amount is credited to `recipientEpk`, or to its pending balance.",
+     "Pending flags hidden in paramsHash (clear, enabled) may fold the sender's pending balance into its spendable balance and switch pending routing on or off.",
+     "Anyone can relay the signature before the deadline. The signer's authorization nonce is used up."
+    ],
+    "shown": "'Encrypted transfer', with From ZK address, To ZK address (both raw hex) and Deadline. No amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "EncryptedTransferAuth cannot show the amount sent, because it sits in ciphertexts behind paramsHash.",
+      "evidence": "ZKEMT.sol encryptedTransferWithAuth: paramsHash = keccak256(abi.encode(params.proof, params.newSenderBalanceCt, params.recipientAmountCt, params.trcAmountCt, flags.clear, flags.enabled)). Descriptor shows only senderEpk, recipientEpk, deadline.",
+      "fix": "No descriptor change can decrypt it. Make the intent say the amount is not shown, e.g. 'Encrypted transfer (amount hidden, check in app)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "EncryptedTransferAuth hides the pending-balance flag changes inside paramsHash.",
+      "evidence": "ZKEMT.sol encryptedTransferWithAuth -> _handlePendingFlags(senderCompressedEpk, flags) sets pendingActive = flags.enabled and clears pending. flags.clear and flags.enabled are hashed into paramsHash.",
+      "fix": "Nothing a descriptor can decode.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 35
+   },
+   {
+    "key": "EncryptedTransferWithCallerAuth(address caller,bytes32 senderEpk,bytes32 recipientEpk,bytes32 paramsHash,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "An encrypted amount is taken from the encrypted balance of `senderEpk`, which the signer controls. The amount is hidden behind paramsHash.",
+     "The same encrypted amount is credited to `recipientEpk`, or to its pending balance.",
+     "Pending flags hidden in paramsHash may clear the sender's pending balance and switch pending routing.",
+     "Only `caller` can submit the signature, before the deadline. The signer's authorization nonce is used up."
+    ],
+    "shown": "'Encrypted transfer (caller)', with Caller, From ZK address, To ZK address (raw hex) and Deadline. No amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "EncryptedTransferWithCallerAuth cannot show the amount sent, because it sits in ciphertexts behind paramsHash.",
+      "evidence": "ZKEMT.sol encryptedTransferWithCallerAuth hashes params.recipientAmountCt, params.newSenderBalanceCt, flags into paramsHash. The descriptor has no amount field.",
+      "fix": "Make the intent say the amount is not shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "EncryptedTransferWithCallerAuth hides the pending-flag changes inside paramsHash.",
+      "evidence": "ZKEMT.sol encryptedTransferWithCallerAuth -> _handlePendingFlags(senderCompressedEpk, flags).",
+      "fix": "Nothing a descriptor can decode.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 35
+   },
+   {
+    "key": "EncryptedToPublicAuth(bytes32 senderEpk,address recipient,uint256 amount,bytes32 paramsHash,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "`amount` zkUSD leaves the encrypted balance of `senderEpk`, which the signer controls.",
+     "`amount` zkUSD is minted as public tokens to `recipient`. If the recipient has auto-encrypt on, it is credited to their ZK address instead.",
+     "Pending flags hidden in paramsHash may clear the sender's pending balance and switch pending routing.",
+     "Anyone can relay the signature before the deadline. The signer's authorization nonce is used up."
+    ],
+    "shown": "Send 21.37 zkUSD to Bob, with Amount, To and Deadline. The source ZK address is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "EncryptedToPublicAuth omits senderEpk, so the signer cannot see which of their encrypted accounts is debited.",
+      "evidence": "ZKEMT.sol encryptedToPublicTransferWithAuth: _validateEpk(params.senderEpk) gives the controller who must sign, then oldBalance = encryptedBalances[compressedSender] is overwritten. The descriptor fields are only amount, recipient, deadline. Sibling formats show senderEpk as 'From ZK address'.",
+      "fix": "Add a field {path: senderEpk, label: 'From ZK address', format: raw}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "EncryptedToPublicAuth intent 'Encrypted to public (auth)' is jargon and does not say the funds come from your encrypted balance.",
+      "evidence": "Descriptor intent \"Encrypted to public (auth)\", interpolatedIntent \"Send {amount} to {recipient}\".",
+      "fix": "Use an intent such as 'Withdraw from encrypted balance' and an interpolatedIntent such as 'Send {amount} from your encrypted balance to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "EncryptedToPublicAuth hides the pending-flag changes inside paramsHash.",
+      "evidence": "ZKEMT.sol: paramsHash = keccak256(abi.encode(params.proof, params.newSenderBalanceCt, flags.clear, flags.enabled)), then _handlePendingFlags(compressedSender, flags).",
+      "fix": "Nothing a descriptor can decode.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "EncryptedToPublicWithCallerAuth(address caller,bytes32 senderEpk,address recipient,uint256 amount,bytes32 paramsHash,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "`amount` zkUSD leaves the encrypted balance of `senderEpk`, which the signer controls.",
+     "`amount` zkUSD is minted as public tokens to `recipient`, or auto-encrypted to the recipient's ZK address if they turned that on.",
+     "Pending flags hidden in paramsHash may clear the sender's pending balance and switch pending routing.",
+     "Only `caller` can submit the signature, before the deadline. The signer's authorization nonce is used up."
+    ],
+    "shown": "Send 21.37 zkUSD to Bob, with Amount, To, Caller and Deadline. The source ZK address is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "EncryptedToPublicWithCallerAuth omits senderEpk, the encrypted account the funds are taken from.",
+      "evidence": "ZKEMT.sol encryptedToPublicTransferWithCallerAuth debits encryptedBalances[compressedSender]. The descriptor fields are amount, recipient, caller, deadline, with no senderEpk.",
+      "fix": "Add a field {path: senderEpk, label: 'From ZK address', format: raw}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "EncryptedToPublicWithCallerAuth intent 'Encrypted to public (caller)' is jargon a normal signer will not understand.",
+      "evidence": "Descriptor intent \"Encrypted to public (caller)\".",
+      "fix": "Use an intent such as 'Withdraw from encrypted balance (relayed)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "EncryptedToPublicWithCallerAuth hides the pending-flag changes inside paramsHash.",
+      "evidence": "ZKEMT.sol encryptedToPublicTransferWithCallerAuth -> _handlePendingFlags(compressedSender, flags).",
+      "fix": "Nothing a descriptor can decode.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "ManagePendingBalanceAuth(bytes32 epk,bool clear,bool enabled,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "If `clear` is true, the pending balance of `epk` is folded into its spendable encrypted balance and reset to zero.",
+     "Pending routing for incoming transfers to `epk` is set to `enabled`. The value false actively turns it off.",
+     "Anyone can relay the signature before the deadline. The authorization nonce of the epk's controller (the signer) is used up."
+    ],
+    "shown": "'Manage pending balance', with Enable pending and Clear pending as raw true/false, the ZK address as raw hex, and Deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "ManagePendingBalanceAuth label 'Enable pending' hides that false turns pending routing off.",
+      "evidence": "ZKEMT.sol _handlePendingFlags: if (pendingActive != flags.enabled) { $.pendingActive[compressed] = flags.enabled; }. Descriptor field enabled label 'Enable pending' format raw.",
+      "fix": "Label the field 'Route incoming to pending (on/off)'. Add an interpolatedIntent, or a better intent such as 'Update pending balance settings'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "ManagePendingBalanceAuth intent is vague about what clearing does.",
+      "evidence": "ZKEMT.sol _clearPending merges pendingBalances into encryptedBalances and deletes pending. Descriptor intent \"Manage pending balance\", label 'Clear pending'.",
+      "fix": "Label clear as 'Move pending into spendable balance'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)",
+    "effects": [
+     "`value` zkUSD leaves the signer's (`from`) public balance and goes to `to`. Only `to` can submit it (msg.sender == to), and only between validAfter and validBefore.",
+     "If `to` has auto-encrypt on, the tokens land in `to`'s encrypted balance.",
+     "The signer's bytes32 authorization nonce is used up."
+    ],
+    "shown": "'Receive with authorization' / Send 21.37 zkUSD to Bob, with From, To, Amount, Valid after and Valid before.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "ReceiveWithAuthorization intent 'Receive' suggests the signer gets funds, but the signer sends them.",
+      "evidence": "ERC3009Upgradeable.sol receiveWithAuthorization: require(msg.sender == to); _transfer(from, to, value), where `from` is the signer. Descriptor intent \"Receive with authorization\". Case 9 screen: intent 'Receive with authorization' above 'Send 21.37 zkUSD to Bob'.",
+      "fix": "Use an intent such as 'Authorize payment (collected by recipient)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+    "effects": [
+     "Sets the allowance of `spender` over the signer's zkUSD to `value`, replacing any earlier allowance. Anyone can submit it before the deadline.",
+     "The signer's sequential permit nonce goes up by one."
+    ],
+    "shown": "Approve <amount or Unlimited> zkUSD for Bob, with Amount, Spender and Deadline.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.707,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 128,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 91,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "PublicToEncryptedTransferAuth(address owner,bytes32 recipient,uint256 amount,uint256 nonce,uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "PublicToEncryptedTransferAuth sentence 'Send {amount} to encrypted' reads like shielding your own funds, not paying a ZK address.",
+   "comprehension": null
+  },
+  "PublicToEncryptedTransferWithCallerAuth(address caller,address owner,bytes32 recipient,uint256 amount,uint256 nonce,uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "PublicToEncryptedTransferWithCallerAuth uses jargon in the intent, and the sentence hides that a ZK address receives the funds.",
+   "comprehension": null
+  },
+  "AutoEncryptAuth(address owner,bool enabled,bytes32 epk,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "AutoEncryptAuth intent hides that future incoming tokens go to the ZK address, and that this address can never be changed.",
+   "comprehension": null
+  },
+  "EncryptedTransferAuth(bytes32 senderEpk,bytes32 recipientEpk,bytes32 paramsHash,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 32,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "EncryptedTransferWithCallerAuth(address caller,bytes32 senderEpk,bytes32 recipientEpk,bytes32 paramsHash,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 32,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "EncryptedToPublicAuth(bytes32 senderEpk,address recipient,uint256 amount,bytes32 paramsHash,uint256 nonce,uint256 deadline)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "EncryptedToPublicAuth omits senderEpk, so the signer cannot see which of their encrypted accounts is debited.",
+   "comprehension": null
+  },
+  "EncryptedToPublicWithCallerAuth(address caller,bytes32 senderEpk,address recipient,uint256 amount,bytes32 paramsHash,uint256 nonce,uint256 deadline)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "EncryptedToPublicWithCallerAuth omits senderEpk, the encrypted account the funds are taken from.",
+   "comprehension": null
+  },
+  "ManagePendingBalanceAuth(bytes32 epk,bool clear,bool enabled,uint256 nonce,uint256 deadline)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "ManagePendingBalanceAuth label 'Enable pending' hides that false turns pending routing off.",
+   "comprehension": null
+  },
+  "ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "ReceiveWithAuthorization intent 'Receive' suggests the signer gets funds, but the signer sends them.",
+   "comprehension": null
+  },
+  "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 60,
+  "functions": "2A 5B 4C",
+  "incomplete": false,
+  "worst": "AutoEncryptAuth intent hides that future incoming tokens go to the ZK address, and that this address can never be changed."
+ }
+}

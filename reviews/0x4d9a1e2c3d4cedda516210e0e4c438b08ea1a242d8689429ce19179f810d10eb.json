@@ -1,0 +1,234 @@
+{
+ "hash": "0x4d9a1e2c3d4cedda516210e0e4c438b08ea1a242d8689429ce19179f810d10eb",
+ "file": "registry/morpho/calldata-hyperithm-ApyxUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x069662d2588fcac24b5c209456db965d151556f0"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer and sends it to the vault (safeTransferFrom in enter).",
+     "Mints vault shares (ApyxUSDC) to `onBehalf`. The amount is previewDeposit(assets), set by the share price after interest and fee accrual. No minimum is enforced.",
+     "Before pricing, accrueInterest may mint fee shares to the fee recipients, which dilutes the share price the signer gets."
+    ],
+    "shown": "Deposit 15 USDC into the vault, with ApyxUSDC shares sent to the onBehalf address. The share amount is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no minimum.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` comes from storage (totalAssets, totalSupply, fees). Case 0: signer receives 14.964367719123420810 ApyxUSDC; the screen shows only 'Share ticker: ApyxUSDC'.",
+      "fix": "No descriptor fix: the amount is not in calldata. The 'Share ticker' field could be relabelled 'Receive shares (ApyxUSDC)' so the reader knows shares arrive.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "15 USDC out is shown correctly. The ApyxUSDC in goes to the shown address with the right ticker, but its amount (14.96) cannot be shown. The reader understood both, with no share amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) ApyxUSDC shares (rounded up) from `onBehalf`. No maximum is enforced.",
+     "If the signer is not `onBehalf`, uses the signer's share allowance from onBehalf.",
+     "Sends exactly `assets` USDC from the vault to `receiver`.",
+     "May pull liquidity from the liquidity adapter first, inside the vault. This does not change the signer's amounts."
+    ],
+    "shown": "Withdraw exactly 46000 USDC to the receiver, with the owner address shown. Nothing says ApyxUSDC shares are burned or how many.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the ApyxUSDC shares burned from the owner are not named and their amount is not shown.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets);` then exit → `deleteShares(onBehalf, shares)`. Case 2: 45999.796253528891109596 ApyxUSDC burned from the signer. The screen shows only 'Owner: 0x4716…e252'.",
+      "fix": "The amount cannot come from calldata. Relabel 'Owner' to 'Burn ApyxUSDC shares from', or add the vaultTicker constant field as deposit does.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "46000 USDC in to the signer is shown exactly. The burn of 45999.8 ApyxUSDC from the owner is implied by 'Owner', but the screen gives no asset or amount. The reader guessed the position shrinks."
+     }
+    ],
+    "glance": 80,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` ApyxUSDC from `onBehalf`. If the signer is not onBehalf, this uses the signer's allowance.",
+     "Sends previewRedeem(shares) USDC from the vault to `receiver`. The amount comes from the share price, and no minimum is enforced."
+    ],
+    "shown": "Redeem 93.706 ApyxUSDC to the receiver, with the owner shown. No field or sentence says the output is USDC.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says USDC is what the receiver gets.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` with asset = USDC (immutable 0xa0b8…eb48). Case 3: 93.752579 USDC to the signer. Descriptor redeem fields: only shares, receiver, onBehalf. Reader: 'the screen doesn't show which asset or how much'.",
+      "fix": "Add a constant field {label: 'Receive asset', value: '$.metadata.constants.underlyingTicker'} as mint does, and write the intent as 'Redeem {#.shares} for USDC to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received comes from the share price and has no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);` comes from storage. Losses realised in accrueInterest can lower it.",
+      "fix": "None in the descriptor. The amount is not in calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 93.706 ApyxUSDC burned from the signer is shown exactly. The 93.75 USDC received is not named on screen. The reader knew something arrives to their address but not which asset."
+     }
+    ],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes previewMint(shares) USDC from the signer (rounded up, from the share price). No maximum is enforced.",
+     "Mints exactly `shares` ApyxUSDC to `onBehalf`."
+    ],
+    "shown": "Mint 1 ApyxUSDC for 0x…dEaD, with a 'Deposit asset: USDC' field and no USDC amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent and the sentence omit that USDC is pulled from the signer.",
+      "evidence": "VaultV2.sol enter: `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets);`. Descriptor: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. The payment appears only as the raw 'Deposit asset: USDC' field.",
+      "fix": "Use intent 'Deposit USDC to mint shares' and interpolatedIntent 'Pay USDC to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount paid is set by the share price and has no maximum.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares);`. Case 1: 1 USDC left the signer, and no amount appears on screen.",
+      "fix": "None in the descriptor. The amount is not in calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "1 USDC left the signer. The screen names USDC as the deposit asset but no amount, so the reader knew USDC leaves but not how much. The shares went to 0xdead (signer null), and the screen shows that plainly."
+     }
+    ],
+    "glance": 50,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.426,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 102,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says USDC is what the receiver gets.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent and the sentence omit that USDC is pulled from the signer.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 67,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says USDC is what the receiver gets."
+ }
+}

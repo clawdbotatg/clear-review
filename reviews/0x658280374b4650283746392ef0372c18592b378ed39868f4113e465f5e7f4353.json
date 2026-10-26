@@ -1,0 +1,221 @@
+{
+ "hash": "0x658280374b4650283746392ef0372c18592b378ed39868f4113e465f5e7f4353",
+ "file": "registry/morpho/calldata-re7_labs-mDEGEN.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x8c3a6b12332a6354805eb4b72ef619aedd22bcdd"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The vault pulls exactly `assets` DEGEN from the signer through the signer's allowance (`safeTransferFrom(_asset, caller, address(this), assets)` in ERC4626._deposit).",
+     "The vault mints mDEGEN shares to `receiver`. The share amount comes from the vault's total assets and supply after fee accrual, with no minimum in the calldata.",
+     "The DEGEN goes into Morpho Blue markets in the name of the vault (`_supplyMorpho`). This does not change what the signer gets."
+    ],
+    "shown": "Intent \"Deposit\", the DEGEN amount, a raw 'Share ticker' of mDEGEN, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many mDEGEN shares the receiver gets; the vault's exchange rate decides it.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` The calldata has no share amount and no minimum. The descriptor shows only the constant `$.metadata.constants.vaultTicker`.",
+      "fix": "None in the descriptor. The share amount comes from storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit intent \"Deposit\" does not name the asset or the vault.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`. The asset is DEGEN and the vault share is mDEGEN.",
+      "fix": "Change the intent to \"Deposit DEGEN into Morpho Degen vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault pulls DEGEN from the signer through the signer's allowance. The amount is `_convertToAssetsWithTotals(shares, ..., Ceil)`, computed from storage, with no maximum in the calldata.",
+     "The vault mints exactly `shares` mDEGEN to `receiver`.",
+     "The DEGEN goes into Morpho Blue markets in the name of the vault."
+    ],
+    "shown": "Intent \"Mint\", 'Deposit asset' as the raw ticker DEGEN, the exact mDEGEN share amount, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much DEGEN leaves the signer; the vault computes it from storage.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` The descriptor field 'Deposit asset' shows only `$.metadata.constants.underlyingTicker`. Only the signer's DEGEN allowance limits the pull.",
+      "fix": "None in the descriptor. The DEGEN amount comes from the vault's exchange rate.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent \"Mint\" does not say that the signer pays DEGEN for the shares.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`. In ERC4626._deposit the vault calls `safeTransferFrom(_asset, caller, address(this), assets)` on the signer.",
+      "fix": "Change the intent to \"Deposit DEGEN to mint mDEGEN shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns mDEGEN shares from `owner`. The share amount is `_convertToSharesWithTotals(assets, ..., Ceil)`, computed from storage.",
+     "When the signer is not `owner`, the vault spends the signer's mDEGEN allowance from `owner` by the share amount.",
+     "The vault sends exactly `assets` DEGEN to `receiver`."
+    ],
+    "shown": "Intent \"Withdraw\", 'Withdraw exactly' as the DEGEN amount, 'To' as the receiver, and 'Owner' as the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many mDEGEN shares the owner burns; the vault's exchange rate decides it.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then ERC4626._withdraw: `_burn(owner, shares);`. The calldata has no share amount or maximum.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw intent \"Withdraw\" does not name DEGEN or the vault.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`.",
+      "fix": "Change the intent to \"Withdraw DEGEN from Morpho Degen vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` mDEGEN from `owner`.",
+     "When the signer is not `owner`, the vault spends the signer's mDEGEN allowance from `owner` by `shares`.",
+     "The vault sends DEGEN to `receiver`. The amount is `_convertToAssetsWithTotals(shares, ..., Floor)`, with no minimum in the calldata."
+    ],
+    "shown": "Intent \"Redeem\", the mDEGEN share amount, 'To' as the receiver, and 'Owner' as the share owner. Nothing names the asset the receiver gets.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem does not name DEGEN as the asset the receiver gets; mint shows the ticker but redeem does not.",
+      "evidence": "MetaMorpho.redeem → ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);` with `_asset` = 0x4ed4…efed (DEGEN). The redeem format fields are only `shares`, `receiver` ('To') and `owner`. The mint format has a field `\"value\": \"$.metadata.constants.underlyingTicker\"`.",
+      "fix": "Add a field `{\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}` and change the label of `receiver` to \"Send DEGEN to\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much DEGEN the receiver gets, and there is no minimum.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. The amount comes from storage. The calldata has no asset amount.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem intent \"Redeem\" does not say that shares become DEGEN.",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"`.",
+      "fix": "Change the intent to \"Redeem mDEGEN shares for DEGEN\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.348,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 55,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent \"Deposit\" does not name the asset or the vault.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent \"Mint\" does not say that the signer pays DEGEN for the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent \"Withdraw\" does not name DEGEN or the vault.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem does not name DEGEN as the asset the receiver gets; mint shows the ticker but redeem does not.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 50,
+  "functions": "4C",
+  "incomplete": false,
+  "worst": "redeem does not name DEGEN as the asset the receiver gets; mint shows the ticker but redeem does not."
+ }
+}

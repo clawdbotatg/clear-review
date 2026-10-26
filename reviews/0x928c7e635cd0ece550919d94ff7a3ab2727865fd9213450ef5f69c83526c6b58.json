@@ -1,0 +1,210 @@
+{
+ "hash": "0x928c7e635cd0ece550919d94ff7a3ab2727865fd9213450ef5f69c83526c6b58",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakEURC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xbeef086b8807dc5e5a1740c5e3a7c4c366ea6ab5"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` EURC (0x60a3…db42 on Base) to the vault through transferFrom, using the signer's EURC allowance to the vault.",
+     "The vault mints steakEURC shares to `receiver`; the share count is derived from storage (total supply, total assets after fee accrual) with floor rounding, and has no minimum.",
+     "The vault supplies the EURC to Morpho Blue markets; this does not move other signer assets."
+    ],
+    "shown": "Intent \"Deposit\", with the EURC amount deposited, a constant \"Share ticker: steakEURC\" and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the number of steakEURC shares the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorpho.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` No calldata parameter carries the share count or a minimum.",
+      "fix": "None in the descriptor. A router with a minimum-shares parameter would allow a bound.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit labels the EURC amount \"Deposit asset\" and adds a raw \"Share ticker\" field that holds no transaction value.",
+      "evidence": "descriptor deposit fields: `\"label\": \"Deposit asset\"` on path `assets` (an amount), and `{\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}`.",
+      "fix": "Rename the `assets` label to \"Amount to deposit\" and add interpolatedIntent \"Deposit {assets} into steakEURC for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends EURC to the vault through transferFrom; the amount is computed by the vault from storage with ceiling rounding and has no cap in calldata, bounded only by the signer's EURC allowance.",
+     "The vault mints exactly `shares` steakEURC to `receiver`."
+    ],
+    "shown": "Intent \"Mint\", with a constant \"Deposit asset: EURC\", the exact steakEURC shares minted and the address that receives them.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much EURC leaves the signer; the vault computes it from storage.",
+      "evidence": "MetaMorpho.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);`. The screen shows only `\"Deposit asset\"` = `EURC` with no amount.",
+      "fix": "None in the descriptor. Only the signer's EURC allowance bounds the amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint intent \"Mint\" does not say that the signer pays EURC to get the shares.",
+      "evidence": "descriptor mint: `\"intent\": \"Mint\"`, and there is no interpolatedIntent. The code takes EURC from the caller in ERC4626._deposit.",
+      "fix": "Change the intent to \"Deposit EURC for steakEURC shares\" and add interpolatedIntent \"Pay EURC to mint {shares} for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns steakEURC shares from `owner`; the count is computed from storage with ceiling rounding. When owner is the signer, the signer's shares burn.",
+     "When `owner` is not the signer, the vault spends the signer's steakEURC allowance from `owner` by that share count.",
+     "The vault sends exactly `assets` EURC to `receiver`."
+    ],
+    "shown": "Intent \"Withdraw\", with the exact EURC amount, the receiver and the owner whose shares pay for it.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many steakEURC shares the vault burns from owner; the vault computes it.",
+      "evidence": "MetaMorpho.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` ERC4626._withdraw: `_burn(owner, shares);`.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw labels the share holder \"Owner\" and does not say that its shares are burned.",
+      "evidence": "descriptor withdraw: `\"label\": \"Owner\"` on path `owner`; ERC4626._withdraw: `if (caller != owner) { _spendAllowance(owner, caller, shares); } _burn(owner, shares);`.",
+      "fix": "Rename the label to \"Burn shares from\" and add interpolatedIntent \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` steakEURC from `owner`. When owner is not the signer, it spends the signer's steakEURC allowance from owner by that amount.",
+     "The vault sends EURC to `receiver`; the amount is computed from storage with floor rounding and has no minimum."
+    ],
+    "shown": "Intent \"Redeem\", with the exact steakEURC shares to redeem, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names EURC as the asset the receiver gets, though sibling formats show it.",
+      "evidence": "ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);` with `_asset` = EURC 0x60a3…db42. The descriptor redeem fields are only `shares`, `receiver`, `owner`, while mint shows `\"Deposit asset\"` = `$.metadata.constants.underlyingTicker`.",
+      "fix": "Add a field {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"} and change the intent to \"Redeem steakEURC for EURC\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much EURC the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorpho.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` No calldata parameter carries a minimum.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.351,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 63,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit labels the EURC amount \"Deposit asset\" and adds a raw \"Share ticker\" field that holds no transaction value.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent \"Mint\" does not say that the signer pays EURC to get the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw labels the share holder \"Owner\" and does not say that its shares are burned.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names EURC as the asset the receiver gets, though sibling formats show it.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 60,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem never names EURC as the asset the receiver gets, though sibling formats show it."
+ }
+}

@@ -1,0 +1,255 @@
+{
+ "hash": "0xc937cacde629e23ea9fd71b15cfbcbc9d15c945cf636bd56012bbe8ef8e57851",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakEURC-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xbeef009f28ccf367444a9f79096862920e025dc1"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` EURC is pulled from the signer into the vault (SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "Vault shares (steakEURC), amount = previewDeposit(assets) at the current share price, are minted to onBehalf (createShares(onBehalf, shares)). There is no minimum-shares bound.",
+     "Before that, accrueInterest mints fee shares to the fee recipients. The deposited EURC may be forwarded to the liquidity adapter. Neither moves signer assets."
+    ],
+    "shown": "Deposit 0.1 EURC for the onBehalf address, plus a fixed 'Share ticker: steakEURC' line. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of steakEURC shares received is not shown; the vault prices it at execution",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` comes from storage (totalAssets and totalSupply), with no minShares parameter. Case 0 minted 0.099171800486587914 steakEURC to the signer, and the screen shows only 'Share ticker: steakEURC'.",
+      "fix": "Nothing in the calldata carries it. A label like 'Shares at current vault price' could set expectations.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The EURC out (0.1, to the vault) is shown exactly. The steakEURC in goes to the shown recipient, but its amount is not on the screen. The reader correctly saw shares arriving with no amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "EURC is pulled from the signer, amount = previewMint(shares), rounded up at the current share price (safeTransferFrom in enter). There is no maximum-assets bound, so the only limit is the signer's EURC allowance.",
+     "Exactly `shares` steakEURC are minted to onBehalf.",
+     "accrueInterest mints fee shares to the fee recipients first. Assets may be forwarded to the liquidity adapter."
+    ],
+    "shown": "Mint 0.999999999 steakEURC for the onBehalf address, plus a fixed 'Deposit asset: EURC' line with no amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the EURC amount taken from the signer is not shown and has no bound in calldata",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` and enter: `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: 1.003683 EURC left the signer. The screen shows only 'Deposit asset: EURC'.",
+      "fix": "No calldata value carries it. Say in the label that the EURC amount is set by the vault price, e.g. 'Pay with: EURC (amount at vault price)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent says only 'Mint' and never says the signer pays EURC",
+      "evidence": "descriptor mint: intent \"Mint\", interpolatedIntent \"Mint {#.shares} for {#.onBehalf}\". Case 1 screen: 'Mint 0.999999999 steakEURC for 0x…dEaD', while 1.003683 EURC left the signer.",
+      "fix": "Use an interpolatedIntent like \"Deposit EURC to mint {#.shares} for {#.onBehalf}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the 'Deposit asset' field shows a bare ticker that reads like an amount is missing",
+      "evidence": "descriptor mint field {label 'Deposit asset', format raw, value $.metadata.constants.underlyingTicker} renders 'EURC' with no number (case 1). The reader was unsure 'the exact EURC amount that leaves my wallet'.",
+      "fix": "Relabel it, e.g. 'Pays in (amount set by vault price)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The only signer effect is 1.003683 EURC out. The screen names EURC but gives no amount. The shares went to 0xdEaD, which is shown correctly, and the reader understood that."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `assets` EURC is sent from the vault to the receiver (safeTransfer(asset, receiver, assets) in exit).",
+     "previewWithdraw(assets) shares, rounded up at the current price, are burned from onBehalf (deleteShares). There is no maximum-shares bound.",
+     "If msg.sender != onBehalf, the onBehalf->msg.sender share allowance drops by the burned shares, unless it is the maximum.",
+     "The vault may first deallocate from the liquidity adapter to cover the withdrawal."
+    ],
+    "shown": "Withdraw exactly 500 EURC to the receiver, with the owner shown. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of steakEURC shares burned from the owner is not shown; the vault prices it",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets);` then exit: `deleteShares(onBehalf, shares)`. Case 2 burned 493.385593745234399288 steakEURC from the signer, and the screen has no shares field.",
+      "fix": "Nothing in the calldata carries it. A label on 'Owner' like 'Shares burned from' would at least say shares leave.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "withdraw: no case covers a caller withdrawing for another owner, which spends a share allowance",
+      "evidence": "VaultV2.sol exit: `if (msg.sender != onBehalf) { ... allowance[onBehalf][msg.sender] = _allowance - shares; }`. In case 2, receiver = onBehalf = signer.",
+      "fix": "Add a case where onBehalf differs from the signer.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 500 EURC in to the signer is shown exactly. The steakEURC burned from the signer has no amount on screen. The reader inferred the shares shrink but did not know how many."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` steakEURC are burned from onBehalf (deleteShares in exit).",
+     "EURC, amount = previewRedeem(shares) at the current price and rounded down, is sent to the receiver. There is no minimum-assets bound.",
+     "If msg.sender != onBehalf, the share allowance onBehalf->msg.sender is spent.",
+     "The vault may first deallocate from the liquidity adapter."
+    ],
+    "shown": "Redeem 4929.098968765068667524 steakEURC to the receiver, with the owner shown. Neither the asset received nor its amount is named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names EURC as the asset the receiver gets",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. The descriptor's redeem fields are only shares, receiver and onBehalf. The underlyingTicker constant is used in mint but not here. Case 3: 5003.61872 EURC arrived, and the reader only wrote 'presumably EURC'.",
+      "fix": "Add a field {label 'Receive asset', format raw, value $.metadata.constants.underlyingTicker}, or put EURC in the interpolatedIntent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the EURC amount received is priced by the vault and has no minimum in calldata",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. Case 3 paid 5003.61872 EURC, which is not on the screen.",
+      "fix": "Not fixable from calldata. A label could say the amount is at the current vault price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The steakEURC out is exact and shown. The EURC in goes to the shown receiver, but neither the asset nor the amount is on screen."
+     }
+    ],
+    "glance": 70,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.402,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 105,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "mint: the intent says only 'Mint' and never says the signer pays EURC",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names EURC as the asset the receiver gets",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 68,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names EURC as the asset the receiver gets"
+ }
+}

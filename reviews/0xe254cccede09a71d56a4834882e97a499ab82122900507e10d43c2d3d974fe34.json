@@ -1,0 +1,327 @@
+{
+ "hash": "0xe254cccede09a71d56a4834882e97a499ab82122900507e10d43c2d3d974fe34",
+ "file": "registry/yieldxyz/calldata-yieldxyz-pol-validator.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb929b89153fc2eed442e81e5a1add4e2fa39028f"
+  },
+  {
+   "chainId": 1,
+   "address": "0x56d783ca8e0b998c57a428bf1c26a8baca50524e"
+  },
+  {
+   "chainId": 1,
+   "address": "0x857679d69fe50e7b722f94acd2629d80c355163d"
+  },
+  {
+   "chainId": 1,
+   "address": "0xf30cf4ed712d3734161fdaab5b1dbb49fd2d0e5c"
+  },
+  {
+   "chainId": 1,
+   "address": "0x5a10de50160126a5f936506bd342c541ac44e943"
+  },
+  {
+   "chainId": 1,
+   "address": "0x35b1ca0f398905cf752e6fe122b51c88022fca32"
+  },
+  {
+   "chainId": 1,
+   "address": "0xd9e6987d77bf2c6d0647b8181fd68a259f838c36"
+  },
+  {
+   "chainId": 1,
+   "address": "0xd14a87025109013b0a2354a775cb335f926af65a"
+  },
+  {
+   "chainId": 1,
+   "address": "0xa6e768fef2d1af36c0cfdb276422e7881a83e951"
+  },
+  {
+   "chainId": 1,
+   "address": "0x467585aaea860f9d8b3b43bb994e4da8a93788a7"
+  },
+  {
+   "chainId": 1,
+   "address": "0x06998af8f39ff8630d1fb515d22781da4dc2ca71"
+  },
+  {
+   "chainId": 1,
+   "address": "0xc7757805b983ee1b6272c1840c18e66837de858e"
+  },
+  {
+   "chainId": 1,
+   "address": "0xe3e9ba8c8c696f8537cf16b23eddf118bbd7f21f"
+  },
+  {
+   "chainId": 1,
+   "address": "0x875e901465a639f2e71fcfc10f426ed32f5a909a"
+  },
+  {
+   "chainId": 1,
+   "address": "0x2905b3387c9550ea57fa3ee7d4b7e5abf3acd3d2"
+  },
+  {
+   "chainId": 1,
+   "address": "0x15c2b3adca66e26b6f230b4023f52a285b7f9995"
+  },
+  {
+   "chainId": 1,
+   "address": "0x2ea3c215daeacc1c90b51443ab5d08a9ad816138"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "buyVoucherPOL(uint256 _amount, uint256 _minSharesToMint)",
+    "effects": [
+     "POL (0x455e…) leaves the signer: about _amount, pulled by the StakeManager (0x5e3e…) through transferFrom, which uses up the signer's existing POL allowance to it.",
+     "The signer gets validator share tokens (dPOL, the proxy contract itself), at least _minSharesToMint, at the validator's exchange rate.",
+     "Before the deposit, any pending delegation rewards are paid out to the signer in POL (Polygon ValidatorShare._buyVoucher calls _withdrawAndTransferReward). The implementation is not in the directory."
+    ],
+    "shown": "Stake POL, with the stake amount in POL and a raw minimum share count.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "buyVoucherPOL: 'Min shares' is raw with no decimals or token, and 0 means no slippage protection.",
+      "evidence": "descriptor: {\"path\":\"#._minSharesToMint\",\"label\":\"Min shares\",\"format\":\"raw\"}. Case 0 shows 'Min shares: 0', but 113820189659605384342 dPOL57 (18 decimals) were minted to the signer.",
+      "fix": "Use format tokenAmount with tokenPath \"@.to\" (the share token is the validator contract), label it 'Min shares received', and set a threshold or message for 0 (no minimum).",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "buyVoucherPOL: pending rewards are paid to the signer before staking, and the screen never says so.",
+      "evidence": "Polygon ValidatorShare._buyVoucher calls _withdrawAndTransferReward(msg.sender, pol) before _buyShares. That source is not in the directory. Case 0 had no pending rewards, so no transfer was mined.",
+      "fix": "Use the intent 'Stake POL (claims pending rewards)', or add an interpolatedIntent that says so.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "buyVoucherPOL: the transfer spends an existing POL allowance to the StakeManager, and the screen does not mention it.",
+      "evidence": "Case 0 mined: an approval event on POL from the signer to 0x5e3ef299…, with remaining allowance 340394615658 (signer 'grant'), emitted by the transferFrom of 113.82 POL.",
+      "fix": "None needed. This is the prerequisite of the stated stake.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "buyVoucherPOL: there is no interpolatedIntent, so the amount is missing from the summary line.",
+      "evidence": "descriptor: \"intent\": \"Stake POL\", with no interpolatedIntent.",
+      "fix": "Add \"interpolatedIntent\": \"Stake {_amount}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "The POL out amount and asset are right. The shares in are shown only as raw min 0, so the reader knew a position arrives but not how much. The allowance spend is not on screen."
+     }
+    ],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "sellVoucher_newPOL(uint256 claimAmount, uint256 maximumSharesToBurn)",
+    "effects": [
+     "Up to maximumSharesToBurn validator share tokens (dPOL) are burned from the signer.",
+     "An unbond request (new nonce) is created for claimAmount POL. The POL is claimable only after the unbonding delay, not in this transaction.",
+     "Pending delegation rewards are paid to the signer in POL right away (_withdrawAndTransferReward)."
+    ],
+    "shown": "Unstake POL, with 'Claim amount' in POL and a raw 'Max shares' number.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "sellVoucher_newPOL: pending POL rewards are paid to the signer, and the screen does not say so.",
+      "evidence": "Case 1 mined: 66050895952657124 POL moved from the StakeManager 0x5e3e… to the signer (signer 'in'). Screen: intent 'Unstake POL', fields 'Claim amount' and 'Max shares' only. The blind reader expected nothing to arrive now.",
+      "fix": "Use the intent 'Unstake POL and claim rewards', or an interpolatedIntent such as 'Unstake {claimAmount} and withdraw pending rewards'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "sellVoucher_newPOL: 'Claim amount' suggests POL arrives now, but it only enters the unbonding queue.",
+      "evidence": "descriptor label 'Claim amount' on #.claimAmount. In case 1 the 113.82 POL did not move. It was received later in case 2 through unstakeClaimTokens_newPOL.",
+      "fix": "Label it 'Amount to unbond (claimable after unbonding period)', or add an interpolatedIntent that says the POL must be claimed later.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "sellVoucher_newPOL: 'Max shares' is shown as a raw 21-digit integer.",
+      "evidence": "descriptor: {\"path\":\"#.maximumSharesToBurn\",\"format\":\"raw\"}. Case 1 screen: 'Max shares: 113820189659605384342'. Mined: 113820189659605384342 dPOL57 burned.",
+      "fix": "Use format tokenAmount with tokenPath \"@.to\" and the label 'Max shares burned'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "missed",
+       "right"
+      ],
+      "notes": "The reward payout of 0.066 POL is not on screen. The shares burned are right as a raw bound."
+     }
+    ],
+    "glance": 50,
+    "depth": 45
+   },
+   {
+    "key": "unstakeClaimTokens_newPOL(uint256 unbondNonce)",
+    "effects": [
+     "The unbond request unbondNonce of the signer is closed, and its stored POL amount is paid from the StakeManager to the signer."
+    ],
+    "shown": "Claim unstaked POL for unbond nonce N.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "unstakeClaimTokens_newPOL: the amount of POL received comes from storage and cannot be shown.",
+      "evidence": "Case 2 mined: 113820189659605384342 POL in to the signer. The screen shows only 'Unbond nonce: 1'.",
+      "fix": "None in the descriptor. The amount is stored in unbonds_new[msg.sender][nonce].",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The asset and direction are right. The amount cannot be shown."
+     }
+    ],
+    "glance": 75,
+    "depth": 45
+   },
+   {
+    "key": "withdrawRewardsPOL()",
+    "effects": [
+     "All of the signer's accrued delegation rewards are paid out in POL from the StakeManager to the signer, and the reward checkpoint is reset."
+    ],
+    "shown": "Withdraw POL rewards, with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdrawRewardsPOL: the reward amount comes from storage and cannot be shown.",
+      "evidence": "Case 3 mined: 7315038061352272818512 POL in to the signer. Screen fields: [].",
+      "fix": "None in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The direction and asset are right. The amount cannot be shown."
+     }
+    ],
+    "glance": 80,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "The ValidatorShare implementation is not in the directory. ValidatorShareProxy.loadImplementation() returns Registry(...).getValidatorShareAddress(), but meta.json resolves the implementation to the Registry itself, so the code of buyVoucherPOL, sellVoucher_newPOL, unstakeClaimTokens_newPOL and withdrawRewardsPOL is missing.",
+   "The StakeManager (0x5e3ef299fddf15eaa0432e6e66473ace8c13d908) is not in the directory. It pulls the POL deposit and pays out unbonded funds and rewards."
+  ]
+ },
+ "cost": 0.361,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 264,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "buyVoucherPOL(uint256 _amount, uint256 _minSharesToMint)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 51,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "buyVoucherPOL: pending rewards are paid to the signer before staking, and the screen never says so.",
+   "comprehension": 50
+  },
+  "sellVoucher_newPOL(uint256 claimAmount, uint256 maximumSharesToBurn)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 39,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 1,
+   "warnings": 2,
+   "worst": "sellVoucher_newPOL: pending POL rewards are paid to the signer, and the screen does not say so.",
+   "comprehension": 50
+  },
+  "unstakeClaimTokens_newPOL(uint256 unbondNonce)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 54,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "withdrawRewardsPOL()": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 79,
+  "clarity": 50,
+  "functions": "3C 1F",
+  "incomplete": true,
+  "worst": "sellVoucher_newPOL: pending POL rewards are paid to the signer, and the screen does not say so."
+ }
+}

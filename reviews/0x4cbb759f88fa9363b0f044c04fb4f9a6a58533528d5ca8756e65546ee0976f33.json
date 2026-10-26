@@ -1,0 +1,1090 @@
+{
+ "hash": "0x4cbb759f88fa9363b0f044c04fb4f9a6a58533528d5ca8756e65546ee0976f33",
+ "file": "registry/zkstables/calldata-zkemt.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x8ed36a645bef11075283524c01aca742cbafc832"
+  },
+  {
+   "chainId": 84532,
+   "address": "0x79c12772de2cfc45359eccb8a9c038c3e5ae8e31"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "approve(address spender, uint256 value)",
+    "effects": [
+     "Sets the signer's zkUSD allowance for spender to value (max uint256 = never decreases)."
+    ],
+    "shown": "Approve <amount or Unlimited> zkUSD for <spender>.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "encryptedToPublicTransfer((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,address recipient,uint256 amount) params, (bool clear,bool enabled) flags)",
+    "effects": [
+     "Debits params.amount from the encrypted balance of the signer's EPK (signer must be its controller) and sets it to newSenderBalanceCt.",
+     "Mints params.amount public zkUSD to params.recipient (or to the recipient's auto-encrypt EPK if they enabled it).",
+     "If flags.clear, folds the signer's pending balance into the active encrypted balance.",
+     "Sets pending routing of the signer's EPK to flags.enabled, which can turn pending routing off."
+    ],
+    "shown": "Send <amount> zkUSD to <recipient>, under the intent 'Transfer (encrypted to public)'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "encryptedToPublicTransfer hides flags.clear and flags.enabled, which change the signer's pending-balance routing.",
+      "evidence": "ZKEMT.sol _handlePendingFlags: `if (flags.clear) { _clearPending(compressed); } ... if (pendingActive != flags.enabled) { $.pendingActive[compressed] = flags.enabled; }`. The descriptor has no field for flags.",
+      "fix": "Add fields for `flags.clear` ('Merge pending balance') and `flags.enabled` ('Pending routing after tx'), with labels that say true/false is the end state.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "encryptedToPublicTransferWithAuth((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,address recipient,uint256 amount) params, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Consumes the EPK controller's signed authorization (nonce).",
+     "Debits params.amount from the encrypted balance of params.senderEpk, which belongs to the controller, not to the transaction sender.",
+     "Mints params.amount public zkUSD to params.recipient.",
+     "Applies flags.clear and flags.enabled to the sender EPK's pending balance and routing."
+    ],
+    "shown": "Send <amount> zkUSD to <recipient>, under the intent 'Encrypted to public (auth)'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "encryptedToPublicTransferWithAuth says 'Send X to Bob' without naming whose encrypted balance pays.",
+      "evidence": "ZKEMT.sol encryptedToPublicTransferWithAuth: `(address controller, CompressedPoint compressedSender) = _validateEpk(params.senderEpk); ... _consumeAuthorization(controller, digest, auth);`. Descriptor: interpolatedIntent 'Send {params.amount} to {params.recipient}'; no senderEpk field. The sibling publicToEncryptedTransferWithAuth shows 'from {owner}'.",
+      "fix": "Change the intent to 'Relay encrypted-to-public transfer' and add a 'From ZK key' field on `params.senderEpk.x`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "encryptedToPublicTransferWithAuth hides the pending-balance flags it applies to the sender EPK.",
+      "evidence": "ZKEMT.sol encryptedToPublicTransferWithAuth: `_handlePendingFlags(compressedSender, flags);`. The descriptor has no field for flags.",
+      "fix": "Add fields for `flags.clear` and `flags.enabled`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "encryptedToPublicTransferWithCallerAuth((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,address recipient,uint256 amount) params, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Consumes the controller's authorization, which is bound to msg.sender.",
+     "Debits params.amount from the encrypted balance of params.senderEpk (the controller's).",
+     "Mints params.amount public zkUSD to params.recipient.",
+     "Applies flags.clear and flags.enabled to the sender EPK's pending balance and routing."
+    ],
+    "shown": "Send <amount> zkUSD to <recipient>, under the intent 'Encrypted to public (caller)'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "encryptedToPublicTransferWithCallerAuth says 'Send X to Bob' without naming the paying encrypted account.",
+      "evidence": "ZKEMT.sol encryptedToPublicTransferWithCallerAuth: `_consumeAuthorization(controller, digest, auth); _encryptedToPublicTransfer(params, compressedSender, auxCommitment);`. Descriptor: 'Send {params.amount} to {params.recipient}', with no senderEpk field.",
+      "fix": "Add a 'From ZK key' field on `params.senderEpk.x`, and use an intent that says the call relays the transfer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "encryptedToPublicTransferWithCallerAuth hides the pending-balance flags it applies.",
+      "evidence": "ZKEMT.sol encryptedToPublicTransferWithCallerAuth: `_handlePendingFlags(compressedSender, flags);`. The descriptor has no flags field.",
+      "fix": "Add fields for `flags.clear` and `flags.enabled`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "encryptedTransfer((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) params, (bool clear,bool enabled) flags)",
+    "effects": [
+     "Replaces the signer's EPK encrypted balance with newSenderBalanceCt, which debits an encrypted amount.",
+     "Credits the encrypted amount recipientAmountCt to recipientEpk (to its active or pending slot).",
+     "Applies flags.clear and flags.enabled to the signer EPK's pending balance and routing."
+    ],
+    "shown": "'Encrypted transfer' with the recipient key shown as two raw 32-byte hex values.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "encryptedTransfer cannot show the amount sent, because the calldata holds only ElGamal ciphertexts.",
+      "evidence": "ZKEMT.sol _encryptedTransfer: `_addToEpkBalance(compressedRecipient, params.recipientAmountCt);`. The amount exists only as ciphertext and a ZK proof.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "encryptedTransfer hides flags.clear and flags.enabled, which change the signer's pending routing.",
+      "evidence": "ZKEMT.sol encryptedTransfer: `_handlePendingFlags(senderCompressedEpk, flags);`. The descriptor has fields only for recipientEpk.x and recipientEpk.y.",
+      "fix": "Add fields for `flags.clear` and `flags.enabled`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "encryptedTransfer shows the recipient only as two raw 64-hex-character coordinates, 'To key x' and 'To key y'.",
+      "evidence": "Descriptor: paths 'params.recipientEpk.x.[0:32]' and 'params.recipientEpk.y.[0:32]' with format raw. Case 4 shows two 0x… 32-byte values.",
+      "fix": "Show only `params.recipientEpk.x` with the label 'To ZK key', and state in the intent that the amount is encrypted.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 30
+   },
+   {
+    "key": "encryptedTransferWithAuth((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) params, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Consumes the sender controller's authorization.",
+     "Debits an encrypted amount from params.senderEpk and credits recipientAmountCt to recipientEpk.",
+     "Applies flags to the sender EPK's pending balance and routing."
+    ],
+    "shown": "'Encrypted transfer (auth)' with the recipient key as two raw hex values.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "encryptedTransferWithAuth cannot show the amount, which is encrypted in the calldata.",
+      "evidence": "ZKEMT.sol _encryptedTransfer: `_addToEpkBalance(compressedRecipient, params.recipientAmountCt);`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "encryptedTransferWithAuth shows neither the paying sender EPK nor the pending flags.",
+      "evidence": "ZKEMT.sol encryptedTransferWithAuth: `_consumeAuthorization(senderController, digest, auth); ... _handlePendingFlags(senderCompressedEpk, flags);`. The descriptor has fields only for recipientEpk x and y.",
+      "fix": "Add 'From ZK key' on `params.senderEpk.x`, and add fields for `flags.clear` and `flags.enabled`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "encryptedTransferWithAuth shows the recipient as two raw hex coordinates.",
+      "evidence": "Descriptor: 'params.recipientEpk.x.[0:32]' and 'params.recipientEpk.y.[0:32]' format raw; case 5.",
+      "fix": "Show only `params.recipientEpk.x` as 'To ZK key'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 25
+   },
+   {
+    "key": "encryptedTransferWithCallerAuth((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) params, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Consumes the sender controller's authorization, which is bound to msg.sender.",
+     "Debits an encrypted amount from params.senderEpk and credits recipientAmountCt to recipientEpk.",
+     "Applies flags to the sender EPK's pending balance and routing."
+    ],
+    "shown": "'Encrypted transfer (caller)' with the recipient key as two raw hex values.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "encryptedTransferWithCallerAuth cannot show the amount, which is encrypted in the calldata.",
+      "evidence": "ZKEMT.sol _encryptedTransfer: `_addToEpkBalance(compressedRecipient, params.recipientAmountCt);`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "encryptedTransferWithCallerAuth shows neither the sender EPK nor the pending flags.",
+      "evidence": "ZKEMT.sol encryptedTransferWithCallerAuth: `_handlePendingFlags(senderCompressedEpk, flags);`. The descriptor has fields only for recipientEpk x and y.",
+      "fix": "Add 'From ZK key' on `params.senderEpk.x`, and add fields for `flags.clear` and `flags.enabled`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "encryptedTransferWithCallerAuth shows the recipient as two raw hex coordinates.",
+      "evidence": "Descriptor: 'params.recipientEpk.x.[0:32]' and 'params.recipientEpk.y.[0:32]' format raw; case 6.",
+      "fix": "Show only `params.recipientEpk.x` as 'To ZK key'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 25
+   },
+   {
+    "key": "executeEncryptedBurn(bytes32 epk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newBalance, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) tsCiphertext, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcCiphertext)",
+    "effects": [
+     "Only the ZKHub contract can call it (onlyHub).",
+     "Overwrites the encrypted balance of epk with newBalance and lowers the encrypted total supply."
+    ],
+    "shown": "'Execute encrypted burn' with the raw EPK.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "executeEncryptedBurn is onlyHub, so no wallet signer can call it on the token.",
+      "evidence": "ZKEMT.sol: `function executeEncryptedBurn(...) external onlyHub`; `_onlyHub`: `require(msg.sender == address(ZKHUB), NotZKHub());`.",
+      "fix": "Remove the format, or describe it on the ZKHub descriptor instead.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "executeEncryptedBurn cannot show the amount burned, because it is encrypted.",
+      "evidence": "ZKEMT.sol executeEncryptedBurn: `oldBalance.R = newBalance.R; oldBalance.C = newBalance.C;`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 30
+   },
+   {
+    "key": "executeEncryptedMint(bytes32 epk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) mintCiphertext, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) tsCiphertext, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcCiphertext)",
+    "effects": [
+     "Only the ZKHub contract can call it.",
+     "Adds an encrypted amount to epk's balance and to the encrypted total supply."
+    ],
+    "shown": "'Execute encrypted mint' with the raw EPK.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "executeEncryptedMint is onlyHub, so no wallet signer can call it on the token.",
+      "evidence": "ZKEMT.sol: `function executeEncryptedMint(...) external onlyHub`.",
+      "fix": "Remove the format, or move it to the ZKHub descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "executeEncryptedMint cannot show the amount minted, because it is encrypted.",
+      "evidence": "ZKEMT.sol executeEncryptedMint: `_addToEpkBalance(epk, mintCiphertext);`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 30
+   },
+   {
+    "key": "executePublicBurn(address burnFrom, uint256 amount)",
+    "effects": [
+     "Only the ZKHub contract can call it.",
+     "Burns amount zkUSD from burnFrom and lowers the encrypted total supply."
+    ],
+    "shown": "Burn <amount> zkUSD from <burnFrom>.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "executePublicBurn is onlyHub, so no wallet signer can call it on the token.",
+      "evidence": "ZKEMT.sol: `function executePublicBurn(address burnFrom, uint256 amount) external onlyHub`.",
+      "fix": "Remove the format, or move it to the ZKHub descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "executePublicMint(address to, uint256 amount)",
+    "effects": [
+     "Only the ZKHub contract can call it.",
+     "Mints amount zkUSD to `to` (or to to's auto-encrypt EPK) and raises the encrypted total supply."
+    ],
+    "shown": "Mint <amount> zkUSD to <to>.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "executePublicMint is onlyHub, so no wallet signer can call it on the token.",
+      "evidence": "ZKEMT.sol: `function executePublicMint(address to, uint256 amount) external onlyHub`.",
+      "fix": "Remove the format, or move it to the ZKHub descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "executeRotateTotalSupplyKey(((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newTotalSupply, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) expectedOldTotalSupply)",
+    "effects": [
+     "Only the ZKHub contract can call it.",
+     "Replaces the encrypted total-supply ciphertext. No user balance changes."
+    ],
+    "shown": "'Rotate total supply key' with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "executeRotateTotalSupplyKey is onlyHub, so no wallet signer can call it on the token.",
+      "evidence": "ZKEMT.sol: `function executeRotateTotalSupplyKey(...) external onlyHub`.",
+      "fix": "Remove the format, or move it to the ZKHub descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 50
+   },
+   {
+    "key": "executeSeizeEncrypted(bytes32 epk, address to, uint256 amount)",
+    "effects": [
+     "Only the ZKHub contract can call it.",
+     "Folds epk's pending balance into its active balance, subtracts amount, and mints amount public zkUSD to `to`, bypassing freeze checks."
+    ],
+    "shown": "'Execute seize (encrypted)' with amount, the raw source EPK and the recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "executeSeizeEncrypted is onlyHub, so no wallet signer can call it on the token.",
+      "evidence": "ZKEMT.sol: `function executeSeizeEncrypted(CompressedPoint epk, address to, uint256 amount) external onlyHub`.",
+      "fix": "Remove the format, or move it to the ZKHub descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "executeSeizePublic(address from, address to, uint256 amount)",
+    "effects": [
+     "Only the ZKHub contract can call it.",
+     "Moves amount zkUSD from `from` to `to` and skips the freeze, sanction and auto-encrypt checks."
+    ],
+    "shown": "Seize <amount> zkUSD from <from> to <to>.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "executeSeizePublic is onlyHub, so no wallet signer can call it on the token.",
+      "evidence": "ZKEMT.sol: `function executeSeizePublic(address from, address to, uint256 amount) external onlyHub`.",
+      "fix": "Remove the format, or move it to the ZKHub descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "initialize(string name_, string symbol_)",
+    "effects": [
+     "Sets the token name, symbol and EIP-712 domain one time only. The proxy already ran it at deployment, so any later call reverts."
+    ],
+    "shown": "'Initialize' with the name and symbol.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "initialize already ran in the proxy constructor, so every signer's call reverts.",
+      "evidence": "Proxy meta.json constructor _data starts with 0x4cd88b76 (initialize). ZKEMT.sol: `function initialize(...) external initializer`.",
+      "fix": "Remove the format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   },
+   {
+    "key": "managePendingBalance(bytes32 epk, (bool clear,bool enabled) flags)",
+    "effects": [
+     "The signer must be the controller of epk.",
+     "If flags.clear, folds epk's pending balance into its active encrypted balance.",
+     "Sets pending routing of epk to flags.enabled (false turns it off)."
+    ],
+    "shown": "'Manage pending balance' with the raw values Enable pending, Clear pending and ZK address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "managePendingBalance labels flags.enabled 'Enable pending', but false turns existing pending routing off.",
+      "evidence": "ZKEMT.sol _handlePendingFlags: `if (pendingActive != flags.enabled) { $.pendingActive[compressed] = flags.enabled; }`. Descriptor: label 'Enable pending', format raw.",
+      "fix": "Rename the field to 'Pending routing after tx', and add an interpolatedIntent such as 'Set pending routing to {flags.enabled}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "managePendingBalanceWithAuth(bytes32 epk, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Consumes the controller's authorization for epk.",
+     "If flags.clear, folds pending into active, then sets pending routing of epk to flags.enabled."
+    ],
+    "shown": "'Manage pending balance' with the raw values Enable pending, Clear pending and ZK address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "managePendingBalanceWithAuth labels flags.enabled 'Enable pending', but false disables routing.",
+      "evidence": "ZKEMT.sol _handlePendingFlags: `$.pendingActive[compressed] = flags.enabled;`. Descriptor: label 'Enable pending'.",
+      "fix": "Rename the field to 'Pending routing after tx'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Uses the owner's EIP-2612 signature to set the owner's zkUSD allowance for spender to value."
+    ],
+    "shown": "Approve <value> zkUSD from <owner> for <spender>, with a deadline.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "publicToEncryptedTransfer(uint256 amount, bytes32 epk)",
+    "effects": [
+     "Burns amount public zkUSD from the signer.",
+     "Credits amount to the encrypted balance of epk. This can be any registered EPK, including one controlled by another party."
+    ],
+    "shown": "Send <amount> zkUSD to encrypted, with 'To ZK address' as raw bytes32.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "publicToEncryptedTransfer says 'Send X to encrypted', but epk can be another party's account.",
+      "evidence": "ZKEMT.sol publicToEncryptedTransfer: `_validateEpk(epk); _publicToEncryptedTransfer(msg.sender, amount, epk);`. _validateEpk checks only that epk is registered, not who controls it. Descriptor: interpolatedIntent 'Send {amount} to encrypted'.",
+      "fix": "Change interpolatedIntent to 'Send {amount} to ZK address {epk}', or add a label that the destination may belong to someone else.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "publicToEncryptedTransferWithAuth(address owner, bytes32 recipient, uint256 amount, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Consumes the owner's authorization.",
+     "Burns amount public zkUSD from owner and credits it to the recipient EPK."
+    ],
+    "shown": "Send <amount> zkUSD from <owner> to encrypted, with the raw ZK address.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "publicToEncryptedTransferWithCallerAuth(address owner, bytes32 recipient, uint256 amount, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Consumes the owner's authorization, which is bound to msg.sender.",
+     "Burns amount public zkUSD from owner and credits it to the recipient EPK."
+    ],
+    "shown": "Send <amount> zkUSD from <owner> to encrypted, with the raw ZK address.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)",
+    "effects": [
+     "Requires the signer to be `to`; moves value zkUSD from `from` to the signer under from's EIP-3009 signature."
+    ],
+    "shown": "Receive <value> zkUSD from <from>, with To and the validity window.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Requires the signer to be `to`; moves value zkUSD from `from` to the signer under from's EIP-3009 signature."
+    ],
+    "shown": "Receive <value> zkUSD from <from>, with To and the validity window.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "setAutoEncrypt(bool enabled, bytes32 epk)",
+    "effects": [
+     "Binds epk as the signer's auto-encrypt target permanently: a second set reverts with AutoEncryptEpkAlreadySet, and only toggling is possible later.",
+     "When enabled, every future zkUSD transfer or mint to the signer's address is burned and credited to epk. epk can be any registered EPK, including another party's."
+    ],
+    "shown": "'Set auto-encrypt' with Enabled true/false and the raw ZK address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setAutoEncrypt does not say the EPK binding is permanent and redirects all future incoming zkUSD.",
+      "evidence": "ZKEMT.sol _setAutoEncrypt: `require($.autoEncryptEpk[owner] == COMPRESSED_IDENTITY, AutoEncryptEpkAlreadySet()); $.autoEncryptEpk[owner] = epk;`. _update: `if (to != address(0) && isAutoEncryptActive(to)) { ... super._update(from, address(0), value); _addToEpkBalance(toEpk, value);`. Descriptor: intent 'Set auto-encrypt', 'ZK address' raw.",
+      "fix": "Change the intent to 'Route incoming zkUSD to ZK address' and the label to 'ZK address (cannot be changed)'. Add an interpolatedIntent that names {epk}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 50
+   },
+   {
+    "key": "setAutoEncryptWithAuth(address owner, bool enabled, bytes32 epk, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Consumes owner's authorization.",
+     "Binds epk permanently as owner's auto-encrypt target and sets the active flag, which redirects future incoming zkUSD of owner to epk."
+    ],
+    "shown": "'Set auto-encrypt (auth)' with Owner, Enabled and the raw ZK address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setAutoEncryptWithAuth does not say the owner's EPK binding is permanent and redirects incoming zkUSD.",
+      "evidence": "ZKEMT.sol _setAutoEncrypt: `require($.autoEncryptEpk[owner] == COMPRESSED_IDENTITY, AutoEncryptEpkAlreadySet());`. Descriptor: intent 'Set auto-encrypt (auth)'.",
+      "fix": "Change the intent to 'Route owner's incoming zkUSD to ZK address' and label the epk field 'ZK address (cannot be changed)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 50
+   },
+   {
+    "key": "toggleAutoEncrypt(bool enabled)",
+    "effects": [
+     "Turns redirection of the signer's incoming zkUSD to their stored auto-encrypt EPK on or off."
+    ],
+    "shown": "'Toggle auto-encrypt' with Enabled true/false.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "toggleAutoEncrypt cannot show the EPK that receives redirected funds, because it is read from storage.",
+      "evidence": "ZKEMT.sol _toggleAutoEncrypt: `require($.autoEncryptEpk[owner] != COMPRESSED_IDENTITY, ...); $.autoEncryptActive[owner] = enabled;`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "toggleAutoEncryptWithAuth(address owner, bool enabled, (uint256 nonce,uint256 deadline,bytes signature) auth)",
+    "effects": [
+     "Consumes owner's authorization and sets owner's auto-encrypt active flag to enabled."
+    ],
+    "shown": "'Toggle auto-encrypt (auth)' with Owner and Enabled.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "toggleAutoEncryptWithAuth cannot show the stored EPK that receives redirected funds.",
+      "evidence": "ZKEMT.sol toggleAutoEncryptWithAuth: `CompressedPoint toEpk = autoEncryptOf(owner);` read from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "transfer(address to, uint256 value)",
+    "effects": [
+     "Moves value zkUSD from the signer to `to`, or into to's auto-encrypt EPK if `to` enabled it."
+    ],
+    "shown": "Send <value> zkUSD to <to>.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "transfer test case 34 sends to the zero address, which always reverts.",
+      "evidence": "Case 34: 'Send 21.37 zkUSD to 0x0000000000000000000000000000000000000000'. ERC20Upgradeable._transfer reverts with ERC20InvalidReceiver(address(0)).",
+      "fix": "Replace case 34 with a transfer that can succeed, for example a large or 'max' amount.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "transferFrom(address from, address to, uint256 value)",
+    "effects": [
+     "Spends value of from's allowance to the signer and moves value zkUSD from `from` to `to`."
+    ],
+    "shown": "Send <value> zkUSD from <from> to <to>.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)",
+    "effects": [
+     "Uses from's EIP-3009 signature to move value zkUSD from `from` to `to`."
+    ],
+    "shown": "Send <value> zkUSD from <from> to <to>, with the validity window.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)",
+    "effects": [
+     "Uses from's EIP-3009 signature to move value zkUSD from `from` to `to`."
+    ],
+    "shown": "Send <value> zkUSD from <from> to <to>, with the validity window.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "upgradeToAndCall(address newImplementation, bytes data)",
+    "effects": [
+     "Only ZKHub can authorize it (_authorizeUpgrade is onlyHub).",
+     "Replaces the proxy's implementation, delegatecalls data on it, and takes msg.value."
+    ],
+    "shown": "'Upgrade token' with the new implementation, the native value and the decoded follow-up call.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "upgradeToAndCall needs ZKHub authorization, so no wallet signer can call it on the token.",
+      "evidence": "ZKEMT.sol: `function _authorizeUpgrade(address newImplementation) internal override onlyHub {}`.",
+      "fix": "Remove the format, or move it to the ZKHub descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 1.069,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 170,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "approve(address spender, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "encryptedToPublicTransfer((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,address recipient,uint256 amount) params, (bool clear,bool enabled) flags)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "encryptedToPublicTransfer hides flags.clear and flags.enabled, which change the signer's pending-balance routing.",
+   "comprehension": null
+  },
+  "encryptedToPublicTransferWithAuth((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,address recipient,uint256 amount) params, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "encryptedToPublicTransferWithAuth hides the pending-balance flags it applies to the sender EPK.",
+   "comprehension": null
+  },
+  "encryptedToPublicTransferWithCallerAuth((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,address recipient,uint256 amount) params, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "encryptedToPublicTransferWithCallerAuth hides the pending-balance flags it applies.",
+   "comprehension": null
+  },
+  "encryptedTransfer((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) params, (bool clear,bool enabled) flags)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 27,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "encryptedTransfer hides flags.clear and flags.enabled, which change the signer's pending routing.",
+   "comprehension": null
+  },
+  "encryptedTransferWithAuth((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) params, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 23,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "encryptedTransferWithAuth shows neither the paying sender EPK nor the pending flags.",
+   "comprehension": null
+  },
+  "encryptedTransferWithCallerAuth((bytes proof,(uint256 x,uint256 y) senderEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newSenderBalanceCt,(uint256 x,uint256 y) recipientEpk,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) recipientAmountCt,((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcAmountCt) params, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 23,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "encryptedTransferWithCallerAuth shows neither the sender EPK nor the pending flags.",
+   "comprehension": null
+  },
+  "executeEncryptedBurn(bytes32 epk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newBalance, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) tsCiphertext, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcCiphertext)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "executeEncryptedMint(bytes32 epk, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) mintCiphertext, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) tsCiphertext, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) trcCiphertext)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "executePublicBurn(address burnFrom, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "executePublicMint(address to, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "executeRotateTotalSupplyKey(((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) newTotalSupply, ((uint256 x,uint256 y) R,(uint256 x,uint256 y) C) expectedOldTotalSupply)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "executeSeizeEncrypted(bytes32 epk, address to, uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "executeSeizePublic(address from, address to, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "initialize(string name_, string symbol_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "managePendingBalance(bytes32 epk, (bool clear,bool enabled) flags)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "managePendingBalance labels flags.enabled 'Enable pending', but false turns existing pending routing off.",
+   "comprehension": null
+  },
+  "managePendingBalanceWithAuth(bytes32 epk, (bool clear,bool enabled) flags, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "managePendingBalanceWithAuth labels flags.enabled 'Enable pending', but false disables routing.",
+   "comprehension": null
+  },
+  "permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "publicToEncryptedTransfer(uint256 amount, bytes32 epk)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "publicToEncryptedTransfer says 'Send X to encrypted', but epk can be another party's account.",
+   "comprehension": null
+  },
+  "publicToEncryptedTransferWithAuth(address owner, bytes32 recipient, uint256 amount, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "publicToEncryptedTransferWithCallerAuth(address owner, bytes32 recipient, uint256 amount, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "receiveWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setAutoEncrypt(bool enabled, bytes32 epk)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAutoEncrypt does not say the EPK binding is permanent and redirects all future incoming zkUSD.",
+   "comprehension": null
+  },
+  "setAutoEncryptWithAuth(address owner, bool enabled, bytes32 epk, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAutoEncryptWithAuth does not say the owner's EPK binding is permanent and redirects incoming zkUSD.",
+   "comprehension": null
+  },
+  "toggleAutoEncrypt(bool enabled)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "toggleAutoEncryptWithAuth(address owner, bool enabled, (uint256 nonce,uint256 deadline,bytes signature) auth)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transfer(address to, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferFrom(address from, address to, uint256 value)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferWithAuthorization(address from, address to, uint256 value, uint256 validAfter, uint256 validBefore, bytes32 nonce, uint8 v, bytes32 r, bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "upgradeToAndCall(address newImplementation, bytes data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 65,
+  "functions": "11A 9B 12C",
+  "incomplete": false,
+  "worst": "encryptedToPublicTransferWithAuth hides the pending-balance flags it applies to the sender EPK."
+ }
+}

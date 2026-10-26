@@ -1,0 +1,235 @@
+{
+ "hash": "0xdf1a3094a211b10a1541d51e112fbd51709df48dc42ec7d92a08634aa33460b6",
+ "file": "registry/kiln/calldata-Vault-USDC-Aave-v3.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x640522135e5e4598cae85b170d5a675a53770fa0"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends `assets` USDC to the vault (safeTransferFrom(caller, vault, assets) in Vault._deposit).",
+     "The vault mints kAaveUSDC shares to `receiver`. The count comes from the vault's share price, minus any deposit fee read from storage (_previewDeposit).",
+     "The vault forwards the USDC to Aave v3 through a connector it delegatecalls. The signer holds a vault position, not aTokens."
+    ],
+    "shown": "Intent 'Deposit', with 'Deposit asset: 1 USDC', 'Share ticker: kAaveUSDC' and 'Send shares to: <receiver>'. The number of shares received is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many kAaveUSDC shares the receiver gets; the share price comes from storage.",
+      "evidence": "Vault.deposit: `(uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply());` No minimum-shares parameter exists. Case 0: signer receives 999907 kAaveUSDC (0.999907), and the screen only shows 'Share ticker: kAaveUSDC'.",
+      "fix": "No descriptor fix exists for the amount. You can add a note in the label, for example 'Receive shares (amount set by vault price)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' names neither the USDC paid nor the vault shares received.",
+      "evidence": "descriptor deposit format: \"intent\": \"Deposit\", no interpolatedIntent. The share token sits in a separate raw field: \"label\": \"Share ticker\", \"format\": \"raw\".",
+      "fix": "Set intent to 'Deposit USDC into Kiln Aave vault' and add interpolatedIntent 'Deposit {assets} for kAaveUSDC shares to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 1 USDC outflow is shown exactly. The 0.999907 kAaveUSDC inflow shows its asset and receiver but no amount. The code has no bound, so the reader could not know the amount."
+     }
+    ],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer pays USDC to the vault. The amount is computed from `shares` at the current share price plus the deposit fee (_previewMint), with no maximum in calldata.",
+     "The vault mints exactly `shares` kAaveUSDC to `receiver`.",
+     "The vault forwards the USDC (minus the deposit fee) to Aave v3 through the delegatecalled connector."
+    ],
+    "shown": "Intent 'Mint', with 'Deposit asset: USDC' (raw constant, no amount), 'Minted shares: <shares> kAaveUSDC' and 'Mint shares to: <receiver>'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDC leaves the signer; the vault computes it and no maximum exists.",
+      "evidence": "Vault.mint: `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); ... _deposit(_msgSender(), receiver, _assets, shares, _depositFeeAmount);` Descriptor: {\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}.",
+      "fix": "Rename the field to 'Pay with (amount set by vault price)' so the signer knows the USDC amount is not fixed. Only the signer's USDC allowance bounds it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint intent 'Mint' does not say the signer pays USDC for the shares.",
+      "evidence": "descriptor mint format: \"intent\": \"Mint\". The USDC payment shows only as a raw ticker field 'Deposit asset: USDC'.",
+      "fix": "Set intent to 'Buy kAaveUSDC vault shares with USDC' and add interpolatedIntent 'Mint {shares} for USDC to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns kAaveUSDC shares from `owner`. The count is rounded up from `assets` at the current share price.",
+     "If the caller is not `owner`, the vault spends the owner's share allowance to the caller (_spendAllowance).",
+     "The vault withdraws `assets` USDC from Aave through the connector and sends the USDC it received to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', with 'Withdraw exactly: <assets> USDC', 'To: <receiver>' and 'Owner: <owner>'. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many kAaveUSDC shares the owner loses; the share price sets it.",
+      "evidence": "Vault.withdraw: `uint256 _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); ... _withdraw(_msgSender(), receiver, owner, assets, _shares);` No maxShares parameter exists.",
+      "fix": "No descriptor fix exists for the amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent 'Withdraw' does not say that vault shares are burned to pay out USDC.",
+      "evidence": "descriptor withdraw format: \"intent\": \"Withdraw\", no interpolatedIntent.",
+      "fix": "Set intent to 'Withdraw USDC from Kiln Aave vault' and add interpolatedIntent 'Withdraw {assets} to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` kAaveUSDC from `owner`. If the caller is not the owner, it spends the owner's share allowance.",
+     "The vault withdraws the matching USDC from Aave through the connector and sends it to `receiver`. The amount comes from the share price, with no minimum."
+    ],
+    "shown": "Intent 'Redeem', with 'Shares to redeem: 0.999907 kAaveUSDC', 'To: <receiver>' and 'Owner: <owner>'. Nothing names USDC as the asset received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem never names USDC as the asset the receiver gets back.",
+      "evidence": "Vault._withdraw: `SafeERC20.safeTransfer(IERC20(asset()), receiver, IERC20(asset()).balanceOf(address(this)) - _balanceBefore);` The redeem format has only the fields shares, receiver and owner. Case 1: the signer receives 1018773 USDC (1.018773). The reader wrote 'Which token is paid out; the screen doesn't say'.",
+      "fix": "Add {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}, as the mint format does, and set intent to 'Redeem vault shares for USDC'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDC the receiver gets; the share price sets it and no minimum exists.",
+      "evidence": "Vault.redeem: `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply);` Case 1: 1.018773 USDC received, and no amount appears on the screen.",
+      "fix": "No descriptor fix exists for the amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.999907 kAaveUSDC burn is shown exactly. The 1.018773 USDC inflow is not stated at all. The reader only guessed USDC and had no amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "deposit, mint, withdraw and redeem delegatecall the Aave v3 connector. The vault reads it from ConnectorRegistry 0xde63817c82e93499357ae198518f90ac1be93a72 under the name AAVE_V3, and its source is not in the directory. It runs in the vault's context and decides how much USDC the vault gets back, so it decides what the receiver gets on withdraw and redeem."
+  ]
+ },
+ "cost": 0.693,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 106,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' names neither the USDC paid nor the vault shares received.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say the signer pays USDC for the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent 'Withdraw' does not say that vault shares are burned to pay out USDC.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset the receiver gets back.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 57,
+  "functions": "2B 1C 1D",
+  "incomplete": true,
+  "worst": "redeem never names USDC as the asset the receiver gets back."
+ }
+}

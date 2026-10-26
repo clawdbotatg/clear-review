@@ -1,0 +1,190 @@
+{
+ "hash": "0x7c4e6cfed76bc342048b90ca53f480219ab6aba30b4621c9b3a8502ee81ea3a7",
+ "file": "registry/avvatar-labs-alia/calldata-AssetIdentityRegistry-base.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xfc9ca736d384d482af5d23cc7616765c66244d29"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addCrossChainRecord(address _tokenAddress, uint256 _chainId, address _crossChainToken)",
+    "effects": [
+     "Only the registry owner can call it (onlyOwner). It requires the token to be registered already and the cross-chain token to be non-zero.",
+     "Appends a record {chainId, crossChainToken, isActive: true} to the token's crossChainRecords array. Existing records stay, and no tokens or ETH move (not payable)."
+    ],
+    "shown": "\"Add cross-chain record\" with the Base token, the other chain's ID as a raw number, and the cross-chain token address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "addCrossChainRecord shows _chainId as a raw number instead of the chainId format that names the chain.",
+      "evidence": "descriptor.json: {\"path\":\"_chainId\",\"label\":\"Chain ID\",\"format\":\"raw\"}. Case 1 screen shows 'Chain ID: 1'. The spec defines a `chainId` format ('Ethereum Mainnet' for 1).",
+      "fix": "Use \"format\": \"chainId\" on _chainId and label it 'Other chain'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "addCrossChainRecord resolves the cross-chain token's name on Base, though the token lives on _chainId.",
+      "evidence": "AssetIdentityRegistry.sol addCrossChainRecord: '@param _crossChainToken Adresse du token sur l'autre chain'. descriptor.json: _crossChainToken addressName with types [token] and no chainIdPath. Case 1 passes mainnet USDC 0xA0b8…eB48 with chainId 1. Resolved on Base, this address is unknown or names another contract.",
+      "fix": "Add \"chainIdPath\": \"_chainId\" to the _crossChainToken addressName params.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "registerAsset(address _tokenAddress, uint8 _assetClass, uint8 _backingType, string _legalIdentifier, string _jurisdiction, string _custodian)",
+    "effects": [
+     "Only the registry owner can call it. It requires a non-zero token that is not registered yet and a non-empty legal identifier.",
+     "Creates an active identity record for the token with the given asset class, backing type, legal ID, jurisdiction and custodian, and records the signer as registeredBy.",
+     "If the legal identifier is already registered, the asset is flagged isDuplicate and DuplicateDetected is emitted.",
+     "Adds the token to the identifier index and the asset list. No tokens or ETH move (not payable)."
+    ],
+    "shown": "\"Register asset ERC-8240\" with the token, asset class and backing (enum names), legal ID, jurisdiction and custodian.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "registerAsset intent uses the jargon 'ERC-8240', which tells a normal signer nothing.",
+      "evidence": "descriptor.json registerAsset: \"intent\": \"Register asset ERC-8240\". The code registers an identity record (AssetIdentity) in a registry.",
+      "fix": "Use an intent like 'Register asset identity' and add an interpolatedIntent naming the token and asset class.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "registerAsset may flag the asset as a duplicate, based on storage the screen cannot show.",
+      "evidence": "AssetIdentityRegistry.sol registerAsset: 'if (identifierExists[_legalIdentifier]) { isDuplicate = true; ... emit DuplicateDetected(...) }'. The result depends on registry state, not calldata.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "test-gap",
+      "title": "registerAsset test case 0 uses mainnet DAI's address as the token on Base.",
+      "evidence": "cases/0.json: chainId 8453, token 0x6B175474E89094C44Da98b954EedeAC495271d0F (DAI on Ethereum mainnet). It renders as a raw address.",
+      "fix": "Use a token deployed on Base in the test.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "revokeAsset(address _tokenAddress, string _reason)",
+    "effects": [
+     "Only the registry owner can call it, and the asset must be registered.",
+     "Sets the token's identity isActive to false and updates updatedAt. There is no function to re-activate it, and registerAsset rejects tokens already registered, so this is permanent.",
+     "Emits AssetRevoked with the reason. No tokens, approvals or ETH move (not payable)."
+    ],
+    "shown": "\"Revoke asset\" with the token and the reason text.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "revokeAsset intent 'Revoke asset' is vague and does not say the revocation is permanent.",
+      "evidence": "descriptor.json: \"intent\": \"Revoke asset\". AssetIdentityRegistry.sol revokeAsset: 'identities[_tokenAddress].isActive = false;'. No function sets isActive back to true, and registerAsset requires '!isRegistered[_tokenAddress]'.",
+      "fix": "Use an intent like 'Revoke asset identity (permanent)' and an interpolatedIntent 'Revoke registry identity of {_tokenAddress}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 85
+   },
+   {
+    "key": "updateCustodian(address _tokenAddress, string _newCustodian)",
+    "effects": [
+     "Only the registry owner can call it, and the asset must be registered.",
+     "Replaces the custodian string of the token's identity and updates updatedAt. No tokens or ETH move (not payable)."
+    ],
+    "shown": "\"Update asset custodian\" with the token and the new custodian name.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 95
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.306,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 50,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "addCrossChainRecord(address _tokenAddress, uint256 _chainId, address _crossChainToken)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "addCrossChainRecord resolves the cross-chain token's name on Base, though the token lives on _chainId.",
+   "comprehension": null
+  },
+  "registerAsset(address _tokenAddress, uint8 _assetClass, uint8 _backingType, string _legalIdentifier, string _jurisdiction, string _custodian)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "revokeAsset(address _tokenAddress, string _reason)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "revokeAsset intent 'Revoke asset' is vague and does not say the revocation is permanent.",
+   "comprehension": null
+  },
+  "updateCustodian(address _tokenAddress, string _newCustodian)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 98,
+  "clarity": 79,
+  "functions": "2A 2B",
+  "incomplete": false,
+  "worst": "addCrossChainRecord resolves the cross-chain token's name on Base, though the token lives on _chainId."
+ }
+}

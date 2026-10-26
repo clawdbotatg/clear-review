@@ -1,0 +1,183 @@
+{
+ "hash": "0xf366e8c0a35c1d0ef7a00e6a3c449f278b00c985e18c36ac475cc32530802bc8",
+ "file": "registry/1inch/eip712-AggregationRouterV6.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 10,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 56,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 100,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 137,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 250,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 324,
+   "address": "0x6fd4383cb451173d5f9304f041c7bcbf27d561ff"
+  },
+  {
+   "chainId": 8217,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  },
+  {
+   "chainId": 1313161554,
+   "address": "0x111111125421ca6dc452d289314280a0f8842a65"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Order(uint256 salt,address maker,address receiver,address makerAsset,address takerAsset,uint256 makingAmount,uint256 takingAmount,uint256 makerTraits)",
+    "effects": [
+     "The maker lets any filler, or only the allowed sender encoded in makerTraits, take up to makingAmount of makerAsset from the maker. The router pulls it with its own allowance or a Permit2 allowance and sends it to the filler's target.",
+     "The receiver gets takerAsset in proportion to the fill, which is takingAmount for a full fill. When receiver is zero, the maker gets it.",
+     "Partial fills are allowed unless bit 255 of makerTraits is set, so the maker can send part of makingAmount and get a proportional part of takingAmount.",
+     "The order stays valid until the expiration timestamp in makerTraits bits 80-119. A value of 0 means it never expires. A nonce or epoch can cancel it.",
+     "When the unwrap flag (bit 247) is set and takerAsset is WETH, the receiver gets native ETH instead of WETH.",
+     "When the order has an extension, which the low 160 bits of salt commit to, the extension can add a predicate, custom amount getters that set the rate, a maker permit that approves makerAsset to the router, and pre- and post-interaction calls to a listener."
+    ],
+    "shown": "The screen says \"1inch Order\" and shows the maker raw as From, makingAmount of makerAsset as Send, takingAmount of takerAsset as Receive minimum, and the receiver raw as To. Salt and makerTraits are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order intent \"1inch Order\" does not say this is a standing swap offer anyone can fill.",
+      "evidence": "descriptor.json: \"intent\": \"1inch Order\". OrderMixin._fill in AggregationRouterV6.mainnet.sol moves makerAsset from the maker to the taker, then moves takerAsset from the taker to order.getReceiver().",
+      "fix": "Change the intent to \"Sign limit order: sell for at least\" and add an interpolatedIntent such as \"Sell {makingAmount} for {takingAmount}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order field \"To\" can read as the recipient of the Send amount. It is the recipient of takerAsset.",
+      "evidence": "descriptor.json: {\"path\": \"receiver\", \"label\": \"To\", \"format\": \"raw\"}. In _fill the makerAsset goes to `target` (the taker). The takerAsset goes to `order.getReceiver()`. Case 0 shows To = 0xE592427A0AEce92De3Edee1F18E0157C05861564 right after Send 2500 USDC.",
+      "fix": "Rename the label to \"Proceeds recipient\" and use format addressName with types [\"eoa\",\"contract\"].",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order shows a zero receiver as the zero address, but the code then pays the maker.",
+      "evidence": "OrderLib.getReceiver: `return receiver != address(0) ? receiver : order.maker.get();`. descriptor.json: receiver is shown with format raw and has no senderAddress or zero-address handling.",
+      "fix": "Use format addressName for receiver with \"params\": {\"senderAddress\": \"0x0000000000000000000000000000000000000000\"}, so zero shows as the signer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Order hides the expiration in makerTraits, so the signer cannot see how long the offer stays fillable.",
+      "evidence": "MakerTraitsLib.isExpired: `expiration = (makerTraits >> _EXPIRATION_OFFSET) & _EXPIRATION_MASK; return expiration != 0 && expiration < block.timestamp;` with offset 80 and a uint40 mask. descriptor.json: makerTraits has \"visible\": \"never\". In case 0, makerTraits = 2^49, so the expiration is 0 and the order never expires.",
+      "fix": "Add {\"path\": \"makerTraits.[17:22]\", \"label\": \"Expires\", \"format\": \"date\", \"params\": {\"encoding\": \"timestamp\"}}, and label the 0 value as no expiry.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order labels takingAmount \"Receive minimum\", but a partial fill pays the maker less in proportion.",
+      "evidence": "_fill: `makingAmount = Math.min(amount, remainingMakingAmount); takingAmount = order.calculateTakingAmount(...)`, and the fill reverts only when `!allowPartialFills() && makingAmount != order.makingAmount`. In case 0 makerTraits does not set bit 255, so partial fills are allowed.",
+      "fix": "Rename the fields to \"Sell up to\" and \"For (full fill)\", or state the rate in the interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Order packs flags in makerTraits (unwrap WETH, partial fills, Permit2, interactions, allowed sender) that no format can show.",
+      "evidence": "MakerTraitsLib: _NO_PARTIAL_FILLS_FLAG = 1<<255, _ALLOW_MULTIPLE_FILLS_FLAG = 1<<254, _PRE/_POST_INTERACTION_CALL_FLAG, _USE_PERMIT2_FLAG = 1<<248, _UNWRAP_WETH_FLAG = 1<<247, and the allowed sender in the low 80 bits. In _fill, `order.makerTraits.unwrapWeth()` makes the receiver get ETH while the screen shows WETH.",
+      "fix": "Wait for a bit-flag format in ERC-7730. Until then, consider a fixed notice field that the order terms depend on hidden flags.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Order commits an extension through the hidden salt hash, which can change the rate and add permits and interactions.",
+      "evidence": "OrderLib.isValidExtension: `uint256(keccak256(extension)) & type(uint160).max != order.salt & type(uint160).max`. calculateTakingAmount calls `IAmountGetter(address(bytes20(data))).getTakingAmount(...)` when takingAmountData is set. _fillOrder runs `tryPermit(maker, address(this), makerPermit[20:])`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "Order has one test, which covers no zero receiver, expiration, extension or unwrap flag.",
+      "evidence": "cases/0.json: makerTraits = 562949953421312 (2^49), so no flag and no expiration are set. The receiver is non-zero and the case has no mined transaction.",
+      "fix": "Add cases with receiver = 0, a non-zero expiration, and makerTraits with _HAS_EXTENSION_FLAG and _UNWRAP_WETH_FLAG set.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": [
+   "zkSync (324) deployment 0x6fd4383cb451173d5f9304f041c7bcbf27d561ff has no verified source, so the Order verification and fill logic there could not be checked."
+  ]
+ },
+ "cost": 0.54,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 182,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "Order(uint256 salt,address maker,address receiver,address makerAsset,address takerAsset,uint256 makingAmount,uint256 takingAmount,uint256 makerTraits)": {
+   "grade": "C",
+   "truth": 80,
+   "clarity": 22,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 6,
+   "worst": "Order hides the expiration in makerTraits, so the signer cannot see how long the offer stays fillable.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 80,
+  "clarity": 22,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": "Order hides the expiration in makerTraits, so the signer cannot see how long the offer stays fillable."
+ }
+}

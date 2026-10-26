@@ -1,0 +1,424 @@
+{
+ "hash": "0xa508a687680815518d0f3e179018ff234fe9f4110b9359d6412bd981365089f2",
+ "file": "registry/10102/calldata-ShieldVault.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xa1ea2f8c0518458975e09ed63bf5d48980f76c38"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "open(address token, uint256 amount, (uint32 exitDelay, uint32 silencePeriod, address[] beneficiaries, uint16[] sharesBps, uint16 holdMask) config, uint256 vetoIndex, uint16 maxFeeBps)",
+    "effects": [
+     "Pulls `amount` of `token` from the signer into the vault with safeTransferFrom, which spends the signer's allowance; only the received amount is credited.",
+     "Creates a new position owned by the signer, holding that balance.",
+     "Fixes the position's exit fee at the current feeBps, which must be at or below maxFeeBps; the fee is taken on every withdrawal and fallback.",
+     "Sets the exit delay (7, 30 or 90 days) that every later withdrawal and settings change must wait.",
+     "Sets a silence period after which anyone can release the whole balance, minus the fee, to the listed beneficiaries in the listed shares.",
+     "Sets holdMask: the shares of marked beneficiaries are held in `owed` and claimed by their signature to any wallet.",
+     "Pins the registry commitment at vetoIndex: anyone with its secret can send the whole balance to the committed recovery wallet at any time. The digest is then burned for the signer's other positions."
+    ],
+    "shown": "Open Shield Vault holding: the amount with its token, the withdrawal wait and silence period as HH:MM:ss, each beneficiary with its share, the maximum exit fee as a percent, and the recovery index raw.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "open shows vetoIndex raw, so 'no recovery' renders as a 78-digit number",
+      "evidence": "Case 1 screen: 'Recovery (max=off)' = '115792089237316195423570985008687907853269984665640564039457584007913129639935'. ShieldVault._pinCommitment: `if (index == NO_VETO) return bytes32(0);`",
+      "fix": "Map type(uint256).max to 'None (no recovery)' with an enum in metadata.enums, or change the label to 'Recovery sheet # (huge number = none)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "open shows the exit delay in hours ('168:00:00'), but the code accepts only 7, 30 or 90 days",
+      "evidence": "ShieldVault._validateConfig: `if (c.exitDelay != 7 days && c.exitDelay != 30 days && c.exitDelay != 90 days) revert InvalidDelay();` Case 0 screen 'Withdrawals wait' = '168:00:00'.",
+      "fix": "Use an enum format for config.exitDelay: {\"604800\":\"7 days\",\"2592000\":\"30 days\",\"7776000\":\"90 days\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "open shows the silence period in hours ('8760:00:00'); the duration format cannot show days",
+      "evidence": "Case 0 screen 'Silence (0=off)' = '8760:00:00'; descriptor `\"format\": \"duration\"`; spec: duration renders HH:MM:ss.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "open hides holdMask, which decides which beneficiary shares are held for a signed claim",
+      "evidence": "Descriptor: `\"path\": \"config.holdMask\", \"visible\": \"never\"`. ShieldVault.executeFallback: `if ((uint256(hold) >> i) & 1 == 1) { owed[id][bens[i]] += amount; ...}`",
+      "fix": "The bitmask cannot be paired with the beneficiaries per bit. Say in the docs that a held share goes to the same beneficiary, by its signature.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "open's vetoIndex stands for a recovery wallet in the registry that can take the whole balance; the screen cannot show it",
+      "evidence": "ShieldVault._pinCommitment: `registry.commitmentAt(owner, index)`; veto: `_payOrOwe(id, p.token, recoveryTo, amount)` for the full balance.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "open intent omits that the signer deposits tokens and sets beneficiaries",
+      "evidence": "Descriptor intent 'Open Shield Vault holding'; no interpolatedIntent. ShieldVault.open calls `_pull(id, p, amount)`.",
+      "fix": "Add interpolatedIntent 'Deposit {amount} into a Shield Vault holding'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "deposit(uint256 id, uint256 amount)",
+    "effects": [
+     "Pulls `amount` of the position's token, read from storage, from the signer into the vault, and spends the signer's allowance.",
+     "Credits the amount received to position `id`, which may belong to someone else: the funds then go to that owner.",
+     "When the signer is the owner, resets the silence timer."
+    ],
+    "shown": "Add to Shield Vault holding: the holding id raw and the amount in raw base units.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit cannot show the token that leaves; it is the position's token, kept in storage",
+      "evidence": "ShieldVault._pull: `p.token.safeTransferFrom(msg.sender, address(this), amount);` Descriptor field 'Amount (base units)' format raw; case 2 shows '1000000000000000000'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not say that the holding can belong to someone else, who then owns the funds",
+      "evidence": "ShieldVault.deposit: `Position storage p = _open(id); if (msg.sender == p.owner) _touch(id, p); _pull(id, p, amount);` Anyone may deposit.",
+      "fix": "Add interpolatedIntent 'Add tokens to holding {id}'. The owner cannot be shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 40
+   },
+   {
+    "key": "checkIn(uint256 id)",
+    "effects": [
+     "Resets the position's last activity time, which pushes back the fallback release to the beneficiaries.",
+     "Moves no assets."
+    ],
+    "shown": "Check in on holding {id}.",
+    "findings": [],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "requestWithdraw(uint256 id, uint256 amount, address to)",
+    "effects": [
+     "Creates a pending withdrawal of `amount`, or the whole balance when amount is max, to `to`. It runs after the position's exit delay.",
+     "No tokens move now; at execution the position's fee is taken and `to` receives the rest.",
+     "Resets the silence timer, and blocks other pending requests and the fallback until it runs or is cancelled."
+    ],
+    "shown": "Request withdrawal (exit fee): the holding id raw, the amount before fee raw, and the recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "requestWithdraw shows the amount raw, and 'all' as a 78-digit number; the token is in storage",
+      "evidence": "Case 4 screen 'Before fee (max=all)' = '115792089237316195423570985008687907853269984665640564039457584007913129639935'. ShieldVault: `uint256 public constant ALL = type(uint256).max;` and the token is `p.token`.",
+      "fix": "Map type(uint256).max to 'Whole balance' with an enum, if wallets fall back to raw for other values.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "cancelPending(uint256 id)",
+    "effects": [
+     "Deletes the pending withdrawal or settings change of the position.",
+     "Resets the silence timer.",
+     "Moves no assets."
+    ],
+    "shown": "Cancel pending request for the holding id.",
+    "findings": [],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "executePending(uint256 id)",
+    "effects": [
+     "For a pending withdrawal: takes the amount, or the whole balance, from the position, keeps the fee, and sends the rest to the address fixed at request time. Closes the position when the balance reaches zero.",
+     "For a pending change: applies the new config and the new veto commitment.",
+     "Anyone may call it; nothing is paid by the caller."
+    ],
+    "shown": "Complete request (fee on exit) for the holding id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "executePending cannot show the amount, recipient or change it runs; they are kept in storage",
+      "evidence": "ShieldVault.executePending: `uint256 amount = p.pending.amount == ALL ? p.balance : p.pending.amount; address to = p.pending.to;` and `_copyConfig(p.config, p.pending.config)`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 40
+   },
+   {
+    "key": "executeFallback(uint256 id)",
+    "effects": [
+     "After the silence period, takes the fee from the whole balance and pays the rest to the beneficiaries by share; held shares go to `owed`.",
+     "Closes the position.",
+     "Anyone may call it; nothing is paid by the caller."
+    ],
+    "shown": "Release to beneficiaries (fee) for the holding id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "executeFallback cannot show the amount or the beneficiaries; they are kept in storage",
+      "evidence": "ShieldVault.executeFallback: `uint256 gross = p.balance; ... address[] storage bens = p.config.beneficiaries;`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 45
+   },
+   {
+    "key": "requestChange(uint256 id, (uint32 exitDelay, uint32 silencePeriod, address[] beneficiaries, uint16[] sharesBps, uint16 holdMask) config, uint256 vetoIndex)",
+    "effects": [
+     "Creates a pending change that replaces the exit delay, silence period, beneficiaries, shares and holdMask after the current exit delay.",
+     "Replaces the veto commitment, and so the recovery wallet that can take the whole balance; max removes recovery. The new digest is pinned now and burned for other positions.",
+     "Resets the silence timer and blocks other pending requests."
+    ],
+    "shown": "Request settings change: the holding id, the new wait and silence as HH:MM:ss, each beneficiary with its share, and the recovery index raw.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "requestChange shows the removal of recovery as a 78-digit vetoIndex",
+      "evidence": "Case 10 ('remove its recovery sheet') screen: 'Recovery (max=off)' = '115792089237316195423570985008687907853269984665640564039457584007913129639935'. ShieldVault._pinCommitment: `if (index == NO_VETO) return bytes32(0);`",
+      "fix": "Map type(uint256).max to 'None: recovery removed' with an enum, or make the label say clearly that a huge number removes recovery.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "requestChange shows the exit delay in hours, but only 7, 30 or 90 days are valid",
+      "evidence": "Case 10 screen 'Withdrawals wait' = '168:00:00'; ShieldVault._validateConfig accepts only 7, 30 or 90 days.",
+      "fix": "Use an enum for config.exitDelay with the keys 604800, 2592000 and 7776000.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestChange's vetoIndex replaces the recovery wallet with one the screen cannot show",
+      "evidence": "ShieldVault.requestChange: `bytes32 digest = _pinCommitment(msg.sender, vetoIndex, p.vetoDigest);` The digest binds recoveryTo inside the registry.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestChange hides the new holdMask",
+      "evidence": "Descriptor: `\"path\": \"config.holdMask\", \"visible\": \"never\"`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "veto(uint256 id, bytes32 secret, address recoveryTo)",
+    "effects": [
+     "Sends the whole position balance, with no fee, to recoveryTo; if the transfer fails, the amount is owed to it.",
+     "Closes the position and deletes any pending request.",
+     "Reveals the recovery secret on chain."
+    ],
+    "shown": "Send all to recovery wallet: the holding id and the recovery wallet; the secret is hidden.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "claimOwed(uint256 id, address beneficiary)",
+    "effects": [
+     "Sends the whole owed[id][beneficiary] amount of the position's token to the beneficiary. It can be a held share or a transfer that failed earlier.",
+     "The caller receives nothing unless the caller is the beneficiary."
+    ],
+    "shown": "Claim held share: the holding id and 'Paid to' the beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimOwed intent says 'held share', but it also pays failed transfers to any payee",
+      "evidence": "ShieldVault._payOrOwe: `owed[id][to] += amount;` on a failed transfer. claimOwed pays `_claimOwed(id, beneficiary, beneficiary)`.",
+      "fix": "Change the intent to 'Pay owed amount'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.577,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 129,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "open(address token, uint256 amount, (uint32 exitDelay, uint32 silencePeriod, address[] beneficiaries, uint16[] sharesBps, uint16 holdMask) config, uint256 vetoIndex, uint16 maxFeeBps)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "open shows vetoIndex raw, so 'no recovery' renders as a 78-digit number",
+   "comprehension": null
+  },
+  "deposit(uint256 id, uint256 amount)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "checkIn(uint256 id)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "requestWithdraw(uint256 id, uint256 amount, address to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "cancelPending(uint256 id)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "executePending(uint256 id)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "executeFallback(uint256 id)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "requestChange(uint256 id, (uint32 exitDelay, uint32 silencePeriod, address[] beneficiaries, uint16[] sharesBps, uint16 holdMask) config, uint256 vetoIndex)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "requestChange shows the removal of recovery as a 78-digit vetoIndex",
+   "comprehension": null
+  },
+  "veto(uint256 id, bytes32 secret, address recoveryTo)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimOwed(uint256 id, address beneficiary)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 62,
+  "functions": "2A 3B 5C",
+  "incomplete": false,
+  "worst": "open shows vetoIndex raw, so 'no recovery' renders as a 78-digit number"
+ }
+}

@@ -1,0 +1,105 @@
+{
+ "hash": "0x55a2695788101c321120fe9ea07830964162f956059e3cf921c1cee2be704cf2",
+ "file": "registry/starkgate/calldata-StarkGate-STRK.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xce5485cfb26914c5dce00b9baf0580364dafc7a4"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address token, uint256 amount, uint256 l2Recipient)",
+    "effects": [
+     "Takes `amount` of `token` (STRK here) from the signer into the bridge, using the allowance the signer gave the bridge.",
+     "Takes all of msg.value in ETH from the signer as the L1→L2 message fee. The bridge sends it on to the Starknet core contract (0xc662…c8c4 in the trace).",
+     "Credits the bridged tokens to the Starknet address `l2Recipient` on L2. The signer gets nothing on L1."
+    ],
+    "shown": "Intent \"Bridge\", with the STRK amount, the Starknet recipient as a decimal integer, and the ETH deposit fee.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "deposit shows the Starknet recipient as a long decimal integer labelled only \"Recipient\".",
+      "evidence": "descriptor deposit field {\"path\":\"l2Recipient\",\"label\":\"Recipient\",\"format\":\"raw\"}; case 0 screen Recipient = \"2616435859392095438933830530918590163965998318332799566221709688513359830273\". Starknet wallets show this address as hex 0x05c8d9a7…dd01. The blind reader could not tell if it was their own address.",
+      "fix": "Change the label to \"Starknet recipient\" so the signer knows this is an L2 address and not an Ethereum one.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "deposit cannot show l2Recipient as a hex Starknet address: ERC-7730 has no hex or Starknet format for uint256.",
+      "evidence": "l2Recipient is uint256 in the deposit signature. The spec's hex rendering applies only to byte arrays (specs/erc-7730.md line 1449), so `raw` shows it in decimal.",
+      "fix": "This needs a spec format for non-EVM addresses or a hex rendering of integers.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit intent \"Bridge\" names neither the destination network (Starknet) nor what is bridged.",
+      "evidence": "descriptor deposit \"intent\": \"Bridge\", with no interpolatedIntent. Case 0 reader listed \"Which network I am sending from and to\" as unsure.",
+      "fix": "Change the intent to \"Bridge to Starknet\" and add an interpolatedIntent such as \"Bridge {amount} to Starknet\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "980000 STRK out (the transferFrom spent the allowance to 0) matches 'Amount to deposit'. 0.000022148627586501 ETH out matches 'Deposit fee'; the bridge sent all of it to the Starknet core contract. The reader could not check the decimal recipient."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": [
+   "The deposit code is not in the directory. 0xce5485…c7a4 is a StarkWare Proxy whose fallback delegatecalls the address in IMPLEMENTATION_SLOT. meta.json reports proxyResolution isProxy=false with no implementations, so the bridge implementation behind deposit() is missing. I could not check from code how amount, msg.value (including the native-ETH token path) and l2Recipient are used. Mined case 0 confirms only the STRK path."
+  ]
+ },
+ "cost": 0.302,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 95,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(address token, uint256 amount, uint256 l2Recipient)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit shows the Starknet recipient as a long decimal integer labelled only \"Recipient\".",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 76,
+  "functions": "1B",
+  "incomplete": true,
+  "worst": "deposit shows the Starknet recipient as a long decimal integer labelled only \"Recipient\"."
+ }
+}

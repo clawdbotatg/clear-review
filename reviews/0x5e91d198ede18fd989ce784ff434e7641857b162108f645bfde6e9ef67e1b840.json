@@ -1,0 +1,122 @@
+{
+ "hash": "0x5e91d198ede18fd989ce784ff434e7641857b162108f645bfde6e9ef67e1b840",
+ "file": "registry/feral-file/calldata-feralfile-vault-v2-0.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xcbfaf4bde69c9b37835761e5228f9fe9e25b452f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "payForSaleV2(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256 nonce,uint256 seriesID,uint16 quantity,(address recipient,uint256 bps)[] revenueShares,bool payByVaultContract) saleData_)",
+    "effects": [
+     "The vault sends saleData_.price in ETH from its own balance to the signer (msg.sender).",
+     "The vault marks the signed sale message (chainid, signer, saleData_) as paid, so the same backend signature cannot be used again.",
+     "The call reverts unless payByVaultContract is true, the sale has not expired, the vault holds at least price, and the backend signer signed the data.",
+     "Nothing goes to destination or to the revenue share recipients in this call. cost, seriesID, quantity and revenueShares are only part of the signed hash."
+    ],
+    "shown": "\"Pay for bulk artwork sale\" with Price, Platform cost, a 'Recipient' that is the destination, Series ID, Quantity and revenue share recipients with their bps. This reads as if the signer pays the price to the destination.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-party",
+      "title": "payForSaleV2 shows destination as 'Recipient', but the vault sends the price to the signer.",
+      "evidence": "FeralfileVaultV2.sol payForSaleV2: `payable(msg.sender).transfer(saleData_.price);` destination is used only in the signed hash `keccak256(abi.encode(block.chainid, msg.sender, saleData_))`. Descriptor: field `saleData_.destination` label \"Recipient\", field `saleData_.price` label \"Price\". Case 0 shows Price \"0.5 ETH\" and Recipient \"Receiver\".",
+      "fix": "Relabel destination as \"Sale contract\" (or \"Destination\") and change the price label to \"ETH received from vault\". Set the intent to \"Receive vault ETH for artwork sale\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "payForSaleV2 intent 'Pay for bulk artwork sale' reads as the signer paying. The signer receives ETH instead.",
+      "evidence": "FeralfileVaultV2.sol payForSaleV2 is non-payable and only runs `payable(msg.sender).transfer(saleData_.price)`. Descriptor intent: \"Pay for bulk artwork sale\".",
+      "fix": "Change the intent to \"Receive vault ETH for artwork sale\" and add an interpolatedIntent: \"Receive {saleData_.price} from Feral File vault for series {saleData_.seriesID}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "payForSaleV2 shows Platform cost and revenue shares, but this call moves no funds for them.",
+      "evidence": "FeralfileVaultV2.sol payForSaleV2 reads only saleData_.payByVaultContract, price and expiryTime. cost and revenueShares go only into the signed hash. Descriptor: fields \"Platform cost\" (amount), \"Revenue recipient\", \"Revenue share (basis points)\".",
+      "fix": "Relabel these fields as sale terms, for example \"Sale terms: platform cost\" and \"Sale terms: revenue recipient\". Do not present them as payments in this call.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "payForSaleV2 test case 0 cannot succeed. It sends 0.5 ETH to a non-payable function with payByVaultContract false.",
+      "evidence": "cases/0.json input value \"500000000000000000\". The last tuple word (payByVaultContract) is 0, and the revenueShares array is empty. Code: `require(saleData_.payByVaultContract, ...)`. The function has no payable modifier.",
+      "fix": "Use value 0 and payByVaultContract true, and add at least one revenue share so the array fields render.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 20,
+    "depth": 35
+   },
+   {
+    "key": "withdrawFund(uint256 weiAmount)",
+    "effects": [
+     "Only the owner can call it. The vault sends weiAmount in ETH from its balance to the signer (msg.sender, the owner)."
+    ],
+    "shown": "\"Withdraw vault funds\" with Amount 0.5 ETH. The signer receives this amount.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.239,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 48,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "payForSaleV2(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256 nonce,uint256 seriesID,uint16 quantity,(address recipient,uint256 bps)[] revenueShares,bool payByVaultContract) saleData_)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 18,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "payForSaleV2 shows destination as 'Recipient', but the vault sends the price to the signer.",
+   "comprehension": null
+  },
+  "withdrawFund(uint256 weiAmount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 50,
+  "clarity": 53,
+  "functions": "1A 1F",
+  "incomplete": false,
+  "worst": "payForSaleV2 shows destination as 'Recipient', but the vault sends the price to the signer."
+ }
+}

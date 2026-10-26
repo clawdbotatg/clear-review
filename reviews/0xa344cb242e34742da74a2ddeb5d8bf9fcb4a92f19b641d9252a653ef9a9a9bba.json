@@ -1,0 +1,231 @@
+{
+ "hash": "0xa344cb242e34742da74a2ddeb5d8bf9fcb4a92f19b641d9252a653ef9a9a9bba",
+ "file": "registry/morpho/calldata-gauntlet-gtWETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2371e134e3455e0593363cbf89d3b6cf53740618"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` WETH to the vault (safeTransferFrom from msg.sender), using the signer's WETH allowance to the vault.",
+     "`receiver` gets newly minted gtWETH shares. The vault computes the amount from its share price, rounded down, and there is no minimum.",
+     "Before the deposit, the vault mints performance fee shares to its feeRecipient. This lowers the share price the signer gets, and the price is set in storage."
+    ],
+    "shown": "Intent \"Deposit\", with 'Deposit asset' showing the WETH amount, a constant 'Share ticker: gtWETH', and the shares recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many gtWETH shares the receiver gets, and no minimum exists",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` Case 0: signer receives 4.311299291515667512 gtWETH, and the screen shows only 'Share ticker: gtWETH'.",
+      "fix": "No descriptor fix exists: the share amount comes from the vault's storage, not from calldata.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent \"Deposit\" names no asset, vault or recipient, and there is no interpolated sentence",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`, interpolatedIntent absent. The separate field 'Share ticker' holds only the constant `$.metadata.constants.vaultTicker`.",
+      "fix": "Add `\"interpolatedIntent\": \"Deposit {assets} into gtWETH vault for {receiver}\"` and change the intent to \"Deposit WETH for gtWETH shares\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit labels the WETH amount 'Deposit asset' and shows a standalone 'Share ticker' field with no amount",
+      "evidence": "descriptor deposit format: field `assets` label \"Deposit asset\" (tokenAmount); field label \"Share ticker\" with format raw and value `$.metadata.constants.vaultTicker`.",
+      "fix": "Rename the labels to \"Deposit amount\" and \"Receive shares (gtWETH)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states the 4.5 WETH out correctly. The screen names the gtWETH shares and the recipient, but not the 4.3113 gtWETH amount, which the vault computes. The reader got the direction and the asset but said the amount is unknown."
+     }
+    ],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "`receiver` gets exactly `shares` newly minted gtWETH.",
+     "The signer sends the WETH that these shares cost to the vault. The vault computes the amount from the share price, rounded up, and there is no maximum.",
+     "Before the mint, the vault mints fee shares to its feeRecipient, which changes the price."
+    ],
+    "shown": "Intent \"Mint\", a raw 'Deposit asset: WETH' with no amount, the gtWETH share amount, and the recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much WETH leaves the signer, and the function has no maximum",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. The descriptor shows only the field 'Deposit asset' with raw value `$.metadata.constants.underlyingTicker`.",
+      "fix": "No descriptor fix exists for the amount. Consider a label such as \"Pays in (amount set by vault price)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint intent \"Mint\" does not say that the signer pays WETH for the shares",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`, no interpolatedIntent. ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);`",
+      "fix": "Change the intent to \"Deposit WETH for gtWETH shares\" and add `\"interpolatedIntent\": \"Mint {shares} for {receiver}, paid in WETH\"`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns gtWETH shares from `owner`. It computes the amount from the price, rounded up, and there is no maximum.",
+     "If the signer is not `owner`, the call spends the owner's gtWETH allowance to the signer by the share amount.",
+     "`receiver` gets exactly `assets` WETH from the vault."
+    ],
+    "shown": "Intent \"Withdraw\", the exact WETH amount, the recipient and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many gtWETH shares the vault burns from the owner",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then ERC4626._withdraw: `_burn(owner, shares);`",
+      "fix": "No descriptor fix exists: the share amount comes from the vault's storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent \"Withdraw\" has no sentence naming the WETH amount and recipient",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`, no interpolatedIntent.",
+      "fix": "Add `\"interpolatedIntent\": \"Withdraw {assets} from gtWETH vault to {receiver}\"`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtWETH from `owner`. If the signer is not `owner`, the call spends the owner's allowance to the signer.",
+     "`receiver` gets the WETH that the shares are worth. The vault computes the amount from the price, rounded down, and there is no minimum."
+    ],
+    "shown": "Intent \"Redeem\", the gtWETH share amount, the recipient and the owner. There is no WETH output.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much WETH the receiver gets, and no minimum exists",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` then ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);`. The descriptor has no field for the output asset.",
+      "fix": "No descriptor fix exists for the amount. Consider adding a constant field such as 'Receive: WETH' with the value `$.metadata.constants.underlyingTicker`, to name the output asset.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem intent \"Redeem\" does not say that the shares become WETH",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"`, no interpolatedIntent, and no field names WETH.",
+      "fix": "Change the intent to \"Redeem gtWETH shares for WETH\" and add `\"interpolatedIntent\": \"Redeem {shares} for WETH to {receiver}\"`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 72
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.408,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 70,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent \"Deposit\" names no asset, vault or recipient, and there is no interpolated sentence",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent \"Mint\" does not say that the signer pays WETH for the shares",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 63,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint intent \"Mint\" does not say that the signer pays WETH for the shares"
+ }
+}

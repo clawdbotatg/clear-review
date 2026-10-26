@@ -1,0 +1,160 @@
+{
+ "hash": "0x5575159c7eb18bd2219fcd99588dd92bde7bc3602927a66de445b4ae117c834e",
+ "file": "registry/paraswap/eip712-Velora-DeltaV2.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x0000000000bbf5c5fd284e657f01bd000933c96d"
+  },
+  {
+   "chainId": 10,
+   "address": "0x0000000000bbf5c5fd284e657f01bd000933c96d"
+  },
+  {
+   "chainId": 56,
+   "address": "0x0000000000bbf5c5fd284e657f01bd000933c96d"
+  },
+  {
+   "chainId": 137,
+   "address": "0x0000000000bbf5c5fd284e657f01bd000933c96d"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x0000000000bbf5c5fd284e657f01bd000933c96d"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x0000000000bbf5c5fd284e657f01bd000933c96d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Order(address owner,address beneficiary,address srcToken,address destToken,uint256 srcAmount,uint256 destAmount,uint256 expectedAmount,uint256 deadline,uint8 kind,uint256 nonce,uint256 partnerAndFee,bytes permit,bytes metadata,Bridge bridge)Bridge(bytes4 protocolSelector,uint256 destinationChainId,address outputToken,int8 scalingFactor,bytes protocolData)",
+    "effects": [
+     "The signer (owner) lets an agent pull srcToken from their wallet: exactly srcAmount on a SELL order, or at most srcAmount on a BUY order (kind).",
+     "The beneficiary (the owner if it is zero) receives destToken: at least destAmount on SELL, exactly destAmount on BUY.",
+     "When bridge.destinationChainId names another chain, destToken is bridged and the beneficiary gets bridge.outputToken on that chain. The amount is scaled by scalingFactor and reduced by bridge fees set in protocolData.",
+     "A partner fee and surplus share packed in partnerAndFee may be cut from the output.",
+     "The permit bytes can carry a token permit or Permit2 signature that approves the settlement contract to pull srcToken.",
+     "The order is valid until the deadline. The nonce makes it single-use."
+    ],
+    "shown": "\"Swap order\", with the amount to send in srcToken, a minimum to receive in destToken, a raw destination chain id, a raw beneficiary address and an expiry date.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "wrong-asset",
+      "title": "Order: on a cross-chain order the token received is bridge.outputToken, which is never shown",
+      "evidence": "The type has Bridge(…, uint256 destinationChainId, address outputToken, int8 scalingFactor, bytes protocolData). The descriptor shows destAmount with tokenPath \"destToken\" as 'Minimum to receive' and shows no bridge.outputToken field. On a bridged order destToken is the token on the source chain. The beneficiary gets outputToken on the destination chain, scaled by scalingFactor and reduced by the bridge fee in protocolData. Module source is not in the directory, so this rests on the signed type.",
+      "fix": "Add a field for bridge.outputToken (format addressName, types token) labelled 'Token received on destination chain'. Relabel destAmount for bridged orders, or note that bridge fees come out of it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Order: kind (SELL/BUY) is hidden, so the 'Amount to send' and 'Minimum to receive' labels are wrong for BUY orders",
+      "evidence": "Field 'uint8 kind' is not in the descriptor's fields. Labels: srcAmount 'Amount to send', destAmount 'Minimum to receive'. On a BUY order srcAmount is a maximum and destAmount is exact.",
+      "fix": "Add a kind field with an enum (0 Sell, 1 Buy), or use neutral labels: 'Maximum to send' and 'Minimum to receive'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order: beneficiary is shown as a raw address, and zero (meaning the owner) is shown literally",
+      "evidence": "descriptor field {\"path\":\"beneficiary\",\"label\":\"Beneficiary\",\"format\":\"raw\"}",
+      "fix": "Use format addressName with types [\"eoa\",\"wallet\"] and senderAddress 0x000…0, so a zero beneficiary shows as the signer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order: destination chain is shown as a raw integer, and 0 for a same-chain order has no meaning shown",
+      "evidence": "descriptor field {\"path\":\"bridge.destinationChainId\",\"format\":\"raw\"}",
+      "fix": "Use format chainId (ERC-7730 v2) or add an enum or label so a same-chain order reads plainly.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order: tokenAmount fields have no nativeCurrencyAddress, so a native ETH destToken renders as an unknown token",
+      "evidence": "destAmount params {\"tokenPath\":\"destToken\"} have no nativeCurrencyAddress. Delta orders use 0xEeee…EEeE for native ETH output.",
+      "fix": "Add \"nativeCurrencyAddress\": [\"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE\"] to both tokenAmount params.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Order: intent 'Swap order' names no tokens, no amounts and no cross-chain bridge, and there is no interpolatedIntent",
+      "evidence": "\"intent\": \"Swap order\", no interpolatedIntent",
+      "fix": "Add an interpolatedIntent such as 'Swap {srcAmount} for at least {destAmount} to {beneficiary}', and say 'Swap and bridge' when bridged.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Order: partner fee and surplus settings packed in partnerAndFee are hidden and may cut the output",
+      "evidence": "Field 'uint256 partnerAndFee' is not displayed. It packs the partner address, the fee and flags into one word, and the module that applies it is not in the directory.",
+      "fix": "Show the partner and fee if a slice or format becomes able to extract them from the packed word.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Order: permit bytes can grant the settlement contract an allowance over srcToken; this is not shown",
+      "evidence": "Field 'bytes permit' is not displayed. It is the prerequisite approval for the swap that is shown (guide not_critical #12).",
+      "fix": "None needed beyond the amount fields. Optionally note it in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": [
+   "The Delta V2 settlement module that consumes Order: Adapter.fallback delegatecalls a module looked up in selectorToModule, and its source is not in the directory. How kind, partnerAndFee, permit and bridge (outputToken, scalingFactor, protocolData) move the signer's funds could not be checked from code."
+  ]
+ },
+ "cost": 0.228,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 55,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "Order(address owner,address beneficiary,address srcToken,address destToken,uint256 srcAmount,uint256 destAmount,uint256 expectedAmount,uint256 deadline,uint8 kind,uint256 nonce,uint256 partnerAndFee,bytes permit,bytes metadata,Bridge bridge)Bridge(bytes4 protocolSelector,uint256 destinationChainId,address outputToken,int8 scalingFactor,bytes protocolData)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 17,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 5,
+   "worst": "Order: on a cross-chain order the token received is bridge.outputToken, which is never shown",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 17,
+  "functions": "1F",
+  "incomplete": true,
+  "worst": "Order: on a cross-chain order the token received is bridge.outputToken, which is never shown"
+ }
+}

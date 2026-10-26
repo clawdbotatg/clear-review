@@ -1,0 +1,230 @@
+{
+ "hash": "0x7b1d6dfd391185d2dc029f3a81aada5163d2e58eb6ff4f3efead0e6eee58f10e",
+ "file": "registry/morpho/calldata-gauntlet-mhyETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x701907283a57ff77e255c3f1aad790466b8ce4ef"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` WETH from the signer through transferFrom, using up that much of the signer's WETH allowance to the vault.",
+     "Mints vault shares (mhyETH) to `receiver`. The number is floor(assets × totalSupply / lastTotalAssets), worked out on chain after interest accrues.",
+     "Before the deposit, _accrueInterest may mint performance-fee shares to feeRecipient. That dilutes share holders slightly, and the share price used already includes it."
+    ],
+    "shown": "\"Deposit\", with the exact WETH amount, the share ticker mhyETH, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown because the contract works it out from storage.",
+      "evidence": "MetaMorphoV1_1.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. The descriptor shows only the 'Share ticker' constant for the shares side.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: no interpolatedIntent, and the intent 'Deposit' names neither the amount, the asset nor the receiver.",
+      "evidence": "descriptor.json deposit: `\"intent\": \"Deposit\"`, no interpolatedIntent. A sentence like 'Deposit {assets} for mhyETH shares to {receiver}' would carry the fields shown.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into the Gauntlet mhyETH vault, shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Takes WETH from the signer through transferFrom, using up that much WETH allowance. The amount is ceil(shares × lastTotalAssets / totalSupply), worked out on chain, and the calldata has no cap on it.",
+     "Mints exactly `shares` mhyETH to `receiver`.",
+     "Before the mint, _accrueInterest may mint fee shares to feeRecipient."
+    ],
+    "shown": "\"Mint\", with the ticker WETH as the deposit asset, the exact number of mhyETH shares minted, and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the WETH amount taken from the signer is not shown. The vault works it out and the calldata has no cap.",
+      "evidence": "MetaMorphoV1_1.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. In case 0, 1035868865 wei of WETH went out from the signer, and the screen shows only 'Deposit asset: WETH'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say the signer pays WETH, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json mint: `\"intent\": \"Mint\"`, interpolatedIntent null. The WETH payment appears only as a raw ticker field labelled 'Deposit asset'. The case 0 reader could not tell how much WETH they would pay.",
+      "fix": "Use intent \"Deposit WETH for vault shares\" and interpolatedIntent \"Mint {shares} by depositing WETH, shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer's only effect is about 1.04e-9 WETH out to the vault. The screen names WETH but no amount, and the code sets no bound. The shares went to 0xdead (signer null), and the screen and the reader both got that right."
+     }
+    ],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns shares from `owner`. The number is ceil(assets × totalSupply / lastTotalAssets), worked out on chain.",
+     "If the caller is not `owner`, it uses up the owner's share allowance to the caller by that number of shares.",
+     "Sends exactly `assets` WETH from the vault to `receiver`, after pulling it from Morpho markets.",
+     "Before the withdrawal, _accrueInterest may mint fee shares to feeRecipient."
+    ],
+    "shown": "\"Withdraw\", with the exact WETH amount, the receiver and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown because the contract works it out from storage.",
+      "evidence": "MetaMorphoV1_1.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);`. No parameter carries it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: no interpolatedIntent, and 'Withdraw' does not say WETH arrives in exchange for mhyETH shares burned.",
+      "evidence": "descriptor.json withdraw: `\"intent\": \"Withdraw\"`, no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver} by burning mhyETH shares of {owner}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` mhyETH from `owner`. If the caller is not owner, it uses up that much of the owner's share allowance to the caller.",
+     "Sends WETH to `receiver`. The amount is floor(shares × lastTotalAssets / totalSupply), worked out on chain, with no minimum in the calldata.",
+     "Before the redemption, _accrueInterest may mint fee shares to feeRecipient."
+    ],
+    "shown": "\"Redeem\", with the exact mhyETH shares, the receiver and the owner. Neither the asset received nor its amount is shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WETH amount received is not shown. The vault works it out from storage and there is no minimum.",
+      "evidence": "MetaMorphoV1_1.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. In case 1, 260756417490231714 wei of WETH came in to the signer, and the screen shows no WETH amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the screen never names WETH as the asset received, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json redeem: fields are shares, receiver and owner only, with `\"intent\": \"Redeem\"`. The case 1 reader was unsure whether ETH or WETH would arrive. Unlike mint, there is no constant field with the underlying ticker.",
+      "fix": "Add a field with value `$.metadata.constants.underlyingTicker` labelled 'Receive asset', and interpolatedIntent \"Redeem {shares} for WETH to {receiver}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The mhyETH shares out (0.2511) were shown exactly. WETH in (0.2608) was not shown as either an asset or an amount, so the reader got the direction only."
+     }
+    ],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.293,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 83,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: no interpolatedIntent, and the intent 'Deposit' names neither the amount, the asset nor the receiver.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 44,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say the signer pays WETH, and there is no interpolatedIntent.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: no interpolatedIntent, and 'Withdraw' does not say WETH arrives in exchange for mhyETH shares burned.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names WETH as the asset received, and there is no interpolatedIntent.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 58,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the intent 'Mint' does not say the signer pays WETH, and there is no interpolatedIntent."
+ }
+}

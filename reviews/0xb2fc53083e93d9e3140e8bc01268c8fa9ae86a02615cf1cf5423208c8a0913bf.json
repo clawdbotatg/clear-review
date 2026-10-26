@@ -1,0 +1,325 @@
+{
+ "hash": "0xb2fc53083e93d9e3140e8bc01268c8fa9ae86a02615cf1cf5423208c8a0913bf",
+ "file": "registry/benqi/calldata-sAVAX.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 43114,
+   "address": "0x2b2c81e08f1af8835a78bb2a90ae924ace0ea4be"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "submit()",
+    "effects": [
+     "The signer sends msg.value AVAX to the sAVAX contract.",
+     "The contract mints sAVAX shares to the signer. The amount is msg.value × totalShares / totalPooledAvax (or 1:1 when the pool is empty), so it depends on the current exchange rate held in storage."
+    ],
+    "shown": "Stake AVAX, with the AVAX amount sent.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "submit(): the intent never says the signer receives sAVAX in return for the AVAX.",
+      "evidence": "StakedAvax.sol submit(): `_mintShares(sender, shareAmount)` always mints sAVAX to msg.sender. The descriptor intent is \"Stake AVAX\" and its only field is `@.value`. In case 0 the signer received 1.411671820209217495 sAVAX, and the reader had to guess the token (\"Which token you receive and how much; screen doesn't say\").",
+      "fix": "Set intent to \"Stake AVAX for sAVAX\" and add an interpolatedIntent such as \"Stake {@.value} for sAVAX\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "submit(): the sAVAX amount minted comes from the storage exchange rate and cannot be shown.",
+      "evidence": "StakedAvax.sol getSharesByPooledAvax(): `avaxAmount.mul(totalShares).div(totalPooledAvax)`. No calldata parameter carries it. In case 0, 1.77 AVAX gave 1.4117 sAVAX.",
+      "fix": "None in the descriptor. A wallet could simulate the call.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 1.77 AVAX out is shown correctly. The sAVAX in is not on screen. The reader guessed sAVAX but not the amount."
+     }
+    ],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "requestUnlock(uint256 shareAmount)",
+    "effects": [
+     "The signer's shareAmount sAVAX moves from the signer into the contract's custody.",
+     "An unlock request (timestamp, shareAmount) is added to the signer's list. It becomes redeemable for AVAX after the cooldown and expires after the redeem period, after which only the sAVAX can be taken back."
+    ],
+    "shown": "Request unstaking, with the sAVAX amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "requestUnlock: the cooldown, the redeem window and the expiry of the request live in storage and are not shown.",
+      "evidence": "StakedAvax.sol _isWithinRedemptionPeriod / _isExpired use the storage values cooldownPeriod and redeemPeriod. In case 1 the reader was unsure \"How long the waiting period is\" and \"Whether the sAVAX is taken now\".",
+      "fix": "Optionally make the intent \"Lock sAVAX to request unstaking\" so it is clear the sAVAX leaves now.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "76.2346 sAVAX out to the contract, shown with the right token and amount."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "redeem()",
+    "effects": [
+     "For every unlock request of the signer that is inside its redemption window, the custodied sAVAX shares are burned.",
+     "The signer receives AVAX for each of those requests at the historical exchange rate recorded at its claimable time.",
+     "Those unlock requests are removed from the signer's list."
+    ],
+    "shown": "Claim unstaked AVAX, with no fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem(): it claims every redeemable request but uses the same intent as single-index redeem.",
+      "evidence": "StakedAvax.sol redeem(): it loops over all `userUnlockRequests[msg.sender]` and calls `_redeem(i)` for each one in the window. The descriptor gives both \"redeem()\" and \"redeem(uint256 unlockIndex)\" the intent \"Claim unstaked AVAX\".",
+      "fix": "Use the intent \"Claim all unstaked AVAX\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem(): the AVAX amount comes from stored requests and exchange rates, so no field can show it.",
+      "evidence": "StakedAvax.sol _redeem(): `avaxAmount = exchangeRate.mul(shareAmount).div(1e18)`, then `msg.sender.call{ value: avaxAmount }`. No parameters.",
+      "fix": "None in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 50
+   },
+   {
+    "key": "redeem(uint256 unlockIndex)",
+    "effects": [
+     "The sAVAX shares held in custody for the signer's unlock request at unlockIndex are burned.",
+     "The signer receives AVAX equal to shareAmount × the historical exchange rate at the request's claimable time.",
+     "The unlock request is removed (the last request is swapped into its index)."
+    ],
+    "shown": "Claim unstaked AVAX, with the raw unlock index.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem(uint256): the AVAX amount received is not shown; the index points to terms held in storage.",
+      "evidence": "StakedAvax.sol _redeem(): the shareAmount comes from `userUnlockRequests[msg.sender][unlockRequestIndex]` and the AVAX from `_getExchangeRateByUnlockTimestamp`. Case 2: the signer received 1388.698148386302622215 AVAX, but the screen shows only \"Unlock index: 10\".",
+      "fix": "None in the descriptor. A wallet could simulate the call.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The AVAX in is implied by the intent, but the amount is not shown. The reader understood AVAX arrives but not how much."
+     }
+    ],
+    "glance": 75,
+    "depth": 50
+   },
+   {
+    "key": "redeemOverdueShares()",
+    "effects": [
+     "For every expired unlock request of the signer, the custodied sAVAX is returned to the signer (no AVAX is paid).",
+     "Those expired unlock requests are removed from the signer's list."
+    ],
+    "shown": "\"Redeem Overdue\", with no fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "redeemOverdueShares(): \"Redeem Overdue\" does not say expired requests return sAVAX, not AVAX.",
+      "evidence": "StakedAvax.sol redeemOverdueShares(): `_transfer(address(this), msg.sender, totalOverdueShares)` returns sAVAX. Descriptor intent: \"Redeem Overdue\". In case 3 the signer received 4.464813707124008858 sAVAX, and the reader said \"the screen gives no details on what it does\".",
+      "fix": "Use the intent \"Reclaim sAVAX from all expired unstake requests\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeemOverdueShares(): the sAVAX amount returned is the sum of stored expired requests, so it cannot be shown.",
+      "evidence": "StakedAvax.sol redeemOverdueShares(): `totalOverdueShares = totalOverdueShares.add(unlockRequest.shareAmount)` over storage. No parameters.",
+      "fix": "None in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "missed"
+      ],
+      "notes": "The sAVAX in is not stated anywhere. The reader had no idea what arrives."
+     }
+    ],
+    "glance": 25,
+    "depth": 20
+   },
+   {
+    "key": "redeemOverdueShares(uint256 unlockIndex)",
+    "effects": [
+     "The custodied sAVAX of the signer's expired unlock request at unlockIndex is returned to the signer (no AVAX).",
+     "That unlock request is removed (the last request is swapped into its index)."
+    ],
+    "shown": "\"Redeem sAVAX\", with the raw unlock index.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeemOverdueShares(uint256): \"Redeem sAVAX\" reads as swapping sAVAX for AVAX, but sAVAX is returned instead.",
+      "evidence": "StakedAvax.sol redeemOverdueShares(uint): `_transfer(address(this), msg.sender, shareAmount)` returns sAVAX and pays no AVAX. Descriptor intent: \"Redeem sAVAX\". In case 4 the signer received 8016.686236043074076672 sAVAX, while the reader believed \"likely receiving AVAX\".",
+      "fix": "Use the intent \"Reclaim sAVAX from expired unstake request\" and label the index \"Expired unlock request index\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeemOverdueShares(uint256): the sAVAX amount is stored under the unlock index, which the screen cannot decode.",
+      "evidence": "StakedAvax.sol: `uint shareAmount = unlockRequest.shareAmount` is read from `userUnlockRequests[msg.sender][unlockIndex]`. The screen shows only \"Unlock index: 0\".",
+      "fix": "None in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "wrong"
+      ],
+      "notes": "The signer got sAVAX back. The reader expected AVAX because of the intent \"Redeem sAVAX\"."
+     }
+    ],
+    "glance": 35,
+    "depth": 25
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.445,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 84,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "submit()": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 74,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "submit(): the intent never says the signer receives sAVAX in return for the AVAX.",
+   "comprehension": 75
+  },
+  "requestUnlock(uint256 shareAmount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "redeem()": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem(): it claims every redeemable request but uses the same intent as single-index redeem.",
+   "comprehension": null
+  },
+  "redeem(uint256 unlockIndex)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 50
+  },
+  "redeemOverdueShares()": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 4,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeemOverdueShares(): \"Redeem Overdue\" does not say expired requests return sAVAX, not AVAX.",
+   "comprehension": 0
+  },
+  "redeemOverdueShares(uint256 unlockIndex)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 7,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeemOverdueShares(uint256): \"Redeem sAVAX\" reads as swapping sAVAX for AVAX, but sAVAX is returned instead.",
+   "comprehension": 0
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 92,
+  "clarity": 48,
+  "functions": "1A 4C 1D",
+  "incomplete": false,
+  "worst": "submit(): the intent never says the signer receives sAVAX in return for the AVAX."
+ }
+}

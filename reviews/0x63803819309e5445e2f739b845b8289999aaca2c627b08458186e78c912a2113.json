@@ -1,0 +1,193 @@
+{
+ "hash": "0x63803819309e5445e2f739b845b8289999aaca2c627b08458186e78c912a2113",
+ "file": "registry/safe/calldata-SafeProxyFactory-1.3.0.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xa6b71e26c5e0845f74c812102ca7114b6a896ab2"
+  },
+  {
+   "chainId": 10,
+   "address": "0xa6b71e26c5e0845f74c812102ca7114b6a896ab2"
+  },
+  {
+   "chainId": 56,
+   "address": "0xa6b71e26c5e0845f74c812102ca7114b6a896ab2"
+  },
+  {
+   "chainId": 137,
+   "address": "0xa6b71e26c5e0845f74c812102ca7114b6a896ab2"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xa6b71e26c5e0845f74c812102ca7114b6a896ab2"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xa6b71e26c5e0845f74c812102ca7114b6a896ab2"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xa6b71e26c5e0845f74c812102ca7114b6a896ab2"
+  },
+  {
+   "chainId": 1,
+   "address": "0xc22834581ebc8527d974f8a1c97e1bea4ef910bc"
+  },
+  {
+   "chainId": 10,
+   "address": "0xc22834581ebc8527d974f8a1c97e1bea4ef910bc"
+  },
+  {
+   "chainId": 56,
+   "address": "0xc22834581ebc8527d974f8a1c97e1bea4ef910bc"
+  },
+  {
+   "chainId": 137,
+   "address": "0xc22834581ebc8527d974f8a1c97e1bea4ef910bc"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xc22834581ebc8527d974f8a1c97e1bea4ef910bc"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xc22834581ebc8527d974f8a1c97e1bea4ef910bc"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xc22834581ebc8527d974f8a1c97e1bea4ef910bc"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "createProxyWithNonce(address _singleton, bytes initializer, uint256 saltNonce)",
+    "effects": [
+     "Deploys a new Safe proxy with CREATE2 that points at _singleton, at an address derived from keccak(initializer) and saltNonce.",
+     "Calls the new proxy with initializer (Safe setup: owners, threshold, optional delegatecall to/data, fallback handler, payment). The call comes from the factory, not from the signer.",
+     "Nothing leaves the signer's wallet beyond gas. The function is not payable, and any setup payment is paid by the new Safe, not by the signer."
+    ],
+    "shown": "\"Create Safe\" with the singleton address and the decoded Safe setup (owners, threshold, fallback handler, payment, receiver, module data). The salt nonce is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "createProxyWithNonce: the address of the new Safe is not shown, because it is computed and not in the calldata.",
+      "evidence": "GnosisSafeProxyFactory.sol deployProxyWithNonce: salt = keccak256(abi.encodePacked(keccak256(initializer), saltNonce)); create2(...). No field can show the resulting address.",
+      "fix": "None possible in ERC-7730 today. The wallet could compute and show the predicted address.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createProxyWithNonce: the singleton shows as a raw address in the test screen, so the signer cannot tell it is the official Safe code.",
+      "evidence": "case 1 screen: 'Safe singleton' = 0x3E5c63644E683549055b9Be8653de26E0B4CD36E. Descriptor uses addressName with types [contract], so name resolution is up to the wallet.",
+      "fix": "Wallets should resolve known Safe singletons. The descriptor is already set up correctly for that.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Not mined. From the code: no asset moves for the signer. The screen shows the owners and threshold of the new Safe, and the setup payment is 0."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "createProxyWithCallback(address _singleton, bytes initializer, uint256 saltNonce, address callback)",
+    "effects": [
+     "Deploys a new Safe proxy with CREATE2 that points at _singleton. The salt is derived from initializer, saltNonce and callback.",
+     "Calls the new proxy with initializer (Safe setup: owners, threshold, optional delegatecall, fallback handler, payment) from the factory.",
+     "If callback is not zero, the factory calls callback.proxyCreated(proxy, _singleton, initializer, saltNonce). This external code runs as the factory, not as the signer.",
+     "Nothing leaves the signer's wallet beyond gas. The function is not payable."
+    ],
+    "shown": "\"Create Safe\" with the singleton address and the decoded Safe setup. The salt nonce and the callback contract are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "createProxyWithCallback: the callback contract is visible:never, so the external call it receives is not shown.",
+      "evidence": "GnosisSafeProxyFactory.sol createProxyWithCallback: if (address(callback) != address(0)) callback.proxyCreated(proxy, _singleton, initializer, saltNonce); descriptor: {\"label\":\"Callback\",\"path\":\"callback\",\"visible\":\"never\"}. The call runs as the factory and moves none of the signer's assets (not_critical #5).",
+      "fix": "Show the callback as an addressName field with visible: ifNotIn [0x000...0], so the signer can see which contract gets notified.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "createProxyWithCallback: the address of the new Safe is not shown, because it is computed and not in the calldata.",
+      "evidence": "createProxyWithCallback: saltNonceWithCallback = uint256(keccak256(abi.encodePacked(saltNonce, callback))); then CREATE2 in deployProxyWithNonce.",
+      "fix": "None possible in ERC-7730 today.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined tx 0x1a78...c62b had no token, ETH or approval effects. The callback was 0x8a95ce...7c05 and is hidden. The reader understood correctly that the signer only creates a 2-of-3 Safe and pays nothing but gas."
+     }
+    ],
+    "glance": 85,
+    "depth": 78
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.234,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 171,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "createProxyWithNonce(address _singleton, bytes initializer, uint256 saltNonce)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "createProxyWithCallback(address _singleton, bytes initializer, uint256 saltNonce, address callback)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 84,
+  "functions": "2A",
+  "incomplete": false,
+  "worst": null
+ }
+}

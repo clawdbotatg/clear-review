@@ -1,0 +1,899 @@
+{
+ "hash": "0x1c3ca2072058ac20a2e5ecd11aeaf67158ae4e4ae132e6def737547ae01e9c62",
+ "file": "registry/ekubo/calldata-MEVCaptureRouter.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 10,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 56,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 130,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 137,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 1301,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 4326,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 4663,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 42431,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 46630,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 57073,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 421614,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 763373,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  },
+  {
+   "chainId": 11155420,
+   "address": "0xd26f20001a72a18c002b00e6710000d68700ce00"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "swap((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead, int256 calculatedAmountThreshold)",
+    "effects": [
+     "Exact input (amount > 0): the signer pays exactly `amount` of the pool token chosen by isToken1. Router.handleLockData uses payFrom(swapper, ...) for an ERC-20, or forwards router ETH when token0 is address(0).",
+     "Exact input: the signer (msg.sender) receives the other pool token, at least calculatedAmountThreshold, or the call reverts.",
+     "Exact output (amount < 0): the signer receives exactly |amount| of the chosen token and pays the other token, at most -calculatedAmountThreshold.",
+     "Native ETH (token0 == address(0)) is paid from the router's ETH balance, so the signer has to attach msg.value. Any msg.value above what is used stays in the router, and anyone can take it with refundNativeToken().",
+     "The ERC-20 input is pulled with transferFrom, which uses the signer's allowance to the router."
+    ],
+    "shown": "\"Swap 1000000\" with the two pool token addresses, a Token 0/Token 1 enum, and the amount and threshold as raw signed integers. Price limit, skip ahead and config are optional. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swap (isToken1, threshold) is payable, but the screen never shows the ETH sent (@.value).",
+      "evidence": "Router.sol swap(...) is `external payable`. In handleLockData, native token0 swaps spend router ETH (`_swap(value, ...)`, `safeTransferETH(address(ACCOUNTANT), ...)`). Unused ETH stays in the router, and PayableMulticallable.refundNativeToken lets any caller take it. The descriptor has no `@.value` field.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"ETH sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap (isToken1) shows the specified amount as a raw signed integer, with no token and no in/out meaning.",
+      "evidence": "descriptor: amount format \"raw\", label \"Specified amount\". Interpolated intent \"Swap {amount}\" renders as \"Swap 1000000\" (case 0). Router devdoc: \"positive for exact input, negative for exact output\".",
+      "fix": "Relabel it, e.g. \"Amount (positive = you pay this, negative = you receive this)\", and say in the intent that the token is the one picked by 'Specified pool token'. A single tokenPath cannot pick token0 or token1 from isToken1.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap (isToken1): the minimum received / maximum paid is shown as a raw 'Amount threshold' with no token.",
+      "evidence": "Router.handleLockData: `if (amountCalculated < calculatedAmountThreshold) revert SlippageCheckFailed`. The calculated amount is in the other pool token. descriptor: calculatedAmountThreshold format \"raw\", label \"Amount threshold\". Case 0 shows \"1\".",
+      "fix": "Relabel it, e.g. \"Minimum received of the other pool token (negative = maximum paid), base units\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swap (isToken1): native ETH pool token 0 (address(0)) shows as a zero address, not as ETH.",
+      "evidence": "constants.sol: `NATIVE_TOKEN_ADDRESS = address(0)`. descriptor: poolKey.token0 is addressName with types [\"token\"] and no native mapping.",
+      "fix": "Add a note or label saying that 0x000…000 means native ETH. For tokenAmount fields, use nativeCurrencyAddress.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swap (isToken1): the intent \"Swap {amount}\" names neither the token paid nor the token received.",
+      "evidence": "interpolatedIntent \"Swap {amount}\" renders as \"Swap 1000000\" in case 0, where the swap is USDC to WETH.",
+      "fix": "Use an intent that names the pool tokens, e.g. \"Swap {amount} in {poolKey.token0}/{poolKey.token1} pool\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap (isToken1): a price limit of 0 means 'no limit', but it is shown as a raw '0'.",
+      "evidence": "swapParameters.sol withDefaultSqrtRatioLimit replaces 0 with MIN/MAX_SQRT_RATIO. descriptor: sqrtRatioLimit is raw and optional. Case 0 shows \"0\".",
+      "fix": "Label it \"Price limit (sqrt ratio, 0 = none)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 45
+   },
+   {
+    "key": "swap((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead, int256 calculatedAmountThreshold, address recipient)",
+    "effects": [
+     "Exact input: the signer pays exactly `amount` of the token chosen by isToken1, as an ERC-20 transferFrom or as router ETH when token0 is address(0).",
+     "The other pool token goes to `recipient`, not to the signer: at least the threshold for exact input, exactly |amount| for exact output.",
+     "Exact output: the signer pays the input token, at most -calculatedAmountThreshold.",
+     "Native ETH is taken from the router balance, so the signer attaches msg.value. Any excess stays in the router and anyone can claim it."
+    ],
+    "shown": "\"Swap {amount}\" with Recipient, the pool tokens, a Token 0/1 enum, and the amount and threshold raw. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swap (isToken1, recipient) is payable, but the screen never shows the ETH sent.",
+      "evidence": "Router.sol swap(..., address recipient) is `external payable`. Native token0 swaps spend router ETH, and excess stays in the router (refundNativeToken). The descriptor has no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap (isToken1, recipient): the amount and threshold are raw signed integers with no token or direction.",
+      "evidence": "descriptor: amount and calculatedAmountThreshold use format \"raw\". In handleLockData, the sign selects exact in or exact out, and the threshold is in the other token.",
+      "fix": "Use labels that give the sign meaning and the token, e.g. \"Minimum received of the other pool token\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swap (isToken1, recipient): the intent leaves out the recipient and both tokens.",
+      "evidence": "interpolatedIntent \"Swap {amount}\". The output goes to `recipient` (ACCOUNTANT.withdraw(..., recipient, ...)).",
+      "fix": "\"Swap {amount}, send output to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swap (isToken1, recipient): native ETH token0 shows as the zero address.",
+      "evidence": "constants.sol: NATIVE_TOKEN_ADDRESS = address(0). poolKey.token0 is addressName with types [\"token\"].",
+      "fix": "Label that 0x0 means native ETH.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 45
+   },
+   {
+    "key": "swap((address token0, address token1, bytes32 config) poolKey, bytes32 params, int256 calculatedAmountThreshold)",
+    "effects": [
+     "The signer pays the specified token (exact input) or the computed input, at most -threshold (exact output). Amount, side and direction are packed in `params`.",
+     "The signer receives the output token, at least the threshold (exact input) or exactly |amount| (exact output).",
+     "Native token0 is paid from router ETH, so msg.value is needed. Excess stays in the router and anyone can claim it."
+    ],
+    "shown": "\"Swap on Ekubo\" with the pool tokens, the packed bytes32 params as hex and a raw threshold. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swap (packed params) is payable, but the screen never shows the ETH sent.",
+      "evidence": "Router.sol swap(PoolKey, SwapParameters, int256) is `external payable`. Native swaps spend router ETH. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap (packed params): the amount, the token side and the price limit are hidden inside raw bytes32 hex.",
+      "evidence": "swapParameters.sol: amount = bits 32..159, isToken1 = bit 31, sqrtRatioLimit = bits 160..255. descriptor: params format \"raw\", label \"Packed swap params\".",
+      "fix": "Add a sliced field, e.g. params.[12:28] labeled 'Specified amount (signed, base units)'. Say in the label which bit picks the token.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap (packed params): the threshold is raw, with no token and no meaning for its sign.",
+      "evidence": "descriptor: calculatedAmountThreshold is raw, label \"Amount threshold\".",
+      "fix": "Relabel it as minimum received of the other token (negative = maximum paid).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swap (packed params): the intent \"Swap on Ekubo\" gives no amount and no tokens.",
+      "evidence": "interpolatedIntent \"Swap on Ekubo\".",
+      "fix": "Name the pool tokens in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 15,
+    "depth": 25
+   },
+   {
+    "key": "swap((address token0, address token1, bytes32 config) poolKey, bytes32 params, int256 calculatedAmountThreshold, address recipient)",
+    "effects": [
+     "The signer pays the specified or computed input token. Amount and side are packed in `params`, and the threshold bounds the payment for exact output.",
+     "`recipient` receives the output token, at least the threshold for exact input.",
+     "Native token0 is paid from router ETH, so msg.value is needed. Excess stays in the router and anyone can claim it."
+    ],
+    "shown": "\"Swap, send to {recipient}\" with the recipient, the pool tokens, the packed params as hex and a raw threshold. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swap (packed params, recipient) is payable, but the screen never shows the ETH sent.",
+      "evidence": "Router.sol swap(PoolKey, SwapParameters, int256, address) is `public payable`. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap (packed params, recipient): the amount and side are only shown inside raw bytes32 params.",
+      "evidence": "descriptor: params format \"raw\". swapParameters.sol packs amount (bits 32..159) and isToken1 (bit 31).",
+      "fix": "Add a slice field for the amount (params.[12:28]).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap (packed params, recipient): the threshold is raw, with no token.",
+      "evidence": "descriptor: calculatedAmountThreshold is raw, label \"Amount threshold\".",
+      "fix": "Relabel it as minimum received (negative = maximum paid).",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 20,
+    "depth": 25
+   },
+   {
+    "key": "swap(((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead) node, (address token, int128 amount) tokenAmount, int256 calculatedAmountThreshold)",
+    "effects": [
+     "Exact input: the signer pays tokenAmount.amount of tokenAmount.token. If that token is not token1 of the pool, the code treats it as token0.",
+     "The signer receives the other pool token, at least the threshold (exact input). For exact output, the signer receives |amount| and pays at most -threshold.",
+     "Native token0 is paid from router ETH, so msg.value is needed. Excess stays in the router."
+    ],
+    "shown": "\"Swap {tokenAmount.amount}\" with the amount formatted using tokenAmount.token, a raw threshold and the pool tokens. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swap (route node) is payable, but the screen never shows the ETH sent.",
+      "evidence": "Router.sol swap(RouteNode, TokenAmount, int256) is `external payable`. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "swap (route node) can show a token as the one swapped when the code actually swaps pool token0.",
+      "evidence": "Router.sol swap(RouteNode,...): `_isToken1: node.poolKey.token1 == tokenAmount.token`. Unlike multihop, there is no `require` that the token is in the pool. The descriptor formats the amount with tokenPath tokenAmount.token.",
+      "fix": "Add a label or note that tokenAmount.token must be one of the pool tokens. Only a contract fix can enforce it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swap (route node): a negative 'Specified amount' means tokens received, but the screen does not say so.",
+      "evidence": "Router devdoc: \"negative for exact output\". The descriptor label is \"Specified amount\" and the intent is \"Swap {tokenAmount.amount}\".",
+      "fix": "Label it, e.g. \"Amount (negative = amount you receive)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swap (route node): the threshold is raw, with no token.",
+      "evidence": "descriptor: calculatedAmountThreshold is raw.",
+      "fix": "Relabel it as minimum received of the other pool token (negative = maximum paid).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swap (route node): native ETH (address(0)) has no nativeCurrencyAddress, so the amount loses its ETH symbol.",
+      "evidence": "constants.sol: NATIVE_TOKEN_ADDRESS = address(0). The tokenAmount params have only tokenPath.",
+      "fix": "Add \"nativeCurrencyAddress\": [\"0x0000000000000000000000000000000000000000\"].",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 50
+   },
+   {
+    "key": "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead)",
+    "effects": [
+     "The signer pays up to `amount` of the chosen token (exact input), or whatever input the pool computes (exact output). There is no slippage check.",
+     "The signer receives whatever output the pool gives. The only bound is sqrtRatioLimit, and 0 means no limit.",
+     "Native token0 is paid from router ETH, so msg.value is needed. Excess stays in the router."
+    ],
+    "shown": "\"Swap {amount}\" with the pool tokens, the enum and a raw amount. The price limit is raw and optional. No minimum received and no native value are shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapAllowPartialFill (isToken1) is payable, but the screen never shows the ETH sent.",
+      "evidence": "Router.sol swapAllowPartialFill(...) is `external payable`. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swapAllowPartialFill (isToken1): the screen does not say there is no minimum received, and the price limit is the only bound.",
+      "evidence": "Router.swapAllowPartialFill passes `type(int256).min`, so handleLockData skips the slippage check. sqrtRatioLimit is raw and optional, and 0 means no limit (withDefaultSqrtRatioLimit).",
+      "fix": "Use an intent like \"Partial-fill swap, no minimum output\" and make the price limit always visible, with '0 = none'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swapAllowPartialFill (isToken1): the amount is a raw signed integer with no token.",
+      "evidence": "descriptor: amount is raw. Interpolated intent \"Swap {amount}\".",
+      "fix": "Use a label that gives the sign meaning, and point to the 'Specified pool token' enum.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 25,
+    "depth": 35
+   },
+   {
+    "key": "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead, address recipient)",
+    "effects": [
+     "The signer pays up to `amount` of the chosen token (exact input), or the computed input (exact output). There is no slippage check.",
+     "`recipient` receives whatever output the pool gives, bounded only by the price limit.",
+     "Native token0 is paid from router ETH, so msg.value is needed. Excess stays in the router."
+    ],
+    "shown": "\"Swap {amount}\" with Recipient, the pool tokens, the enum and a raw amount. No native value and no minimum received are shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapAllowPartialFill (isToken1, recipient) is payable, but the screen never shows the ETH sent.",
+      "evidence": "Router.sol swapAllowPartialFill(..., address recipient) is `external payable`. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swapAllowPartialFill (isToken1, recipient): there is no minimum output, and the intent leaves out the recipient.",
+      "evidence": "The threshold is `type(int256).min` (no check). The price limit is raw and optional. interpolatedIntent \"Swap {amount}\".",
+      "fix": "\"Partial-fill swap {amount} to {recipient}, no minimum output\". Make the price limit always visible.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swapAllowPartialFill (isToken1, recipient): the amount is a raw signed integer.",
+      "evidence": "descriptor: amount format \"raw\".",
+      "fix": "Use a label that gives the sign meaning.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 25,
+    "depth": 35
+   },
+   {
+    "key": "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bytes32 params)",
+    "effects": [
+     "The signer pays the specified or computed input token. Amount and side are packed in params. There is no slippage check.",
+     "The signer receives whatever output the pool gives, bounded only by the price limit packed in params.",
+     "Native token0 is paid from router ETH, so msg.value is needed. Excess stays in the router."
+    ],
+    "shown": "\"Ekubo partial-fill swap\" with the pool tokens and the packed params as raw hex. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapAllowPartialFill (packed) is payable, but the screen never shows the ETH sent.",
+      "evidence": "Router.sol swapAllowPartialFill(PoolKey, SwapParameters) is `external payable`. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swapAllowPartialFill (packed): the amount and the only bound (price limit) are hidden in raw bytes32 hex.",
+      "evidence": "swapParameters.sol packs sqrtRatioLimit (bits 160..255) and amount (bits 32..159). descriptor: params is raw.",
+      "fix": "Add slice fields params.[12:28] (amount) and params.[0:12] (price limit, 0 = none).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swapAllowPartialFill (packed): the intent does not say there is no minimum output.",
+      "evidence": "The threshold is `type(int256).min` in Router.swapAllowPartialFill. interpolatedIntent \"Ekubo partial-fill swap\".",
+      "fix": "Say \"no minimum output\" in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 10,
+    "depth": 20
+   },
+   {
+    "key": "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bytes32 params, address recipient)",
+    "effects": [
+     "The signer pays the specified or computed input token. Amount and side are packed in params. There is no slippage check.",
+     "`recipient` receives whatever output the pool gives, bounded only by the packed price limit.",
+     "Native token0 is paid from router ETH, so msg.value is needed. Excess stays in the router."
+    ],
+    "shown": "\"Partial swap to {recipient}\" with the pool tokens and the packed params as raw hex. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapAllowPartialFill (packed, recipient) is payable, but the screen never shows the ETH sent.",
+      "evidence": "Router.sol swapAllowPartialFill(PoolKey, SwapParameters, address) is `public payable`. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "swapAllowPartialFill (packed, recipient): the amount and price limit are hidden in raw bytes32 hex.",
+      "evidence": "descriptor: params is raw. swapParameters.sol bit layout.",
+      "fix": "Add slice fields for the amount and the price limit.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swapAllowPartialFill (packed, recipient): the screen does not say there is no minimum output.",
+      "evidence": "Router.swapAllowPartialFill passes `type(int256).min`.",
+      "fix": "Say \"no minimum output\" in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 15,
+    "depth": 20
+   },
+   {
+    "key": "swapAllowPartialFill(((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead) node, (address token, int128 amount) tokenAmount)",
+    "effects": [
+     "The signer pays up to tokenAmount.amount of tokenAmount.token (exact input; treated as token0 if it is not token1), or the computed input (exact output). There is no slippage check.",
+     "The signer receives whatever output the pool gives, bounded only by node.sqrtRatioLimit.",
+     "Native token0 is paid from router ETH, so msg.value is needed. Excess stays in the router."
+    ],
+    "shown": "\"Swap {tokenAmount.amount}\" with the formatted token amount and the pool tokens. The price limit is raw and optional. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapAllowPartialFill (route node) is payable, but the screen never shows the ETH sent.",
+      "evidence": "Router.sol swapAllowPartialFill(RouteNode, TokenAmount) is `external payable`. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "swapAllowPartialFill (route node): there is no minimum output, and the screen does not say so.",
+      "evidence": "The threshold is `type(int256).min`. node.sqrtRatioLimit is raw and optional, and 0 means none.",
+      "fix": "Use an intent like \"Partial-fill swap, no minimum output\". Make the price limit always visible.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "swapAllowPartialFill (route node) can show a token the code does not swap, when it is not in the pool.",
+      "evidence": "`_isToken1: node.poolKey.token1 == tokenAmount.token`, with no membership check. The amount is formatted with tokenPath tokenAmount.token.",
+      "fix": "Add a note that the token must be one of the pool tokens.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 40
+   },
+   {
+    "key": "multicall(bytes[] data)",
+    "effects": [
+     "Runs each inner router call (swaps, refundNativeToken) with delegatecall, in the router's context, with msg.sender = signer.",
+     "All the ETH sent (msg.value) enters the router, and the inner native swaps spend it. Anything left stays unless a refundNativeToken call is included.",
+     "Each inner swap pulls the signer's ERC-20s and pays outputs as described for that function."
+    ],
+    "shown": "\"Batch router actions\", with each inner call decoded through this descriptor. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multicall is payable and is the usual way to pay ETH, but the ETH sent is never shown.",
+      "evidence": "PayableMulticallable.multicall is `public payable`. The inner swaps spend router ETH, and none of their formats show a value. The descriptor has no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "multicall: the intent \"Batch router actions\" says nothing about swaps or refunds.",
+      "evidence": "interpolatedIntent \"Batch router actions\".",
+      "fix": "Use an intent like \"Batch Ekubo swaps\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 55
+   },
+   {
+    "key": "refundNativeToken()",
+    "effects": [
+     "Sends the router's whole ETH balance to the signer, including any msg.value sent with this call and ETH other users left behind."
+    ],
+    "shown": "\"Refund unused native token\" with the signer as Recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "refundNativeToken: the amount is the router's whole ETH balance, read from state, not the signer's own leftover.",
+      "evidence": "PayableMulticallable.refundNativeToken: `SafeTransferLib.safeTransferETH(msg.sender, address(this).balance)`.",
+      "fix": "None possible: a descriptor cannot show a balance.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 70
+   },
+   {
+    "key": "multihopSwap((((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead)[] route, (address token, int128 amount) tokenAmount) s, int256 calculatedAmountThreshold)",
+    "effects": [
+     "Exact input: the signer pays tokenAmount.amount of tokenAmount.token, by ERC-20 transferFrom or as router ETH when it is address(0).",
+     "The signer receives the final token of the route, at least the threshold (exact input).",
+     "Exact output (amount < 0): the signer receives |amount| of tokenAmount.token and pays the route's other end token, at most -threshold.",
+     "Native ETH input is paid from router ETH, so msg.value is needed. Excess stays in the router."
+    ],
+    "shown": "\"Swap {s.tokenAmount.amount}\" with the formatted amount, a raw threshold and each hop's pool tokens. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multihopSwap is payable and spends router ETH for native input, but the ETH sent is never shown.",
+      "evidence": "Router.handleLockData: `if (specifiedToken == NATIVE_TOKEN_ADDRESS) SafeTransferLib.safeTransferETH(address(ACCOUNTANT), ...)`. multihopSwap is `external payable`. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "multihopSwap: the minimum received is a raw threshold, and the output token is never named.",
+      "evidence": "descriptor: calculatedAmountThreshold is raw. In the code the output is calculatedToken, the last hop's other token, which only appears inside the route token lists.",
+      "fix": "Relabel it, e.g. \"Minimum received of the route's final token (negative = maximum paid), base units\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "multihopSwap: a negative 'Specified amount' means tokens received, but the screen does not say so.",
+      "evidence": "Router: when totalSpecified < 0, `ACCOUNTANT.withdraw(specifiedToken, swapper, ...)`. The label is \"Specified amount\" and the intent is \"Swap {s.tokenAmount.amount}\".",
+      "fix": "Use a label that gives the sign meaning.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "multihopSwap: native ETH (address(0)) has no nativeCurrencyAddress on the tokenAmount field.",
+      "evidence": "constants.sol: NATIVE_TOKEN_ADDRESS = address(0). The tokenAmount params have only tokenPath.",
+      "fix": "Add nativeCurrencyAddress [\"0x0000000000000000000000000000000000000000\"].",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 45
+   },
+   {
+    "key": "multiMultihopSwap((((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead)[] route, (address token, int128 amount) tokenAmount)[] swaps, int256 calculatedAmountThreshold)",
+    "effects": [
+     "The signer pays the sum of all the swaps' tokenAmount.amount in one shared input token, by ERC-20 transferFrom or as router ETH.",
+     "The signer receives the total output in the shared output token, at least the threshold (exact input). For exact output, the payment is at most -threshold.",
+     "Native input is paid from router ETH, so msg.value is needed. Excess stays in the router."
+    ],
+    "shown": "\"Split multihop swap\" with each split's amount, a raw threshold and the route tokens, which sit in nested arrays. No native value is shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "multiMultihopSwap is payable and spends router ETH for native input, but the ETH sent is never shown.",
+      "evidence": "Router.handleLockData: safeTransferETH for a native specifiedToken. multiMultihopSwap is `external payable`. There is no `@.value` field.",
+      "fix": "Add an `@.value` field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "multiMultihopSwap: the intent gives no total amount, no tokens and no minimum received.",
+      "evidence": "interpolatedIntent \"Split multihop swap\". The threshold is raw.",
+      "fix": "Relabel the threshold as minimum total received (negative = maximum paid), and name the swap in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "multiMultihopSwap: the route tokens are in a nested array (swaps.[].route.[]), which the runners cannot iterate.",
+      "evidence": "descriptor fields swaps.[].route.[].poolKey.token0/token1. The output token is only visible there.",
+      "fix": "Waits on runner support for nested arrays.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 20,
+    "depth": 30
+   }
+  ],
+  "couldNotCheck": [
+   "Ekubo Core / FlashAccountant 0x00000000000014aA86C5d3c41765bb24e11bd701 is not in the directory. The router depends on it for the swap deltas and for the withdraw(token, recipient, amount) and payment settlement that deliver output to the recipient.",
+   "MEV capture extension 0x5555fF9Ff2757500BF4EE020DcfD0210CFfa41Be (reached through CORE.forward in MEVCaptureRouter._swap) is not in the directory, so I could not check whether it takes extra fees on MEV-capture pools."
+  ]
+ },
+ "cost": 0.881,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [
+  "swap((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead, int256 calculatedAmountThreshold)",
+  "swap((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead, int256 calculatedAmountThreshold, address recipient)",
+  "swap((address token0, address token1, bytes32 config) poolKey, bytes32 params, int256 calculatedAmountThreshold)",
+  "swap((address token0, address token1, bytes32 config) poolKey, bytes32 params, int256 calculatedAmountThreshold, address recipient)",
+  "swap(((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead) node, (address token, int128 amount) tokenAmount, int256 calculatedAmountThreshold)",
+  "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead)",
+  "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead, address recipient)",
+  "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bytes32 params)",
+  "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bytes32 params, address recipient)",
+  "swapAllowPartialFill(((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead) node, (address token, int128 amount) tokenAmount)",
+  "multicall(bytes[] data)",
+  "refundNativeToken()",
+  "multihopSwap((((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead)[] route, (address token, int128 amount) tokenAmount) s, int256 calculatedAmountThreshold)",
+  "multiMultihopSwap((((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead)[] route, (address token, int128 amount) tokenAmount)[] swaps, int256 calculatedAmountThreshold)"
+ ],
+ "seconds": 190,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "swap((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead, int256 calculatedAmountThreshold)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 13,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 5,
+   "worst": "swap (isToken1, threshold) is payable, but the screen never shows the ETH sent (@.value).",
+   "comprehension": null
+  },
+  "swap((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead, int256 calculatedAmountThreshold, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 23,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "swap (isToken1, recipient) is payable, but the screen never shows the ETH sent.",
+   "comprehension": null
+  },
+  "swap((address token0, address token1, bytes32 config) poolKey, bytes32 params, int256 calculatedAmountThreshold)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "swap (packed params) is payable, but the screen never shows the ETH sent.",
+   "comprehension": null
+  },
+  "swap((address token0, address token1, bytes32 config) poolKey, bytes32 params, int256 calculatedAmountThreshold, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 12,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "swap (packed params, recipient) is payable, but the screen never shows the ETH sent.",
+   "comprehension": null
+  },
+  "swap(((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead) node, (address token, int128 amount) tokenAmount, int256 calculatedAmountThreshold)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 4,
+   "worst": "swap (route node) is payable, but the screen never shows the ETH sent.",
+   "comprehension": null
+  },
+  "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 20,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "swapAllowPartialFill (isToken1) is payable, but the screen never shows the ETH sent.",
+   "comprehension": null
+  },
+  "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bool isToken1, int128 amount, uint96 sqrtRatioLimit, uint256 skipAhead, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 20,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "swapAllowPartialFill (isToken1, recipient) is payable, but the screen never shows the ETH sent.",
+   "comprehension": null
+  },
+  "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bytes32 params)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 5,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "swapAllowPartialFill (packed) is payable, but the screen never shows the ETH sent.",
+   "comprehension": null
+  },
+  "swapAllowPartialFill((address token0, address token1, bytes32 config) poolKey, bytes32 params, address recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 8,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "swapAllowPartialFill (packed, recipient) is payable, but the screen never shows the ETH sent.",
+   "comprehension": null
+  },
+  "swapAllowPartialFill(((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead) node, (address token, int128 amount) tokenAmount)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 2,
+   "worst": "swapAllowPartialFill (route node) is payable, but the screen never shows the ETH sent.",
+   "comprehension": null
+  },
+  "multicall(bytes[] data)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "multicall is payable and is the usual way to pay ETH, but the ETH sent is never shown.",
+   "comprehension": null
+  },
+  "refundNativeToken()": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 0,
+   "worst": "refundNativeToken takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "multihopSwap((((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead)[] route, (address token, int128 amount) tokenAmount) s, int256 calculatedAmountThreshold)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 27,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "multihopSwap is payable and spends router ETH for native input, but the ETH sent is never shown.",
+   "comprehension": null
+  },
+  "multiMultihopSwap((((address token0, address token1, bytes32 config) poolKey, uint96 sqrtRatioLimit, uint256 skipAhead)[] route, (address token, int128 amount) tokenAmount)[] swaps, int256 calculatedAmountThreshold)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 20,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "multiMultihopSwap is payable and spends router ETH for native input, but the ETH sent is never shown.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 2,
+  "clarity": 24,
+  "functions": "14F",
+  "incomplete": true,
+  "worst": "swap (isToken1, threshold) is payable, but the screen never shows the ETH sent (@.value)."
+ }
+}

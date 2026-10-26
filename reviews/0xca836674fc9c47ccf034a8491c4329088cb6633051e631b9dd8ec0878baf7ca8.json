@@ -1,0 +1,398 @@
+{
+ "hash": "0xca836674fc9c47ccf034a8491c4329088cb6633051e631b9dd8ec0878baf7ca8",
+ "file": "registry/morpho/calldata-MidnightBundlesV2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x78edb268d228529715744211e11a5d50fd2bdba4"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x0bf30b530f816a619c3f28a3b9f44c441122555d"
+  },
+  {
+   "chainId": 5042,
+   "address": "0xec9fe35d70e770de5f55392cc0e8d3125f225f91"
+  },
+  {
+   "chainId": 4663,
+   "address": "0xf2032f94025c921e8b31511650afa60094ced32b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "midnightBundlesV2CancelAndMake((address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) blueMarket,uint256 assetsToPark,bytes32 callbackSalt,(uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,(uint256 collateralIndex,uint256 assets)[] collateralSupplies,address ratifier,bytes32 newRoot,uint256 signatureHeight,uint128 signatureNonce,uint256 signatureDeadline,uint8 v,bytes32 r,bytes32 s,(bytes32 group,uint128 maxConsumed)[] groupsToCancel,bytes payload,uint256 deadline,address wrappedNative)",
+    "effects": [
+     "Any ETH sent (msg.value) is wrapped into wrappedNative, and the wrapped tokens go to the signer before anything else is pulled.",
+     "Each group in groupsToCancel is cancelled on Midnight for the signer (consumed set to max), but only if its current consumption is at most maxConsumed.",
+     "For each collateralSupplies entry, the token at that index of market.collateralParams is pulled from the signer and supplied as collateral to the signer's Midnight position.",
+     "If assetsToPark > 0, that amount of blueMarket.loanToken is pulled from the signer and supplied to Morpho Blue on behalf of a BlueBuyCallback contract created for the signer and callbackSalt.",
+     "If newRoot is non-zero, the ratifier gets full authorization over the signer's Midnight account (setIsAuthorized true), newRoot is ratified on it (directly or with the signature), and the payload is sent to the LOG contract.",
+     "If newRoot is zero, the ratifier, signature and payload are ignored and no authorization changes."
+    ],
+    "shown": "\"Authorize <ratifier> on Midnight and update offers\". The fields show the Blue market and the assets to park, the Midnight market and its collateral list, collateral supplies as raw index and raw amount, the ratifier (labelled as getting full account access), the new root, the groups to cancel as raw values, the deadlines, the wrapped-native token and the native amount to wrap.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "CancelAndMake intent omits that collateral and parked loan assets are pulled from the wallet.",
+      "evidence": "MidnightBundlesV2.sol midnightBundlesV2CancelAndMake: safeTransferFrom(collateralToken, msg.sender, ...) then supplyCollateral(...), and safeTransferFrom(blueMarket.loanToken, msg.sender, ..., assetsToPark) then IMorpho(BLUE).supply(...). Descriptor intent: \"Authorize ratifier and manage offers\"; interpolatedIntent: \"Authorize {#.ratifier} on Midnight and update offers\". Case 4: WETH 0.001 left the signer to Midnight 0xadedd8ab… as collateral, and the intent never mentions it.",
+      "fix": "Add the movements to the interpolated intent, e.g. \"Supply collateral, park {#.assetsToPark} on Blue, authorize {#.ratifier} and update offers\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "CancelAndMake collateral supply amount is raw, and its token is chosen by an index.",
+      "evidence": "Fields #.collateralSupplies.[].collateralIndex (raw) and #.collateralSupplies.[].assets 'Collateral amount (base units of the token at the index)' (raw). Code: collateralToken = market.collateralParams[collateralSupplies[i].collateralIndex].token. Case 4 shows 'Collateral index 0' and '1000000000000000'. The reader could only guess it was 0.001 WETH.",
+      "fix": "No tokenPath can resolve a token through a dynamic index today. Keep the label, and consider showing the amount as tokenAmount when markets have a single collateral.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "CancelAndMake 'Assets to park' does not say the funds go to Morpho Blue under a callback contract.",
+      "evidence": "Code: IMorpho(BLUE).supply(blueMarket, assetsToPark, 0, blueBuyCallback, \"\"), where blueBuyCallback = createBlueBuyCallback(msg.sender, callbackSalt). Descriptor: label 'Assets to park'; #.callbackSalt is visible never.",
+      "fix": "Relabel to 'Supplied to Morpho Blue to fund your lend offers', and say in the intent that assets leave the wallet.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "CancelAndMake interpolated intent says 'Authorize ratifier' even when newRoot is zero and nothing is authorized.",
+      "evidence": "Code: if (newRoot != bytes32(0)) { IMidnight(MIDNIGHT).setIsAuthorized(ratifier, true, msg.sender); ... }. Descriptor interpolatedIntent: \"Authorize {#.ratifier} on Midnight and update offers\", with no condition.",
+      "fix": "Word the intent conditionally (e.g. 'Update offers; authorize {#.ratifier} if a new root is set'), or rely on the ratifier label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "CancelAndMake shows unused fields as zero addresses and 1970 dates.",
+      "evidence": "Case 0 screen: Blue loan token, Blue collateral, Oracle and Irm all 0x0000…, Liquidation LTV 0%, Loan token 0x0000…, Maturity 1970-01-01, Signature deadline 1970-01-01, Wrapped native 0x0000…. The code ignores blueMarket when assetsToPark == 0 and ignores the signature when v=r=s=0. The blind reader listed these as confusing.",
+      "fix": "Make the Blue market fields and the signature deadline visible only when they are used (e.g. ifNotIn [0]), or mark them optional.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "CancelAndMake does not say the wrapped native token is sent to the signer's wallet.",
+      "evidence": "wrapNativeToMsgSender: IWNative(wrappedNative).deposit{value: msg.value}(); safeTransfer(wrappedNative, msg.sender, msg.value). Descriptor label: 'Native amount to wrap'. Case 4: WETH 0.001 in to the signer, then out as collateral. The reader was unsure where the WETH ended up.",
+      "fix": "Relabel to 'Native amount wrapped to WETH and sent to you'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "CancelAndMake new root and hidden payload stand for offer terms the screen cannot show.",
+      "evidence": "Field #.newRoot shown as raw bytes32. #.payload is visible never and goes to LOG unvalidated (log(payload)). The offers the root ratifies can be taken against the signer's account.",
+      "fix": "None in ERC-7730. The root is a commitment the descriptor cannot decode.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "CancelAndMake groups to cancel are raw bytes32 ids, and the max-consumed limits are raw integers.",
+      "evidence": "Fields #.groupsToCancel.[].group (raw) and #.groupsToCancel.[].maxConsumed (raw). Code: maxConsumed is in group units or assets, and type(uint128).max disables the check.",
+      "fix": "Label maxConsumed with its meaning ('max already filled, max = no limit').",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No token movement. The ratifier authorization (not captured as a mined effect) was understood correctly by the reader from the label."
+     },
+     {
+      "index": 4,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.001 ETH wrap is shown right. Nothing says the WETH goes to the signer's wallet. The WETH collateral supply is shown only as index 0 plus a raw amount, so the reader guessed the token."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "midnightBundlesV2BuyWithUnitsTargetAndWithdrawCollateral((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 targetUnits,uint256 maxBuyerAssets,bool reduceOnly,bool repayEnabled,(((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,bool buy,address maker,uint256 start,uint256 expiry,uint256 tick,bytes32 group,address callback,bytes callbackData,address receiverIfMakerIsSeller,address ratifier,bool reduceOnly,uint128 maxUnits,uint128 maxAssets,uint256 continuousFeeCap) offer,bytes ratifierData,uint256 units)[] offerFills,(uint256 collateralIndex,uint256 assets)[] collateralWithdrawals,address collateralReceiver,uint256 referralFeePct,address referralFeeRecipient,uint256 maxContinuousFee,uint256 deadline,address wrappedNative)",
+    "effects": [
+     "Any ETH sent is wrapped into wrappedNative and sent to the signer.",
+     "maxBuyerAssets of the loan token is pulled from the signer.",
+     "Sell offers are taken for the signer, up to targetUnits (max = the signer's whole debt). This gives the signer credit, or reduces their debt.",
+     "If repayEnabled, the signer's remaining debt is repaid up to the target.",
+     "Collateral is withdrawn from the signer's Midnight position to collateralReceiver (max = full balance).",
+     "A referral fee on top of the filled amount goes to referralFeeRecipient.",
+     "Unused loan tokens are sent back to the signer, so the signer pays at most maxBuyerAssets."
+    ],
+    "shown": "\"Buy <target units> at maturity for max <maxBuyerAssets>\" under \"Lend or repay, withdraw collateral\". The fields show the market, the target (with a 'Full debt' message), the max payment, the flags, every offer's details, collateral withdrawals as raw index and raw amount, the collateral receiver, the referral fee and its recipient, the max continuous fee, the deadline and the native amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "BuyWithUnits collateral withdrawal amount is raw, its token is by index, and the max sentinel shows as a 78-digit number.",
+      "evidence": "Fields #.collateralWithdrawals.[].collateralIndex (raw) and #.collateralWithdrawals.[].assets 'Collateral amount (max value = full balance)' (raw). Case 1 shows '1157920892373161954235709850086879078532699849…'. The signer actually received 30719 cbBTC base units.",
+      "fix": "No format can bind a token through a dynamic index. Keep the label. Runners could add a threshold/message for raw values.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "BuyWithUnits shows about 15 fields per offer, with sentinel values that read as nonsense.",
+      "evidence": "Case 1 screen has 59 fields, including 'Offer max amount 340282366920938463463374607431768.211455 USDC', 'Continuous fee cap … 34028236692093846346337.4607431768211455%', 'Offer max assets 0 USDC', and raw tick and group. The reader was confused by the fill amounts versus the cap and by 'Offer max assets: 0'.",
+      "fix": "Make offer internals (tick, group, start, maxUnits, maxAssets, continuousFeeCap, callback, receiver, ratifier) optional or never. Keep maker and fill amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "BuyWithUnits labels 'Target amount' and 'Max fee' do not say what they bound.",
+      "evidence": "targetUnits is face-value units bought (credit gained or debt reduced). maxContinuousFee is a per-second market fee checked in require(IMidnight(MIDNIGHT).continuousFee(id) <= maxContinuousFee). Labels: 'Target amount' and 'Max fee'. Case 1 shows 'Max fee 0%' next to 'Referral fee 0%'.",
+      "fix": "Relabel to 'Units bought (repaid at maturity)' and 'Max market continuous fee (per second)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "BuyWithUnits interpolated intent leaves out the collateral withdrawal and its receiver.",
+      "evidence": "interpolatedIntent \"Buy {#.targetUnits} at maturity for max {#.maxBuyerAssets}\". Code: withdrawCollateral(market, collateralIndex, assets, msg.sender, collateralReceiver). Case 1: 30719 cbBTC in to the signer.",
+      "fix": "Append ', withdraw collateral to {#.collateralReceiver}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 3,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "partial",
+       "right"
+      ],
+      "notes": "10.108121 USDC out matches the max shown. The 0.010099 USDC refund is implied only by the word 'max'. The cbBTC full-balance withdrawal to the signer is shown through index 0, the raw max sentinel and its label. The reader got it."
+     }
+    ],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "midnightBundlesV2BuyWithAssetsTargetAndWithdrawCollateral((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 targetBuyerAssets,uint256 minUnits,bool reduceOnly,bool repayEnabled,(((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,bool buy,address maker,uint256 start,uint256 expiry,uint256 tick,bytes32 group,address callback,bytes callbackData,address receiverIfMakerIsSeller,address ratifier,bool reduceOnly,uint128 maxUnits,uint128 maxAssets,uint256 continuousFeeCap) offer,bytes ratifierData,uint256 units)[] offerFills,(uint256 collateralIndex,uint256 assets)[] collateralWithdrawals,address collateralReceiver,uint256 referralFeePct,address referralFeeRecipient,uint256 maxContinuousFee,uint256 deadline,address wrappedNative)",
+    "effects": [
+     "Any ETH sent is wrapped into wrappedNative and sent to the signer.",
+     "Exactly targetBuyerAssets of the loan token is pulled from the signer.",
+     "The referral fee (targetBuyerAssets × pct) goes to referralFeeRecipient, and the rest is spent taking sell offers for the signer, gaining credit or reducing debt.",
+     "If repayEnabled, any amount the offers do not cover repays the signer's debt.",
+     "The signer must gain at least minUnits.",
+     "Collateral is withdrawn from the signer's Midnight position to collateralReceiver (max = full balance)."
+    ],
+    "shown": "\"Buy min <minUnits> at maturity for <targetBuyerAssets>\" under \"Lend or repay, withdraw collateral\". The fields show the market, the amount paid and the min units, the flags, offer details, collateral withdrawals as raw index and raw amount, the collateral receiver, the referral fee, the max fee, the deadline and the native amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "BuyWithAssets interpolated intent reads as a no-op when the call only withdraws collateral.",
+      "evidence": "Case 2 interpolatedIntent: \"Buy min 0 USDC at maturity for 0 USDC\". The only signer effect was 0.001 WETH collateral withdrawn to the signer (withdrawCollateral(..., collateralReceiver)).",
+      "fix": "Add the withdrawal to the sentence ('…, withdraw collateral to {#.collateralReceiver}').",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "BuyWithAssets collateral withdrawal amount is raw, and its token is chosen by an index.",
+      "evidence": "Fields #.collateralWithdrawals.[].collateralIndex (raw) and .assets (raw). Case 2 shows index 0 and 115792…639935. The reader was unsure whether index 0 was WETH or USDC, since the market lists both.",
+      "fix": "No format can bind a token through a dynamic index. Keep the label.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "BuyWithAssets shows every offer's internals, with sentinel values that read as nonsense.",
+      "evidence": "Offer fields shown always: tick (raw), group (raw), maxUnits (uint128 max renders as 3.4e32 USDC), continuousFeeCap (renders as 3.4e22%), callback, receiver, ratifier. The same layout as case 1.",
+      "fix": "Make offer internals optional or never. Keep maker and fill amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "BuyWithAssets labels 'Min amount' and 'Max fee' do not say what they bound.",
+      "evidence": "minUnits is the minimum face-value units bought (require(filledUnits >= minUnits)). maxContinuousFee caps the market's per-second continuous fee. Labels: 'Min amount' and 'Max fee'.",
+      "fix": "Relabel to 'Min units received at maturity' and 'Max market continuous fee (per second)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The WETH full-balance collateral withdrawal to the signer appears only as index 0 plus the raw max sentinel. The reader could not tell which token."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "midnightBundlesV2SupplyCollateralAndSellWithAssetsTarget((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 targetSellerAssets,uint256 maxUnits,bool reduceOnly,address receiver,(uint256 collateralIndex,uint256 assets)[] collateralSupplies,(((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,bool buy,address maker,uint256 start,uint256 expiry,uint256 tick,bytes32 group,address callback,bytes callbackData,address receiverIfMakerIsSeller,address ratifier,bool reduceOnly,uint128 maxUnits,uint128 maxAssets,uint256 continuousFeeCap) offer,bytes ratifierData,uint256 units)[] offerFills,uint256 referralFeePct,address referralFeeRecipient,uint256 deadline,address wrappedNative)",
+    "effects": [
+     "Any ETH sent is wrapped into wrappedNative and sent to the signer.",
+     "For each collateralSupplies entry, the collateral token at that index is pulled from the signer and supplied to the signer's Midnight position.",
+     "The signer's existing credit is withdrawn first, as far as possible.",
+     "Buy offers are then taken, which sells units: the signer's credit falls or new debt opens. At most maxUnits are sold.",
+     "The referral fee (on top of the target) goes to referralFeeRecipient.",
+     "Exactly targetSellerAssets of the loan token goes to receiver."
+    ],
+    "shown": "\"Sell max <maxUnits> at maturity for <targetSellerAssets> to <receiver>\" under \"Supply collateral, borrow or exit\". The fields show the market, the target, the max units, reduce-only, the receiver, collateral supplies as raw index and raw amount, offer details, the referral fee and its recipient, the deadline and the native amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "SellWithAssets collateral pulled from the wallet is shown as a raw amount at an index.",
+      "evidence": "Fields #.collateralSupplies.[].collateralIndex (raw) and #.collateralSupplies.[].assets (raw). Case 3: 29000 cbBTC base units left the signer, shown as 'Collateral index 0' and '29000'. The reader had to guess the decimals.",
+      "fix": "No format can bind a token through a dynamic index. Keep the label.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "SellWithAssets 'Sell max … at maturity' and 'Max amount' hide that units sold become debt owed.",
+      "evidence": "Code: take(..., msg.sender, ...) on buy offers, then require(filledUnits <= maxUnits). Without credit, the sold units open debt (case 3 borrowed 10 USDC against a 10.101675 USDC bound). Labels: 'Max amount'; interpolatedIntent \"Sell max {#.maxUnits} at maturity…\".",
+      "fix": "Relabel maxUnits to 'Max owed at maturity (debt or credit sold)', and say 'Borrow/exit' in the sentence.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "SellWithAssets shows every offer's internals, with sentinel values that read as nonsense.",
+      "evidence": "Case 3 shows 'Offer max amount 340282366920938463463374607431768.211455 USDC', 'Continuous fee cap … 34028236692093846346337.4607431768211455%', 'Offer max assets 0 USDC', 'Offer receiver 0x000…', and raw tick and group.",
+      "fix": "Make offer internals optional or never. Keep maker and fill amount.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "midnightBundlesV2SupplyCollateralAndSellWithUnitsTarget is in the contract but has no format, so it is blind-signed.",
+      "evidence": "MidnightBundlesV2.sol defines external payable midnightBundlesV2SupplyCollateralAndSellWithUnitsTarget(...), which pulls collateral and sends loan tokens to receiver. display.formats has no entry for it.",
+      "fix": "Add a format that mirrors SellWithAssetsTarget, with targetUnits (threshold 'Full credit') and minSellerAssets.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "10 USDC to the signer is shown right. The cbBTC collateral appears only as a raw 29000 at index 0, so the reader guessed the decimals. The debt opened is bounded by 'Max amount 10.101675 USDC', and the reader got that."
+     }
+    ],
+    "glance": 50,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": [
+   "Midnight core contract (Base 0xadedd8ab6de832766fedf0fac4992e5c4d3ea18a; MIDNIGHT immutable) is not in the directory. take/withdraw/repay/supplyCollateral/withdrawCollateral decide how the signer's credit and debt change, and setIsAuthorized decides the scope of the ratifier grant. These were inferred from the bundler code, its comments and the receipts only.",
+   "The BlueBuyCallbackFactory and the ratifier contracts (PriceRatifierV1/RateRatifierV1, e.g. 0x08a0e697…) called by CancelAndMake are not in the directory, so I could not check who controls the parked Blue position or what ratifying newRoot allows."
+  ]
+ },
+ "cost": 1.076,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 191,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "midnightBundlesV2CancelAndMake((address loanToken,address collateralToken,address oracle,address irm,uint256 lltv) blueMarket,uint256 assetsToPark,bytes32 callbackSalt,(uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,(uint256 collateralIndex,uint256 assets)[] collateralSupplies,address ratifier,bytes32 newRoot,uint256 signatureHeight,uint128 signatureNonce,uint256 signatureDeadline,uint8 v,bytes32 r,bytes32 s,(bytes32 group,uint128 maxConsumed)[] groupsToCancel,bytes payload,uint256 deadline,address wrappedNative)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 50,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 5,
+   "worst": "CancelAndMake interpolated intent says 'Authorize ratifier' even when newRoot is zero and nothing is authorized.",
+   "comprehension": 83
+  },
+  "midnightBundlesV2BuyWithUnitsTargetAndWithdrawCollateral((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 targetUnits,uint256 maxBuyerAssets,bool reduceOnly,bool repayEnabled,(((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,bool buy,address maker,uint256 start,uint256 expiry,uint256 tick,bytes32 group,address callback,bytes callbackData,address receiverIfMakerIsSeller,address ratifier,bool reduceOnly,uint128 maxUnits,uint128 maxAssets,uint256 continuousFeeCap) offer,bytes ratifierData,uint256 units)[] offerFills,(uint256 collateralIndex,uint256 assets)[] collateralWithdrawals,address collateralReceiver,uint256 referralFeePct,address referralFeeRecipient,uint256 maxContinuousFee,uint256 deadline,address wrappedNative)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "BuyWithUnits shows about 15 fields per offer, with sentinel values that read as nonsense.",
+   "comprehension": 83
+  },
+  "midnightBundlesV2BuyWithAssetsTargetAndWithdrawCollateral((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 targetBuyerAssets,uint256 minUnits,bool reduceOnly,bool repayEnabled,(((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,bool buy,address maker,uint256 start,uint256 expiry,uint256 tick,bytes32 group,address callback,bytes callbackData,address receiverIfMakerIsSeller,address ratifier,bool reduceOnly,uint128 maxUnits,uint128 maxAssets,uint256 continuousFeeCap) offer,bytes ratifierData,uint256 units)[] offerFills,(uint256 collateralIndex,uint256 assets)[] collateralWithdrawals,address collateralReceiver,uint256 referralFeePct,address referralFeeRecipient,uint256 maxContinuousFee,uint256 deadline,address wrappedNative)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 35,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "BuyWithAssets interpolated intent reads as a no-op when the call only withdraws collateral.",
+   "comprehension": 50
+  },
+  "midnightBundlesV2SupplyCollateralAndSellWithAssetsTarget((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,uint256 targetSellerAssets,uint256 maxUnits,bool reduceOnly,address receiver,(uint256 collateralIndex,uint256 assets)[] collateralSupplies,(((uint256 chainId,address midnight,address loanToken,(address token,uint256 lltv,uint256 liquidationCursor,address oracle)[] collateralParams,uint256 maturity,uint256 rcfThreshold,address enterGate,address liquidatorGate) market,bool buy,address maker,uint256 start,uint256 expiry,uint256 tick,bytes32 group,address callback,bytes callbackData,address receiverIfMakerIsSeller,address ratifier,bool reduceOnly,uint128 maxUnits,uint128 maxAssets,uint256 continuousFeeCap) offer,bytes ratifierData,uint256 units)[] offerFills,uint256 referralFeePct,address referralFeeRecipient,uint256 deadline,address wrappedNative)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 57,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "midnightBundlesV2SupplyCollateralAndSellWithUnitsTarget is in the contract but has no format, so it is blind-signed.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 95,
+  "clarity": 50,
+  "functions": "4C",
+  "incomplete": true,
+  "worst": "CancelAndMake interpolated intent says 'Authorize ratifier' even when newRoot is zero and nothing is authorized."
+ }
+}

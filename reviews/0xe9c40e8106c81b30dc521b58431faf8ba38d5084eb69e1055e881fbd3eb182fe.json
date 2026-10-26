@@ -1,0 +1,251 @@
+{
+ "hash": "0xe9c40e8106c81b30dc521b58431faf8ba38d5084eb69e1055e881fbd3eb182fe",
+ "file": "registry/morpho/calldata-rockawayx-roxWETH-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x64c18dcc4ccb3b8d27877a4aebb4c3126cb39cb9"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` WETH from the signer into the vault (safeTransferFrom in enter).",
+     "Mints roxWETH shares to `onBehalf`. The number is previewDeposit(assets), worked out from the vault's stored totals. The calldata has no minimum for it.",
+     "Before this, accrueInterest mints fee shares to the fee recipients, which lowers the share price. The vault then sends the WETH to its liquidity adapter. Neither moves the signer's tokens."
+    ],
+    "shown": "Deposit 0.001 WETH for <onBehalf>, with the share ticker roxWETH as a constant field and onBehalf labelled 'Send shares to'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of roxWETH shares received is not shown, and no minimum is enforced.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` comes from storage, and no minShares parameter exists. Case 0: signer receives 999999984000000 roxWETH, an amount the screen never states.",
+      "fix": "Nothing in calldata can bind it. A router with a slippage parameter would be needed.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the 'Share ticker' constant field adds a line with no amount and repeats what the token already implies.",
+      "evidence": "descriptor deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'} renders 'roxWETH' on its own.",
+      "fix": "Fold it into the label instead, e.g. 'Send roxWETH shares to'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 0.001 WETH leaving is shown right. The roxWETH shares going to the signer have the right asset and recipient, but the amount (999999984000000) cannot be shown from calldata."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) roxWETH shares from `onBehalf`. The number is worked out from storage, and no maximum is set.",
+     "If the signer is not `onBehalf`, it spends that many shares of onBehalf's allowance to the signer.",
+     "Sends exactly `assets` WETH from the vault to `receiver`. The vault may first pull liquidity back from its adapter."
+    ],
+    "shown": "Withdraw 850 WETH to <receiver>, with Owner = onBehalf shown as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of roxWETH shares burned from the owner is not shown, and no maximum is enforced.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets);` then `deleteShares(onBehalf, shares)`. Case 2: 844756059076460699199 roxWETH leaves the signer, and the screen shows no share amount.",
+      "fix": "Not in calldata. A wording such as 'Burns roxWETH shares from Owner' in the Owner label would at least name the asset.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw: the 'Owner' label does not say that this account's roxWETH shares are burned.",
+      "evidence": "descriptor withdraw field onBehalf label 'Owner'. Code: `deleteShares(onBehalf, shares)` and the allowance spend `allowance[onBehalf][msg.sender] = _allowance - shares`.",
+      "fix": "Label it 'Burn roxWETH shares from'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 850 WETH arriving at the signer is shown right. The reader guessed that shares were burned, but the roxWETH asset and amount are not on screen."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` roxWETH from `onBehalf`. If the signer is not onBehalf, it spends that much of onBehalf's allowance to the signer.",
+     "Sends previewRedeem(shares) WETH to `receiver`. The amount is worked out from storage, and no minimum is set."
+    ],
+    "shown": "Redeem 30.41 roxWETH to <receiver>, with Owner = onBehalf. The asset paid out is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names WETH as the asset the receiver gets.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The descriptor redeem fields only list shares, receiver and onBehalf. Case 3: signer receives 30636524139142703956 WETH. Reader: 'Which token I get back is not shown (WETH is a guess)'.",
+      "fix": "Add a constant field {label:'Receive asset', value:'$.metadata.constants.underlyingTicker'} as mint does, and say 'Redeem {shares} for WETH to {receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WETH amount received has no minimum, so the amount cannot be bound on screen.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);` comes from storage. No minAssets parameter exists.",
+      "fix": "Not fixable in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 30.41 roxWETH burned is shown right. The WETH received is not named and its amount is not shown, so the reader only guessed the asset."
+     }
+    ],
+    "glance": 65,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Pulls previewMint(shares) WETH from the signer. The amount is worked out from storage, and no maximum is set.",
+     "Mints exactly `shares` roxWETH to `onBehalf`."
+    ],
+    "shown": "Mint <shares> roxWETH for <onBehalf>, with a constant 'Deposit asset: WETH' and no WETH amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the WETH amount taken from the signer is not shown, and no maximum is enforced.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares);` then `safeTransferFrom(asset, msg.sender, address(this), assets)`. Case 1: 1000000000 WETH leaves the signer, and the screen shows only 'WETH'.",
+      "fix": "Not in calldata. The cap is the signer's WETH allowance to the vault.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' does not say that the signer's WETH is pulled to pay for the shares.",
+      "evidence": "descriptor mint intent 'Mint' and interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. The code pulls WETH from msg.sender in enter().",
+      "fix": "Use the intent 'Deposit WETH to mint shares' and the sentence 'Pay WETH to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The WETH leaving is named as an asset, but its amount (1000000000 wei) is not shown. The shares went to 0xdead, not the signer."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.402,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 109,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the 'Owner' label does not say that this account's roxWETH shares are burned.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names WETH as the asset the receiver gets.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that the signer's WETH is pulled to pay for the shares.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 66,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names WETH as the asset the receiver gets."
+ }
+}

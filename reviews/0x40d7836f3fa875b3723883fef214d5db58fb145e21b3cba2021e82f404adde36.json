@@ -1,0 +1,201 @@
+{
+ "hash": "0x40d7836f3fa875b3723883fef214d5db58fb145e21b3cba2021e82f404adde36",
+ "file": "registry/morpho/calldata-steakhouse_financial-bbqTGBP-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeeffabcd0db09589dd21854aa760c52ab4bf04f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` tGBP leaves the signer and goes to the vault (safeTransferFrom(asset, msg.sender, address(this), assets) in enter).",
+     "bbqTGBP vault shares go to `onBehalf` (createShares(onBehalf, shares)). previewDeposit sets the share count from the vault's total assets and supply in storage.",
+     "Fees owed are accrued first, before the share price is set. The signer's tGBP may then be allocated to the liquidity adapter. Neither moves anything else of the signer's."
+    ],
+    "shown": "Deposit 0.01 tGBP for <onBehalf>, with the share ticker bbqTGBP and the share recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of bbqTGBP shares minted is not shown; it comes from the share price in storage.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0: 0.01 bbqTGBP minted to the signer (signer in). The screen shows only the 'Share ticker' bbqTGBP and no amount.",
+      "fix": "No calldata field holds it. The function has no minimum-shares parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "deposit: the 'Share ticker' field shows a fixed constant, not a transaction value.",
+      "evidence": "descriptor deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'} renders 'bbqTGBP' in case 0.",
+      "fix": "Fold it into the intent instead, e.g. 'Deposit tGBP for bbqTGBP shares', and drop the field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The tGBP outflow is shown exactly. The share recipient (the signer) and the share ticker are shown, but the share amount is not. The share amount comes from storage."
+     }
+    ],
+    "glance": 85,
+    "depth": 82
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `assets` tGBP is sent from the vault to `receiver` (safeTransfer(asset, receiver, assets) in exit).",
+     "bbqTGBP shares of `onBehalf` are burned (deleteShares). previewWithdraw computes the count from the share price, rounding up.",
+     "When the signer is not `onBehalf`, the signer's share allowance from `onBehalf` is spent by that share count.",
+     "Fees are accrued first. The vault may pull liquidity from its adapter. Neither affects the amounts the signer pays or receives."
+    ],
+    "shown": "Withdraw exactly 100 tGBP to <receiver>, with the owner (onBehalf) as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of bbqTGBP shares burned is not shown and has no bound.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);`. Case 1: 99.926910289925952050 bbqTGBP burned from the signer (signer out). The screen shows no share amount.",
+      "fix": "No calldata value holds it. The function takes no max-shares parameter. Optionally, say in the intent that bbqTGBP shares are burned.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "withdraw: the intent does not say bbqTGBP shares are given up in exchange.",
+      "evidence": "intent 'Withdraw', interpolatedIntent 'Withdraw {#.assets} to {#.receiver}'. The reader in case 1 could only say 'vault shares burned; exact share amount not shown'.",
+      "fix": "Use an intent such as 'Withdraw tGBP from bbqTGBP vault'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 100 tGBP inflow to the signer is shown exactly. The burn of 99.93 bbqTGBP is implied by 'Owner', but no share asset or amount is shown. The share amount comes from storage."
+     }
+    ],
+    "glance": 80,
+    "depth": 78
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` bbqTGBP are burned from `onBehalf` (deleteShares(onBehalf, shares)). When the signer is not `onBehalf`, the signer's share allowance is spent.",
+     "tGBP goes to `receiver` (safeTransfer(asset, receiver, assets)). previewRedeem sets the amount from the share price, and there is no minimum.",
+     "Fees are accrued first. The vault may pull liquidity from its adapter. Neither moves anything else of the signer's."
+    ],
+    "shown": "Redeem 2109.17 bbqTGBP to <receiver>, with the owner as a field. Nothing says which asset comes back or how much.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the asset received (tGBP) is named nowhere on the screen.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. Case 2: 2110.711199857008977364 tGBP to the signer (signer in). The screen shows only the shares, 'To' and 'Owner'. The reader wrote 'Underlying asset of the vault (likely a GBP-linked token), amount not shown'.",
+      "fix": "Name the asset received in the intent or a label, e.g. intent 'Redeem bbqTGBP for tGBP', interpolatedIntent 'Redeem {#.shares} for tGBP to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the tGBP amount received comes from the share price in storage; it has no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. There is no minAssets parameter.",
+      "fix": "None in the descriptor. The calldata does not hold this amount.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The share burn is shown exactly with its ticker. The tGBP inflow's asset and amount are both missing. The reader guessed 'a GBP-linked token'."
+     }
+    ],
+    "glance": 65,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.386,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 113,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the asset received (tGBP) is named nowhere on the screen.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 75,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the asset received (tGBP) is named nowhere on the screen."
+ }
+}

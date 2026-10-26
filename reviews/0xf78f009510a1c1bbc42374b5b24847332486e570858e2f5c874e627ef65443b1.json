@@ -1,0 +1,222 @@
+{
+ "hash": "0xf78f009510a1c1bbc42374b5b24847332486e570858e2f5c874e627ef65443b1",
+ "file": "registry/morpho/calldata-gauntlet-gtLRTcore.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x4881ef0bf6d2365d3dd6499ccd7532bcdbce0658"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends `assets` WETH to the vault (safeTransferFrom from the caller in ERC4626._deposit). This spends the signer's WETH allowance to the vault.",
+     "The vault mints shares to `receiver`. The number of shares is computed from the vault's total assets and supply after fees accrue; there is no minimum.",
+     "The vault supplies the WETH to Morpho Blue markets in its supply queue. The signer's assets do not change in this step."
+    ],
+    "shown": "Deposit: an amount of WETH, a constant 'Share ticker: gtLRTcore', and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no bound in the calldata.",
+      "evidence": "MetaMorpho.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Floor). The share count comes from vault state, and no minShares parameter exists.",
+      "fix": "None possible in the descriptor. Only the 'Share ticker' constant is shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' names neither the amount nor the vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json deposit intent: \"Deposit\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into gtLRTcore for {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` gtLRTcore to `receiver`.",
+     "The signer pays WETH to the vault. The amount is computed from `shares` at the vault price, rounded up, and there is no maximum except the signer's allowance and balance.",
+     "The vault supplies the WETH to Morpho Blue markets."
+    ],
+    "shown": "Mint: 'Deposit asset: WETH' as a constant, the shares minted in gtLRTcore, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the WETH taken from the signer is not shown and has no maximum in the calldata.",
+      "evidence": "MetaMorpho.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Ceil); then _deposit does safeTransferFrom(_asset, caller, ..., assets). The descriptor shows only the 'Deposit asset' constant WETH.",
+      "fix": "None possible: the price is in vault state. A label like 'Pay with (amount set by vault price)' would at least warn the signer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say that WETH is paid for the shares.",
+      "evidence": "descriptor.json mint intent: \"Mint\", no interpolatedIntent.",
+      "fix": "Use intent \"Mint vault shares with WETH\" and interpolatedIntent \"Mint {shares} for {receiver}, paying WETH\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault sends exactly `assets` WETH to `receiver`, after pulling it from Morpho markets.",
+     "The vault burns shares from `owner`. The number is computed from `assets` at the vault price, rounded up, and there is no maximum.",
+     "If the signer is not `owner`, the signer's share allowance from `owner` is spent by the number of shares burned."
+    ],
+    "shown": "Withdraw: exactly an amount of WETH, the 'To' receiver and the 'Owner' whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown and have no maximum in the calldata.",
+      "evidence": "MetaMorpho.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Ceil); then _burn(owner, shares) runs in ERC4626._withdraw.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' carries no amount or recipient, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json withdraw intent: \"Withdraw\".",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver} from {owner}'s shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtLRTcore from `owner`. If the signer is not `owner`, this spends the signer's share allowance from `owner`.",
+     "`receiver` gets WETH. The amount is computed from `shares` at the vault price, rounded down, and there is no minimum."
+    ],
+    "shown": "Redeem: the gtLRTcore shares to redeem, the 'To' receiver and the 'Owner'. The asset received is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says WETH is received; mint shows it as a constant.",
+      "evidence": "Case 0: the signer got 162.813403725112598053 WETH ('in'), but the screen has only shares, To and Owner. The blind reader was unsure 'Which token I receive and how much'. MetaMorpho.sol _withdraw → SafeERC20.safeTransfer(_asset, receiver, assets).",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} as mint does, or use interpolatedIntent \"Redeem {shares} for WETH\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WETH amount received is set by the vault price and has no minimum.",
+      "evidence": "MetaMorpho.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Floor). Case 0 received 162.81 WETH, and no field can state it.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 149.717727158808090776 gtLRTcore burned from the signer is shown correctly. The 162.81 WETH received is not on the screen: the reader expected 'underlying assets' but knew neither the token nor the amount."
+     }
+    ],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.282,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 58,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says WETH is received; mint shows it as a constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 66,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says WETH is received; mint shows it as a constant."
+ }
+}

@@ -1,0 +1,147 @@
+{
+ "hash": "0x347f6a1750ce484af837e2885901b4df008845b9d765b9ebfc65eb273127aa4f",
+ "file": "registry/ophis/eip712-Ophis-GPv2Settlement.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 10,
+   "address": "0x310784c7fce12d578da6f53460777bac9718b859"
+  },
+  {
+   "chainId": 130,
+   "address": "0x108a678716e5e1776036ef044cab7064226f714e"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x886d9fd312f442c4e1f3cdeae7b4ab73493e57cd"
+  },
+  {
+   "chainId": 5042,
+   "address": "0x78799f98276efba1edeed32eae03a3fd8cdfec3a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Order(address sellToken,address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,uint32 validTo,bytes32 appData,uint256 feeAmount,string kind,bool partiallyFillable,string sellTokenBalance,string buyTokenBalance)",
+    "effects": [
+     "Lets a solver pull sellToken from the signer through the vault relayer. The amount is at most sellAmount plus feeAmount: exactly that for a fill-or-kill sell order, pro rata for a partial fill (GPv2Settlement.computeTradeExecution: executedSellAmount.add(executedFeeAmount)).",
+     "The sell tokens come from the signer's ERC20 wallet balance (erc20), from the wallet through the Balancer Vault's allowance (external), or from the signer's Balancer Vault internal balance (internal) (GPv2Transfer.transferFromAccounts).",
+     "buyToken is paid to the receiver, or to the signer when receiver is 0x0 (GPv2Order.actualReceiver). The order's limit price is enforced: the payout is at least buyAmount pro rata for a sell order, and exactly buyAmount pro rata for a buy order.",
+     "When buyToken is 0xEeee…EEeE, the proceeds are paid in native ETH (GPv2Transfer.transferToAccounts: payable(transfer.account).transfer).",
+     "When buyTokenBalance is internal, the proceeds are credited to the receiver's Balancer Vault internal balance instead of the wallet.",
+     "The order can be filled only until validTo, and only once or up to its full amount (filledAmount check)."
+    ],
+    "shown": "The screen says \"Swap order\" and lists: max to sell (with token), min if fully filled (with token), the fee on top when it is not zero, the recipient (\"Sender\" for 0x0), the expiry date, the raw order type, the raw partial-fill flag, and the raw Balancer balance modes when they are not erc20.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Order intent \"Swap order\" names no tokens or amounts, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json Order format: \"intent\": \"Swap order\", no interpolatedIntent. The tokens and bounds appear only in the sellAmount/buyAmount fields (for example case 0: 2500 USDC → 0.78 WETH).",
+      "fix": "Add an interpolatedIntent such as \"Sell up to {sellAmount} for at least {buyAmount}\" (plus the fee when it is not zero).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order shows Balancer balance modes as raw strings under cryptic labels.",
+      "evidence": "descriptor.json: sellTokenBalance 'Wallet via Balancer' (raw) and 'Sell: Balancer Vault' (raw); buyTokenBalance 'Buy: Balancer Vault' (raw). Case 4 renders 'Wallet via Balancer: external' and 'Buy: Balancer Vault: internal'. In GPv2Transfer.transferToAccounts, internal means the proceeds go to the Vault internal balance, not the wallet.",
+      "fix": "Use labels that state the outcome, such as \"Proceeds credited to\" with value \"Balancer Vault internal balance\", and \"Paid from\" with \"Balancer Vault internal balance\" or \"Wallet (Balancer Vault approval)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Order shows kind and partiallyFillable as raw 'sell'/'buy' and 'true'/'false'.",
+      "evidence": "descriptor.json: kind 'Order type' (raw), partiallyFillable 'Partial fills' (raw). Case 1 shows 'Order type: buy', 'Partial fills: true'. The meaning of a buy order (exact buy amount, sell amount is a ceiling) is left to the reader.",
+      "fix": "Map the values to readable text, such as \"Sell exact amount\" / \"Buy exact amount\" and \"Allowed\" / \"Fill or kill\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Order hides appData, a hash of off-chain metadata (hooks, partner fee, slippage).",
+      "evidence": "descriptor.json: appData 'App data' visible: never. GPv2Order.Data.appData is a bytes32 the contract only hashes. The payout is still bounded by the shown buyAmount (computeTradeExecution limit price require).",
+      "fix": "None possible: the hash cannot be decoded on screen.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 85
+   },
+   {
+    "key": "OrderCancellations(bytes[] orderUids)",
+    "effects": [
+     "Has no on-chain effect: GPv2Settlement never verifies this type. The signature asks the off-chain orderbook to stop matching the listed orders.",
+     "The listed orders' signatures stay valid on-chain until validTo. Only invalidateOrder or the expiry stops them on-chain."
+    ],
+    "shown": "The screen says \"Request offchain cancel\" and lists each order UID as raw hex.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "OrderCancellations shows order UIDs as raw 56-byte hex that hide which orders they are.",
+      "evidence": "descriptor.json: orderUids.[] 'Order ID' (raw). GPv2Order.extractOrderUidParams packs the order digest, owner and validTo into the UID. Case 6 shows two 112-hex-character IDs.",
+      "fix": "None possible: the UID stands for order terms the message does not carry.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.528,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 134,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "Order(address sellToken,address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,uint32 validTo,bytes32 appData,uint256 feeAmount,string kind,bool partiallyFillable,string sellTokenBalance,string buyTokenBalance)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "Order intent \"Swap order\" names no tokens or amounts, and there is no interpolatedIntent.",
+   "comprehension": null
+  },
+  "OrderCancellations(bytes[] orderUids)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 58,
+  "functions": "1B 1C",
+  "incomplete": false,
+  "worst": "Order intent \"Swap order\" names no tokens or amounts, and there is no interpolatedIntent."
+ }
+}

@@ -1,0 +1,251 @@
+{
+ "hash": "0xc476042dd4daf08580e3d79e1b483fa03676496c95ca33fd8addb344ec22ebff",
+ "file": "registry/morpho/calldata-sparkdao-sparkUSDCbc.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x56a76b428244a50513ec81e225a293d128fd581d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Exactly `assets` USDC is pulled from the signer into the vault with transferFrom, using the signer's USDC allowance to the vault.",
+     "Vault shares (sparkUSDCbc) are minted to `receiver`. The amount is computed from the vault's share price after interest accrues, rounded down, and there is no minimum.",
+     "The deposited USDC is supplied to Morpho Blue markets (vault-internal, not the signer's assets)."
+    ],
+    "shown": "Shows 'Deposit' with the USDC amount, the sparkUSDCbc ticker as a constant, and the address that receives the shares. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to the receiver is not shown because the vault computes it.",
+      "evidence": "MetaMorphoV1_1.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor). Case 0: signer receives 96944398794137828 sparkUSDCbc, and the screen shows only the 'Share ticker' sparkUSDCbc.",
+      "fix": "Nothing in calldata carries the share amount. The label could say the amount depends on the vault price.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent is a bare 'Deposit' with no interpolatedIntent naming the amount, vault or share recipient.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\" and no interpolatedIntent. The 'Share ticker' field is a raw constant with no amount next to it.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into Spark USDC vault for sparkUSDCbc shares to {receiver}\" and relabel the ticker field 'Receive shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "0.1 USDC out is shown exactly. The sparkUSDCbc shares arriving at the signer are shown by ticker and recipient, but the amount (0.0969 shares) is not shown because the vault computes it."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Exactly `shares` sparkUSDCbc shares are minted to `receiver`.",
+     "USDC is pulled from the signer through its allowance to the vault. The amount is computed from the vault's share price and rounded up, and the function sets no maximum.",
+     "The USDC is supplied to Morpho Blue markets (vault-internal)."
+    ],
+    "shown": "Shows 'Mint' with 'Deposit asset: USDC' (no amount), the number of shares minted and the shares recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken from the signer is not shown because it is computed and has no maximum.",
+      "evidence": "MetaMorphoV1_1.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares). Case 1: signer pays 1 unit of USDC (0.000001 USDC). The screen shows only 'Deposit asset: USDC'.",
+      "fix": "Calldata has no asset amount. Relabel the field 'Pay with (amount set by vault price)' so the signer knows the USDC cost is limited only by their allowance.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint' does not say that USDC leaves the signer's wallet.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\" and no interpolatedIntent. The only mention of the payment is a raw ticker field labeled 'Deposit asset'.",
+      "fix": "Use the intent 'Deposit USDC to mint shares' and add interpolatedIntent \"Mint {shares} paying USDC, shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer pays 1 unit of USDC. The screen names USDC but no amount. The minted shares go to 0xdead (not the signer), and the screen shows this correctly."
+     }
+    ],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Vault shares are burned from `owner`. The amount is computed from the share price and rounded up. If the caller is not `owner`, the signer's share allowance from `owner` is spent.",
+     "Exactly `assets` USDC is withdrawn from Morpho Blue markets and sent to `receiver`."
+    ],
+    "shown": "Shows 'Withdraw' with the exact USDC amount, the recipient and the owner whose shares are used. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown because the vault computes it.",
+      "evidence": "MetaMorphoV1_1.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil). Case 2: the signer burns 19435.179 sparkUSDCbc, and no field or ticker of the shares appears on the screen.",
+      "fix": "Calldata has no share amount. Relabel 'Owner' as 'Burn sparkUSDCbc shares from' so the share position is named.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the bare 'Withdraw' intent has no interpolatedIntent and the screen never mentions the vault shares.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", fields 'Withdraw exactly', 'To', 'Owner'. Case 2 reader: 'Possibly shares/receipt tokens... burned (amount not shown)'.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver} by burning sparkUSDCbc shares of {owner}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "20000 USDC in to the signer is shown exactly. The burn of 19435.18 sparkUSDCbc shares is not shown, and the reader only guessed at it."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Exactly `shares` sparkUSDCbc shares are burned from `owner`. If the caller is not `owner`, the signer's share allowance from `owner` is spent.",
+     "USDC is withdrawn from Morpho Blue and sent to `receiver`. The amount is computed from the share price, rounded down, and has no minimum."
+    ],
+    "shown": "Shows 'Redeem' with the number of shares, the recipient and the owner. Neither the received asset (USDC) nor its amount is named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is computed by the vault, has no minimum, and is not shown.",
+      "evidence": "MetaMorphoV1_1.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor). Case 3: the signer receives 19097.820692 USDC, which is not on the screen.",
+      "fix": "Calldata has no asset amount, so the descriptor cannot show it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the screen never names USDC as the asset paid out, so the reader was unsure.",
+      "evidence": "descriptor.json redeem fields: 'Shares to redeem', 'To', 'Owner', with no underlying-asset field, unlike mint's '$.metadata.constants.underlyingTicker'. Case 3 reader: 'Which token is paid out (assumed USDC from the name)'.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and interpolatedIntent \"Redeem {shares} for USDC to {receiver}\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares burned are shown exactly. The USDC received is not named and has no amount. The reader guessed USDC from the ticker."
+     }
+    ],
+    "glance": 40,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.409,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 130,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent is a bare 'Deposit' with no interpolatedIntent naming the amount, vault or share recipient.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that USDC leaves the signer's wallet.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the bare 'Withdraw' intent has no interpolatedIntent and the screen never mentions the vault shares.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDC as the asset paid out, so the reader was unsure.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 57,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "mint: the intent 'Mint' does not say that USDC leaves the signer's wallet."
+ }
+}

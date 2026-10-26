@@ -1,0 +1,125 @@
+{
+ "hash": "0x29f1f0227ff2a369756a292ebc9a304306d8350c7f52aab78b7073ac158776f1",
+ "file": "registry/threshold/calldata-TBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x18084fba666a33d37592fa2633fd49a74dd93a88"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x517f2982701695d4e52f1ecfbef3ba31df470161"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "approveAndCall(address spender, uint256 amount, bytes extraData)",
+    "effects": [
+     "Sets the signer's tBTC allowance for `spender` to `amount` and replaces any earlier allowance.",
+     "If `amount` is type(uint256).max, the allowance is unlimited and `transferFrom` and `burnFrom` never reduce it.",
+     "Calls `spender.receiveApproval(signer, amount, tBTC, extraData)` in the same transaction, so the spender can take or burn up to `amount` tBTC from the signer at once.",
+     "When the spender is the tBTC Vault (as in case 0), it burns or takes the signer's tBTC and asks for a Bitcoin redemption to the output script inside `extraData`. That is the BTC the signer gets back.",
+     "Any allowance the spender does not use stays in place after the transaction."
+    ],
+    "shown": "The screen reads 'Approve and call tBTC', then shows the spender address, the amount (raw 1000000000000000000 in case 0) and the whole 'Redemption data' as raw hex.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "approveAndCall shows the redemption data as raw hex, so the BTC destination and redeemer are unreadable",
+      "evidence": "descriptor.json: {\"path\": \"extraData\", \"label\": \"Redemption data\", \"format\": \"raw\"}. Case 0 renders 'Redemption data' as 0x...79e21e5e...1111...aaaa...05f5e100...171600143bde42dcca7a1b985b7d2272ddce5b66d113feab.... ERC20WithPermit.approveAndCall passes extraData to IReceiveApproval(spender).receiveApproval.",
+      "fix": "Add a field that slices the redeemer address out of `extraData` (bytes 12 to 32) with format `addressName`. Add a field with the Bitcoin output script slice (from byte 224), labelled 'BTC output script'. Keep the full raw data at `visible: optional`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "approveAndCall cannot show where the redeemed BTC goes as a Bitcoin address",
+      "evidence": "Case 0: extraData ends with the redeemerOutputScript 0x1600143bde42dcca7a1b985b7d2272ddce5b66d113feab (P2WPKH). ERC-7730 has no format that turns a Bitcoin script into a bech32 address.",
+      "fix": "Wait for a spec format for Bitcoin scripts. Until then, show the script slice with a clear label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "approveAndCall intent 'Approve and call tBTC' does not say the spender takes or burns the tBTC now",
+      "evidence": "descriptor.json intent: \"Approve and call tBTC\". ERC20WithPermit.approveAndCall: `if (approve(spender, amount)) { IReceiveApproval(spender).receiveApproval(msg.sender, amount, address(this), extraData); }`. The tBTC token is the approved asset, not the contract that gets called.",
+      "fix": "Change the intent to \"Approve tBTC and call spender to use it\", or \"Redeem tBTC for BTC\" if the descriptor is only meant for the tBTC Vault.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approveAndCall labels extraData 'Redemption data' while the spender can be any contract",
+      "evidence": "descriptor.json: \"label\": \"Redemption data\" on `extraData`. The `spender` field accepts any contract address (types [\"contract\"]). ERC20WithPermit.approveAndCall forwards extraData to whatever `spender` is.",
+      "fix": "Change the label to 'Call data for spender', or describe it as redemption data only when the spender is the tBTC Vault.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "approveAndCall amount renders as the raw integer 1000000000000000000 with no tBTC unit",
+      "evidence": "Case 0 screen: {\"label\": \"Amount\", \"value\": \"1000000000000000000\"}. descriptor.json: \"format\": \"tokenAmount\", \"params\": {\"tokenPath\": \"@.to\"}. The descriptor has no metadata.token. The token is tBTC with 18 decimals.",
+      "fix": "Add \"metadata\": {\"token\": {\"name\": \"tBTC v2\", \"ticker\": \"tBTC\", \"decimals\": 18}}, or make sure `@.to` resolves to tBTC so the amount shows as 1 tBTC.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "approveAndCall shows a max-uint amount as a number, not as an unlimited allowance",
+      "evidence": "ERC20WithPermit.approveAndCall dev note: 'If the `amount` is set to `type(uint256).max` then `transferFrom` and `burnFrom` will not reduce an allowance.' The descriptor's `amount` field has no `threshold` or `message`.",
+      "fix": "Add \"threshold\": \"0x8000000000000000000000000000000000000000000000000000000000000000\", \"message\": \"Unlimited\" to the `amount` params.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 45
+   }
+  ],
+  "couldNotCheck": [
+   "approveAndCall calls the spender's receiveApproval. In case 0 that is the tBTC Vault 0x9C070027cdC9dc8F82416B2e5314E11DFb4FE3CD, then the tBTC Bridge. Neither source is in the directory, so I could not check from code how much tBTC leaves the signer, whether it is burned or moved, or how the redemption to the BTC output script runs."
+  ]
+ },
+ "cost": 0.39,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 70,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "approveAndCall(address spender, uint256 amount, bytes extraData)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 15,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 5,
+   "worst": "approveAndCall shows the redemption data as raw hex, so the BTC destination and redeemer are unreadable",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 15,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": "approveAndCall shows the redemption data as raw hex, so the BTC destination and redeemer are unreadable"
+ }
+}

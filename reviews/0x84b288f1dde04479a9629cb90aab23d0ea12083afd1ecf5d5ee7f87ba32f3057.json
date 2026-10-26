@@ -1,0 +1,233 @@
+{
+ "hash": "0x84b288f1dde04479a9629cb90aab23d0ea12083afd1ecf5d5ee7f87ba32f3057",
+ "file": "registry/symbiotic/calldata-VaultV1-cbETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x9205c82d529a79b941a9df2f621a160891f57a0d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Takes `amount` cbETH (the vault's collateral, 0xBe98…9704) from the signer via safeTransferFrom, using the signer's existing cbETH allowance to the vault.",
+     "Credits vault active shares to `onBehalfOf`, not necessarily the signer. The number of shares comes from the vault's stored stake and shares.",
+     "Reverts if `onBehalfOf` is zero, if the signer is not whitelisted while the whitelist is on, or if the deposit limit would be exceeded."
+    ],
+    "shown": "Deposit 123.25 cbETH for the beneficiary address into the named vault. The fields show the vault, the amount in cbETH and the beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of vault shares credited to onBehalfOf is not shown; it is computed from storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` uses stored activeShares/activeStake. Not in the calldata, so no field can show it.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns enough of the signer's active vault shares to cover `amount` cbETH. previewWithdraw rounds this up.",
+     "Moves `amount` cbETH of the signer's stake into the next epoch's withdrawal queue and credits the withdrawal shares to `claimer`. Only `claimer` can claim it once that epoch has passed.",
+     "No tokens move now. The queued amount can still be slashed until it is claimed."
+    ],
+    "shown": "Request a withdrawal of 2.5 cbETH from the vault, owned by the claim-owner address. The fields show the vault, the cbETH amount and the claim owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned and the delay before the claim opens are not shown; both come from storage.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` and _withdraw: `uint256 epoch = currentEpoch() + 1;`. Both depend on stored state, not on calldata.",
+      "fix": "None needed beyond the 'Request withdrawal' intent, which already signals a queued withdrawal.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Moves the matching cbETH (shares × activeStake / activeShares, rounded down) into the next epoch's withdrawal queue and credits the withdrawal shares to `claimer`, who can claim after that epoch.",
+     "No tokens move now. The queued amount can still be slashed until it is claimed."
+    ],
+    "shown": "Queue a raw 18-digit share count for withdrawal, owned by the claim-owner address. The fields show the vault, the raw shares and the claim owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is an unscaled 18-digit integer; a non-expert cannot read how much is being queued.",
+      "evidence": "descriptor redeem field `#.shares` has format `raw`, so case 2 shows \"Queue 987654321123456789 raw shares\". ERC4626Math._decimalsOffset() returns 0, so shares use the collateral's 18-decimal scale.",
+      "fix": "Use format `unit` with params {\"decimals\":18,\"base\":\"shares\"} so the screen reads ~0.9877 shares, and drop 'raw' from the label and the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the cbETH amount that the shares queue is not shown; it is computed from storage.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`. This is not in the calldata.",
+      "fix": "None possible in the descriptor. A note that the shares convert to cbETH would help the signer.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Sends all of the signer's claimable cbETH for `epoch` from the vault to `recipient`.",
+     "Marks the signer's withdrawal for that epoch as claimed. Reverts if the epoch has not ended, was already claimed, or holds nothing."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 and send it to the recipient address. The fields show the vault, the raw epoch and the recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim: the screen never says the asset sent to the recipient is cbETH.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);`. The descriptor's intent is \"Claim withdrawal\" and its interpolatedIntent is \"Claim epoch {epoch} to {recipient}\"; nothing names cbETH.",
+      "fix": "Name the asset in the intent, e.g. \"Claim cbETH withdrawal\" and \"Claim epoch {epoch} cbETH to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the cbETH amount sent to the recipient is read from storage and cannot be shown.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);` reads the stored withdrawal shares.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Sends the sum of the signer's claimable cbETH across all listed epochs from the vault to `recipient` in one transfer.",
+     "Marks each listed epoch as claimed for the signer. Reverts if any epoch is not yet ended, already claimed, or empty."
+    ],
+    "shown": "Claim the withdrawals for epochs 42, 44 and 128 and send them to the recipient address. Each epoch is shown as its own field.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch: the screen never says the asset sent to the recipient is cbETH.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);`. The descriptor's intent is \"Claim withdrawals\" and its interpolatedIntent is \"Claim epochs {epochs.[]} to {recipient}\"; nothing names cbETH.",
+      "fix": "Name the asset in the intent, e.g. \"Claim cbETH withdrawals\" and \"Claim cbETH for epochs {epochs.[]} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total cbETH sent to the recipient is read from storage and cannot be shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);`, where _claim reads withdrawalsOf(epoch, msg.sender) from storage.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.35,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 76,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is an unscaled 18-digit integer; a non-expert cannot read how much is being queued.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the screen never says the asset sent to the recipient is cbETH.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the screen never says the asset sent to the recipient is cbETH.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: the share amount is an unscaled 18-digit integer; a non-expert cannot read how much is being queued."
+ }
+}

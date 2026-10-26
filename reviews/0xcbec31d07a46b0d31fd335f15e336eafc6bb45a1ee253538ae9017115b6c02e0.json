@@ -1,0 +1,511 @@
+{
+ "hash": "0xcbec31d07a46b0d31fd335f15e336eafc6bb45a1ee253538ae9017115b6c02e0",
+ "file": "registry/morpho/calldata-MidnightBundlesV1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x7c00dbb2b6b6b9b28745332e550dc8782fcf77ec"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x71aa985ff80abce3b8b443845633674ca9f7575c"
+  },
+  {
+   "chainId": 5042,
+   "address": "0x3609525024c88f794cbe09e4832810e2bd737bec"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x091183d729be9f808c212b475e387a12e67850a7"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "midnightBundlesV1BuyWithUnitsTargetAndWithdrawCollateral(uint256 targetUnits, uint256 maxBuyerAssets, address taker, bool reduceOnly, (uint8 kind, bytes data) loanTokenPermit, (((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, bool buy, address maker, uint256 start, uint256 expiry, uint256 tick, bytes32 group, address callback, bytes callbackData, address receiverIfMakerIsSeller, address ratifier, bool reduceOnly, uint128 maxUnits, uint128 maxAssets, uint256 continuousFeeCap) offer, bytes ratifierData, uint256 units)[] offerFills, (uint256 collateralIndex, uint256 assets)[] collateralWithdrawals, address collateralReceiver, uint256 referralFeePct, address referralFeeRecipient, uint256 maxContinuousFee, uint256 deadline)",
+    "effects": [
+     "Pulls maxBuyerAssets of the market loan token from the signer, by allowance, ERC-2612 permit or Permit2.",
+     "Fills sell offers so the taker's position gains exactly targetUnits (a fixed-rate lend, or a repay of debt).",
+     "Sends a referral fee of filledBuyerAssets*pct/(1-pct) loan token to referralFeeRecipient.",
+     "Refunds the unused loan token to the signer, so the signer pays at most maxBuyerAssets.",
+     "Withdraws each listed collateral amount from the taker's position and sends it to collateralReceiver.",
+     "Needs the taker to have authorized the signer and the bundler on Midnight; with reduceOnly set, reverts unless each fill only reduces debt."
+    ],
+    "shown": "\"Fixed-rate lend or repay with X% referral fee\", then value at maturity, max to pay in the loan token, market collateral and maturity, collateral withdrawals as a raw index and raw base units, collateral receiver, fee and fee recipient, deadline, and account.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "BuyWithUnitsTarget intent leaves out the amount paid and the collateral withdrawal.",
+      "evidence": "descriptor interpolatedIntent \"Fixed-rate lend or repay with {#.referralFeePct} referral fee\". Code withdrawCollateral(... taker, collateralReceiver) in midnightBundlesV1BuyWithUnitsTargetAndWithdrawCollateral. Case 0: 2541 cbBTC arrives, but the sentence does not mention it.",
+      "fix": "Put the amounts in the sentence, e.g. \"Pay up to {#.maxBuyerAssets} for {#.targetUnits} at maturity\", and use a separate intent wording or a field group for the collateral withdrawal.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "BuyWithUnitsTarget hides reduceOnly, so the screen cannot tell a repay from a new lend.",
+      "evidence": "descriptor `#.reduceOnly` visible never. Code `require(!reduceOnly || unitsToTake <= debt(id, taker))`. Case 0 has reduceOnly=true, and the reader was unsure whether it was a lend or a repay.",
+      "fix": "Show reduceOnly with a label such as \"Only repays existing debt\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "BuyWithUnitsTarget collateral withdrawals are shown as a raw index and raw base units.",
+      "evidence": "fields `collateralIndex` raw and `assets` raw, labelled \"Collateral to take (base units)\". The token is collateralParams[collateralIndex].token, and a tokenPath cannot use an index read from calldata.",
+      "fix": "Wait for spec support for indexed token paths. Meanwhile keep the explicit labels.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "BuyWithUnitsTarget labels the taker \"Account\", but this address owns the position the signer pays for.",
+      "evidence": "Code: tokens are pulled from msg.sender, while take(..., taker, ...) credits the taker. The descriptor labels `#.taker` \"Account\".",
+      "fix": "Label it \"Position owner\" or \"Lend/repay for\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "BuyWithUnitsTarget hides the offers, the permit and maxContinuousFee. Price and spend are bounded by shown fields.",
+      "evidence": "`#.offerFills`, `#.loanTokenPermit` and `#.maxContinuousFee` are visible never. The permit is used only for maxBuyerAssets, and maxBuyerAssets is shown.",
+      "fix": "Optionally show maxContinuousFee when it is not uint256 max.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "USDC: 1000192 pulled and 177 refunded, net 1000015 out, within the shown max of 1.000192. 2541 cbBTC base units arrive at the signer, shown raw under index 0. The reader was unsure whether this was a lend or a repay."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "midnightBundlesV1BuyWithAssetsTargetAndWithdrawCollateral(uint256 targetBuyerAssets, uint256 minUnits, address taker, bool reduceOnly, (uint8 kind, bytes data) loanTokenPermit, (((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, bool buy, address maker, uint256 start, uint256 expiry, uint256 tick, bytes32 group, address callback, bytes callbackData, address receiverIfMakerIsSeller, address ratifier, bool reduceOnly, uint128 maxUnits, uint128 maxAssets, uint256 continuousFeeCap) offer, bytes ratifierData, uint256 units)[] offerFills, (uint256 collateralIndex, uint256 assets)[] collateralWithdrawals, address collateralReceiver, uint256 referralFeePct, address referralFeeRecipient, uint256 maxContinuousFee, uint256 deadline)",
+    "effects": [
+     "Pulls exactly targetBuyerAssets of the market loan token from the signer.",
+     "Sends targetBuyerAssets*pct of that amount to referralFeeRecipient.",
+     "Uses the rest to buy units for the taker's position (a lend or a repay), at least minUnits.",
+     "Withdraws each listed collateral amount from the taker's position and sends it to collateralReceiver.",
+     "Needs the taker to have authorized the signer and the bundler on Midnight; with reduceOnly set, reverts unless each fill only reduces debt."
+    ],
+    "shown": "\"Fixed-rate lend or repay with X% referral fee\", then amount to pay, min maturity value, market collateral and maturity, collateral withdrawals in raw form, collateral receiver, fee, deadline, and account.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "BuyWithAssetsTarget intent leaves out the amount paid, the minimum value received and any collateral withdrawal.",
+      "evidence": "interpolatedIntent \"Fixed-rate lend or repay with {#.referralFeePct} referral fee\". Cases 2 and 3: 20 USDC and 0.01 USDC leave, but the sentence does not say so.",
+      "fix": "Use e.g. \"Pay {#.targetBuyerAssets} for at least {#.minUnits} at maturity\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "BuyWithAssetsTarget hides reduceOnly, so lend versus repay stays ambiguous.",
+      "evidence": "`#.reduceOnly` visible never. Code `require(!reduceOnly || unitsToTake <= debt(id, taker))`. The readers of cases 2 and 3 said they were unsure whether it was a lend or a repay.",
+      "fix": "Show reduceOnly with a label such as \"Only repays existing debt\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "BuyWithAssetsTarget collateral withdrawals are a raw index and raw base units.",
+      "evidence": "`collateralIndex` raw and `assets` raw. The token depends on an index read from calldata.",
+      "fix": "Wait for spec support for indexed token paths.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "BuyWithAssetsTarget labels the taker \"Account\", but this address owns the position the signer funds.",
+      "evidence": "pullToken(loanToken, msg.sender, ...) pays, while take(..., taker, ...) credits the taker. The label is \"Account\".",
+      "fix": "Label it \"Position owner\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "BuyWithAssetsTarget hides the offers, the permit and maxContinuousFee. Spend and minimum units are shown.",
+      "evidence": "`#.offerFills`, `#.loanTokenPermit` and `#.maxContinuousFee` are visible never.",
+      "fix": "Optionally show maxContinuousFee when it is set.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "20 USDC out, matching \"Amount to pay\"."
+     },
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.01 USDC out, matching the screen. USDC also appears as a market collateral, which is correct here but confusing."
+     }
+    ],
+    "glance": 45,
+    "depth": 75
+   },
+   {
+    "key": "midnightBundlesV1SupplyCollateralAndSellWithUnitsTarget(uint256 targetUnits, uint256 minSellerAssets, address taker, bool reduceOnly, address receiver, (uint256 collateralIndex, uint256 assets, (uint8 kind, bytes data) permit)[] collateralSupplies, (((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, bool buy, address maker, uint256 start, uint256 expiry, uint256 tick, bytes32 group, address callback, bytes callbackData, address receiverIfMakerIsSeller, address ratifier, bool reduceOnly, uint128 maxUnits, uint128 maxAssets, uint256 continuousFeeCap) offer, bytes ratifierData, uint256 units)[] offerFills, uint256 referralFeePct, address referralFeeRecipient, uint256 maxContinuousFee, uint256 deadline)",
+    "effects": [
+     "Pulls each listed collateral amount from the signer and supplies it to the taker's position.",
+     "Sells exactly targetUnits from the taker's position: takes on fixed-rate debt, or exits credit.",
+     "Sends filledSellerAssets*pct of the loan token to referralFeeRecipient.",
+     "Sends the rest of the loan token to receiver; the rest must be at least minSellerAssets.",
+     "Needs the taker to have authorized the signer and the bundler on Midnight; with reduceOnly set, reverts unless each fill only reduces credit."
+    ],
+    "shown": "\"Fixed-rate borrow or exit with X% referral fee\", then value at maturity, min to receive, recipient, market collateral and maturity, collateral supplies in raw form, fee, deadline, and account.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "SellWithUnitsTarget intent leaves out the debt taken, the amount received and the collateral supplied.",
+      "evidence": "interpolatedIntent \"Fixed-rate borrow or exit with {#.referralFeePct} referral fee\". Case 7: 0.999106 USDC arrives, but the sentence does not say so.",
+      "fix": "Use e.g. \"Borrow at least {#.minSellerAssets}, owing {#.targetUnits} at maturity\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "SellWithUnitsTarget uses \"Value at maturity\" for what is sold or owed, the same label the buy format uses for what is gained.",
+      "evidence": "field `#.targetUnits` labelled \"Value at maturity\" in both the buy format and the sell format. In the sell, the taker loses targetUnits (take with the taker as seller).",
+      "fix": "Label it \"Owed at maturity\" or \"Maturity value sold\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "SellWithUnitsTarget hides reduceOnly, so borrow versus exit stays ambiguous.",
+      "evidence": "`#.reduceOnly` visible never. Code `if (reduceOnly) require(unitsToTake <= takerCredit)`. The case 7 reader was unsure whether it opens or closes a position.",
+      "fix": "Show reduceOnly with a label such as \"Only exits existing lending\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "SellWithUnitsTarget collateral supplies are a raw index and raw base units.",
+      "evidence": "`collateralSupplies.[].collateralIndex` raw and `assets` raw. The token is market.collateralParams[collateralIndex].token.",
+      "fix": "Wait for spec support for indexed token paths.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "SellWithUnitsTarget labels the taker \"Account\"; this account takes the debt and gets the collateral.",
+      "evidence": "supplyCollateral(..., taker) and take(..., taker, ...). The label is \"Account\".",
+      "fix": "Label it \"Borrower / position owner\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "SellWithUnitsTarget hides the offers, the collateral permits and maxContinuousFee.",
+      "evidence": "`#.offerFills`, `#.collateralSupplies.[].permit` and `#.maxContinuousFee` are visible never. Each permit covers only the shown supply amount.",
+      "fix": "Optionally show maxContinuousFee.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.999106 USDC to the signer, which meets the minimum of 0.998107 and matches the shown recipient. No collateral was supplied."
+     }
+    ],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "midnightBundlesV1SupplyCollateralAndSellWithAssetsTarget(uint256 targetSellerAssets, uint256 maxUnits, address taker, bool reduceOnly, address receiver, (uint256 collateralIndex, uint256 assets, (uint8 kind, bytes data) permit)[] collateralSupplies, (((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, bool buy, address maker, uint256 start, uint256 expiry, uint256 tick, bytes32 group, address callback, bytes callbackData, address receiverIfMakerIsSeller, address ratifier, bool reduceOnly, uint128 maxUnits, uint128 maxAssets, uint256 continuousFeeCap) offer, bytes ratifierData, uint256 units)[] offerFills, uint256 referralFeePct, address referralFeeRecipient, uint256 maxContinuousFee, uint256 deadline)",
+    "effects": [
+     "Pulls each listed collateral amount from the signer and supplies it to the taker's position.",
+     "Sells units from the taker's position to raise targetSellerAssets plus the fee; units sold are at most maxUnits.",
+     "Sends a referral fee of target*pct/(1-pct) loan token to referralFeeRecipient.",
+     "Sends exactly targetSellerAssets of the loan token to receiver.",
+     "Needs the taker to have authorized the signer and the bundler on Midnight; with reduceOnly set, reverts unless each fill only reduces credit."
+    ],
+    "shown": "\"Fixed-rate borrow or exit with X% referral fee\", then amount to receive, max maturity value, recipient, market collateral and maturity, collateral supplies in raw form, fee, deadline, and account.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "SellWithAssetsTarget intent leaves out the amount borrowed and the collateral supplied.",
+      "evidence": "interpolatedIntent \"Fixed-rate borrow or exit with {#.referralFeePct} referral fee\". Case 5: 5000 USDC arrives and 0.1007 cbBTC leaves, but the sentence does not say so.",
+      "fix": "Use e.g. \"Borrow {#.targetSellerAssets}, owing at most {#.maxUnits} at maturity\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "SellWithAssetsTarget hides reduceOnly, so borrow versus exit stays ambiguous.",
+      "evidence": "`#.reduceOnly` visible never. Code `if (reduceOnly) require(unitsToTake <= takerCredit)`. The readers of cases 4 and 5 asked whether \"or exit\" could close a position.",
+      "fix": "Show reduceOnly with a label such as \"Only exits existing lending\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "SellWithAssetsTarget collateral supplies are a raw index and raw base units.",
+      "evidence": "Case 5 shows \"Collateral to supply (base units)\" 10070189, and the reader had to guess the 8 decimals. The token comes from an index read from calldata.",
+      "fix": "Wait for spec support for indexed token paths.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "SellWithAssetsTarget labels the taker \"Account\"; this account takes the debt and gets the collateral.",
+      "evidence": "supplyCollateral(..., taker) and take(..., taker, ...). The label is \"Account\".",
+      "fix": "Label it \"Borrower / position owner\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "SellWithAssetsTarget hides the offers, the collateral permits and maxContinuousFee.",
+      "evidence": "`#.offerFills`, `#.collateralSupplies.[].permit` and `#.maxContinuousFee` are visible never.",
+      "fix": "Optionally show maxContinuousFee.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "100 cbBTC base units out, shown raw under index 1. 0.000001 USDC in to the signer, matching \"Amount to receive\"."
+     },
+     {
+      "index": 5,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "10070189 cbBTC base units out, shown raw. 5000 USDC in to the signer, matching the screen."
+     }
+    ],
+    "glance": 45,
+    "depth": 72
+   },
+   {
+    "key": "midnightBundlesV1RepayAndWithdrawCollateral((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, uint256 assets, address onBehalf, (uint8 kind, bytes data) loanTokenPermit, (uint256 collateralIndex, uint256 assets)[] collateralWithdrawals, address collateralReceiver, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)",
+    "effects": [
+     "Pulls exactly `assets` of the market loan token from the signer.",
+     "Repays assets*(1-pct) of onBehalf's debt.",
+     "Sends assets*pct to referralFeeRecipient.",
+     "Withdraws each listed collateral amount from onBehalf's position and sends it to collateralReceiver.",
+     "Needs onBehalf to have authorized the signer and the bundler on Midnight."
+    ],
+    "shown": "\"Repay and withdraw collateral with X% referral fee\", then amount to pay with fee (hidden when 0), repay for, market collateral and maturity, collateral withdrawals in raw form, collateral receiver, fee, and deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "RepayAndWithdrawCollateral claims a withdrawal and shows a receiver even when no collateral is withdrawn.",
+      "evidence": "Case 10: collateralWithdrawals is empty and no cbBTC moves, but the intent says \"Repay and withdraw collateral\" and shows \"Collateral to 0x7B93…\". The reader expected \"Some cbBTC collateral back to my own wallet\".",
+      "fix": "Use a neutral intent such as \"Repay fixed-rate debt\", and show the receiver only inside the withdrawals group.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "RepayAndWithdrawCollateral hides a zero repay amount, so the screen implies a repayment that does not happen.",
+      "evidence": "Field `#.assets` uses visible ifNotIn [\"0\"]. Case 8: assets=0, so nothing is repaid, yet the intent says \"Repay\". The reader believed \"Your debt ... is reduced or cleared\".",
+      "fix": "Always show the amount, or use an intent that does not promise a repay.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "RepayAndWithdrawCollateral collateral withdrawals are a raw index and raw base units.",
+      "evidence": "Case 8 shows \"Collateral to take (base units)\" 6400000000000 for WETH. The token is collateralParams[collateralIndex].token.",
+      "fix": "Wait for spec support for indexed token paths.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "RepayAndWithdrawCollateral's \"Repay for\" does not say collateral also leaves that account's position.",
+      "evidence": "withdrawCollateral(market, ..., onBehalf, collateralReceiver) in midnightBundlesV1RepayAndWithdrawCollateral. The only label on onBehalf is \"Repay for\".",
+      "fix": "Label it \"Position owner (repaid, collateral withdrawn)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "RepayAndWithdrawCollateral hides the loan token permit; it covers only the shown amount.",
+      "evidence": "`#.loanTokenPermit` visible never. In pullToken, the permit amount equals `assets`.",
+      "fix": "None needed.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 8,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "6400000000000 WETH base units in to the signer, shown raw. The USDC transfer is 0. The reader wrongly believed the debt is reduced."
+     },
+     {
+      "index": 9,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "101 cbBTC base units in, shown raw under index 1."
+     },
+     {
+      "index": 10,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "10 USDC out, shown. No collateral is withdrawn, but the reader expected cbBTC to arrive."
+     }
+    ],
+    "glance": 60,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "Midnight core (constructor _midnight 0x471686c42792F93528B000beF54bC10E3aa2045f on mainnet; 0xadedd8ab6de832766fedf0fac4992e5c4d3ea18a on Base) is not in the directory. It runs take, repay, supplyCollateral and withdrawCollateral, so the changes to the taker's debt or credit units and any settlement fees could not be checked against the source."
+  ]
+ },
+ "cost": 1.046,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 216,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "midnightBundlesV1BuyWithUnitsTargetAndWithdrawCollateral(uint256 targetUnits, uint256 maxBuyerAssets, address taker, bool reduceOnly, (uint8 kind, bytes data) loanTokenPermit, (((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, bool buy, address maker, uint256 start, uint256 expiry, uint256 tick, bytes32 group, address callback, bytes callbackData, address receiverIfMakerIsSeller, address ratifier, bool reduceOnly, uint128 maxUnits, uint128 maxAssets, uint256 continuousFeeCap) offer, bytes ratifierData, uint256 units)[] offerFills, (uint256 collateralIndex, uint256 assets)[] collateralWithdrawals, address collateralReceiver, uint256 referralFeePct, address referralFeeRecipient, uint256 maxContinuousFee, uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "BuyWithUnitsTarget intent leaves out the amount paid and the collateral withdrawal.",
+   "comprehension": 100
+  },
+  "midnightBundlesV1BuyWithAssetsTargetAndWithdrawCollateral(uint256 targetBuyerAssets, uint256 minUnits, address taker, bool reduceOnly, (uint8 kind, bytes data) loanTokenPermit, (((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, bool buy, address maker, uint256 start, uint256 expiry, uint256 tick, bytes32 group, address callback, bytes callbackData, address receiverIfMakerIsSeller, address ratifier, bool reduceOnly, uint128 maxUnits, uint128 maxAssets, uint256 continuousFeeCap) offer, bytes ratifierData, uint256 units)[] offerFills, (uint256 collateralIndex, uint256 assets)[] collateralWithdrawals, address collateralReceiver, uint256 referralFeePct, address referralFeeRecipient, uint256 maxContinuousFee, uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "BuyWithAssetsTarget intent leaves out the amount paid, the minimum value received and any collateral withdrawal.",
+   "comprehension": 100
+  },
+  "midnightBundlesV1SupplyCollateralAndSellWithUnitsTarget(uint256 targetUnits, uint256 minSellerAssets, address taker, bool reduceOnly, address receiver, (uint256 collateralIndex, uint256 assets, (uint8 kind, bytes data) permit)[] collateralSupplies, (((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, bool buy, address maker, uint256 start, uint256 expiry, uint256 tick, bytes32 group, address callback, bytes callbackData, address receiverIfMakerIsSeller, address ratifier, bool reduceOnly, uint128 maxUnits, uint128 maxAssets, uint256 continuousFeeCap) offer, bytes ratifierData, uint256 units)[] offerFills, uint256 referralFeePct, address referralFeeRecipient, uint256 maxContinuousFee, uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "SellWithUnitsTarget intent leaves out the debt taken, the amount received and the collateral supplied.",
+   "comprehension": 100
+  },
+  "midnightBundlesV1SupplyCollateralAndSellWithAssetsTarget(uint256 targetSellerAssets, uint256 maxUnits, address taker, bool reduceOnly, address receiver, (uint256 collateralIndex, uint256 assets, (uint8 kind, bytes data) permit)[] collateralSupplies, (((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, bool buy, address maker, uint256 start, uint256 expiry, uint256 tick, bytes32 group, address callback, bytes callbackData, address receiverIfMakerIsSeller, address ratifier, bool reduceOnly, uint128 maxUnits, uint128 maxAssets, uint256 continuousFeeCap) offer, bytes ratifierData, uint256 units)[] offerFills, uint256 referralFeePct, address referralFeeRecipient, uint256 maxContinuousFee, uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "SellWithAssetsTarget intent leaves out the amount borrowed and the collateral supplied.",
+   "comprehension": 100
+  },
+  "midnightBundlesV1RepayAndWithdrawCollateral((uint256 chainId, address midnight, address loanToken, (address token, uint256 lltv, uint256 liquidationCursor, address oracle)[] collateralParams, uint256 maturity, uint256 rcfThreshold, address enterGate, address liquidatorGate) market, uint256 assets, address onBehalf, (uint8 kind, bytes data) loanTokenPermit, (uint256 collateralIndex, uint256 assets)[] collateralWithdrawals, address collateralReceiver, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "RepayAndWithdrawCollateral claims a withdrawal and shows a receiver even when no collateral is withdrawn.",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 68,
+  "functions": "5B",
+  "incomplete": true,
+  "worst": "BuyWithUnitsTarget intent leaves out the amount paid and the collateral withdrawal."
+ }
+}

@@ -1,0 +1,165 @@
+{
+ "hash": "0x86a3446b4df803505d899b7eb7cbdea7959d6cd3c05b341c620afa965c18cdd7",
+ "file": "registry/figment/calldata-PoolDynamic-MUSDC-sepolia.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 11155111,
+   "address": "0xd1f0774ccff0ce4f36dea57b6a28ab7feb0a01b0"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address lender)",
+    "effects": [
+     "The signer's allowance to the vault for MUSDC is spent by `assets` (safeTransferFrom(msg.sender, address(this), assets)).",
+     "`assets` MUSDC leaves the signer's wallet for the vault (0xd1f0…01b0).",
+     "The vault forwards the same `assets` MUSDC straight to the borrower wallet set in pool storage (safeTransfer(borrowerWalletAddr_, assets)).",
+     "The signer gets xFIGSOL vault shares minted at the pool exchange rate (`_mint(lender, shares)`). `lender` must equal msg.sender or the call reverts."
+    ],
+    "shown": "\"Deposit into Stablecoin Vault\", with the amount in MUSDC and the signer's own address as the depositing wallet.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit has no interpolatedIntent, so the sentence names neither the amount nor the token.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit into Stablecoin Vault\", no interpolatedIntent. FORMATS.md: interpolatedIntent: null.",
+      "fix": "Add \"interpolatedIntent\": \"Deposit {assets} into Stablecoin Vault for vault shares\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the xFIGSOL shares the signer receives. The amount depends on the stored exchange rate.",
+      "evidence": "Case 0 mined: 8.877324 xFIGSOL minted to the signer (signer: in). Nothing on the screen mentions it. PoolDynamic.deposit: shares = PoolLibDynamic.executeDeposit(...); _mint(lender, shares). The share amount is not in the calldata.",
+      "fix": "Say in the intent or interpolatedIntent that the signer receives xFIGSOL vault shares, e.g. \"Deposit {assets} into Stablecoin Vault for xFIGSOL shares\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit forwards the deposited MUSDC to a borrower wallet right away. The screen says it goes into a vault.",
+      "evidence": "PoolDynamic.deposit: `_liquidityAsset.safeTransfer(borrowerWalletAddr_, assets);`. Case 0 mined: 10 MUSDC from vault to 0x27e6a4bc…295e (signer null).",
+      "fix": "Optionally say in the intent that the deposit is lent to the pool's borrower, e.g. \"Lend into Stablecoin Vault\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial",
+       "missed"
+      ],
+      "notes": "The 10 MUSDC out is shown right. The 8.877324 xFIGSOL in is not on the screen; the reader guessed a share token but had no amount. The allowance spend (grant, ending at 0) is not stated; the reader was unsure about it."
+     }
+    ],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "requestRedeem(uint256 shares)",
+    "effects": [
+     "Records a redemption request for `shares` of the signer's xFIGSOL. No tokens move in this call.",
+     "The requested shares are reserved: they no longer count in maxRedeemRequest/_freeShares, so they cannot be transferred or requested again.",
+     "Later, the pool admin's acceptRedemption/repayRedemption burns the shares and pays an operator-chosen MUSDC `repayment` (it can be partial) to fundsDestination, plus a fee to the fee collector. That payout is outside this call."
+    ],
+    "shown": "\"Redeem from Stablecoin Vault\" and the number of xFIGSOL shares to redeem.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedeem intent \"Redeem\" reads as an immediate payout, but the call only files a request.",
+      "evidence": "PoolDynamic.requestRedeem → requestRedeemExecute only records the request. The burn and payment happen in repayRedemption (onlyPoolAdmin). Case 1 mined: effects [] and signerNet []. The reader expected shares to leave and stablecoin to arrive (\"presumably burned\", \"presumably some stablecoin\").",
+      "fix": "Use the intent \"Request redemption from Stablecoin Vault\" and an interpolatedIntent such as \"Request to redeem {shares}; paid later by the pool admin\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedeem does not say the requested shares get locked until the admin processes the request.",
+      "evidence": "PoolDynamic._freeShares subtracts requestedShares + acceptedShares. _beforeTokenTransfer reverts with TransferDisabled when maxRedeemRequest(from) < amount. The descriptor label is only \"Shares to redeem\".",
+      "fix": "Change the label to \"Shares to lock for redemption\" or add it to the interpolatedIntent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestRedeem cannot show the MUSDC payout or the fee. The admin sets both later in repayRedemption.",
+      "evidence": "PoolDynamic.repayRedemption(lender, repayment, fees, uuid): \"the cash `repayment` is operator-provided and can be partial\". devdoc requestRedeem: \"Submits a withdrawal request, incurring a fee.\"",
+      "fix": "No descriptor field can show this. The intent can say the payout comes later.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The mined tx has no token movement. The reader wrongly believed 8.406826 xFIGSOL would leave and stablecoin would arrive in this call, because the intent says \"Redeem\" and not \"Request redemption\"."
+     }
+    ],
+    "glance": 35,
+    "depth": 45
+   }
+  ],
+  "couldNotCheck": [
+   "PoolLibDynamic (linked library used by PoolDynamic.deposit via executeDeposit and by requestRedeem via requestRedeemExecute): its source is not in the directory (17 sources omitted from the 0xbb625c64… implementation). That leaves unverified how the shares minted are computed, and what requestRedeemExecute records (fundsDestination, fee, share reservation)."
+  ]
+ },
+ "cost": 0.378,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 82,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address lender)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 49,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit has no interpolatedIntent, so the sentence names neither the amount nor the token.",
+   "comprehension": 50
+  },
+  "requestRedeem(uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "requestRedeem intent \"Redeem\" reads as an immediate payout, but the call only files a request.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 40,
+  "functions": "2C",
+  "incomplete": true,
+  "worst": "deposit has no interpolatedIntent, so the sentence names neither the amount nor the token."
+ }
+}

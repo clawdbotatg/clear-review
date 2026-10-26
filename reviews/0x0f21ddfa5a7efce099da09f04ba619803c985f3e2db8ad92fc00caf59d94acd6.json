@@ -1,0 +1,251 @@
+{
+ "hash": "0x0f21ddfa5a7efce099da09f04ba619803c985f3e2db8ad92fc00caf59d94acd6",
+ "file": "registry/kiln/calldata-Vault-USDC-Euler-Yield.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x1fce9396c3add4c3a2ed6b4461425b36ebc4bf87"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC to the vault (safeTransferFrom caller to vault in _deposit).",
+     "The vault mints shares to `receiver`; the count is computed from storage (share price, deposit fee) and rounded down.",
+     "A deposit fee set in storage (0 at init) is cut from the assets before shares are priced; reward fee shares are minted to the vault first.",
+     "The vault delegatecalls the connector to put the USDC into Euler; this moves vault funds, not signer funds."
+    ],
+    "shown": "\"Deposit\" with the USDC amount, a raw share ticker \"kEulerUSDC\" and the share recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit shows share ticker \"kEulerUSDC\", but the vault token symbol is \"keeyUSDC\".",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"kEulerUSDC\", field 'Share ticker'. Constructor args of VaultBeaconProxy encode symbol \"keeyUSDC\" (6b65657955534443). Case 0 mined: shares minted to signer with symbol keeyUSDC, amount 3398879910.",
+      "fix": "Set vaultTicker to \"keeyUSDC\", the symbol the vault returns.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares the signer receives; the vault computes it from storage.",
+      "evidence": "Vault.deposit: (uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply()); case 0 mined: 3398.879910 keeyUSDC to signer, no amount on screen.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent \"Deposit\" names no asset, amount or vault.",
+      "evidence": "descriptor deposit intent \"Deposit\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into Kiln Euler USDC vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDC out amount shown exactly. Shares in: amount absent, and ticker shown as kEulerUSDC while the token is keeyUSDC."
+     }
+    ],
+    "glance": 50,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` shares to `receiver`.",
+     "The signer pays USDC; the amount is computed by _previewMint from storage (share price, deposit fee, rounded up) and has no maximum in calldata.",
+     "A deposit fee set in storage is added on top of the raw asset value."
+    ],
+    "shown": "\"Mint\" with a raw \"Deposit asset: USDC\" ticker, the share amount and the share recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDC leaves; the vault computes it with no cap.",
+      "evidence": "Vault.mint: (uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); _deposit(_msgSender(), receiver, _assets, shares, ...). No max-assets parameter exists.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent \"Mint\" hides that the signer pays USDC; only a ticker field hints at it.",
+      "evidence": "descriptor mint intent \"Mint\"; field 'Deposit asset' format raw value $.metadata.constants.underlyingTicker.",
+      "fix": "Change intent to \"Deposit USDC for vault shares\" and label the ticker field \"Pay with\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns shares from `owner`; the count is computed from storage and rounded up, not shown.",
+     "If the caller is not `owner`, the caller spends owner's share allowance.",
+     "The vault sends USDC to `receiver`; the amount is the balance delta after the connector withdraws `assets`."
+    ],
+    "shown": "\"Withdraw\" with the exact USDC amount, the recipient and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares are burned from the owner.",
+      "evidence": "Vault.withdraw: uint256 _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); _burn(owner, shares) in _withdraw.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent \"Withdraw\" names no asset or amount.",
+      "evidence": "descriptor withdraw intent \"Withdraw\", interpolatedIntent absent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` shares from `owner` (the signer in case 1).",
+     "If the caller is not `owner`, the caller spends owner's share allowance.",
+     "The vault sends USDC to `receiver`; the amount is computed from storage, with no minimum."
+    ],
+    "shown": "\"Redeem\" with the share amount (ticker kEulerUSDC), the recipient and the owner; the asset received is not named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never names USDC as the asset the recipient receives.",
+      "evidence": "Vault._withdraw: SafeERC20.safeTransfer(IERC20(asset()), receiver, ...). Descriptor redeem fields: shares, receiver, owner only. Case 1 mined: 1.027038 USDC in to signer; reader 'likely USDC, not stated'.",
+      "fix": "Add a field {\"label\":\"Receive\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}, or intent \"Redeem shares for USDC\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount received and has no minimum bound.",
+      "evidence": "Vault.redeem: uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply); no min-assets parameter. Case 1: 1.027038 USDC received, not on screen.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem shows shares as \"kEulerUSDC\", but the burned token's symbol is \"keeyUSDC\".",
+      "evidence": "Case 1 screen 'Shares to redeem' = \"0.999764 kEulerUSDC\"; mined effect symbol keeyUSDC, amount 999764 out. Constructor args symbol \"keeyUSDC\".",
+      "fix": "Correct vaultTicker to \"keeyUSDC\" so every rendering uses the real symbol.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "Share burn amount right (ticker label differs from on-chain symbol). USDC received: asset inferred, amount missing."
+     }
+    ],
+    "glance": 40,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": [
+   "Vault._withdraw and _deposit delegatecall the connector from registry 0xde63817c82e93499357ae198518f90ac1be93a72 (connector EULER_YIELD_USDC); its source is not in the directory. The USDC amount the receiver gets in withdraw/redeem is the balance delta after this call, so 'Withdraw exactly' cannot be confirmed from code."
+  ]
+ },
+ "cost": 0.563,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 83,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit shows share ticker \"kEulerUSDC\", but the vault token symbol is \"keeyUSDC\".",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent \"Mint\" hides that the signer pays USDC; only a ticker field hints at it.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent \"Withdraw\" names no asset or amount.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem never names USDC as the asset the recipient receives.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 75,
+  "clarity": 56,
+  "functions": "2C 2D",
+  "incomplete": true,
+  "worst": "deposit shows share ticker \"kEulerUSDC\", but the vault token symbol is \"keeyUSDC\"."
+ }
+}

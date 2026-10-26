@@ -1,0 +1,316 @@
+{
+ "hash": "0x3922bb7f292ab172b7c153ac08b0087af05230a73f19d731258adebd81ad9c16",
+ "file": "registry/aave/calldata-WrappedTokenGatewayV3.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xd01607c3c5ecaba394d8be377a08590149325722"
+  },
+  {
+   "chainId": 10,
+   "address": "0x5f2508cae9923b02316254026cd43d7902866725"
+  },
+  {
+   "chainId": 100,
+   "address": "0x721b9abab6511b46b9ee83a1aba23bdacb004149"
+  },
+  {
+   "chainId": 137,
+   "address": "0xbc302053db3aa514a3c86b9221082f162b91ad63"
+  },
+  {
+   "chainId": 146,
+   "address": "0x061d8e131f26512348ee5fa42e2df1ba9d6505e9"
+  },
+  {
+   "chainId": 1868,
+   "address": "0x6376d4df995f32f308f2d5049a7a320943023232"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xa0d9c1e9e48ca30c8d8c3b5d69ff5dc1f6dffc24"
+  },
+  {
+   "chainId": 9745,
+   "address": "0x54bdcc37c4143f944a3ee51c892a6cbdf305e7a0"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x5283beced7adf6d003225c13896e536f2d4264ff"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x2825ce5921538d17cc15ae00a8b24ff759c6cdae"
+  },
+  {
+   "chainId": 59144,
+   "address": "0x31a239f3e39c5d8ba6b201ba81ed584492ae960f"
+  },
+  {
+   "chainId": 534352,
+   "address": "0xe79ca44408dae5a57ea2a9594532f1e84d2edaa4"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "depositETH(address pool, address onBehalfOf, uint16 referralCode)",
+    "effects": [
+     "The signer sends msg.value in native ETH to the gateway, which wraps it to WETH.",
+     "The gateway supplies that WETH to the Aave Pool (the immutable POOL; the pool argument is ignored).",
+     "aWETH for msg.value is minted to onBehalfOf, which gets the supply position."
+    ],
+    "shown": "Supply, Amount to supply = the native value sent (e.g. 32.3 ETH), Collateral recipient = onBehalfOf.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "depositETH has no interpolatedIntent, so the intent line 'Supply' names neither the amount nor who gets the position.",
+      "evidence": "descriptor.json depositETH: intent 'Supply' with no interpolatedIntent. Case 0: the reader was unsure whether yohoming.eth (the signer) owns the resulting position.",
+      "fix": "Add interpolatedIntent 'Supply {@.value} to Aave for {onBehalfOf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "ETH out 32.3 matches @.value. aEthWETH 32.31 minted to the signer, shown as Collateral recipient yohoming.eth (the signer). The reader saw the position going to yohoming.eth but was unsure it was their own and said nothing arrives in their wallet."
+     }
+    ],
+    "glance": 70,
+    "depth": 90
+   },
+   {
+    "key": "repayETH(address pool, uint256 amount, address onBehalfOf)",
+    "effects": [
+     "The signer sends msg.value in native ETH to the gateway.",
+     "paybackAmount = min(amount, onBehalfOf's variable WETH debt). The call reverts if msg.value is below it.",
+     "paybackAmount is wrapped and repays onBehalfOf's variable WETH debt, which burns their variableDebt tokens.",
+     "Any msg.value above paybackAmount is refunded to the signer."
+    ],
+    "shown": "Repay loan, Amount to repay = amount in native ETH ('All' at max uint), For debt holder = onBehalfOf. The native value sent is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "repayETH is payable but has no @.value field, so the ETH actually sent is not shown when the amount is 'All'.",
+      "evidence": "WrappedTokenGatewayV3.sol repayETH: require(msg.value >= paybackAmount); refunds msg.value - paybackAmount. descriptor.json repayETH has no @.value field. Case 4 sends 85 ETH while the screen shows only 'All ETH'.",
+      "fix": "Add a field {path: '@.value', format: 'amount', label: 'Max ETH sent (excess refunded)'}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "repayETH renders max uint as 'All ETH', which reads like all the wallet's ETH instead of the full debt.",
+      "evidence": "descriptor.json repayETH amount params message 'All'. Case 4 screen: 'Amount to repay: All ETH'. The code repays min(amount, variable debt balance of onBehalfOf).",
+      "fix": "Use message 'Full debt', or the label 'Amount to repay (up to the debt)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "85 ETH out is shown. The debt of the signer (0xb806…8c12) went down; the debt token burn event shows 84.885 because of accrued interest."
+     }
+    ],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "withdrawETH(address pool, uint256 amount, address to)",
+    "effects": [
+     "aWETH for amount (or the whole balance when amount is max uint) moves from the signer to the gateway, spending the signer's aWETH allowance to the gateway.",
+     "The gateway withdraws that much WETH from the Pool, unwraps it and sends native ETH to `to`."
+    ],
+    "shown": "Withdraw, Amount to withdraw = amount in ETH ('All' at max), To recipient = to.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdrawETH spends the signer's aWETH allowance to the gateway and burns aWETH. Neither is named, but both are what withdraw means.",
+      "evidence": "WrappedTokenGatewayV3.sol withdrawETH: aWETH.transferFrom(msg.sender, address(this), amountToWithdraw); POOL.withdraw(...). Case 2: aEthWETH out 0.3604 from the signer.",
+      "fix": "Optional: label the amount 'Amount of supplied ETH (aWETH) to withdraw'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "'All ETH' at max uint matches the 0.3604 ETH received at the signer's own address. The aEthWETH that left (net of 0.0005 accrued interest minted) is implied by the Withdraw intent, and the reader saw that the deposit position goes to zero."
+     }
+    ],
+    "glance": 75,
+    "depth": 85
+   },
+   {
+    "key": "withdrawETHWithPermit(address pool, uint256 amount, address to, uint256 deadline, uint8 permitV, bytes32 permitR, bytes32 permitS)",
+    "effects": [
+     "It submits the signer's aWETH permit, which sets the gateway's allowance to `amount` (failures are swallowed).",
+     "aWETH for amount (or the whole balance when amount is max) moves from the signer to the gateway.",
+     "The gateway withdraws the WETH from the Pool, unwraps it and sends native ETH to `to`.",
+     "When amount is max uint, a residual aWETH allowance to the gateway can remain. Only the signer can use it, because the gateway only pulls from msg.sender."
+    ],
+    "shown": "Withdraw, Amount to withdraw = amount in ETH ('All' at max), To recipient = to. The deadline and permit signature are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdrawETHWithPermit hides that it submits an aWETH permit to the gateway. The grant is the prerequisite of this withdraw.",
+      "evidence": "WrappedTokenGatewayV3.sol withdrawETHWithPermit: try aWETH.permit(msg.sender, address(this), amount, deadline, permitV, permitR, permitS) {} catch {}. descriptor.json: deadline/permitV/R/S are visible 'never'.",
+      "fix": "Optional: show the deadline as a date field labelled 'Permit deadline'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "borrowETH(address pool, uint256 amount, uint16 referralCode)",
+    "effects": [
+     "The Pool mints variable-rate WETH debt for amount to the signer (msg.sender), spending the credit delegation the signer gave the gateway.",
+     "The borrowed WETH is unwrapped and amount in native ETH is sent to the signer."
+    ],
+    "shown": "Borrow, Amount to borrow = amount in native currency, Debtor = the signer's address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "borrowETH does not say the borrowed ETH is sent to the signer. The reader was unsure who receives it.",
+      "evidence": "WrappedTokenGatewayV3.sol borrowETH: _safeTransferETH(msg.sender, amount). descriptor.json borrowETH has only 'Debtor' (@.from). Case 3 reader: 'Who receives the borrowed ETH; the screen shows no recipient'.",
+      "fix": "Relabel @.from as 'Debtor and recipient', or add interpolatedIntent 'Borrow {amount} to {@.from}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "borrowETH always borrows at the variable rate and spends the signer's credit delegation to the gateway. Neither is shown.",
+      "evidence": "WrappedTokenGatewayV3.sol borrowETH: POOL.borrow(address(WETH), amount, uint256(DataTypes.InterestRateMode.VARIABLE), referralCode, msg.sender).",
+      "fix": "Optional: label the amount 'Amount to borrow (variable rate)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "7 ETH received by the signer: the reader had the amount right but was unsure of the recipient. The 7 ETH variable debt minted to the signer is shown as Debtor and was read right."
+     }
+    ],
+    "glance": 75,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.489,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [
+  "repayETH(address pool, uint256 amount, address onBehalfOf)"
+ ],
+ "seconds": 287,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "depositETH(address pool, address onBehalfOf, uint16 referralCode)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "depositETH has no interpolatedIntent, so the intent line 'Supply' names neither the amount nor who gets the position.",
+   "comprehension": 75
+  },
+  "repayETH(address pool, uint256 amount, address onBehalfOf)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 85,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 2,
+   "worst": "repayETH takes ETH but never shows how much (@.value)",
+   "comprehension": 100
+  },
+  "withdrawETH(address pool, uint256 amount, address to)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdrawETHWithPermit(address pool, uint256 amount, address to, uint256 deadline, uint8 permitV, bytes32 permitR, bytes32 permitS)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "borrowETH(address pool, uint256 amount, uint16 referralCode)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "borrowETH does not say the borrowed ETH is sent to the signer. The reader was unsure who receives it.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 85,
+  "clarity": 80,
+  "functions": "1A 3B 1F",
+  "incomplete": false,
+  "worst": "repayETH takes ETH but never shows how much (@.value)"
+ }
+}

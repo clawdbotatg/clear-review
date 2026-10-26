@@ -1,0 +1,179 @@
+{
+ "hash": "0x95ea902393ae6967f2f4e9075a53247d9cc0ff48218a873af4775ef6d27349cd",
+ "file": "registry/lido/calldata-wstETH-L2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 10,
+   "address": "0x1f32b1c2345538c0c6f582fcb022739c4a194ebb"
+  },
+  {
+   "chainId": 130,
+   "address": "0xc02fe7317d4eb8753a02c35fe019786854a92001"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x5979d7b546e38e414f7e9822514be443a4800529"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "approve(address spender_, uint256 amount_)",
+    "effects": [
+     "Sets the signer's wstETH allowance for spender_ to exactly amount_, replacing any previous allowance (ERC20Core.approve -> _approve).",
+     "An allowance of type(uint256).max is never reduced when spent (_spendAllowance returns early); any lower allowance is reduced by each transferFrom.",
+     "No tokens move and no native value is taken (not payable)."
+    ],
+    "shown": "\"Authorize spending\" / \"Allow to spend {amount} wstETH\", with Spender and Amount fields; amounts at or above 2^255 show as \"Unlimited wstETH\".",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "approve: the interpolated intent leaves out the spender, so the sentence does not say who may spend.",
+      "evidence": "descriptor.json approve interpolatedIntent \"Allow to spend {amount_}\". Case 0 sentence: \"Allow to spend 250.5 wstETH\". The spender only appears in the separate Spender field.",
+      "fix": "Use \"Allow {spender_} to spend {amount_}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "approve: the Unlimited threshold is 2^255, but the code only treats type(uint256).max as an allowance that never decreases.",
+      "evidence": "ERC20Core._spendAllowance: `if (currentAllowance == type(uint256).max) { return; }`. descriptor.json approve Amount threshold \"0x8000…0000\", message \"Unlimited\".",
+      "fix": "You can set the threshold to 0xfff…fff (uint256 max). Values between the two cannot be spent in practice, so this is cosmetic.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "approve: Spender addressName types is limited to \"contract\", but the code accepts any non-zero address.",
+      "evidence": "descriptor.json approve Spender params.types [\"contract\"]. ERC20Core._approve only checks onlyNonZeroAccount(spender_).",
+      "fix": "Add \"eoa\" and \"wallet\" to types so EOA spenders still resolve.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 90
+   },
+   {
+    "key": "transfer(address to_, uint256 amount_)",
+    "effects": [
+     "Moves amount_ wstETH from the signer to to_, with no fee (ERC20Core._transfer: _decreaseBalance(from_), balanceOf[to_] += amount_).",
+     "Reverts if to_ is the zero address or the balance is too low.",
+     "No native value is taken (not payable)."
+    ],
+    "shown": "\"Transfer wstETH\" / \"Send {amount} wstETH to {to}\", with Recipient and Amount fields.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Mined on Arbitrum: 1.61 wstETH left the signer for 0x5ef0…9652. The screen shows exactly that, and the reader understood it."
+     }
+    ],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "transferFrom(address from_, address to_, uint256 amount_)",
+    "effects": [
+     "Spends amount_ of the allowance that from_ gave the signer (msg.sender); the allowance is not reduced if it is type(uint256).max (ERC20Core._spendAllowance).",
+     "Moves amount_ wstETH from from_ to to_. When from_ is the signer, this is the signer's own wstETH leaving.",
+     "No native value is taken (not payable)."
+    ],
+    "shown": "\"Transfer wstETH\" / \"Send {amount} wstETH to {to}\", with Sender, Recipient and Amount fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transferFrom: the interpolated intent leaves out from_, so it reads as if the signer sends its own tokens.",
+      "evidence": "descriptor.json transferFrom interpolatedIntent \"Send {amount_} to {to_}\". Case 3 sentence: \"Send 0.113492582574591644 wstETH to 0x2aeD…1597\", while the tokens come from 0x08b0…1e65 (the Sender field) and not from the signer 0xE66A…a346.",
+      "fix": "Use \"Send {amount_} from {from_} to {to_}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "transferFrom: the call uses up the signer's allowance from from_, and the screen does not say so.",
+      "evidence": "ERC20Core.transferFrom: `_spendAllowance(from_, msg.sender, amount_);`. No field or intent mentions the allowance.",
+      "fix": "This is what transferFrom means. Optionally write the intent as \"Transfer wstETH using allowance\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 88
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.292,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 56,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "approve(address spender_, uint256 amount_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "approve: the interpolated intent leaves out the spender, so the sentence does not say who may spend.",
+   "comprehension": null
+  },
+  "transfer(address to_, uint256 amount_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 98,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "transferFrom(address from_, address to_, uint256 amount_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferFrom: the interpolated intent leaves out from_, so it reads as if the signer sends its own tokens.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 82,
+  "functions": "1A 2B",
+  "incomplete": false,
+  "worst": "approve: the interpolated intent leaves out the spender, so the sentence does not say who may spend."
+ }
+}

@@ -1,0 +1,419 @@
+{
+ "hash": "0x28efa4e7f3076b906450479c343be0f4e02708078594d53d96368a8cc1407587",
+ "file": "registry/celo/calldata-celo_governance.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42220,
+   "address": "0xd533ca259b330c7a88f74e000a3faea2d63b7972"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "approve(uint256 proposalId, uint256 index)",
+    "effects": [
+     "The approver account (the signer) marks the queued-and-dequeued proposal proposalId at dequeue index as approved, so it can pass. No asset of the signer moves."
+    ],
+    "shown": "Intent 'Approve' with the proposal ID and the item index as raw numbers.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approve: the bare intent 'Approve' reads like a token approval, not approval of a governance proposal.",
+      "evidence": "descriptor.json, format approve(uint256 proposalId, uint256 index): \"intent\": \"Approve\". The function approves a governance proposal; it grants no token allowance.",
+      "fix": "Change the intent to \"Approve governance proposal\" and add interpolatedIntent \"Approve proposal {proposalId}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "dequeueProposalsIfReady()",
+    "effects": [
+     "Moves the top-upvoted queued proposals into the referendum stage when the dequeue window passed. No asset, position or right of the signer changes."
+    ],
+    "shown": "Intent 'Dequeue Proposals' with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "execute(uint256 proposalId, uint256 index)",
+    "effects": [
+     "Runs the passed proposal's transactions from the Governance contract (CELO and calls sent by Governance, not by the signer). No asset of the signer moves."
+    ],
+    "shown": "Intent 'Execute Proposal' and the proposal ID; the index is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "execute: the proposal's transactions are in storage, so the screen cannot show what executing does.",
+      "evidence": "descriptor.json, format execute: only field 'Proposal ID' (raw). The transactions are stored at propose time, not in this calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "executeHotfix(uint256[] values, address[] destinations, bytes data, uint256[] dataLengths, bytes32 salt)",
+    "effects": [
+     "Runs a prepared and approved hotfix: the Governance contract sends values[i] CELO and data to destinations[i]. The signer's own assets do not move."
+    ],
+    "shown": "Intent 'Execute Hotfix', a list 'CELO to Send' and a list 'Recipient'; data, dataLengths and salt are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "executeHotfix: 'CELO to Send' implies the signer pays; the Governance contract sends this CELO.",
+      "evidence": "descriptor.json, format executeHotfix: field values.[] \"label\": \"CELO to Send\", format amount. The hotfix transactions are executed by Governance; the signer sends no value.",
+      "fix": "Rename the labels to \"CELO sent by Governance\" and \"Call target\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "executeHotfix: the call data of each hotfix transaction is hidden and is a packed concatenation.",
+      "evidence": "descriptor.json, format executeHotfix: data and dataLengths \"visible\": \"never\". data is one bytes blob split by dataLengths; ERC-7730 cannot slice it per call.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 50
+   },
+   {
+    "key": "prepareHotfix(bytes32 hash)",
+    "effects": [
+     "Marks the approved and whitelisted hotfix with this hash as prepared for execution in the current epoch. No asset of the signer moves."
+    ],
+    "shown": "Intent 'Prepare Hotfix' and the raw hotfix hash.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "prepareHotfix: the hash stands for hotfix transactions that the calldata does not carry.",
+      "evidence": "descriptor.json, format prepareHotfix: field hash 'Hotfix Hash' (raw). The hash commits to values, destinations, data and salt not present here.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 65
+   },
+   {
+    "key": "propose(uint256[] values, address[] destinations, bytes data, uint256[] dataLengths, string descriptionUrl)",
+    "effects": [
+     "The signer sends msg.value CELO as the proposal deposit to Governance (must be at least minDeposit); it is refundable later through withdraw.",
+     "Creates a queued proposal owned by the signer with the listed transactions; on execution the Governance contract, not the signer, sends values[i] CELO and data to destinations[i]."
+    ],
+    "shown": "Intent 'Propose', lists 'Amount to Send' and 'Recipient', the 'Deposit' (@.value) and the description URL; data and dataLengths are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "propose: 'Amount to Send' and 'Recipient' read as the signer's payments; Governance sends them later.",
+      "evidence": "descriptor.json, format propose: values.[] \"label\": \"Amount to Send\", destinations.[] \"label\": \"Recipient\". Only @.value 'Deposit' leaves the signer now.",
+      "fix": "Rename to \"Proposed CELO from Governance\" and \"Proposed call target\"; set intent \"Submit governance proposal\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "propose: the call data of each proposed transaction is hidden and packed into one blob.",
+      "evidence": "descriptor.json, format propose: data and dataLengths \"visible\": \"never\". The proposal's calls do not move the signer's assets at this step.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "revokeUpvote(uint256 lesser, uint256 greater)",
+    "effects": [
+     "Removes the signer's current upvote (weight = its locked CELO) from the queued proposal it upvoted; the proposal is read from storage."
+    ],
+    "shown": "Intent 'Revoke Upvote'; lesser and greater sort hints are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "revokeUpvote: the proposal whose upvote is removed comes from storage and cannot be shown.",
+      "evidence": "descriptor.json, format revokeUpvote: only lesser and greater, both \"visible\": \"never\". The upvoted proposal ID is stored per voter, not in calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "revokeVotes()",
+    "effects": [
+     "Removes all of the signer's votes on proposals now in the referendum stage."
+    ],
+    "shown": "Intent 'Revoke Votes', the signing address and a summary that all referendum votes are revoked.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "upvote(uint256 proposalId, uint256 lesser, uint256 greater)",
+    "effects": [
+     "Adds the signer's (or its account's, for a vote signer) total locked CELO as upvote weight to queued proposal proposalId; one upvote per account at a time.",
+     "May dequeue ready proposals and drop a stale earlier upvote first; no asset of the signer moves."
+    ],
+    "shown": "Intent 'Upvote' and the proposal ID; lesser and greater hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "upvote: the upvote weight is the account's locked CELO, read from storage, and is not shown.",
+      "evidence": "descriptor.json, format upvote: fields proposalId only. Weight comes from LockedGold.getAccountTotalLockedGold at call time.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "vote(uint256 proposalId, uint256 index, uint8 value)",
+    "effects": [
+     "Casts the account's full locked CELO weight as Yes, No or Abstain on referendum proposal proposalId, replacing any earlier vote on it.",
+     "While the vote is active, the account's locked CELO cannot be unlocked until the referendum ends (LockedGold checks Governance.isVoting)."
+    ],
+    "shown": "Intent 'Vote', the proposal ID and the vote choice from enum None/Abstain/No/Yes.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "vote: the vote weight and the unlock restriction while voting are not shown.",
+      "evidence": "descriptor.json, format vote: fields 'Proposal ID' and 'Vote' only. Weight is all locked CELO from storage; voting blocks LockedGold.unlock until the referendum ends.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "votePartially(uint256 proposalId, uint256 index, uint256 yesVotes, uint256 noVotes, uint256 abstainVotes)",
+    "effects": [
+     "Casts yesVotes, noVotes and abstainVotes of the account's locked CELO weight (wei units) on referendum proposal proposalId, replacing any earlier vote on it; the sum must not exceed locked CELO.",
+     "While the vote is active, the account's locked CELO cannot be unlocked until the referendum ends."
+    ],
+    "shown": "Intent 'Partial Vote', the proposal ID and the yes, no and abstain weights as raw integers.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "votePartially: yes, no and abstain weights show as raw 18-decimal integers, not CELO amounts.",
+      "evidence": "descriptor.json, format votePartially: yesVotes, noVotes, abstainVotes \"format\": \"raw\". These are locked CELO weights in wei.",
+      "fix": "Use \"format\": \"amount\" for yesVotes, noVotes and abstainVotes with labels like \"Yes votes (locked CELO)\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 55
+   },
+   {
+    "key": "withdraw()",
+    "effects": [
+     "Sends the signer all its refunded proposal deposits (CELO held in Governance for msg.sender) and sets that balance to zero."
+    ],
+    "shown": "Intent 'Withdraw' and the signer as 'Beneficiary'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the CELO amount returned is the stored refunded deposit and cannot be shown.",
+      "evidence": "descriptor.json, format withdraw: intent \"Withdraw\", only field @.from 'Beneficiary'. The amount is refundedDeposits[msg.sender] in storage.",
+      "fix": "Change the intent to \"Withdraw refunded proposal deposits\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "The deployment 0xd533ca259b330c7a88f74e000a3faea2d63b7972 is a Celo GovernanceProxy (Proxy.sol fallback delegatecalls to the implementation in the EIP-1967 slot), but proxy resolution reports isProxy false and the Governance implementation source is not in the directory. Every format's effects (deposit handling in propose, vote weights, the unlock lock while voting, payability of each function, refund in withdraw) could not be checked against code here; they were judged from the descriptor and the known Celo Governance design."
+  ]
+ },
+ "cost": 0.364,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 83,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "approve(uint256 proposalId, uint256 index)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "approve: the bare intent 'Approve' reads like a token approval, not approval of a governance proposal.",
+   "comprehension": null
+  },
+  "dequeueProposalsIfReady()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "execute(uint256 proposalId, uint256 index)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "executeHotfix(uint256[] values, address[] destinations, bytes data, uint256[] dataLengths, bytes32 salt)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "executeHotfix: 'CELO to Send' implies the signer pays; the Governance contract sends this CELO.",
+   "comprehension": null
+  },
+  "prepareHotfix(bytes32 hash)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "propose(uint256[] values, address[] destinations, bytes data, uint256[] dataLengths, string descriptionUrl)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "propose: 'Amount to Send' and 'Recipient' read as the signer's payments; Governance sends them later.",
+   "comprehension": null
+  },
+  "revokeUpvote(uint256 lesser, uint256 greater)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "revokeVotes()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "upvote(uint256 proposalId, uint256 lesser, uint256 greater)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "vote(uint256 proposalId, uint256 index, uint8 value)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "votePartially(uint256 proposalId, uint256 index, uint256 yesVotes, uint256 noVotes, uint256 abstainVotes)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "votePartially: yes, no and abstain weights show as raw 18-decimal integers, not CELO amounts.",
+   "comprehension": null
+  },
+  "withdraw()": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "2A 7B 3C",
+  "incomplete": true,
+  "worst": "executeHotfix: 'CELO to Send' implies the signer pays; the Governance contract sends this CELO."
+ }
+}

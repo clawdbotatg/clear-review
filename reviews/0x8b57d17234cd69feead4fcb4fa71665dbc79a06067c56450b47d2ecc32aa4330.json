@@ -1,0 +1,234 @@
+{
+ "hash": "0x8b57d17234cd69feead4fcb4fa71665dbc79a06067c56450b47d2ecc32aa4330",
+ "file": "registry/degate/eip712-degate.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe63602a9b3dfe983187525ac985fec4f57b24ed5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "AccountUpdate(address owner,uint32 accountID,uint32 feeTokenID,uint96 maxFee,uint256 publicKey,uint32 validUntil,uint32 nonce)",
+    "effects": [
+     "Replaces the EdDSA public key of the signer's DeGate L2 account `accountID`. The new key can then sign transfers, withdrawals and trades for every balance in that account.",
+     "Takes a fee of at most `maxFee` in token `feeTokenID` from the signer's L2 balance and pays it to the operator.",
+     "The signature is valid until `validUntil` and uses account nonce `nonce`."
+    ],
+    "shown": "The intent \"Replace account signing key\", then owner, account ID, fee token as an enum, max fee as a raw base-unit integer, the new key as a 77-digit integer, validUntil as a raw integer and the nonce.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "AccountUpdate shows maxFee as a raw base-unit integer with no token decimals.",
+      "evidence": "descriptor AccountUpdate field {\"path\":\"maxFee\",\"label\":\"Max fee (base units)\",\"format\":\"raw\"}; case 0 shows \"1000000000000000000\" with Fee token \"ETH\".",
+      "fix": "Add metadata.maps.tokenAddress from tokenID to token address. Use format tokenAmount with params.token {\"map\":\"$.metadata.maps.tokenAddress\",\"keyPath\":\"#.feeTokenID\"} and nativeCurrencyAddress for ETH (0x0).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "AccountUpdate shows validUntil as a raw Unix integer, not a date.",
+      "evidence": "descriptor field {\"path\":\"validUntil\",\"label\":\"ValidUntil\",\"format\":\"raw\"}; case 0 shows \"1742169600\".",
+      "fix": "Use {\"format\":\"date\",\"params\":{\"encoding\":\"timestamp\"},\"label\":\"Valid until\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "AccountUpdate intent does not say that the new key controls all funds in the L2 account.",
+      "evidence": "intent \"Replace account signing key\". The publicKey is shown as the 77-digit integer \"21888242871839275222246405745257275088548364400416034343698204186575808495617\" (case 0). No person can check it against an expected key.",
+      "fix": "Change the intent to \"Give new key control of DeGate account\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "AccountUpdate test case 0 uses the SNARK field prime as publicKey, which is not a valid key.",
+      "evidence": "case 0 message.publicKey = 21888242871839275222246405745257275088548364400416034343698204186575808495617, which equals ExchangeData.SNARK_SCALAR_FIELD in ExchangeData.sol.",
+      "fix": "Use a real compressed EdDSA public key from a DeGate AccountUpdate in the test.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 50
+   },
+   {
+    "key": "Withdrawal(address owner,uint32 accountID,uint32 tokenID,uint248 amount,uint32 feeTokenID,uint96 maxFee,address to,uint248 minGas,uint32 validUntil,uint32 storageID)",
+    "effects": [
+     "Takes `amount` of token `tokenID` from the signer's DeGate L2 account `accountID`.",
+     "Sends that amount on L1 to the address `to`, using `minGas` gas for the transfer.",
+     "Takes a fee of at most `maxFee` in token `feeTokenID` from the signer's L2 balance and pays it to the operator.",
+     "An agent of the signer can later redirect the withdrawal to another recipient with setWithdrawalRecipient (ExchangeV3.sol)."
+    ],
+    "shown": "The intent \"DeGate Withdrawal\", then owner, account ID, token as an enum, amount and max fee as raw base-unit integers, the recipient as a raw address, minGas, validUntil as a raw integer and storageID.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Withdrawal shows amount and maxFee as raw base-unit integers; the 3e15 USDC fee cap is unreadable.",
+      "evidence": "descriptor fields \"Amount (base units)\" raw and \"Max fee (base units)\" raw. In case 1, Fee token \"USDC\" with max fee \"3000000000000000\" is 3,000,000,000 USDC at 6 decimals. Nothing on the screen shows that.",
+      "fix": "Add a tokenID→address map. Use tokenAmount for amount (keyPath #.tokenID) and maxFee (keyPath #.feeTokenID), with nativeCurrencyAddress 0x0 for ETH.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Withdrawal intent \"DeGate Withdrawal\" names no asset, amount or recipient.",
+      "evidence": "descriptor intent \"DeGate Withdrawal\". The recipient `to` can differ from owner, and the intent does not say that funds leave to `to`.",
+      "fix": "Change the intent to \"Withdraw from DeGate to L1 address\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Withdrawal shows recipient and validUntil raw; use addressName and a date.",
+      "evidence": "fields {\"path\":\"to\",\"label\":\"To\",\"format\":\"raw\"} and {\"path\":\"validUntil\",\"format\":\"raw\"}. Case 1 shows \"1774000000\".",
+      "fix": "Use format addressName (types eoa, contract; sources local, ens) for `to`. Use format date with encoding timestamp for validUntil.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Withdrawal token enum lists only IDs 0-5, so other token IDs have no name.",
+      "evidence": "metadata.enums.tokenID has keys 0-5. ExchangeData.sol allows MAX_NUM_RESERVED_TOKENS = 32 and normal tokens from ID 32. ExchangeTokens.registerToken assigns IDs to both.",
+      "fix": "Use a tokenID→address map with tokenAmount, or list every registered token ID.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "Withdrawal token enum labels depend on on-chain registration order, which the source cannot confirm.",
+      "evidence": "ExchangeTokens.registerToken: tokenID = uint32(S.reservedTokens.length); the token→ID mapping is in storage. Descriptor enum: 0 ETH, 1 DG, 2 USDC, 3 USDT, 4 WBTC, 5 DAI.",
+      "fix": "Check each ID with getTokenAddress(tokenID) on mainnet.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   },
+   {
+    "key": "Transfer(address owner,uint32 accountID,uint32 tokenID,uint248 amount,uint32 feeTokenID,uint96 maxFee,address to,uint32 validUntil,uint32 storageID)",
+    "effects": [
+     "Takes `amount` of token `tokenID` from the signer's DeGate L2 account `accountID`.",
+     "Credits that amount to the DeGate L2 account of `to`, not to `to`'s L1 wallet.",
+     "Takes a fee of at most `maxFee` in token `feeTokenID` from the signer's L2 balance and pays it to the operator."
+    ],
+    "shown": "The intent \"DeGate Transfer\", then owner, account ID, token as an enum, amount and max fee as raw base-unit integers, the recipient as a raw address, validUntil as a raw integer and storageID.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Transfer shows amount and maxFee as raw base-unit integers with no decimals.",
+      "evidence": "descriptor fields \"Amount (base units)\" raw and \"Max fee (base units)\" raw. Case 2 shows \"1500000000000000000\" ETH and max fee \"500000000000000\".",
+      "fix": "Add a tokenID→address map. Use tokenAmount for amount (keyPath #.tokenID) and maxFee (keyPath #.feeTokenID), with nativeCurrencyAddress 0x0.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Transfer intent \"DeGate Transfer\" omits the asset and recipient, and that funds stay on DeGate L2.",
+      "evidence": "descriptor intent \"DeGate Transfer\". The recipient receives the funds in a DeGate L2 account, not in an L1 wallet.",
+      "fix": "Change the intent to \"Send tokens to a DeGate account\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Transfer shows recipient and validUntil raw; use addressName and a date.",
+      "evidence": "fields {\"path\":\"to\",\"label\":\"To\",\"format\":\"raw\"} and {\"path\":\"validUntil\",\"format\":\"raw\"}. Case 2 shows \"1773765209\".",
+      "fix": "Use format addressName for `to` and format date with encoding timestamp for validUntil.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "Transfer token enum labels depend on on-chain registration order, which the source cannot confirm.",
+      "evidence": "ExchangeTokens.registerToken assigns reserved IDs in registration order (storage). Descriptor enum: 0 ETH, 1 DG, 2 USDC, 3 USDT, 4 WBTC, 5 DAI.",
+      "fix": "Check each ID with getTokenAddress(tokenID) on mainnet.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": [
+   "ExchangeV3 at 1:0xe636…: 82 source files are omitted. These include the libtransactions (WithdrawTransaction, TransferTransaction, AccountUpdateTransaction), ExchangeBlocks and ExchangeWithdrawals. They hold the AccountUpdate, Withdrawal and Transfer type hashes and the code that verifies signatures and moves balances. So the format keys' type strings and the exact debit, credit and fee effects cannot be checked against code.",
+   "The L2 balance changes (amount debited, fee charged up to maxFee, recipient credited) run in the DeGate zk circuit and off-chain operator. That code is not in the directory."
+  ]
+ },
+ "cost": 0.595,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 98,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "AccountUpdate(address owner,uint32 accountID,uint32 feeTokenID,uint96 maxFee,uint256 publicKey,uint32 validUntil,uint32 nonce)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "AccountUpdate shows maxFee as a raw base-unit integer with no token decimals.",
+   "comprehension": null
+  },
+  "Withdrawal(address owner,uint32 accountID,uint32 tokenID,uint248 amount,uint32 feeTokenID,uint96 maxFee,address to,uint248 minGas,uint32 validUntil,uint32 storageID)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 22,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "Withdrawal shows amount and maxFee as raw base-unit integers; the 3e15 USDC fee cap is unreadable.",
+   "comprehension": null
+  },
+  "Transfer(address owner,uint32 accountID,uint32 tokenID,uint248 amount,uint32 feeTokenID,uint96 maxFee,address to,uint32 validUntil,uint32 storageID)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 27,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "Transfer shows amount and maxFee as raw base-unit integers with no decimals.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 30,
+  "functions": "3C",
+  "incomplete": true,
+  "worst": "AccountUpdate shows maxFee as a raw base-unit integer with no token decimals."
+ }
+}

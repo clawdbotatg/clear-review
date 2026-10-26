@@ -1,0 +1,267 @@
+{
+ "hash": "0xda0eab210b96efd2e6b42b0f9e140015da7da6d95419a2472fdfae5804adfe80",
+ "file": "registry/gondi/calldata-PurchaseBundler-v3_1-robinhood.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 4663,
+   "address": "0xfa13dfde6fdf37a2cb4151195f95940285f70754"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "buy(bytes[] executionData)",
+    "effects": [
+     "The signer sends msg.value in native ETH to the bundler.",
+     "The bundler calls MultiSourceLoan.multicall(executionData) and opens a loan (emitLoan): the lender's principal (WETH) goes to the bundler, and the signer, as borrower, owes principal plus interest.",
+     "In the afterPrincipalTransfer callback, when the purchase currency is an ERC20, the bundler pulls purchaseBundlerExecutionInfo.amount of it from loan.borrower (the signer).",
+     "The bundler can swap the principal on the Uniswap router and then buys the NFT on a whitelisted marketplace, using executionInfo.value and the module and data from the callback data.",
+     "A buy tax (taxes[module].buyTax of the purchase amount) goes to the protocol fee recipient out of the funds the bundler holds.",
+     "The NFT goes to the borrower, and MultiSourceLoan locks it as collateral for the new loan.",
+     "The bundler sends the leftover purchase currency and principal currency to the borrower, and the leftover ETH to msg.sender."
+    ],
+    "shown": "\"Buy NFT with a loan\", the ETH value sent, and a nested Gondi \"Borrow against NFT\" screen with collateral, lender, principal, APR, duration and the purchase instructions as raw callback hex.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "buy: the purchase price, marketplace and ERC20 amount taken from the signer exist only as raw callback hex.",
+      "evidence": "PurchaseBundler._afterPrincipalTransfer: `ERC20(purchaseBundlerExecutionInfo.purchaseCurrency).safeTransferFrom(_loan.borrower, address(this), purchaseBundlerExecutionInfo.amount);` and `executionInfo.module.call{value: executionInfo.value}(executionInfo.data)`. Case 0 shows these only inside the nested field 'Callback data' as a 0x000…0020… hex blob.",
+      "fix": "No field path in this descriptor reaches the inner ExecutionInfo struct. Add a notice to the intent, e.g. 'Buy NFT with a loan (price set in loan data)', or ask for nested decoding of the MultiSourceLoan callback data.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "buy: the buy tax sent to the protocol fee recipient is not shown.",
+      "evidence": "PurchaseBundler._afterPrincipalTransfer: `_handleProtocolFee(_loan.borrower, purchaseAmount, address(purchaseCurrency), _taxes[executionInfo.module].buyTax);` The rate is in storage. No field mentions a fee.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "buy: the interpolated intent repeats the intent and names no NFT, price or debt.",
+      "evidence": "descriptor buy format: \"interpolatedIntent\": \"Buy NFT with a loan\". The NFT (Hoodnanas #3374) and the 0.0001 WETH debt appear only in the nested Loan screen of case 0.",
+      "fix": "Change the intent to say a debt is created, e.g. 'Buy NFT; it is locked as loan collateral'. The outer bytes[] arguments cannot feed the sentence.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 45
+   },
+   {
+    "key": "sell(bytes[] executionData, bytes[] swapData)",
+    "effects": [
+     "The bundler calls MultiSourceLoan.multicall(executionData) with repayLoan, and MultiSourceLoan releases the collateral NFT to the borrower.",
+     "In the afterNFTTransfer callback the bundler sells the NFT on a whitelisted marketplace. When contractMustBeOwner is set, it first pulls the NFT from the borrower with transferFrom.",
+     "A sell tax (taxes[module].sellTax of the sale proceeds) goes to the protocol fee recipient.",
+     "The bundler can swap the proceeds into the loan currency on the Uniswap router, using swapData. A price-quoter slippage check applies.",
+     "The bundler sends the sale proceeds or swap output to the borrower. MultiSourceLoan then takes the repayment (principal plus interest) from the borrower.",
+     "If the bundler still holds the NFT at the end, it sends it to msg.sender."
+    ],
+    "shown": "\"Sell collateral and repay\", a nested \"Repay loan\" screen (loan ID, collateral, principal, borrower, lender, raw callback data) and the raw swap bytes.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "sell: the sale price, buyer and marketplace of the collateral exist only as raw callback bytes.",
+      "evidence": "PurchaseBundler._afterNFTTransfer / _sellReleasedCollateralInMarketplace: `collateral.transferFrom(loan.borrower, address(this), tokenId); collateral.approve(executionInfo.module, tokenId); executionInfo.module.call{value: executionInfo.value}(executionInfo.data)`. Case 1 shows only 'Callback data' in the nested Repay loan screen.",
+      "fix": "No path in this descriptor can decode the nested ExecutionInfo. State in the intent that the sale terms are in the loan data.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "sell: Swap data is shown as raw bytes, and it decides what the sale proceeds become.",
+      "evidence": "descriptor sell format: {\"path\": \"swapData.[]\", \"label\": \"Swap data\", \"format\": \"raw\"}. Code: PurchaseBundler._swapAndCheck runs `_uniswapRouter.call{value: swapValue}(swapData)` and then `ERC20(loanCurrency).safeTransfer(loan.borrower, loanCurrencyBalance)`.",
+      "fix": "Hide the raw bytes, or give them a label that says what they do, e.g. 'Swap of sale proceeds (router data)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "sell: the sell tax and the repayment amount (principal plus interest) are not shown.",
+      "evidence": "PurchaseBundler._afterNFTTransfer: `_handleProtocolFee(loan.borrower, saleAmount, ..., _taxes[executionInfo.module].sellTax)`. The nested screen of case 1 shows 'Loan principal 0.0001 WETH' but not the interest owed, which MultiSourceLoan computes.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 30
+   },
+   {
+    "key": "executeSell(address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData)",
+    "effects": [
+     "The bundler pulls currencyAmounts[i] (minus its own balance) of each ERC20 currency from the signer. For ETH, the amount must already be in msg.value.",
+     "The signer sends msg.value in native ETH.",
+     "The bundler repays the seller's loan through MultiSourceLoan.repayLoan. In the callback it executes the borrower's marketplace listing and pays it with the signer's funds.",
+     "After the sale, leftover loan currency, or the swap output plus the whole remaining purchase-currency balance, goes to the borrower and not to the signer.",
+     "The bundler sends any remaining funds in each listed currency back to the signer.",
+     "If the bundler holds the NFT tokenIds from collections, it sends the NFT to the signer. Otherwise the marketplace calldata decides where the NFT goes."
+    ],
+    "shown": "\"Buy Hoodnanas #3374\" with the NFT, the payment amount and token, the marketplace address, the nested Repay loan screen, raw swap data and the ETH value sent.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "executeSell: native value above the payment can go to the seller, not back to the signer.",
+      "evidence": "PurchaseBundler._afterNFTTransfer swap branch: `_sendCurrency(purchaseCurrency, loan.borrower, purchaseCurrencyBalance);` Here purchaseCurrencyBalance is the bundler's whole ETH balance, msg.value included. The screen shows 'Payment' and 'Value sent' as two separate fields, with no statement about the difference.",
+      "fix": "Label the value field 'Value sent (not refunded above payment)', or document that Value sent must equal Payment.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "executeSell: the NFT recipient comes from marketplace calldata hidden in the nested callback bytes.",
+      "evidence": "PurchaseBundler._givebackNFT: `if (collection.ownerOf(tokenId) == address(this)) collection.safeTransferFrom(address(this), _msgSender(), tokenId);` No check makes sure the signer receives the NFT. The marketplace call data sits in the 'Callback data' of the nested Repay loan screen.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "executeSell: the interpolated intent names the NFT but not the payment amount.",
+      "evidence": "descriptor: \"interpolatedIntent\": \"Buy {tokenIds.[]}\". Case 2 renders 'Buy Hoodnanas #3374', and the 0.00011 WETH payment appears only as a field.",
+      "fix": "Change interpolatedIntent to \"Buy {tokenIds.[]} for {currencyAmounts.[]}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "executeSell: Swap data is shown as raw bytes.",
+      "evidence": "descriptor executeSell format: {\"path\": \"swapData.[]\", \"label\": \"Swap data\", \"format\": \"raw\"}.",
+      "fix": "Hide the field or give it a label that says it converts the seller's proceeds.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "executeSellWithLoan(((address pool, address[] assets, uint256[] amounts) borrowArgs, (address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData) executeSellArgs, bytes[] loanExecutionData, address[] swapCurrencies, uint160[] swapAmounts, bytes[] swapData, bool unwrap) args)",
+    "effects": [
+     "On this deployment the function always reverts: aaveAddressProvider is the zero address, so `_aaveAddressProvider.getPool()` fails. Nothing moves.",
+     "By design (on a deployment with Aave), the bundler takes a flash loan, runs executeSell with the signer as buyer and pulls the payment from the signer.",
+     "By design, it opens a new MultiSourceLoan loan for the signer with loanExecutionData, which locks the NFT as collateral.",
+     "By design, it pulls swapAmounts of swapCurrencies from the signer and swaps them on the Uniswap router.",
+     "By design, it pulls any shortfall on the flash loan principal plus premium from the signer, and sends any surplus to the signer."
+    ],
+    "shown": "\"Buy Hoodnanas #3374 with a loan\" with the payment, marketplace, the nested repayment and new-loan screens, a flash loan pool and amount, the unwrap flag, raw swap data and the ETH value sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "executeSellWithLoan: the function always reverts on chain 4663 because the Aave address provider is zero.",
+      "evidence": "meta.json constructor argument aaveAddressProvider = 0x0000000000000000000000000000000000000000. PurchaseBundler.executeSellWithLoan: `address aaveV3Pool = _aaveAddressProvider.getPool();`. Case 3 renders 'Flash loan pool 0x0000000000000000000000000000000000000000'.",
+      "fix": "Remove this format from the 4663 descriptor, or note that the function is not available on this chain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "executeSellWithLoan: the flash loan shortfall and premium taken from the signer have no field.",
+      "evidence": "PurchaseBundler.executeOperation: `if (balance < owed) { asset.safeTransferFrom(_buyer, address(this), owed - balance); }` with owed = amounts[i] + premiums[i]. The screen shows only 'Flash loan' as the borrowed amount. Unreachable on this deployment.",
+      "fix": "If the function is ever enabled, add a label such as 'Flash loan (you cover any shortfall and fee)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "executeSellWithLoan: the screen has 16 fields, with raw bytes and a raw boolean.",
+      "evidence": "descriptor: 'Swap data' raw twice, 'Unwrap WETH' raw, plus two nested loan screens. Case 3 shows 12 rendered rows and two raw callback blobs.",
+      "fix": "Hide the raw swap bytes, and show 'Unwrap WETH' with an enum or a label.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 35
+   }
+  ],
+  "couldNotCheck": [
+   "MultiSourceLoan 0x0e79e08e9E35388382b7FebB26Bc73F80465e2fB (the source is not in the directory). buy, sell, executeSell and executeSellWithLoan forward to its emitLoan and repayLoan, which move the principal, the repayment and the collateral NFT.",
+   "Uniswap router 0x8876789976dEcBfCbBbe364623C63652db8C0904 and the whitelisted marketplace modules (e.g. 0x0000000000000068F116a894984e2DB1123eB395). Their calls decide the swap output and the NFT recipient, and their source is not in the directory."
+  ]
+ },
+ "cost": 0.94,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 165,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "buy(bytes[] executionData)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "buy: the interpolated intent repeats the intent and names no NFT, price or debt.",
+   "comprehension": null
+  },
+  "sell(bytes[] executionData, bytes[] swapData)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "sell: Swap data is shown as raw bytes, and it decides what the sale proceeds become.",
+   "comprehension": null
+  },
+  "executeSell(address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "executeSell: native value above the payment can go to the seller, not back to the signer.",
+   "comprehension": null
+  },
+  "executeSellWithLoan(((address pool, address[] assets, uint256[] amounts) borrowArgs, (address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData) executeSellArgs, bytes[] loanExecutionData, address[] swapCurrencies, uint160[] swapAmounts, bytes[] swapData, bool unwrap) args)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 27,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "executeSellWithLoan: the screen has 16 fields, with raw bytes and a raw boolean.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 36,
+  "functions": "4C",
+  "incomplete": true,
+  "worst": "executeSell: native value above the payment can go to the seller, not back to the signer."
+ }
+}

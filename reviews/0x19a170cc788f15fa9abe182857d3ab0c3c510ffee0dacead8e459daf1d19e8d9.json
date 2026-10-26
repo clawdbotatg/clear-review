@@ -1,0 +1,220 @@
+{
+ "hash": "0x19a170cc788f15fa9abe182857d3ab0c3c510ffee0dacead8e459daf1d19e8d9",
+ "file": "registry/morpho/calldata-re7_labs-Re7cdxUSD1.1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x74b6ea9bfee07c3756969b0139cfacbba5845969"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Exactly `assets` cdxUSD (0xC0D37000…22330) is pulled from the signer into the vault (ERC4626._deposit safeTransferFrom(_asset, caller, this, assets)).",
+     "Re7cdxUSD1.1 vault shares, computed by the contract from the current share price and rounded down, are minted to `receiver`.",
+     "The deposited cdxUSD is supplied to Morpho markets through the supply queue (_supplyMorpho). This is internal to the vault and does not affect the signer."
+    ],
+    "shown": "Deposit: the cdxUSD amount, the share ticker Re7cdxUSD1.1 as a constant, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit has the bare intent 'Deposit' and no interpolatedIntent naming the amount or the share recipient.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\", no interpolatedIntent. The fields `assets` (tokenAmount) and `receiver` (addressName) are always visible and could go in the sentence.",
+      "fix": "Add \"interpolatedIntent\": \"Deposit {assets} for Re7cdxUSD1.1 shares to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many shares are minted. The amount comes from the vault's share price in storage.",
+      "evidence": "MetaMorphoV1_1.deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Floor). There is no minShares parameter in the calldata.",
+      "fix": "None in the descriptor. The share count is not in the calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit labels the amount field 'Deposit asset' although it shows an amount. 'Share ticker' is a constant that adds little.",
+      "evidence": "descriptor.json deposit fields: {\"path\":\"assets\",\"label\":\"Deposit asset\"}, {\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}",
+      "fix": "Rename to 'Deposit amount' and 'You receive shares of'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Exactly `shares` Re7cdxUSD1.1 vault shares are minted to `receiver`.",
+     "The signer pays cdxUSD to the vault. The amount is computed by the contract from the share price and rounded up. There is no maximum bound in the calldata, so only the signer's allowance limits it (ERC4626._deposit safeTransferFrom(_asset, caller, this, assets)).",
+     "The cdxUSD is supplied to Morpho markets by the vault."
+    ],
+    "shown": "Mint: the deposit asset as the ticker 'cdxUSD', the number of shares to mint, and the address that receives them.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much cdxUSD leaves the signer. The amount is derived from the vault's share price and has no cap in the calldata.",
+      "evidence": "MetaMorphoV1_1.mint: assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Ceil); _deposit pulls `assets` from msg.sender. The descriptor only shows {\"label\":\"Deposit asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}.",
+      "fix": "No descriptor change can show the amount. Consider a label such as 'Pays in cdxUSD (amount set by share price)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint has the bare intent 'Mint' and does not say the signer pays cdxUSD to get vault shares.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", no interpolatedIntent. The payment in cdxUSD only appears as a raw ticker field.",
+      "fix": "Use intent 'Deposit cdxUSD to mint shares' and \"interpolatedIntent\": \"Pay cdxUSD to mint {shares} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 70
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Exactly `assets` cdxUSD is sent from the vault to `receiver` (safeTransfer(_asset, receiver, assets)).",
+     "Vault shares, computed by the contract and rounded up, are burned from `owner`.",
+     "If the signer is not `owner`, the signer's share allowance from owner is spent (_spendAllowance(owner, caller, shares))."
+    ],
+    "shown": "Withdraw: the exact cdxUSD amount, the recipient (To), and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw has the bare intent 'Withdraw' and no interpolatedIntent with the amount and recipient.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", no interpolatedIntent. The fields `assets` and `receiver` are always visible.",
+      "fix": "Add \"interpolatedIntent\": \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares are burned from owner. The amount comes from the share price in storage.",
+      "evidence": "MetaMorphoV1_1.withdraw: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Ceil). There is no maxShares parameter.",
+      "fix": "None. The value is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 85
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Exactly `shares` vault shares are burned from `owner`. If the signer is not owner, the signer's allowance is spent.",
+     "cdxUSD, computed by the contract from the share price and rounded down, is sent from the vault to `receiver`. There is no minimum-out bound in the calldata."
+    ],
+    "shown": "Redeem: the number of vault shares, the recipient (To), and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show what the signer receives. The cdxUSD amount is derived from storage, with no minimum in the calldata.",
+      "evidence": "MetaMorphoV1_1.redeem: assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Floor); then safeTransfer(_asset, receiver, assets). No descriptor field names cdxUSD.",
+      "fix": "Add a constant field 'Receive asset: cdxUSD' (as mint does) so the signer knows which asset comes out.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem has the bare intent 'Redeem' and does not say shares are swapped back for cdxUSD.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", no interpolatedIntent.",
+      "fix": "Add \"interpolatedIntent\": \"Redeem {shares} for cdxUSD to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.297,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 61,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit has the bare intent 'Deposit' and no interpolatedIntent naming the amount or the share recipient.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint has the bare intent 'Mint' and does not say the signer pays cdxUSD to get vault shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw has the bare intent 'Withdraw' and no interpolatedIntent with the amount and recipient.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem has the bare intent 'Redeem' and does not say shares are swapped back for cdxUSD.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 60,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "mint has the bare intent 'Mint' and does not say the signer pays cdxUSD to get vault shares."
+ }
+}

@@ -1,0 +1,891 @@
+{
+ "hash": "0x21f3d5cfda14d79c7d95924bd0ad8bd6fa1dda143753a29ae1b407f49301b8e2",
+ "file": "registry/okx/calldata-OkxDexRouterV1.0.8-suffix-compat.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x28b1dc1a5e3699a428bc51d234dfab7c9cb2a183"
+  },
+  {
+   "chainId": 10,
+   "address": "0xdd5e9b947c99aa60bab00ca4631dce63b49983e7"
+  },
+  {
+   "chainId": 25,
+   "address": "0x25e7f77f33206d311a0130d4b5b881e5db1181b1"
+  },
+  {
+   "chainId": 56,
+   "address": "0x62ccef0b4545166f721caa9fee13c1d3767e27dc"
+  },
+  {
+   "chainId": 130,
+   "address": "0x6733eb2e75b1625f1fe5f18ad2cb2babda510d19"
+  },
+  {
+   "chainId": 137,
+   "address": "0xf6e1b4b201e220fc3741bd7a75675ffea25c02ad"
+  },
+  {
+   "chainId": 143,
+   "address": "0x7a7ad9aa93cd0a2d0255326e5fb145cec14997ff"
+  },
+  {
+   "chainId": 146,
+   "address": "0x79f7c6c6dc16ed3154e85a8ef9c1ef31cefaeb19"
+  },
+  {
+   "chainId": 169,
+   "address": "0x69c236e021f5775b0d0328ded5eac708e3b869df"
+  },
+  {
+   "chainId": 196,
+   "address": "0xbec6d0e341102732e4fd62ec50e2f0a9d1bd1d33"
+  },
+  {
+   "chainId": 250,
+   "address": "0x25e7f77f33206d311a0130d4b5b881e5db1181b1"
+  },
+  {
+   "chainId": 324,
+   "address": "0x6f7c20464258c732577c87a9b467619e03e5c158"
+  },
+  {
+   "chainId": 1030,
+   "address": "0x95418635f012ffd10eafcdaf4137e90371f06917"
+  },
+  {
+   "chainId": 1088,
+   "address": "0x25e7f77f33206d311a0130d4b5b881e5db1181b1"
+  },
+  {
+   "chainId": 1101,
+   "address": "0x6f7c20464258c732577c87a9b467619e03e5c158"
+  },
+  {
+   "chainId": 4200,
+   "address": "0x6f7c20464258c732577c87a9b467619e03e5c158"
+  },
+  {
+   "chainId": 5000,
+   "address": "0xcf76984119c7f6ae56fafe680d39c08278b7ecf4"
+  },
+  {
+   "chainId": 7000,
+   "address": "0xf5402ccc5fc3181b45d7571512999d3eea0257b6"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xc8f6b8ba0dc0f175b568b99440b0867f69a29265"
+  },
+  {
+   "chainId": 9745,
+   "address": "0x19d345f95a80cc136d898f41b490e023cff78658"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x7cf6b330b437e9fb432b1400de17b03357cf049a"
+  },
+  {
+   "chainId": 43114,
+   "address": "0xa94fcf9fc56a864f8de51e6315aee5863ad63c91"
+  },
+  {
+   "chainId": 59144,
+   "address": "0x2e1dee213ba8d7af0934c49a23187babeaca8764"
+  },
+  {
+   "chainId": 81457,
+   "address": "0xcf76984119c7f6ae56fafe680d39c08278b7ecf4"
+  },
+  {
+   "chainId": 534352,
+   "address": "0x5e2f47bd7d4b357fcfd0bb224eb665773b1b9801"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "dagSwapByOrderId(uint256 orderId, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[] paths)",
+    "effects": [
+     "The signer pays fromTokenAmount of fromToken through the ApproveProxy, split over the hidden DAG paths; when fromToken is 0xEeee, the router wraps fromTokenAmount of ETH.",
+     "The signer sends msg.value in ETH. For an ETH swap nothing checks that it equals fromTokenAmount, and any extra ETH stays in the router.",
+     "If the calldata ends in a from-token commission suffix, the signer also pays fromTokenAmount*rate/(1e9-rate), up to about 3.1%, to referrers that are not shown.",
+     "The signer receives at least minReturnAmount of toToken, after any to-token commission or positive-slippage trim.",
+     "The call reverts after deadLine."
+    ],
+    "shown": "Intent 'Swap' with the order ID, the amount sent, the minimum received and the deadline. The route and the native value are not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "dagSwapByOrderId is payable but does not show @.value, and ETH sent is not bound to the shown amount",
+      "evidence": "DagRouter._dagSwapInternal: `IWETH(_WETH).deposit{value: _baseRequest.fromTokenAmount}()` with no msg.value check on the ETH path. The descriptor fields list no `@.value`.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "dagSwapByOrderId hides a from-token commission that the signer pays on top of 'Amount to Send'",
+      "evidence": "CommissionLib._doCommissionFromTokenInternal: `amount := div(mul(inputAmount, rate), sub(DENOMINATOR, totalRate))` then `_claimToken(token, payer, referrer, amount)`. The rate comes from a calldata suffix (_getCommissionAndTrimInfo), with a cap of `commissionRateLimit = 30000000` (3%).",
+      "fix": "ERC-7730 cannot read the suffix. At minimum, relabel the amount 'Amount to Send (excl. fees up to 3%)' or add the fee to the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "dagSwapByOrderId hides the transfer mode bits in paths[0].fromToken that decide whether the signer pays",
+      "evidence": "DexRouter.dagSwapTo: `uint256 mode = paths[0].fromToken & _TRANSFER_MODE_MASK`. CommonLib._transferInternal skips the transfer or pays from the router balance in NO_TRANSFER/BY_INVEST mode. Descriptor: `paths` visible never.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 55
+   },
+   {
+    "key": "dagSwapTo(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[] paths)",
+    "effects": [
+     "The signer pays fromTokenAmount of fromToken through the ApproveProxy, split over the hidden DAG paths; when fromToken is ETH, the router wraps fromTokenAmount of ETH.",
+     "The signer sends msg.value in ETH, and for an ETH swap nothing checks that it equals fromTokenAmount.",
+     "An optional from-token commission (calldata suffix) makes the signer pay up to about 3.1% more, to referrers that are not shown.",
+     "The receiver (the signer when zero) gets at least minReturnAmount of toToken, net of any to-token commission or trim.",
+     "The call reverts after deadLine."
+    ],
+    "shown": "Intent 'Swap' with the order ID, the Beneficiary, the amount sent, the minimum received and the deadline.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "dagSwapTo is payable but does not show @.value, and ETH sent is not bound to the shown amount",
+      "evidence": "DagRouter._dagSwapInternal: on the ETH path, `deposit{value: _baseRequest.fromTokenAmount}` runs with no msg.value equality check. The descriptor has no `@.value` field.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "dagSwapTo hides a from-token commission that the signer pays on top of 'Amount to Send'",
+      "evidence": "CommissionLib._doCommissionFromTokenInternal: `_claimToken(token, payer, referrer, amount)` with amount = inputAmount*rate/(1e9-totalRate), and rate taken from a calldata suffix.",
+      "fix": "Relabel the amount to say that fees up to 3% may be added, or put this in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "dagSwapTo shows the zero receiver literally, but the code sends the output to the signer",
+      "evidence": "DexRouter.dagSwapTo: `receiver = receiver == address(0) ? msg.sender : receiver;`. Descriptor: `receiver` uses $ref beneficiary with no senderAddress.",
+      "fix": "Add \"senderAddress\": \"0x0000000000000000000000000000000000000000\" to the receiver params.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 55
+   },
+   {
+    "key": "smartSwapByOrderId(uint256 orderId, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData)",
+    "effects": [
+     "The signer pays at most fromTokenAmount of fromToken through the ApproveProxy, because the sum of batchesAmount must be <= fromTokenAmount.",
+     "The signer sends msg.value in ETH. The router wraps fromTokenAmount from its own balance and never checks msg.value, on the ETH path or the ERC-20 path.",
+     "An optional from-token commission (calldata suffix) makes the signer pay up to about 3.1% more, to referrers that are not shown.",
+     "The signer receives at least minReturnAmount of toToken, net of any to-token commission or trim.",
+     "The call reverts after deadLine."
+    ],
+    "shown": "Intent 'Swap' with the order ID, the amount sent, the minimum received and the deadline. The batches are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "smartSwapByOrderId is payable, does not show @.value, and never checks msg.value",
+      "evidence": "DexRouter._smartSwapInternal: `IWETH(_WETH).deposit{value: _baseRequest.fromTokenAmount}();` with no msg.value check anywhere in _smartSwapTo. The descriptor has no `@.value` field.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "smartSwapByOrderId hides a from-token commission that the signer pays on top of 'Amount to Send'",
+      "evidence": "DexRouter._smartSwapTo calls _doCommissionFromToken(commissionInfo, payer, ...), and CommissionLib._doCommissionFromTokenInternal claims inputAmount*rate/(1e9-totalRate) from the payer for each referrer.",
+      "fix": "Relabel the amount to say that fees up to 3% may be added, or put this in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 55
+   },
+   {
+    "key": "smartSwapTo(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData)",
+    "effects": [
+     "The signer pays at most fromTokenAmount of fromToken through the ApproveProxy.",
+     "The signer sends msg.value in ETH, and nothing checks it against fromTokenAmount.",
+     "An optional from-token commission (calldata suffix) makes the signer pay up to about 3.1% more, to referrers that are not shown.",
+     "The receiver (the signer when zero) gets at least minReturnAmount of toToken, net of any commission or trim.",
+     "The call reverts after deadLine."
+    ],
+    "shown": "Intent 'Swap' with the order ID, the Beneficiary, the amount sent, the minimum received and the deadline.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "smartSwapTo is payable, does not show @.value, and never checks msg.value",
+      "evidence": "DexRouter._smartSwapInternal: `IWETH(_WETH).deposit{value: _baseRequest.fromTokenAmount}();` and no msg.value check. The descriptor has no `@.value` field.",
+      "fix": "Add {\"path\":\"@.value\",\"label\":\"Native value sent\",\"format\":\"amount\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "smartSwapTo hides a from-token commission that the signer pays on top of 'Amount to Send'",
+      "evidence": "CommissionLib._doCommissionFromTokenInternal: `_claimToken(token, payer, referrer, amount)`, with amount = inputAmount*rate/(1e9-totalRate).",
+      "fix": "Relabel the amount to say that fees up to 3% may be added.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "smartSwapTo shows the zero receiver literally, but the code pays the signer",
+      "evidence": "DexRouter._smartSwapTo: `receiver = receiver == address(0) ? msg.sender : receiver;`",
+      "fix": "Add senderAddress 0x0 to the receiver params.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 55
+   },
+   {
+    "key": "swapWrap(uint256 orderId, uint256 rawdata)",
+    "effects": [
+     "If the top bit of rawdata is 0, the signer sends `amount` of native currency (msg.value must equal it unless there is a from-token commission) and receives `amount` of the chain's wrapped native token.",
+     "If the top bit is 1, the router pulls `amount` of wrapped native token from the signer and sends back native currency.",
+     "amount is the low 128 bits of rawdata.",
+     "An optional commission suffix makes the signer pay extra (from-token) or receive less (to-token). No minimum is enforced."
+    ],
+    "shown": "Intent 'Wrap/Unwrap' with the order ID, a Direction enum from the first byte, and an Amount from the last 17 bytes priced as mainnet WETH.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "swapWrap enum labels first byte 0x01 'WETH --> ETH', but the code wraps ETH then",
+      "evidence": "DexRouter.swapWrap: `reversed := and(rawdata, _REVERSE_MASK)` with _REVERSE_MASK = 0x80…00 (top bit only). Descriptor enum swapDirection: \"1\": \"WETH --> ETH\".",
+      "fix": "Remove key \"1\". Keep \"0\": \"Wrap\" and \"128\": \"Unwrap\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "swapWrap prices the amount as mainnet WETH on all 25 chains, where the router uses each chain's wrapped native token",
+      "evidence": "Descriptor: \"token\": \"0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2\". CommonUtils._WETH is 0xbb4CdB9C… on chain 56, 0x4200…0006 on 10/8453/130, 0x0d500B1d… on 137, and so on.",
+      "fix": "Remove the token constant. Show the amount with format 'amount' (native) or use per-chain descriptors.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swapWrap hides a commission that adds to the amount paid or cuts the amount received, with no minimum",
+      "evidence": "DexRouter._swapWrap calls _doCommissionFromToken and _doCommissionAndTrimToToken. The commission rate comes from a calldata suffix, and there is no minReturn check.",
+      "fix": "State in the intent or the label that fees up to 3% may apply.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "swapWrap reads 17 bytes for the amount, but the code uses only the low 16 bytes",
+      "evidence": "CommonUtils: `SWAP_AMOUNT = 0x…00ffffffffffffffffffffffffffffffff` (128 bits). Descriptor: path \"rawdata.[-17:]\".",
+      "fix": "Change the path to \"rawdata.[-16:]\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapWrap enum labels say ETH/WETH on chains such as BSC, Polygon and Avalanche",
+      "evidence": "Descriptor enums: \"ETH --> WETH\", \"WETH --> ETH\". There are 25 deployments, many of them on non-ETH chains.",
+      "fix": "Use 'Wrap native' and 'Unwrap native'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 30
+   },
+   {
+    "key": "swapWrapToWithBaseRequest(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest)",
+    "effects": [
+     "ETH to WETH: the signer sends fromTokenAmount of native currency (msg.value must equal it) and the receiver gets wrapped native.",
+     "WETH to ETH: the router pulls fromTokenAmount of wrapped native from the signer and sends the router's whole ETH balance, including any msg.value, to the receiver.",
+     "An optional commission suffix makes the signer pay extra or the receiver get less. minReturnAmount is ignored.",
+     "The receiver is the signer when it is zero. The call reverts after deadLine."
+    ],
+    "shown": "Intent 'Swap' with the order ID, the Beneficiary, the 'Wrap/Unwrap Amount' in fromToken, and the deadline.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "swapWrapToWithBaseRequest hides a commission that adds to the amount paid or cuts what the receiver gets",
+      "evidence": "DexRouter._swapWrap: `_doCommissionFromToken(...)`, then `_doCommissionAndTrimToToken(...)`, with no minimum check. The rate comes from a calldata suffix.",
+      "fix": "Say in the label or the intent that fees up to 3% may apply.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapWrapToWithBaseRequest uses intent 'Swap' for a wrap or unwrap, and $id 'Wrap/Unwrap' looks swapped",
+      "evidence": "Descriptor: \"$id\": \"Wrap/Unwrap\", \"intent\": \"Swap\". DexRouter.swapWrapToWithBaseRequest accepts only the ETH/WETH pairs.",
+      "fix": "Set the intent to \"Wrap/Unwrap\" and the $id to \"swapWrapToWithBaseRequest\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "swapWrapToWithBaseRequest does not show @.value, which an unwrap forwards to the receiver",
+      "evidence": "DexRouter._swapWrap reversed branch: `payable(middleReceiver).call{value: address(this).balance}` with no msg.value check.",
+      "fix": "Add an @.value field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "swapWrapToWithBaseRequest shows the zero receiver literally, but the code pays the signer",
+      "evidence": "DexRouter._swapWrap: `receiver = receiver == address(0) ? msg.sender : receiver;`",
+      "fix": "Add senderAddress 0x0 to the receiver params.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "uniswapV3SwapTo(uint256 receiver, uint256 amount, uint256 minReturn, uint256[] pools)",
+    "effects": [
+     "The signer pays `amount` of the source token, decided by the first pool, through the ApproveProxy. If msg.value > 0, the router wraps `amount` of ETH and keeps any extra.",
+     "An optional from-token commission (calldata suffix) makes the signer pay up to about 3.1% more.",
+     "The receiver (the low 20 bytes of receiver, or the signer when zero) gets at least minReturn of the output token, decided by the last pool."
+    ],
+    "shown": "Intent 'Swap' and the Beneficiary only. The amount, the minimum received and the pools are not shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "uniswapV3SwapTo shows no amount spent, while its sibling formats show it",
+      "evidence": "DexRouter.uniswapV3SwapTo forwards `amount` to _uniswapV3SwapTo, which pulls it from the payer. The descriptor fields are only `receiver.[-20:]` and `pools` (never).",
+      "fix": "Add {\"path\":\"amount\",\"label\":\"Amount to Send\",\"format\":\"tokenAmount\"}. The token cannot be resolved from pools, so a raw amount is still better than nothing.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "uniswapV3SwapTo shows no minimum received, so the slippage bound is hidden",
+      "evidence": "DexRouter._uniswapV3SwapTo: `require(returnAmount >= minReturn, \"Min return not reached\")`. The descriptor has no minReturn field.",
+      "fix": "Add {\"path\":\"minReturn\",\"label\":\"Minimum to Receive\",\"format\":\"raw\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "uniswapV3SwapTo is payable and hides @.value, and extra ETH above amount stays in the router",
+      "evidence": "UnxswapV3Router._wrapWeth: `if eq(lt(callvalue(), _amount), 1) {revert}` checks only >=.",
+      "fix": "Add an @.value field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "uniswapV3SwapTo hides a from-token commission that the signer pays on top of the amount",
+      "evidence": "DexRouter._doUniswapV3Swap calls _doCommissionFromToken(commissionInfo, payer, receiver, amount, ...).",
+      "fix": "Say in the label or the intent that fees up to 3% may apply.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "uniswapV3SwapTo takes its source and output tokens from the pool words, which ERC-7730 cannot resolve",
+      "evidence": "DexRouter.uniswapV3SwapTo: `(address srcToken, address toToken) = _getUniswapV3TokenInfo(msg.value > 0, pools);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 10
+   },
+   {
+    "key": "uniswapV3SwapToWithBaseRequest(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] pools)",
+    "effects": [
+     "The signer pays fromTokenAmount of fromToken, which is checked against the pools. If msg.value > 0, the router wraps fromTokenAmount of ETH and keeps any extra.",
+     "An optional from-token commission (calldata suffix) makes the signer pay up to about 3.1% more.",
+     "The receiver (the signer when zero) gets at least minReturnAmount of toToken, net of any commission or trim.",
+     "The call reverts after deadLine."
+    ],
+    "shown": "Intent 'Swap' with the order ID, the Beneficiary, the amount sent, the minimum received and the deadline.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "uniswapV3SwapToWithBaseRequest is payable and hides @.value, and extra ETH stays in the router",
+      "evidence": "UnxswapV3Router._wrapWeth checks only `callvalue() >= _amount`. The descriptor has no @.value field.",
+      "fix": "Add an @.value field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "uniswapV3SwapToWithBaseRequest hides a from-token commission that the signer pays on top of 'Amount to Send'",
+      "evidence": "DexRouter._doUniswapV3Swap: `_doCommissionFromToken(commissionInfo, payer, receiver, amount, ...)`",
+      "fix": "Say in the label or the intent that fees up to 3% may apply.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "uniswapV3SwapToWithBaseRequest shows the zero receiver literally, but the code pays the signer",
+      "evidence": "DexRouter._uniswapV3SwapTo: `(receiver & _ADDRESS_MASK) == 0 ? msg.sender : ...`",
+      "fix": "Add senderAddress 0x0 to the receiver params.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 60
+   },
+   {
+    "key": "unxswapByOrderId(uint256 srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)",
+    "effects": [
+     "The signer pays `amount` of srcToken (low 20 bytes) through the ApproveProxy, or `amount` of ETH. The ETH path requires msg.value >= amount and keeps any extra.",
+     "An optional from-token commission (calldata suffix) makes the signer pay up to about 3.1% more.",
+     "The signer receives at least minReturn of the output token, which the last pool decides."
+    ],
+    "shown": "Intent 'Swap' with 'Amount to Send' in srcToken and a raw 'Minimum to Receive'.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "unxswapByOrderId is payable and hides @.value, and ETH above amount stays in the router",
+      "evidence": "UnxswapRouter._unxswapInternal: `if eq(lt(callvalue(), amount), 1) { revert }` checks only >=.",
+      "fix": "Add an @.value field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "unxswapByOrderId hides a from-token commission that the signer pays on top of 'Amount to Send'",
+      "evidence": "DexRouter._doUnxswap: `_doCommissionFromToken(commissionInfo, payer, receiver, amount, ...)`",
+      "fix": "Say in the label or the intent that fees up to 3% may apply.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "unxswapByOrderId shows 'Minimum to Receive' as a raw integer with no token",
+      "evidence": "Descriptor: {\"path\":\"minReturn\",\"label\":\"Minimum to Receive\",\"format\":\"raw\"}.",
+      "fix": "There is no token path in the calldata. Keep it raw but label it 'Minimum to Receive (raw units)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "unxswapByOrderId takes its output token from the last pool word, which ERC-7730 cannot resolve",
+      "evidence": "UnxswapRouter._unxswapInternal derives toToken from the pair's token0/token1 and _WETH_MASK.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 45
+   },
+   {
+    "key": "unxswapTo(uint256 srcToken, uint256 amount, uint256 minReturn, address receiver, bytes32[] pools)",
+    "effects": [
+     "The signer pays `amount` of srcToken or ETH. The ETH path requires msg.value >= amount and keeps any extra.",
+     "An optional from-token commission (calldata suffix) makes the signer pay up to about 3.1% more.",
+     "The receiver (the signer when zero) gets at least minReturn of the output token, which the last pool decides."
+    ],
+    "shown": "Intent 'Swap' with the Beneficiary, 'Amount to Send' in srcToken, and 'Minimum to Receive' as a tokenAmount with no token.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "unxswapTo is payable and hides @.value, and ETH above amount stays in the router",
+      "evidence": "UnxswapRouter._unxswapInternal checks only `callvalue() >= amount` on the ETH path.",
+      "fix": "Add an @.value field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "unxswapTo hides a from-token commission that the signer pays on top of 'Amount to Send'",
+      "evidence": "DexRouter._doUnxswap calls _doCommissionFromToken with payer = msg.sender.",
+      "fix": "Say in the label or the intent that fees up to 3% may apply.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "unxswapTo formats minReturn as tokenAmount with no tokenPath, so no token or decimals appear",
+      "evidence": "Descriptor: {\"path\":\"minReturn\",\"$ref\":\"$.display.definitions.minReceiveAmount\"}. The definition has no token.",
+      "fix": "Use format raw with a clear label. The token is not in the calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "unxswapTo shows the zero receiver literally, but the code pays the signer",
+      "evidence": "DexRouter._unxswapTo: `receiver = receiver == address(0) ? msg.sender : receiver;`",
+      "fix": "Add senderAddress 0x0 to the receiver params.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "unxswapTo takes its output token from the pool words, which ERC-7730 cannot resolve",
+      "evidence": "DexRouter.unxswapTo: `_getUnxswapTokenInfo(msg.value > 0, pools)`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 45
+   },
+   {
+    "key": "unxswapToWithBaseRequest(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, bytes32[] pools)",
+    "effects": [
+     "The signer pays fromTokenAmount of fromToken, which is checked against the pools, or ETH with msg.value >= amount.",
+     "An optional from-token commission (calldata suffix) makes the signer pay up to about 3.1% more.",
+     "The receiver (the signer when zero) gets at least minReturnAmount of toToken, net of any commission or trim.",
+     "The call reverts after deadLine."
+    ],
+    "shown": "Intent 'Swap' with the order ID, the Beneficiary, the amount sent, the minimum received and the deadline.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "unxswapToWithBaseRequest is payable and hides @.value, and ETH above the amount stays in the router",
+      "evidence": "UnxswapRouter._unxswapInternal: `if eq(lt(callvalue(), amount), 1)` checks only >=.",
+      "fix": "Add an @.value field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "unxswapToWithBaseRequest hides a from-token commission that the signer pays on top of 'Amount to Send'",
+      "evidence": "DexRouter._doUnxswap: `_doCommissionFromToken(commissionInfo, payer, receiver, amount, ...)`",
+      "fix": "Say in the label or the intent that fees up to 3% may apply.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "unxswapToWithBaseRequest shows the zero receiver literally, but the code pays the signer",
+      "evidence": "DexRouter._unxswapTo: `receiver = receiver == address(0) ? msg.sender : receiver;`",
+      "fix": "Add senderAddress 0x0 to the receiver params.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 60
+   },
+   {
+    "key": "smartSwapByInvest((uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData, address to)",
+    "effects": [
+     "The router swaps its own whole balance of fromToken, not fromTokenAmount, and none of it comes from the signer.",
+     "`to` receives at least minReturnAmount of toToken.",
+     "The signer's msg.value is never used. It stays in the router, or goes to `to` if toToken is ETH.",
+     "The call reverts after deadLine."
+    ],
+    "shown": "Intent 'Swap' with 'Amount to Send' = fromTokenAmount, the minimum received, the deadline and the Beneficiary.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "smartSwapByInvest shows fromTokenAmount as sent, but the code swaps the router's whole balance and nothing from the signer",
+      "evidence": "DexRouter.smartSwapByInvestWithRefund: `uint256 amount = IERC20(fromToken).balanceOf(address(this)); … baseRequest.fromTokenAmount = amount;` and payer `address(this)`. Descriptor: baseRequest.fromTokenAmount labeled 'Amount to Send'.",
+      "fix": "Relabel it 'Reference amount (router balance is swapped)' and change the intent to 'Swap router balance'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "smartSwapByInvest is payable, hides @.value, and never uses or refunds ETH sent",
+      "evidence": "DexRouter.smartSwapByInvestWithRefund: `require(fromToken != _ETH)` and no msg.value check. The descriptor has no @.value field.",
+      "fix": "Add an @.value field with format amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "smartSwapByInvest labels `to` 'Beneficiary' with types eoa/wallet, but it is usually an investment contract",
+      "evidence": "NatSpec for `to`: 'typically an investment contract or pool'. Descriptor beneficiary types: [\"eoa\",\"wallet\"].",
+      "fix": "Add 'contract' to the types.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 20,
+    "depth": 30
+   },
+   {
+    "key": "smartSwapByInvestWithRefund((uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData, address to, address refundTo)",
+    "effects": [
+     "The router swaps its own whole balance of fromToken, not fromTokenAmount, and none of it comes from the signer.",
+     "`to` receives at least minReturnAmount of toToken. Adapter refunds go to refundTo.",
+     "The signer's msg.value is never used, and it stays in the router or goes to `to`.",
+     "The call reverts after deadLine."
+    ],
+    "shown": "Intent 'Swap' with 'Amount to Send', the minimum received, the deadline, the Beneficiary and 'Refund To'.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "smartSwapByInvestWithRefund shows fromTokenAmount as sent, but it swaps the router's balance and nothing from the signer",
+      "evidence": "DexRouter.smartSwapByInvestWithRefund: `uint256 amount = IERC20(fromToken).balanceOf(address(this)); … baseRequest.fromTokenAmount = amount;` and payer address(this).",
+      "fix": "Relabel it 'Reference amount (router balance is swapped)' and change the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "smartSwapByInvestWithRefund is payable, hides @.value, and never uses or refunds ETH sent",
+      "evidence": "DexRouter.smartSwapByInvestWithRefund has no msg.value check. The descriptor has no @.value field.",
+      "fix": "Add an @.value field with format amount.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 20,
+    "depth": 35
+   }
+  ],
+  "couldNotCheck": [
+   "ApproveProxy 0x70cBb871E8f30Fc8Ce23609E9E0Ea87B6b222F58 (claimTokens): its source is not in the directory. Every pull of the signer's tokens goes through it, so I assumed it moves exactly the amount from payer to `to`.",
+   "The adapters named in the hidden mixAdapters (sellBase/sellQuote) are not in the directory. Their refunds to refundTo could not be checked."
+  ]
+ },
+ "cost": 1.567,
+ "account": "austingriffith",
+ "hiddenValue": [
+  "dagSwapByOrderId(uint256 orderId, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[] paths)",
+  "dagSwapTo(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[] paths)",
+  "smartSwapByOrderId(uint256 orderId, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData)",
+  "smartSwapTo(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData)",
+  "swapWrap(uint256 orderId, uint256 rawdata)",
+  "swapWrapToWithBaseRequest(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest)",
+  "uniswapV3SwapTo(uint256 receiver, uint256 amount, uint256 minReturn, uint256[] pools)",
+  "uniswapV3SwapToWithBaseRequest(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] pools)",
+  "unxswapByOrderId(uint256 srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)",
+  "unxswapTo(uint256 srcToken, uint256 amount, uint256 minReturn, address receiver, bytes32[] pools)",
+  "unxswapToWithBaseRequest(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, bytes32[] pools)",
+  "smartSwapByInvest((uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData, address to)",
+  "smartSwapByInvestWithRefund((uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData, address to, address refundTo)"
+ ],
+ "seconds": 247,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "dagSwapByOrderId(uint256 orderId, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[] paths)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "dagSwapByOrderId is payable but does not show @.value, and ETH sent is not bound to the shown amount",
+   "comprehension": null
+  },
+  "dagSwapTo(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[] paths)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "dagSwapTo is payable but does not show @.value, and ETH sent is not bound to the shown amount",
+   "comprehension": null
+  },
+  "smartSwapByOrderId(uint256 orderId, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 42,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "smartSwapByOrderId is payable, does not show @.value, and never checks msg.value",
+   "comprehension": null
+  },
+  "smartSwapTo(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 37,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "smartSwapTo is payable, does not show @.value, and never checks msg.value",
+   "comprehension": null
+  },
+  "swapWrap(uint256 orderId, uint256 rawdata)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 4,
+   "warnings": 2,
+   "worst": "swapWrap enum labels first byte 0x01 'WETH --> ETH', but the code wraps ETH then",
+   "comprehension": null
+  },
+  "swapWrapToWithBaseRequest(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 35,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 3,
+   "worst": "swapWrapToWithBaseRequest hides a commission that adds to the amount paid or cuts what the receiver gets",
+   "comprehension": null
+  },
+  "uniswapV3SwapTo(uint256 receiver, uint256 amount, uint256 minReturn, uint256[] pools)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 20,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 5,
+   "warnings": 0,
+   "worst": "uniswapV3SwapTo shows no amount spent, while its sibling formats show it",
+   "comprehension": null
+  },
+  "uniswapV3SwapToWithBaseRequest(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] pools)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "uniswapV3SwapToWithBaseRequest is payable and hides @.value, and extra ETH stays in the router",
+   "comprehension": null
+  },
+  "unxswapByOrderId(uint256 srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "unxswapByOrderId is payable and hides @.value, and ETH above amount stays in the router",
+   "comprehension": null
+  },
+  "unxswapTo(uint256 srcToken, uint256 amount, uint256 minReturn, address receiver, bytes32[] pools)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 28,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 2,
+   "worst": "unxswapTo is payable and hides @.value, and ETH above amount stays in the router",
+   "comprehension": null
+  },
+  "unxswapToWithBaseRequest(uint256 orderId, address receiver, (uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, bytes32[] pools)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "unxswapToWithBaseRequest is payable and hides @.value, and ETH above the amount stays in the router",
+   "comprehension": null
+  },
+  "smartSwapByInvest((uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData, address to)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 20,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 1,
+   "worst": "smartSwapByInvest shows fromTokenAmount as sent, but the code swaps the router's whole balance and nothing from the signer",
+   "comprehension": null
+  },
+  "smartSwapByInvestWithRefund((uint256 fromToken, address toToken, uint256 fromTokenAmount, uint256 minReturnAmount, uint256 deadLine) baseRequest, uint256[] batchesAmount, (address[] mixAdapters, address[] assetTo, uint256[] rawData, bytes[] extraData, uint256 fromToken)[][] batches, (uint256 pathIndex, address payer, address fromToken, address toToken, uint256 fromTokenAmountMax, uint256 toTokenAmountMax, uint256 salt, uint256 deadLine, bool isPushOrder, bytes extension)[] extraData, address to, address refundTo)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 28,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 3,
+   "warnings": 0,
+   "worst": "smartSwapByInvestWithRefund shows fromTokenAmount as sent, but it swaps the router's balance and nothing from the signer",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 0,
+  "clarity": 34,
+  "functions": "13F",
+  "incomplete": true,
+  "worst": "dagSwapByOrderId is payable but does not show @.value, and ETH sent is not bound to the shown amount"
+ }
+}

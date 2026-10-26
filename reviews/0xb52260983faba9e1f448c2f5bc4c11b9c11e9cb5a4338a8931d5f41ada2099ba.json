@@ -1,0 +1,119 @@
+{
+ "hash": "0xb52260983faba9e1f448c2f5bc4c11b9c11e9cb5a4338a8931d5f41ada2099ba",
+ "file": "registry/rarible/eip712-rarible-erc-1155.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb66a603f4cfe17e3d27b87a8bfcad319856518b8"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "Mint1155(uint256 tokenId,uint256 supply,string tokenURI,Part[] creators,Part[] royalties)Part(address account,uint96 value)",
+    "effects": [
+     "The signature lets creators[0] (the minter, whose address is the top 160 bits of tokenId), or any operator the minter has approved, including Rarible's default-approved transfer proxies, create token `tokenId` on this collection with a total supply of `supply`.",
+     "The caller picks who receives the minted copies and how many (up to `supply`). The recipient is not in the signed message.",
+     "The first mint permanently records the creators list and their shares (which must sum to 10000), the royalty receivers and rates paid on secondary sales, and the token URI.",
+     "The signature has no nonce and no expiry. It stays valid until the token is first minted. After that, later mints skip signature checks until the supply is used up.",
+     "Nothing leaves the signer's wallet. No approval is granted over the signer's existing tokens, and no native value is involved."
+    ],
+    "shown": "The intent \"Lazy Mint ERC-1155\" sits above raw fields: the token ID, the URI, the supply, and the creator and royalty addresses and shares as raw numbers in basis points.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "Mint1155 has no interpolatedIntent, so the sentence never gives the supply or the royalty terms being fixed.",
+      "evidence": "descriptor.json format Mint1155: \"intent\": \"Lazy Mint ERC-1155\", no interpolatedIntent. ERC1155Lazy.mintAndTransfer: _saveSupply(data.tokenId, data.supply); _saveRoyalties(data.tokenId, data.royalties).",
+      "fix": "Add an interpolatedIntent such as \"Authorize lazy mint of {supply} copies of token {tokenId}\", and use the intent \"Authorize lazy mint of an ERC-1155 token\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "Mint1155 shows creator and royalty accounts and shares as separate parallel arrays the signer cannot easily pair.",
+      "evidence": "descriptor.json fields: \"creators.[].account\", \"creators.[].value\", \"royalties.[].account\", \"royalties.[].value\" are four separate fields. ERC1155Lazy._saveCreators pushes each (account, value) pair together.",
+      "fix": "Use a nested field on \"creators.[]\" and on \"royalties.[]\" whose sub-fields are account and value, so each address is shown with its share.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Mint1155 shows royalty and creator addresses as raw hex and shares as raw basis points.",
+      "evidence": "descriptor.json: \"royalties.[].account\" format \"raw\", \"royalties.[].value\" format \"raw\" with the label \"Royalties value (10000 = 100%)\"; the creators fields are the same.",
+      "fix": "Use addressName (types eoa/contract, source local/ens) for the accounts, and the unit format with decimals 2 and base \"%\" for the shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Mint1155 does not show the recipient of the minted tokens, because the signed message does not carry it.",
+      "evidence": "ERC1155Lazy.mintAndTransfer(data, address to, uint256 _amount): `to` and `_amount` come from the caller, and the Mint1155 typehash has no recipient.",
+      "fix": "No descriptor change can show it. A label or the intent could say the minter chooses the recipient.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "Mint1155 does not say the signature never expires and can be used by default-approved Rarible proxies.",
+      "evidence": "ERC1155Lazy.mintAndTransfer: require(minter == sender || isApprovedForAll(minter, sender)). ERC1155DefaultApproval.isApprovedForAll returns true for defaultApprovals[_operator]. The typehash has no nonce or deadline.",
+      "fix": "No field exists to show it. The intent wording could mention that the signature lets Rarible mint on your behalf.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Mint1155 tokenId packs the minter address in its top 160 bits, shown only as a raw integer.",
+      "evidence": "ERC1155Lazy.mintAndTransfer: address minter = address(data.tokenId >> 96); require(minter == data.creators[0].account).",
+      "fix": "No format extracts the high bits of a uint256. The descriptor could note in the label that the token ID encodes the first creator.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.251,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 58,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "Mint1155(uint256 tokenId,uint256 supply,string tokenURI,Part[] creators,Part[] royalties)Part(address account,uint96 value)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "Mint1155 has no interpolatedIntent, so the sentence never gives the supply or the royalty terms being fixed.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 45,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "Mint1155 has no interpolatedIntent, so the sentence never gives the supply or the royalty terms being fixed."
+ }
+}

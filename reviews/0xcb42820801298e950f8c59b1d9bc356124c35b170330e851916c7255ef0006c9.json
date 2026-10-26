@@ -1,0 +1,128 @@
+{
+ "hash": "0xcb42820801298e950f8c59b1d9bc356124c35b170330e851916c7255ef0006c9",
+ "file": "registry/gondi/eip712-SignableRepaymentData.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xf65b99ce6dc5f6c556172bcc0ff27d3665a7d9a8"
+  },
+  {
+   "chainId": 1,
+   "address": "0xf41b389e0c1950dc0b16c9498eae77131cc08a56"
+  },
+  {
+   "chainId": 999,
+   "address": "0x6ad675624ec8320e5806858cd5db101a0b927fd9"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x0e79e08e9e35388382b7febb26bc73f80465e2fb"
+  },
+  {
+   "chainId": 1,
+   "address": "0xe365ff3cad44d19cb7aba81df8ffd6818a66ac0a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "SignableRepaymentData(uint256 loanId,bytes callbackData,bool shouldDelegate)",
+    "effects": [
+     "Lets a third party call repayLoan for the signer, the borrower, with no deadline and no nonce. The signature stays valid until the loan is repaid or deleted.",
+     "Pulls principal plus accrued and new interest for every tranche from the signer's wallet to each lender in the loan's principal token, plus the protocol fee to the fee recipient, using the signer's existing allowance (_processRepayments).",
+     "Sends the NFT collateral (loan.nftCollateralAddress, loan.nftCollateralTokenId) from the loan contract to the signer.",
+     "If callbackData is not empty, calls afterNFTTransfer on msg.sender, which must be a whitelisted callback contract. With these cases that contract sells the just-returned collateral NFT through a Seaport order encoded in callbackData (case 0: NFT 0x387c…392c #2541 for about 0.72 WETH), so the money for the repayment comes from the sale.",
+     "If shouldDelegate is true, registers a full-rights delegate.xyz ERC-721 delegation of the collateral NFT to the signer."
+    ],
+    "shown": "\"Authorize repaying loan {loanId}\" with the loan ID, a raw true/false 'Delegate to borrower', and the full callbackData as one raw hex blob.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "Intent says only 'repayment' though the callback sells the signer's collateral NFT to pay for it.",
+      "evidence": "MultiSourceLoan.sol repayLoan: 'After returning the NFT to the borrower, check if there's an action to be taken (eg: sell it to cover repayment)' then handleAfterNFTTransferCallback(loan, msg.sender, callbackData). Cases 0 and 1 are described as 'Sell-and-repay authorization', and their callbackData holds a Seaport order (0x0000000000000068F116a894984e2DB1123eB395) for NFT 0x387c41b0…392c #0x9ed with WETH considerations. Descriptor: intent 'Authorize loan repayment', field label 'Callback data'.",
+      "fix": "Name the possible sale in the intent and the label, e.g. intent 'Authorize loan repayment (may sell collateral NFT)' and label 'Collateral sale order (callback)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "callbackData shows the NFT sale terms (buyer, price, fee recipients) only as kilobytes of raw hex.",
+      "evidence": "descriptor field {path: callbackData, format: raw}. In cases 0 and 1 the screen value is a hex blob over 4 KB long. It ABI-encodes a struct with Seaport orders, not calldata with a selector, so the ERC-7730 'calldata' format cannot decode it.",
+      "fix": "No descriptor format can decode an ABI-encoded struct inside bytes. This waits on the spec, or Gondi could sign the sale price and buyer as typed fields.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "The repayment amount and token taken from the signer's wallet are not in the signed message.",
+      "evidence": "MultiSourceLoan.sol _processRepayments: asset.safeTransferFrom(loan.borrower, tranche.lender, principalAmount + accruedInterest + newInterest - fee) and safeTransferFrom(loan.borrower, _protocolFee.recipient, totalProtocolFee). The amounts come from the Loan struct the submitter passes, checked against the stored hash. The message has only loanId, callbackData and shouldDelegate.",
+      "fix": "None in the descriptor. The amount depends on stored loan terms and on block.timestamp.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "The signature has no expiry, nonce or bound submitter, so it works at any time while the loan is open.",
+      "evidence": "MultiSourceLoan.sol repayLoan: if (msg.sender != loan.borrower) _checkSignature(loan.borrower, _repaymentData.data.hash(), ...). Hash.sol hashes only loanId, keccak(callbackData) and shouldDelegate.",
+      "fix": "None in the descriptor. The intent could tell the signer the authorization does not expire.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "shouldDelegate is shown as a raw 'true' and never says it creates a delegate.xyz delegation of the NFT.",
+      "evidence": "repayLoan: IDelegateRegistry(getDelegateRegistry).delegateERC721(loan.borrower, nftCollateralAddress, tokenId, bytes32(\"\"), true). Descriptor: shouldDelegate 'Delegate to borrower' format raw.",
+      "fix": "Use an enum or a clearer label, e.g. 'Register delegate.xyz delegation of collateral to you'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 30
+   }
+  ],
+  "couldNotCheck": [
+   "The whitelisted callback contract (the Gondi purchase bundler, which is msg.sender of repayLoan) that runs afterNFTTransfer with callbackData is not in the directory. Without it I cannot confirm how the collateral NFT sale encoded in callbackData moves the signer's NFT and WETH, or who gets the proceeds."
+  ]
+ },
+ "cost": 0.563,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 138,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "SignableRepaymentData(uint256 loanId,bytes callbackData,bool shouldDelegate)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "Intent says only 'repayment' though the callback sells the signer's collateral NFT to pay for it.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 33,
+  "functions": "1C",
+  "incomplete": true,
+  "worst": "Intent says only 'repayment' though the callback sells the signer's collateral NFT to pay for it."
+ }
+}

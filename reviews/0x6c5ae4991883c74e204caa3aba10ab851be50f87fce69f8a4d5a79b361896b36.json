@@ -1,0 +1,365 @@
+{
+ "hash": "0x6c5ae4991883c74e204caa3aba10ab851be50f87fce69f8a4d5a79b361896b36",
+ "file": "registry/morpho/calldata-MorphoBlue.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb"
+  },
+  {
+   "chainId": 56,
+   "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb"
+  },
+  {
+   "chainId": 137,
+   "address": "0x1bf0c2541f820e775182832f06c0b7fc27a25f67"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb"
+  },
+  {
+   "chainId": 84532,
+   "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xbbbbbbbbbb9cc5e90e3b3af64bdaf62c37eeffcb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "borrow((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver)",
+    "effects": [
+     "Morpho sends `assets` of the loan token to `receiver` (Morpho.borrow: safeTransfer(receiver, assets)).",
+     "If `shares` is used instead, Morpho sends toAssetsDown(shares) of the loan token, a value computed from market storage.",
+     "`onBehalf` takes on borrow shares (debt) in the market given by marketParams; the signer must be onBehalf or authorized by onBehalf.",
+     "The call reverts unless onBehalf's position stays healthy at the market's LLTV."
+    ],
+    "shown": "Borrow N loan token (0 shares) for onBehalf to receiver, with the market params, both amount inputs, onBehalf and receiver shown as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "borrow by shares shows '0 <token>' in the sentence and the share count as a raw integer",
+      "evidence": "descriptor borrow: interpolatedIntent \"Borrow {#.assets} ({#.shares} shares) ...\" and field \"Shares (0 if assets)\" format raw; Morpho.borrow: `else assets = shares.toAssetsDown(market[id].totalBorrowAssets, market[id].totalBorrowShares);`",
+      "fix": "Hide the unused input with a visible ifNotIn [\"0\"] rule on each amount field and drop the zero value from the sentence. Label shares as debt shares, not a token amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "borrow labels the debtor 'On Behalf', but this address carries the new debt",
+      "evidence": "Morpho.borrow: `position[id][onBehalf].borrowShares += shares.toUint128();` descriptor field label \"On Behalf\", sentence \"... for {#.onBehalf} ...\"",
+      "fix": "Rename the field to \"Debt owner\" and change the sentence to \"Borrow {#.assets} as debt of {#.onBehalf} to {#.receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "59000 frxUSD arrives at the signer, which matches the screen. The '(0 shares)' text is noise."
+     }
+    ],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "repay((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data)",
+    "effects": [
+     "Morpho pulls `assets` of the loan token from the signer (safeTransferFrom(msg.sender, this, assets)) and uses the signer's existing allowance.",
+     "If `shares` is used, Morpho pulls toAssetsUp(shares) of the loan token. That amount comes from market storage and is not in the calldata.",
+     "onBehalf's borrow shares (debt) go down.",
+     "If `data` is not empty, Morpho calls onMorphoRepay on the signer's contract before the transfer."
+    ],
+    "shown": "Repay N loan token (0 shares) for onBehalf, with the market params, both amount inputs, onBehalf and the raw callback data.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "repay by shares shows '0 USDC' and a raw share count, so the amount paid is not readable",
+      "evidence": "case 9 screen: \"Repay 0 USDC (29512345678901 shares) for 0xDad7...\"; Morpho.repay: `else assets = shares.toAssetsUp(...); ... safeTransferFrom(msg.sender, address(this), assets);`",
+      "fix": "Hide the zero input with visible ifNotIn [\"0\"]. Label shares as \"Debt shares to repay\" so the signer does not read the payment as 0. The token amount comes from storage and cannot be shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "repay shows callback data as raw bytes",
+      "evidence": "Morpho.repay: `if (data.length > 0) IMorphoRepayCallback(msg.sender).onMorphoRepay(assets, data);` descriptor field \"Data\" format raw",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "3526 PYUSD leaves the signer, which matches the screen."
+     }
+    ],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "supply((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data)",
+    "effects": [
+     "Morpho pulls `assets` of the loan token from the signer, or toAssetsUp(shares) when shares is used, and uses the signer's allowance.",
+     "onBehalf receives supply shares in the market.",
+     "If `data` is not empty, Morpho calls onMorphoSupply on the signer's contract before the transfer."
+    ],
+    "shown": "Supply N loan token (0 shares) for onBehalf, with the market params, both amount inputs, onBehalf and the raw data.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "supply prints the unused zero input and shows shares as a raw integer",
+      "evidence": "descriptor supply: interpolatedIntent \"Supply {#.assets} ({#.shares} shares) for {#.onBehalf}\", field \"Shares (0 if assets)\" format raw; Morpho.supply: `else assets = shares.toAssetsUp(...)`",
+      "fix": "Hide the zero input with visible ifNotIn [\"0\"] and remove \"({#.shares} shares)\" from the sentence.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "supply shows callback data as raw bytes",
+      "evidence": "Morpho.supply: `if (data.length > 0) IMorphoSupplyCallback(msg.sender).onMorphoSupply(assets, data);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "90 USDC leaves the signer, which matches the screen."
+     }
+    ],
+    "glance": 75,
+    "depth": 72
+   },
+   {
+    "key": "supplyCollateral((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, address onBehalf, bytes data)",
+    "effects": [
+     "Morpho pulls `assets` of the collateral token from the signer and uses the signer's allowance.",
+     "onBehalf's collateral in the market goes up by `assets`.",
+     "If `data` is not empty, Morpho calls onMorphoSupplyCollateral on the signer's contract before the transfer."
+    ],
+    "shown": "Supply N collateral token as collateral for onBehalf, with the market params, the amount, onBehalf and the raw data.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "supplyCollateral spends the signer's SPX allowance to Morpho, and the screen does not say so",
+      "evidence": "case 3 mined: Approval SPX owner signer, spender Morpho, remaining 100000000 (1 SPX), next to the transfer of 881.63383478 SPX; Morpho.supplyCollateral: `safeTransferFrom(msg.sender, address(this), assets)`",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "supplyCollateral shows callback data as raw bytes",
+      "evidence": "Morpho.supplyCollateral: `if (data.length > 0) IMorphoSupplyCollateralCallback(msg.sender).onMorphoSupplyCollateral(assets, data);`",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "881.63383478 SPX out is shown right. The allowance spend is the prerequisite of the transfer, and the reader guessed an approval may exist."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver)",
+    "effects": [
+     "onBehalf's supply shares go down; the signer must be onBehalf or authorized by onBehalf.",
+     "Morpho sends `assets` of the loan token to `receiver`. When shares is used, it sends toAssetsDown(shares), a value computed from market storage."
+    ],
+    "shown": "Withdraw N loan token (S shares) for onBehalf to receiver, with the market params, both amount inputs, onBehalf and receiver.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "withdraw by shares says 'Withdraw 0 USDC' while the signer receives 500437.145758 USDC",
+      "evidence": "case 4 screen: \"Withdraw 0 USDC (490064251891825428 shares) for 0xd758... to 0xd758...\"; mined: USDC 500437145758 from Morpho to signer (in); Morpho.withdraw: `else assets = shares.toAssetsDown(...); safeTransfer(receiver, assets);`",
+      "fix": "Hide the zero input with visible ifNotIn [\"0\"] on both amount fields and keep the zero value out of the sentence. Label shares as \"Supply shares to redeem\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw says 'for {onBehalf}', but onBehalf is the position that loses the funds",
+      "evidence": "Morpho.withdraw: `position[id][onBehalf].supplyShares -= shares;` descriptor sentence \"Withdraw {#.assets} ({#.shares} shares) for {#.onBehalf} to {#.receiver}\"",
+      "fix": "Change the sentence to \"Withdraw {#.assets} from {#.onBehalf} to {#.receiver}\" and rename the field to \"From position of\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer receives 500437.145758 USDC. The screen shows '0 USDC' and a raw share count. The reader got the direction and asset right, but not the amount."
+     }
+    ],
+    "glance": 45,
+    "depth": 50
+   },
+   {
+    "key": "withdrawCollateral((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, address onBehalf, address receiver)",
+    "effects": [
+     "onBehalf's collateral goes down by `assets`; the signer must be onBehalf or authorized by onBehalf.",
+     "Morpho sends `assets` of the collateral token to `receiver`.",
+     "The call reverts unless onBehalf stays healthy, so the remaining position moves closer to liquidation."
+    ],
+    "shown": "Withdraw N collateral token of collateral for onBehalf to receiver, with the market params, the amount, onBehalf and receiver.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdrawCollateral says 'for {onBehalf}', but onBehalf is the position whose collateral goes down",
+      "evidence": "Morpho.withdrawCollateral: `position[id][onBehalf].collateral -= assets.toUint128();` descriptor sentence \"Withdraw {#.assets} of collateral for {#.onBehalf} to {#.receiver}\"",
+      "fix": "Change the sentence to \"Withdraw {#.assets} collateral from {#.onBehalf} to {#.receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.04 wOETH arrives at the signer, which matches the screen."
+     }
+    ],
+    "glance": 85,
+    "depth": 82
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.686,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 121,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "borrow((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "borrow by shares shows '0 <token>' in the sentence and the share count as a raw integer",
+   "comprehension": 100
+  },
+  "repay((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "repay by shares shows '0 USDC' and a raw share count, so the amount paid is not readable",
+   "comprehension": 100
+  },
+  "supply((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, uint256 shares, address onBehalf, bytes data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "supply prints the unused zero input and shows shares as a raw integer",
+   "comprehension": 100
+  },
+  "supplyCollateral((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, address onBehalf, bytes data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, uint256 shares, address onBehalf, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 39,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "withdraw by shares says 'Withdraw 0 USDC' while the signer receives 500437.145758 USDC",
+   "comprehension": 50
+  },
+  "withdrawCollateral((address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) marketParams, uint256 assets, address onBehalf, address receiver)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdrawCollateral says 'for {onBehalf}', but onBehalf is the position whose collateral goes down",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 75,
+  "functions": "4A 1B 1C",
+  "incomplete": false,
+  "worst": "withdraw by shares says 'Withdraw 0 USDC' while the signer receives 500437.145758 USDC"
+ }
+}

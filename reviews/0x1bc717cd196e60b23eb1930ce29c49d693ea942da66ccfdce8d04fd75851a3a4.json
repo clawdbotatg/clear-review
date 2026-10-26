@@ -1,0 +1,123 @@
+{
+ "hash": "0x1bc717cd196e60b23eb1930ce29c49d693ea942da66ccfdce8d04fd75851a3a4",
+ "file": "registry/threshold/calldata-L1BitcoinRedeemer.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5d4d83aab53b7e7ca915aeb2d4d3f4e03823dbde"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xe8312bd306512c5cad4d650df373d5597b1c697a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "requestRedemption(bytes20 walletPubKeyHash, (bytes32 txHash, uint32 txOutputIndex, uint64 txOutputValue) mainUtxo, bytes encodedVm)",
+    "effects": [
+     "None of the signer's own tokens or ETH move. The function is not payable, and every transfer and approval is made by the redeemer contract with its own balances.",
+     "The contract completes a Wormhole transfer from the VAA in encodedVm. The tBTC that arrives at the redeemer contract is the amount redeemed.",
+     "The redeemer approves the TBTCVault and unmints that tBTC, then asks the tBTC Bridge to redeem it to Bitcoin. The Bitcoin output script comes from the VAA payload, not from the signer.",
+     "walletPubKeyHash and mainUtxo pick the tBTC wallet that will pay out the Bitcoin. They do not set the amount or the destination.",
+     "If the caller is an authorized relayer and a ReimbursementPool is set, the signer gets an ETH gas refund of (gas used + requestRedemptionGasOffset)."
+    ],
+    "shown": "The intent \"Request cross-chain redemption\" sits above the raw wallet pubkey hash and the raw Wormhole VAA hex. Optional fields show the main UTXO hash, its index and its value in BTC.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestRedemption: the tBTC amount and the Bitcoin destination are hidden inside the raw VAA bytes.",
+      "evidence": "L1BTCRedeemerWormhole.sol requestRedemption: `amount = balanceAfter - balanceBefore` after `completeTransferWithPayload(encodedVm)`; `redemptionOutputScript = transfer.payload`. Descriptor: encodedVm 'Wormhole message' format raw. Case 0 screen shows only a hex blob.",
+      "fix": "ERC-7730 cannot decode a Wormhole VAA. Add a sentence saying the amount and the BTC destination come from the bridged message. The tBTC belongs to the bridged L2 user, not the signer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedemption: 'Main UTXO value' in BTC can be read as the amount being redeemed.",
+      "evidence": "Descriptor field mainUtxo.txOutputValue label 'Main UTXO value', unit BTC. In the code (requestRedemption / _requestRedemption) mainUtxo only identifies the tBTC wallet's current UTXO for Bridge.requestRedemption. The amount redeemed comes from the VAA. Case 0 shows 'Main UTXO value: 1BTC'.",
+      "fix": "Rename it to 'tBTC wallet main UTXO value (not the redeemed amount)', or keep it optional and group it under a 'tBTC wallet' heading.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "requestRedemption: an always-visible raw VAA hex blob fills the screen and tells the signer nothing.",
+      "evidence": "Descriptor: {path: encodedVm, label: 'Wormhole message', format: raw, visible: always}. Case 0 shows a 70-byte hex string as 'Wormhole message'.",
+      "fix": "Make encodedVm visible: optional, or give it a label such as 'Signed bridge message (contains amount and BTC address)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "requestRedemption: the intent does not name tBTC or Bitcoin, so the asset path is unclear.",
+      "evidence": "Descriptor intent 'Request cross-chain redemption'. The code unmints tBTC (tbtcVault.unmint) and calls thresholdBridge.requestRedemption to pay out BTC.",
+      "fix": "Use an intent such as 'Redeem bridged tBTC to Bitcoin'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestRedemption: the ETH gas refund to an authorized relayer signer is not mentioned.",
+      "evidence": "L1BTCRedeemerWormhole.sol requestRedemption: `if (address(reimbursementPool) != address(0) && reimbursementAuthorizations[msg.sender]) reimbursementPool.refund((gasStart - gasleft()) + requestRedemptionGasOffset, msg.sender);`",
+      "fix": "The refund depends on storage and on gas, so no field can show it. A note in the intent or in the docs is enough.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "requestRedemption: the only case is synthetic filler calldata with no mined transaction.",
+      "evidence": "cases/0.json: walletPubKeyHash 0x1111…, txHash 0xaaaa…, VAA 0x01…abab…, minedError 'tx not found'.",
+      "fix": "Add a real mainnet requestRedemption transaction from a relayer.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 40
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.291,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 46,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "requestRedemption(bytes20 walletPubKeyHash, (bytes32 txHash, uint32 txOutputIndex, uint64 txOutputValue) mainUtxo, bytes encodedVm)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 38,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "requestRedemption: 'Main UTXO value' in BTC can be read as the amount being redeemed.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 38,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "requestRedemption: 'Main UTXO value' in BTC can be read as the amount being redeemed."
+ }
+}

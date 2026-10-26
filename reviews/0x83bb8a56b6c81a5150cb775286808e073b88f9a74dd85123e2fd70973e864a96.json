@@ -1,0 +1,200 @@
+{
+ "hash": "0x83bb8a56b6c81a5150cb775286808e073b88f9a74dd85123e2fd70973e864a96",
+ "file": "registry/flare/calldata-ValidatorRewardManager-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0xc0cf3aaf93bd978c5bc662564aa73e331f2ec0b5"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "claim(address _rewardOwner, address _recipient, uint256 _rewardAmount, bool _wrap)",
+    "effects": [
+     "The reward owner's claimed counter rises by _rewardAmount, which uses up that much of their claimable validator reward (reverts if it goes over the total awarded).",
+     "When _wrap is false, _rewardAmount of native FLR is sent from the reward manager to _recipient.",
+     "When _wrap is true, _rewardAmount of FLR is deposited into WNat for _recipient, so _recipient receives WFLR, not FLR.",
+     "The function is not payable, so the signer sends no native value.",
+     "The caller must be the reward owner or one of its executors; an executor can only pay to the owner or to an allowed recipient."
+    ],
+    "shown": "\"Claim/Wrap Reward\" with the reward owner, the recipient, the amount as FLR and a raw Wrap true/false flag.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: when wrap is true the recipient gets WFLR, but the amount reads as native FLR.",
+      "evidence": "GenericRewardManager._sendWrappedRewardTo: `wNat.depositTo{value: _rewardAmount}(_recipient);`. Case 0 (wrap=true) shows 'Reward Amount: 1 FLR' with only 'Wrap: true' to say the asset is WFLR.",
+      "fix": "Rename the Wrap field, e.g. 'Receive as WFLR (wrapped)', and add an interpolatedIntent that names the wrap, so the asset that arrives is clear.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "claim: the _wrap flag is shown as a raw true/false, with no meaning attached.",
+      "evidence": "descriptor field `#._wrap` 'Wrap' format 'raw'. Cases 0 and 3 show 'Wrap: true' / 'Wrap: false'.",
+      "fix": "Use a clearer label such as 'Receive wrapped WFLR instead of FLR'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claim: the intent 'Claim/Wrap Reward' does not say which action happens, how much, or to whom.",
+      "evidence": "descriptor intent \"Claim/Wrap Reward\", interpolatedIntent null.",
+      "fix": "Add an interpolatedIntent like 'Claim {_rewardAmount} reward of {_rewardOwner} to {_recipient} (wrap: {_wrap})'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "claim: the recipient and owner address types are limited to eoa/wallet, but the code accepts any address.",
+      "evidence": "descriptor params types [\"eoa\",\"wallet\"] on `#._recipient` and `#._rewardOwner`. GenericRewardManager.claim takes any `address payable _recipient`.",
+      "fix": "Drop the types restriction or add 'contract'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 72
+   },
+   {
+    "key": "setClaimExecutors(address[] _executors)",
+    "effects": [
+     "Removes every executor the signer set before.",
+     "Lets each listed address call claim for the signer's rewards at any time, paying them to the signer or to the signer's allowed recipients.",
+     "An empty list revokes all executors."
+    ],
+    "shown": "\"set executors\" with each new executor address listed.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "setClaimExecutors: the intent 'set executors' does not say executors can claim the signer's rewards.",
+      "evidence": "GenericRewardManager.setClaimExecutors: `claimExecutorSet[msg.sender].replaceAll(_executors);` with _checkOnlyOwnerOrExecutor letting them call claim. Descriptor intent \"set executors\".",
+      "fix": "Use an intent like 'Authorize addresses to claim your validator rewards (replaces existing list)' and label the field 'Authorized claimer'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "setClaimExecutors: the call replaces the whole executor list, and an empty list revokes all, but the screen does not say so.",
+      "evidence": "AddressSet.replaceAll calls clear(_state) then addAll. The intent only says 'set executors'.",
+      "fix": "Mention 'replaces all current executors' in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "setClaimExecutors: case 1 gives the executor the address-book name 'Reward Owner', a confusing fixture.",
+      "evidence": "cases/1.json screen field 'Executor' value 'Reward Owner' (address 0x1111…).",
+      "fix": "Use a separate executor address in the test.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 70
+   },
+   {
+    "key": "setAllowedClaimRecipients(address[] _recipients)",
+    "effects": [
+     "Removes every allowed claim recipient the signer set before.",
+     "Lets the signer's executors send the signer's rewards to any listed address (the signer itself is always allowed).",
+     "An empty list leaves only the signer as an allowed recipient for executors."
+    ],
+    "shown": "\"set recipients\" with each new recipient address listed.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "setAllowedClaimRecipients: the intent 'set recipients' does not say executors can then send the signer's rewards there.",
+      "evidence": "GenericRewardManager._checkOnlyAllowedRecipient: `allowedClaimRecipientSet[_rewardOwner].index[_recipient] != 0`. Descriptor intent \"set recipients\".",
+      "fix": "Use an intent like 'Allow executors to send your rewards to these addresses (replaces existing list)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "setAllowedClaimRecipients: the call replaces the whole recipient list, which the screen does not say.",
+      "evidence": "GenericRewardManager.setAllowedClaimRecipients: `allowedClaimRecipientSet[msg.sender].replaceAll(_recipients);`.",
+      "fix": "Mention replacement in the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": [
+   "WNat.depositTo (the wrapped FLR contract that claim calls when _wrap is true) has no source in the directory. I assumed it mints WFLR to _recipient one-for-one."
+  ]
+ },
+ "cost": 0.283,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 71,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "claim(address _rewardOwner, address _recipient, uint256 _rewardAmount, bool _wrap)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 44,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "claim: when wrap is true the recipient gets WFLR, but the amount reads as native FLR.",
+   "comprehension": null
+  },
+  "setClaimExecutors(address[] _executors)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setClaimExecutors: the intent 'set executors' does not say executors can claim the signer's rewards.",
+   "comprehension": null
+  },
+  "setAllowedClaimRecipients(address[] _recipients)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAllowedClaimRecipients: the intent 'set recipients' does not say executors can then send the signer's rewards there.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 47,
+  "functions": "3C",
+  "incomplete": true,
+  "worst": "claim: when wrap is true the recipient gets WFLR, but the amount reads as native FLR."
+ }
+}

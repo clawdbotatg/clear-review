@@ -1,0 +1,264 @@
+{
+ "hash": "0x555425745c286c0e1d68fde0440ebdc3551f9679a0bac6ca5d26210b0d0125a2",
+ "file": "registry/wormhole/calldata-CircleIntegration.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xaada05bd399372f0b0463744c09113c137636f6a"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x2703483b1a5a7c577e8680de9df8be03c6f30e3c"
+  },
+  {
+   "chainId": 43114,
+   "address": "0x09fb06a271faff70a651047395aaeb6265265f13"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x03fabb06fa052557143dc28efcfc63fc12843f1d"
+  },
+  {
+   "chainId": 10,
+   "address": "0x2703483b1a5a7c577e8680de9df8be03c6f30e3c"
+  },
+  {
+   "chainId": 137,
+   "address": "0x0ff28217dcc90372345954563486528aa865cdd6"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:09Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "transferTokensWithPayload((address token,uint256 amount,uint16 targetChain,bytes32 mintRecipient) transferParams,uint32 batchId,bytes payload)",
+    "effects": [
+     "Pulls exactly `transferParams.amount` of `transferParams.token` (must be a Circle-accepted token, in practice USDC) from the signer into the contract (custodyTokens → safeTransferFrom).",
+     "Burns that amount through Circle's CCTP bridge so it can be minted on the Wormhole chain `targetChain` to `mintRecipient`. Only the registered CircleIntegration contract there can complete the mint, and only when `mintRecipient` calls it.",
+     "Takes native value that must equal the Wormhole message fee (`require(msg.value == wormholeFee)`) and passes it to the Wormhole core contract.",
+     "Publishes a Wormhole message that carries the signer's address as `fromAddress` and the arbitrary `payload` for the destination application."
+    ],
+    "shown": "\"Bridge native USDC via CCTP\" with the Wormhole fee, the token, the amount with its token, the destination chain by name, the mint recipient as a raw bytes32 and the payload as raw bytes.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "transferTokensWithPayload shows the mint recipient as a raw zero-padded bytes32, not as an address.",
+      "evidence": "descriptor: `#.transferParams.mintRecipient` label 'Mint recipient (bytes32)' format `raw`. Case 0 shows '0x000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa96045'. CircleIntegration.sol `_transferTokens` passes mintRecipient to depositForBurnWithCaller as the recipient on the destination chain.",
+      "fix": "Show `#.transferParams.mintRecipient.[12:32]` with format `addressName` (types wallet, contract) and the label 'Recipient on destination chain'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "transferTokensWithPayload has no interpolatedIntent, so the amount, destination and recipient are missing from the glance line.",
+      "evidence": "descriptor: intent 'Bridge native USDC via CCTP', and no `interpolatedIntent`. The amount, targetChain and mintRecipient are only in the fields.",
+      "fix": "Add an interpolatedIntent such as 'Bridge {#.transferParams.amount} to {#.transferParams.mintRecipient} on {#.transferParams.targetChain}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "transferTokensWithPayload's payload is arbitrary bytes for the destination app and cannot be decoded.",
+      "evidence": "CircleIntegration.sol `transferTokensWithPayload` puts `payload` into the DepositWithPayload Wormhole message. When the recipient is a contract, the payload drives what it does with the minted USDC. The descriptor shows `#.payload` raw.",
+      "fix": "Nothing a descriptor can decode generically. Keep the raw field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "redeemTokensWithPayload((bytes encodedWormholeMessage,bytes circleBridgeMessage,bytes circleAttestation) params)",
+    "effects": [
+     "Verifies a Wormhole VAA from a registered emitter and marks it as consumed.",
+     "Requires the signer to be the encoded `mintRecipient`.",
+     "Calls Circle's MessageTransmitter.receiveMessage, which mints the bridged amount of the local Circle token (USDC) to the signer."
+    ],
+    "shown": "Only \"Redeem USDC via Wormhole CCTP\". The token, amount and source of the mint are inside encoded messages that stay hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeemTokensWithPayload hides the minted amount and source, which sit inside the encoded VAA and Circle message.",
+      "evidence": "CircleIntegration.sol `redeemTokensWithPayload` decodes the amount, token and nonce from `verifiedMessage.payload` after parseAndVerifyVM. The VAA's signature count varies, so no fixed slice reaches them. Descriptor: `#.params` 'Attestation' visible never.",
+      "fix": "None possible in the descriptor today. The intent already states the incoming asset.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 35
+   },
+   {
+    "key": "upgradeContract(bytes encodedMessage)",
+    "effects": [
+     "Verifies and consumes a guardian-signed governance VAA (anyone can relay it). None of the signer's assets move.",
+     "Points the proxy to the new implementation encoded in the VAA and delegatecalls its initialize()."
+    ],
+    "shown": "\"Upgrade Circle Integration\", with the governance message hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "upgradeContract hides the new implementation address, which is inside the variable-length signed VAA.",
+      "evidence": "CircleIntegrationGovernance.sol `upgradeContract`: `readAddressFromBytes32(payload, 35)` reads from the VAA payload, whose offset depends on the number of guardian signatures. Descriptor: `#.encodedMessage` visible never.",
+      "fix": "No fixed slice can reach it. Nothing to change.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 70
+   },
+   {
+    "key": "updateWormholeFinality(bytes encodedMessage)",
+    "effects": [
+     "Verifies and consumes a governance VAA, then sets the contract's Wormhole consistency level to the value encoded in the VAA. None of the signer's assets move."
+    ],
+    "shown": "\"Update Wormhole finality\", with the governance message hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "updateWormholeFinality hides the new finality value, which is encoded inside the signed VAA payload.",
+      "evidence": "CircleIntegrationGovernance.sol `updateWormholeFinality`: `payload.toUint8(35)` sits inside the VAA. Descriptor: `#.encodedMessage` visible never.",
+      "fix": "None possible today.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "registerEmitterAndDomain(bytes encodedMessage)",
+    "effects": [
+     "Verifies and consumes a governance VAA, then registers a foreign emitter, its chain and its Circle domain. None of the signer's assets move."
+    ],
+    "shown": "\"Register emitter and domain\", with the governance message hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "registerEmitterAndDomain hides the chain, emitter and domain, which are encoded inside the signed VAA.",
+      "evidence": "CircleIntegrationGovernance.sol `registerEmitterAndDomain` reads emitterChainId, emitterAddress and domain from the VAA payload at offsets 35, 37 and 69. Descriptor: `#.encodedMessage` visible never.",
+      "fix": "None possible today.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "initialize()",
+    "effects": [
+     "Marks the current implementation as initialized, and reverts if it already is. There is no other effect and nothing of the signer's moves."
+    ],
+    "shown": "\"Initialize Circle Integration\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.373,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 395,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "transferTokensWithPayload((address token,uint256 amount,uint16 targetChain,bytes32 mintRecipient) transferParams,uint32 batchId,bytes payload)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "transferTokensWithPayload shows the mint recipient as a raw zero-padded bytes32, not as an address.",
+   "comprehension": null
+  },
+  "redeemTokensWithPayload((bytes encodedWormholeMessage,bytes circleBridgeMessage,bytes circleAttestation) params)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "upgradeContract(bytes encodedMessage)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "updateWormholeFinality(bytes encodedMessage)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "registerEmitterAndDomain(bytes encodedMessage)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "initialize()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 74,
+  "functions": "3A 2B 1C",
+  "incomplete": false,
+  "worst": null
+ }
+}

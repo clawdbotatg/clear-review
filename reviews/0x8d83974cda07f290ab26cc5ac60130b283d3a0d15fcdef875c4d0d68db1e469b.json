@@ -1,0 +1,225 @@
+{
+ "hash": "0x8d83974cda07f290ab26cc5ac60130b283d3a0d15fcdef875c4d0d68db1e469b",
+ "file": "registry/symbiotic/calldata-VaultV1Tokenized-SPK.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xc6132faf04627c8d05d6e759fabb331ef2d8f8fd"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` of SPK (the vault collateral 0xc200…b066) to the vault through transferFrom, which uses the signer's existing SPK allowance to the vault.",
+     "The vault mints stSPK shares to `onBehalfOf`, at a count computed from the current active stake and shares.",
+     "The deposit becomes slashable stake of `onBehalfOf` in the vault."
+    ],
+    "shown": "Deposit 123.25 SPK into the vault, with the vault address and the beneficiary that gets the deposit.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many stSPK shares the beneficiary receives; the count comes from vault state.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` and `_activeSharesOf[onBehalfOf].push(...)`. The descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "fix": "None possible: the share count depends on activeStake and activeShares in storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The vault burns the signer's stSPK shares worth `amount` of SPK, rounded up (previewWithdraw).",
+     "The vault moves `amount` SPK from active stake into the withdrawal queue of the next epoch.",
+     "The vault gives `claimer` the withdrawal shares, so only `claimer` can claim the SPK after the next epoch ends.",
+     "Queued SPK stays slashable until it is claimed."
+    ],
+    "shown": "Request a withdrawal of 2.5 SPK for the claim owner, with the vault address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the stSPK shares burned from the signer; the count comes from vault state.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` then `_activeSharesOf[msg.sender].push(..., activeSharesOf(msg.sender) - burnedShares)`. The descriptor shows only `Requested assets` and `Claim owner`.",
+      "fix": "None possible: the burn depends on storage values.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "withdraw does not say the SPK is claimable only after the next epoch, and stays slashable until then.",
+      "evidence": "Vault.sol _withdraw: `uint256 epoch = currentEpoch() + 1; ... withdrawalSharesOf[epoch][claimer] += mintedShares;` and _claim: `if (epoch >= currentEpoch()) revert InvalidEpoch();`. The intent is \"Request withdrawal\".",
+      "fix": "Optionally change the intent to \"Request delayed SPK withdrawal\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The vault burns `shares` stSPK from the signer.",
+     "The vault moves the SPK value of those shares, computed from vault state, into the withdrawal queue of the next epoch.",
+     "The vault gives `claimer` the withdrawal shares, so only `claimer` can claim the SPK after the next epoch ends."
+    ],
+    "shown": "Queue 0.987654321123456789 stSPK for the claim owner, with the vault address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the SPK amount queued for the claim owner; it comes from vault state.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`. The descriptor shows `Vault shares` with `tokenPath: @.to` only.",
+      "fix": "None possible: the SPK amount depends on storage values.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem intent \"Queue share withdrawal\" does not say the signer's stSPK is burned for SPK.",
+      "evidence": "Descriptor redeem intent \"Queue share withdrawal\"; VaultTokenized._withdraw emits `Transfer(msg.sender, address(0), burnedShares)`.",
+      "fix": "Optionally change the intent to \"Redeem stSPK for queued SPK withdrawal\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault marks the signer's withdrawal for `epoch` as claimed.",
+     "The vault sends the signer's SPK withdrawal amount for `epoch`, computed from storage, to `recipient`."
+    ],
+    "shown": "Claim the withdrawal of epoch 42 to the recipient, with the vault address; no token and no amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "claim does not show the SPK amount sent to the recipient, and the intent does not name SPK.",
+      "evidence": "Vault.sol claim: `amount = _claim(epoch); IERC20(collateral).safeTransfer(recipient, amount);` with `amount = withdrawalsOf(epoch, msg.sender)` from storage. Descriptor intent \"Claim withdrawal\".",
+      "fix": "Optionally change the intent to \"Claim SPK withdrawal\"; the amount cannot be shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The vault marks the signer's withdrawals for every listed epoch as claimed.",
+     "The vault sends the sum of the signer's SPK withdrawal amounts for those epochs, computed from storage, to `recipient`."
+    ],
+    "shown": "Claim the withdrawals of epochs 42, 44 and 128 to the recipient, with each epoch listed and the vault address; no token and no amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "claimBatch does not show the total SPK sent to the recipient, and the intent does not name SPK.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` then `IERC20(collateral).safeTransfer(recipient, amount);`. Descriptor intent \"Claim withdrawals\".",
+      "fix": "Optionally change the intent to \"Claim SPK withdrawals\"; the amount cannot be shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.38,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 55,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 72,
+  "functions": "1A 4B",
+  "incomplete": false,
+  "worst": null
+ }
+}

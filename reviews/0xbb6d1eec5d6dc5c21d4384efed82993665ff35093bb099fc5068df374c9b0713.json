@@ -1,0 +1,137 @@
+{
+ "hash": "0xbb6d1eec5d6dc5c21d4384efed82993665ff35093bb099fc5068df374c9b0713",
+ "file": "registry/symbiotic/calldata-WithdrawalQueue-KPK_USDC_LL.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x561905fe189b36766845e89bdb95cf8756f2938a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "requestRedeem(uint256 shares,address receiver)",
+    "effects": [
+     "The signer's vault shares (KPK_USDC_LL, the vault token 0x8BcD…3703) in the amount `shares` move from the signer to the withdrawal queue. This spends the signer's allowance to the queue.",
+     "A withdrawal NFT is minted to `receiver`. It is the right to claim the assets once the shares are filled, and it may go to someone other than the signer.",
+     "How many assets the shares turn into is fixed later, at fill time, by vault.redeem. The request sets no minimum.",
+     "The call then triggers the delegator's sweepPending(), which moves vault-side funds and none of the signer's."
+    ],
+    "shown": "Queue X KPK_USDC_LL shares from the named vault and send the withdrawal NFT to the receiver.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedeem: 'NFT recipient' does not say the NFT is the right to claim the withdrawn assets.",
+      "evidence": "WithdrawalQueue.sol requestRedeem: `_mint(receiver, tokenId);` and claim requires `ownerOf(tokenId) == msg.sender`. Descriptor label 'NFT recipient', interpolatedIntent 'Queue {shares}, NFT to {receiver}'. Case 2 sends it to a third party (0x8594…41E9).",
+      "fix": "Rename the label to 'Withdrawal claim (NFT) goes to' and make the intent read 'Queue {shares} for withdrawal; claim right to {receiver}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "requestRedeem: the assets the shares will become are fixed at fill time, with no minimum.",
+      "evidence": "WithdrawalQueue.sol fill(): `assets = IERC4626(vault).redeem(shares, address(this), address(this));` runs later. requestRedeem only stores shares.",
+      "fix": "No descriptor change can show the future amount. The intent could say the payout is priced when the request is filled.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   },
+   {
+    "key": "claim(uint256 tokenId,address receiver)",
+    "effects": [
+     "The vault's underlying asset (IERC4626(vault).asset(), USDC by its name) is sent from the queue to `receiver`. The amount is the part of request `tokenId` that has been filled and not yet claimed, computed from storage.",
+     "The request's sharesClaimed goes up by the claimed shares, so that part of the signer's withdrawal position is used up. The NFT is not burned and stays with the signer.",
+     "Only the current owner of the NFT can call it. If nothing has been filled, 0 is transferred."
+    ],
+    "shown": "Claim filled withdrawal #tokenId from the named vault and send the assets to the receiver. No asset or amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim: the screen never names the asset paid out (the vault's underlying, e.g. USDC).",
+      "evidence": "WithdrawalQueue.sol claim: `IERC20(IERC4626(vault).asset()).safeTransfer(receiver, assets);`. Descriptor fields: Vault, 'Withdrawal NFT ID' (raw), 'Asset recipient'. The intent is 'Claim filled withdrawal'.",
+      "fix": "Name the underlying in the intent and labels, e.g. 'Claim USDC from filled withdrawal {tokenId} to {receiver}', with the underlying address as a metadata constant.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount paid is computed from fill checkpoints in storage and cannot be shown.",
+      "evidence": "WithdrawalQueue.sol claim: `(assets, shares) = claimable(tokenId);` reads the _cumulSharesToCumulAssets checkpoints. Calldata holds only tokenId and receiver.",
+      "fix": "None in the descriptor. The intent could say 'all filled assets of withdrawal {tokenId}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "claim: a partial fill uses up only the filled part, and the NFT stays open for the rest.",
+      "evidence": "WithdrawalQueue.sol claim: `requests[tokenId].sharesClaimed += shares;`. There is no burn. claimable() caps at totalFilled().",
+      "fix": "Optionally make the intent say it claims what has been filled so far.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": [
+   "The vault 0x8BcD746976885b5832bAD07B4921E3f2dD1D3703 (VaultV2) is not in the directory. Its code runs the share transferFrom in requestRedeem and its asset() picks the token paid by claim, so the claimed asset (presumably USDC) could not be confirmed from source.",
+   "The UniversalDelegator called by requestRedeem through sweepPending() is not in the directory."
+  ]
+ },
+ "cost": 0.258,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 57,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "requestRedeem(uint256 shares,address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "requestRedeem: 'NFT recipient' does not say the NFT is the right to claim the withdrawn assets.",
+   "comprehension": null
+  },
+  "claim(uint256 tokenId,address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the screen never names the asset paid out (the vault's underlying, e.g. USDC).",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 60,
+  "functions": "1B 1C",
+  "incomplete": true,
+  "worst": "claim: the screen never names the asset paid out (the vault's underlying, e.g. USDC)."
+ }
+}

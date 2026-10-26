@@ -1,0 +1,219 @@
+{
+ "hash": "0x779eab7e2f6a39f6ae6a0107f3c17294d7be8cd4073378e4b7354ec3838f8df6",
+ "file": "registry/symbiotic/calldata-VaultV1-lvlwaUSDT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x9bf93077ad7bb7f43e177b6abbf8dae914761599"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Moves `amount` lvlwaUSDT (the vault's collateral 0xb723…a5F2) from the signer to the vault with safeTransferFrom, which spends the signer's allowance to the vault.",
+     "Credits newly minted active vault shares, worth the amount received, to `onBehalfOf`. That may be someone other than the signer.",
+     "The deposited stake becomes slashable by the vault's slasher."
+    ],
+    "shown": "Deposit 123.25 lvlwaUSDT into the vault for the named beneficiary, with the vault, the amount and the beneficiary as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to the beneficiary is not shown; it is computed from vault storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)` uses storage values, not calldata. The descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "fix": "None possible from calldata. The amount and the beneficiary are enough to verify the deposit.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns enough of the signer's active vault shares to cover `amount` lvlwaUSDT (previewWithdraw, rounded up). It reverts if the signer does not hold enough shares.",
+     "Moves `amount` lvlwaUSDT of the signer's stake into the withdrawal queue for the next epoch.",
+     "Gives `claimer` withdrawal shares for that epoch. Only the claimer can later claim those funds, and they stay slashable until claimed.",
+     "No tokens move in this call."
+    ],
+    "shown": "Request a 2.5 lvlwaUSDT withdrawal for the claim owner, with the vault, the requested assets and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the signer's shares burned and possible later slashing of the queued amount are not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`. onSlash can lower `withdrawals[currentEpoch_ + 1]`. Both depend on storage, not calldata.",
+      "fix": "None from calldata. The intent could add that funds are claimable after the epoch ends, but this is optional.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares. It reverts if the signer holds fewer.",
+     "Moves the lvlwaUSDT those shares are worth (previewRedeem, from storage) into the next epoch's withdrawal queue.",
+     "Gives `claimer` withdrawal shares for that epoch. Only the claimer can later claim the funds, and they stay slashable until claimed.",
+     "No tokens move in this call."
+    ],
+    "shown": "Queue 987654321123456789 raw vault shares for withdrawal to the claim owner, with the vault, the raw share count and the claim owner as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is a raw integer, though shares use the collateral's 6-decimal scale.",
+      "evidence": "descriptor redeem field `#.shares` has format `raw`, label 'Vault shares (raw)'. ERC4626Math `_decimalsOffset()` returns 0, so shares are on the same 6-decimal scale as lvlwaUSDT. Case 2 shows '987654321123456789'.",
+      "fix": "Use format `unit` with params {\"decimals\": 6, \"base\": \"shares\"} so the count reads at a human scale.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the lvlwaUSDT amount queued for the claimer is not shown; it comes from vault storage.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())` uses storage values.",
+      "fix": "None from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 50
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Sends the signer's whole matured withdrawal for `epoch` (withdrawalsOf(epoch, msg.sender), lvlwaUSDT) from the vault to `recipient`. That may be someone other than the signer.",
+     "Marks the signer's withdrawal for that epoch as claimed, so it cannot be claimed again.",
+     "Reverts if the epoch has not ended, was already claimed, or holds nothing."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 to the named recipient, with the vault, the epoch and the recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the lvlwaUSDT amount sent to the recipient is not shown; it comes from storage.",
+      "evidence": "Vault.sol claim: `amount = _claim(epoch)` → `withdrawalsOf(epoch, msg.sender)`, then `IERC20(collateral).safeTransfer(recipient, amount)`.",
+      "fix": "None from calldata. The intent could name the asset, e.g. 'Claim lvlwaUSDT withdrawal'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Sends the total of the signer's matured withdrawals for every listed epoch (lvlwaUSDT) from the vault to `recipient` in one transfer. That may be someone other than the signer.",
+     "Marks each listed epoch as claimed for the signer.",
+     "Reverts if the list is empty, or if any epoch has not ended, was already claimed or holds nothing."
+    ],
+    "shown": "Claim the withdrawals for epochs 42, 44 and 128 to the named recipient, listing each epoch as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total lvlwaUSDT sent to the recipient is not shown; it comes from storage.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i])` then `IERC20(collateral).safeTransfer(recipient, amount)`.",
+      "fix": "None from calldata. The intent could name the asset, e.g. 'Claim lvlwaUSDT withdrawals'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.346,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 78,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is a raw integer, though shares use the collateral's 6-decimal scale.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: the share amount is a raw integer, though shares use the collateral's 6-decimal scale."
+ }
+}

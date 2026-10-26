@@ -1,0 +1,231 @@
+{
+ "hash": "0x80b5fae98e6a5816071c5328ccddf18084677741519ca0d74472c5935b66fe05",
+ "file": "registry/symbiotic/calldata-VaultV1-SIS.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x2ee8fe221afd5da36a5cfd4fee12be5dab562397"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Takes `amount` of SIS (collateral 0xd38B…6dd9) from the signer through safeTransferFrom to the vault; the signer must have approved the vault first.",
+     "Mints active vault shares (computed from current stake and shares) to `onBehalfOf`, who owns the new staked position; this can be someone other than the signer."
+    ],
+    "shown": "Deposit 123.25 SIS into the vault, with the shares credited to the named beneficiary address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to the beneficiary is not shown; it comes from vault storage.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` uses storage values. The descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "fix": "None possible: the share count is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns enough of the signer's active vault shares to cover `amount` SIS, rounded up; no tokens move in this call.",
+     "Queues `amount` SIS for withdrawal in the next epoch and credits the withdrawal shares to `claimer`. Only `claimer` can claim them later, so a claimer other than the signer receives the right to these funds.",
+     "The queued amount can still be slashed until it is claimed."
+    ],
+    "shown": "Request a withdrawal of 2.5 SIS from the vault, with the claim owned by the named claimer address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the signer and the slashing exposure of the queued amount are not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` and _withdraw adds the amount to `withdrawals[epoch]`, which onSlash can reduce. The screen shows only 'Requested assets' and 'Claim owner'.",
+      "fix": "None needed from calldata. A note that the funds can be claimed after the epoch ends and stay slashable until then would help.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares.",
+     "Queues the SIS value of those shares (from storage) for withdrawal in the next epoch and credits the claim to `claimer`. A claimer other than the signer receives the right to these funds."
+    ],
+    "shown": "Queue 987654321123456789 raw vault shares for withdrawal, with the claim owned by the named claimer address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is shown as a raw 18-decimal integer that people cannot read.",
+      "evidence": "descriptor redeem field `#.shares` uses format 'raw', so case 2 shows 'Queue 987654321123456789 raw shares'. ERC4626Math `_decimalsOffset()` returns 0, so shares have the same decimals as the collateral (SIS, 18).",
+      "fix": "Use format 'unit' with params {decimals: 18, base: 'shares'} so the screen shows '0.987654321 shares' and does not suggest SIS.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the amount of SIS queued for the shares is not shown; it comes from vault storage.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Marks the signer's withdrawal for `epoch` as claimed.",
+     "Sends all of the signer's matured SIS withdrawal for that epoch (amount from storage) to `recipient`, who may be someone other than the signer."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 to the named recipient address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claim: the intent and fields never name SIS as the asset sent to the recipient.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);`, with collateral fixed to 0xd38BB4…6dd9 (SIS) at init. The descriptor intent reads 'Claim withdrawal' and the interpolated intent 'Claim epoch {epoch} to {recipient}'.",
+      "fix": "Use the interpolated intent 'Claim SIS withdrawal for epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the SIS amount sent is read from storage and cannot be shown.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);`",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Marks the signer's withdrawal for each listed epoch as claimed.",
+     "Sends the sum of the signer's matured SIS withdrawals for all listed epochs (amounts from storage) to `recipient`, who may be someone other than the signer."
+    ],
+    "shown": "Claim the withdrawals for epochs 42, 44 and 128 to the named recipient address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claimBatch: the intent and fields never name SIS as the asset sent to the recipient.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);`. The descriptor intent reads 'Claim withdrawals' and the interpolated intent 'Claim epochs {epochs.[]} to {recipient}'.",
+      "fix": "Use the interpolated intent 'Claim SIS withdrawals for epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total SIS amount sent is read from storage and cannot be shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` where _claim reads `withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.345,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is shown as a raw 18-decimal integer that people cannot read.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the intent and fields never name SIS as the asset sent to the recipient.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the intent and fields never name SIS as the asset sent to the recipient.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 70,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: the share amount is shown as a raw 18-decimal integer that people cannot read."
+ }
+}

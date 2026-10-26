@@ -1,0 +1,194 @@
+{
+ "hash": "0xc0fabc7620f40f6fb2d82a9dd19aed7719291b54d2ded531f6d99525b623dab8",
+ "file": "registry/swissborg/calldata-NttManager.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x66a28b080918184851774a89ab94850a41f6a1e5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient)",
+    "effects": [
+     "Pulls `amount` BORG from the signer into the NttManager with transferFrom, which spends the signer's BORG allowance to this contract. The mode is LOCKING (constructor _mode = 0), so the tokens are locked.",
+     "Takes msg.value in ETH and pays the transceivers' total delivery quote out of it. Anything above the quote is refunded to the signer.",
+     "Sends a cross-chain message so that `recipient` gets the same amount on `recipientChain`. The refund address is set to `recipient`, and the default instructions are new bytes(1).",
+     "Reverts when the amount has dust below the destination chain's decimals, when the outbound rate limit is hit (shouldQueue is fixed to false), or when the peer is not registered."
+    ],
+    "shown": "\"Bridge 1500 BORG BORG\" with the amount, the destination chain as a Wormhole enum, and the destination address as raw 32-byte hex. The ETH sent with the call is never shown.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Short transfer is payable but has no @.value field, so the ETH delivery fee is never shown.",
+      "evidence": "NttManager.sol transfer(uint256,uint16,bytes32) is `external payable`. ManagerBase._prepareForTransfer requires `msg.value >= totalPriceQuote` and forwards priceQuotes[i] to ITransceiver.sendMessage{value:...}. The descriptor's fields for this format are only amount, destinationChain and encodedDestinationAddress, with no `@.value`.",
+      "fix": "Add a field {\"path\":\"@.value\",\"label\":\"Relaying Fee\",\"format\":\"amount\",\"visible\":\"always\"}.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Short transfer interpolatedIntent repeats the ticker and leaves out the destination chain.",
+      "evidence": "interpolatedIntent \"Bridge {#.amount} BORG\". The tokenAmount format already adds the symbol, so case 1 renders \"Bridge 1500 BORG BORG\". recipientChain is an enum field that the sentence could carry.",
+      "fix": "Use \"Bridge {#.amount} to {#.recipientChain}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "Short transfer shows the destination as 32-byte hex, which cannot be checked against a Solana base58 address.",
+      "evidence": "Field encodedDestinationAddress, format raw, path #.recipient (bytes32). Case 1 shows 0x8bae41…0a55 for a Solana destination. ERC-7730 has no base58 or Wormhole-address format.",
+      "fix": "",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 50
+   },
+   {
+    "key": "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient, bytes32 refundAddress, bool shouldQueue, bytes transceiverInstructions)",
+    "effects": [
+     "Pulls `amount` BORG from the signer into the NttManager with transferFrom, which spends the signer's allowance. The tokens are locked (LOCKING mode).",
+     "Takes msg.value in ETH and pays the transceivers' delivery quote out of it. The excess is refunded to the signer. If the transfer is queued, the whole msg.value is refunded.",
+     "Sends a cross-chain message so that `recipient` gets the amount on `recipientChain`. Unused destination gas is refunded to `refundAddress`.",
+     "If shouldQueue is true and the outbound rate limit is hit, the tokens are still taken now and the transfer waits at least 24h (rateLimitDuration 86400). Only the signer can cancel it, and anyone can complete it.",
+     "transceiverInstructions decide per-transceiver options, such as skipping the automatic relayer, which affects whether delivery happens on its own."
+    ],
+    "shown": "\"Bridge 983.08896334 BORG BORG\" with the amount, the destination chain, the destination and refund addresses as raw hex, \"Should Queue: false\", raw instruction bytes, and the relaying fee in ETH marked optional.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "Long transfer interpolatedIntent repeats the ticker and leaves out the destination chain.",
+      "evidence": "interpolatedIntent \"Bridge {#.amount} BORG\". Case 0 screen interpolatedIntent is \"Bridge 983.08896334 BORG BORG\".",
+      "fix": "Use \"Bridge {#.amount} to {#.recipientChain}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "Long transfer shows shouldQueue as a raw bool and does not explain that tokens are taken and delayed.",
+      "evidence": "NttManager._transferEntryPoint: `if (shouldQueue && isAmountRateLimited) { ... _enqueueOutboundTransfer(...); _refundToSender(msg.value); return sequence; }` runs after safeTransferFrom has pulled the tokens. The descriptor field is label \"Should Queue\", format raw. Case 0 shows \"false\".",
+      "fix": "Relabel it \"Queue for 24h if rate-limited\" and map true/false to Yes/No with an enum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "The Refund Address label suggests failed-transfer refunds, but it only gets unused destination gas.",
+      "evidence": "devdoc: refundAddress is \"The address to which a refund for unussed gas is issued on the recipient chain\". The descriptor label is \"Refund Address\". In case 0 the blind reader believed a failed transfer would be refunded there.",
+      "fix": "Relabel it \"Gas Refund Address (destination chain)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "Long transfer marks the ETH relaying fee as optional, so a wallet may hide native value.",
+      "evidence": "Field relayingFee, path @.value, format amount, \"visible\": \"optional\". ManagerBase._prepareForTransfer spends msg.value on transceiver quotes.",
+      "fix": "Set visible to \"always\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "Destination and refund addresses are bytes32 hex, which cannot be checked against Solana base58 addresses.",
+      "evidence": "Fields encodedDestinationAddress and refundAddress, format raw. In case 0 both show 0x8bae41978caf…0a55 for a Solana destination, and the reader was unsure whether this is the right address.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "Transceiver instructions are shown as raw bytes, which hides options such as skipping the relayer.",
+      "evidence": "Field transceiverInstructions, format raw. Case 0 shows 0x01000101, which TransceiverStructs.parseTransceiverInstructions decodes into per-transceiver payloads. The reader could not tell what it does.",
+      "fix": "",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "The screen does not say that the call spends the signer's BORG allowance to the bridge.",
+      "evidence": "Case 0 mined effect: an approval on BORG from the signer to 0x66a2…a1e5 with amount 0 (signer grant), from IERC20(token).safeTransferFrom(msg.sender, address(this), amount) in _transferEntryPoint. The reader listed \"Whether a token approval is needed first\" as unsure.",
+      "fix": "",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "missed"
+      ],
+      "notes": "The 983.08896334 BORG leaving the signer for the NttManager is shown right (amount, token, Solana destination). The allowance spent to 0 is only implied. msg.value was 0, and the screen shows 0 ETH."
+     }
+    ],
+    "glance": 70,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.419,
+ "account": "austingriffith",
+ "hiddenValue": [
+  "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient)"
+ ],
+ "seconds": 98,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 2,
+   "warnings": 1,
+   "worst": "Short transfer is payable but has no @.value field, so the ETH delivery fee is never shown.",
+   "comprehension": null
+  },
+  "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient, bytes32 refundAddress, bool shouldQueue, bytes transceiverInstructions)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 42,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "Long transfer marks the ETH relaying fee as optional, so a wallet may hide native value.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 45,
+  "clarity": 48,
+  "functions": "1C 1F",
+  "incomplete": false,
+  "worst": "Short transfer is payable but has no @.value field, so the ETH delivery fee is never shown."
+ }
+}

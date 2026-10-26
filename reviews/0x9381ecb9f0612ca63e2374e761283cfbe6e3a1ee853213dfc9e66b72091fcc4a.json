@@ -1,0 +1,119 @@
+{
+ "hash": "0x9381ecb9f0612ca63e2374e761283cfbe6e3a1ee853213dfc9e66b72091fcc4a",
+ "file": "registry/flyingtulip/eip712-PftMarketplace-BuyOffer.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 146,
+   "address": "0x9bb958d459a97e3e37e11becf842e728167d9114"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:16Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "BuyOffer(address buyer,address denominationToken,uint96 minAmountRemaining,uint96 minFt,uint96 minStrike,address paymentToken,uint96 price,uint256 nonce,uint40 deadline)",
+    "effects": [
+     "Signs a standing offer: any holder of a pFT NFT that matches the terms can sell it to the buyer through acceptBuyOffer until the deadline (no more than 180 days ahead) or until the buyer calls cancelBuyOffer.",
+     "When the offer is accepted, the buyer pays price + takerFee in paymentToken. The money is pulled through a separate Permit2 signature for exactly that total, with deadline = offer.deadline (_processOfferPayment).",
+     "The seller gets price - makerFee and the fee recipient gets makerFee + takerFee. Both fee rates come from storage and can each be up to 10%.",
+     "The buyer receives one pFT NFT (a PUT position). The seller chooses which one. Its put.token must equal denominationToken, and its amountRemaining, ft and strike must be at least minAmountRemaining, minFt and minStrike.",
+     "Accepting the offer does not mark it as used. Only cancellation invalidates it, so each extra Permit2 signature the buyer gives allows another fill."
+    ],
+    "shown": "\"PUT offer 2.5 USDC\": an offer price in the payment token, the buyer address, a minimum collateral in the denomination token, a raw minimum FT, a raw minimum strike and an expiry date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "BuyOffer: the taker fee on top of the offer price is not shown or mentioned.",
+      "evidence": "pFTMarketplace.sol _processOfferPayment: `takerFee = calculateTakerFee(offer.price); uint256 totalPayment = offer.price + takerFee;` and permitTransferFrom pulls totalPayment from offer.buyer. The descriptor's only amount is 'Offer price' {price}, and the intent is 'PUT offer {price}'.",
+      "fix": "The fee rate is in storage and cannot be computed here. Add a note to the price label or the intent, such as 'Offer price (plus marketplace taker fee)'. The Permit2 signature that moves the funds states the exact total.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "BuyOffer: minFt is shown as a raw 18-decimal integer.",
+      "evidence": "descriptor field minFt: format 'raw'. Case 0 shows 'Minimum FT' = '1000000000000000000'. The contract checks `put.ft >= offer.minFt` (_validateBuyOffer).",
+      "fix": "Use tokenAmount with params.token set to the FT token address on Sonic, or a unit format with decimals 18.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "BuyOffer: minStrike is shown as a raw fixed-point integer with no unit.",
+      "evidence": "descriptor field minStrike: format 'raw'. Case 0 shows 'Minimum strike' = '1200000000000000000'. The contract checks `put.strike >= offer.minStrike` (_validateBuyOffer).",
+      "fix": "Use a unit format with the strike's decimals (it looks like 18), or a label that gives the unit, such as 'Minimum strike price (per FT)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "BuyOffer: the intent 'Make FT PUT offer' / 'PUT offer {price}' does not say the signer offers to buy a pFT NFT and pay.",
+      "evidence": "descriptor intent 'Make FT PUT offer', interpolatedIntent 'PUT offer {price}'. In the code the buyer pays paymentToken and receives a pFT NFT (acceptBuyOffer: `_pFT.safeTransferFrom(msg.sender, offer.buyer, tokenId)`). 'PUT offer 2.5 USDC' could be read as offering to sell or write a put.",
+      "fix": "Use something like intent 'Offer to buy a pFT position' and interpolatedIntent 'Offer {price} for a pFT PUT with at least {minAmountRemaining} collateral'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "BuyOffer: the offer is not consumed when accepted, so it can be filled again with each new Permit2 signature.",
+      "evidence": "pFTMarketplace.sol acceptBuyOffer: no write to cancelledOffers or any used-offer mapping. Only cancelBuyOffer sets `cancelledOffers[offerHash] = true`. Each fill needs a fresh Permit2 signature (permit2Nonce).",
+      "fix": "Optionally add a note that the offer stays valid until it expires or is cancelled. Each payment still needs its own Permit2 signature.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "BuyOffer test case 0 uses the mainnet USDC address on Sonic (chain 146).",
+      "evidence": "cases/0.json message.paymentToken and denominationToken = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 (Ethereum USDC), with domain chainId 146.",
+      "fix": "Use a token that is actually accepted on Sonic, for example Sonic USDC, so the token resolution is tested on the real chain.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.317,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 69,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "BuyOffer(address buyer,address denominationToken,uint96 minAmountRemaining,uint96 minFt,uint96 minStrike,address paymentToken,uint96 price,uint256 nonce,uint40 deadline)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 4,
+   "worst": "BuyOffer: the taker fee on top of the offer price is not shown or mentioned.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 90,
+  "clarity": 40,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "BuyOffer: the taker fee on top of the offer price is not shown or mentioned."
+ }
+}

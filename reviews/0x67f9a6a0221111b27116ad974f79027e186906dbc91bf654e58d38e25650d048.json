@@ -1,0 +1,231 @@
+{
+ "hash": "0x67f9a6a0221111b27116ad974f79027e186906dbc91bf654e58d38e25650d048",
+ "file": "registry/morpho/calldata-steakhouse_financial-bbqUSD1-v2-143.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 143,
+   "address": "0xbeeffb65df79baac701307c9605b7ab207355fdb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USD1 from the signer via transferFrom to the vault, using up that much of the signer's USD1 allowance to the vault.",
+     "Mints vault shares (bbqUSD1) to `onBehalf`. The share count is previewDeposit(assets), which comes from vault storage and adapter balances after interest accrues."
+    ],
+    "shown": "Deposit 0.01 USD1 for <onBehalf>, with the share ticker bbqUSD1 and the share recipient shown. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of bbqUSD1 shares received is not shown; the contract works it out from storage.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets);`. Case 0: signer receives 10000000000000000 bbqUSD1 (in), and the screen only shows 'Share ticker: bbqUSD1'.",
+      "fix": "None possible from calldata. A label such as 'Shares sent to' already names the recipient.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USD1 out: amount and asset right. bbqUSD1 in: asset and recipient shown, amount not (computed on chain). The USD1 approval event is the allowance being spent by transferFrom, which is part of the deposit itself."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Takes previewMint(shares) USD1 from the signer via transferFrom to the vault. The amount comes from the share price in storage, and the calldata has no maximum.",
+     "Mints exactly `shares` bbqUSD1 to `onBehalf`."
+    ],
+    "shown": "Mint <shares> bbqUSD1 for <onBehalf>, plus a 'Deposit asset: USD1' line with no amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent and the sentence never say the signer pays USD1; only a bare ticker field shows it.",
+      "evidence": "descriptor mint: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. VaultV2.sol enter(): `SafeERC20Lib.safeTransferFrom(asset, msg.sender, address(this), assets);`. Case 1: signer sends 1003871 USD1 (out).",
+      "fix": "Use intent 'Deposit USD1 for shares' and interpolatedIntent 'Deposit USD1 to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USD1 amount taken from the signer is computed on chain, with no cap in the calldata.",
+      "evidence": "VaultV2.sol mint(): `uint256 assets = previewMint(shares);`, with no maxAssets parameter. Case 1: 1.003871 USD1 leaves the signer, and the screen shows only 'Deposit asset: USD1'.",
+      "fix": "None from calldata. Labelling the ticker field 'Pays in (amount set by share price)' would help.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "USD1 out: asset and direction shown, amount not. The shares went to 0xdead, not to the signer, and the screen shows that correctly."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns previewWithdraw(assets) bbqUSD1 shares from `onBehalf`. The share count comes from storage. If the signer is not onBehalf, the signer's share allowance from onBehalf is spent.",
+     "Sends exactly `assets` USD1 from the vault to `receiver`."
+    ],
+    "shown": "Withdraw exactly <assets> USD1 to <receiver>, with the share owner shown. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of bbqUSD1 shares burned is not shown; it is computed from storage.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets);`, then exit() calls deleteShares(onBehalf, shares). Case 2: signer loses 10000000000000 bbqUSD1, and the screen shows no share amount.",
+      "fix": "None from calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "bbqUSD1 out: owner shown, amount not (computed). USD1 in: amount, asset and receiver right."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` bbqUSD1 from `onBehalf`. If the signer is not onBehalf, the signer's share allowance from onBehalf is spent.",
+     "Sends previewRedeem(shares) USD1 from the vault to `receiver`. The amount comes from storage, and the calldata has no minimum."
+    ],
+    "shown": "Redeem <shares> bbqUSD1 to <receiver>, with the owner shown. The asset received and its amount are not named anywhere.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names USD1 as the asset received, although the descriptor has it as a constant.",
+      "evidence": "descriptor redeem fields: shares, receiver, onBehalf only. Mint shows `$.metadata.constants.underlyingTicker`, but redeem does not. VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. Case 3: signer receives 962827652 USD1, and the reader wrote 'Underlying asset (likely USD1) ... amount not shown'.",
+      "fix": "Add a field {label:'Receive asset', format:'raw', value:'$.metadata.constants.underlyingTicker'} and use interpolatedIntent 'Redeem {#.shares} for USD1 to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USD1 amount received is computed on chain, with no minimum in the calldata.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);`, with no minAssets parameter.",
+      "fix": "None from calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "bbqUSD1 out: amount and asset right. USD1 in: the receiver is shown, but the asset is not named and the amount is not shown."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.395,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 111,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent and the sentence never say the signer pays USD1; only a bare ticker field shows it.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USD1 as the asset received, although the descriptor has it as a constant.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 68,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names USD1 as the asset received, although the descriptor has it as a constant."
+ }
+}

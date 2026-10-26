@@ -1,0 +1,209 @@
+{
+ "hash": "0x32e01f5546b4142c3f062225e5675678b115e6bc4453fa14d44840fccfa0c55d",
+ "file": "registry/morpho/calldata-re7_labs-Re7USDT.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x95eef579155cd2c5510f312c8fa39208c3be01a8"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDT to the vault (safeTransferFrom(caller, vault, assets)), spending the signer's USDT allowance to the vault.",
+     "The receiver gets Re7USDT shares, computed from the vault's total assets after fees (rounded down). No minimum is enforced."
+    ],
+    "shown": "Intent 'Deposit', the USDT amount as 'Deposit asset', a constant 'Share ticker: Re7USDT', and the receiver as 'Send shares to'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many Re7USDT shares the receiver gets; the vault rate sets it.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` Descriptor shows only `assets`, the constant `vaultTicker` and `receiver`.",
+      "fix": "None possible from calldata. ERC-4626 deposit has no minShares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "deposit intent 'Deposit' does not name the USDT asset or the Re7USDT vault.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`, no interpolatedIntent. The 'Share ticker' field is a raw constant with no amount.",
+      "fix": "Change the intent to \"Deposit USDT into Re7USDT vault\" and add an interpolatedIntent such as \"Deposit {assets} for shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends USDT to the vault. The amount is computed from `shares` at the vault rate, rounded up, with no maximum bound.",
+     "The receiver gets exactly `shares` Re7USDT shares (18 decimals)."
+    ],
+    "shown": "Intent 'Mint', a constant 'Deposit asset: USDT', the share amount as 'Minted shares' in Re7USDT, and the receiver as 'Mint shares to'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDT leaves the signer; the vault rate sets it, with no cap.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);` The descriptor shows only the 'Deposit asset' ticker USDT as a raw constant, with no amount.",
+      "fix": "None possible from calldata. ERC-4626 mint has no maxAssets parameter. A label such as 'USDT taken (set by vault rate)' would warn the signer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent 'Mint' does not say that the signer pays USDT for the shares.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`. The only sign of a payment is the field `\"label\": \"Deposit asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"`.",
+      "fix": "Change the intent to \"Deposit USDT to mint Re7USDT shares\" and add an interpolatedIntent \"Mint {shares} for USDT to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns Re7USDT shares from `owner`. The share count is computed from `assets`, rounded up, with no maximum bound.",
+     "When the signer is not `owner`, the call spends the signer's share allowance from `owner`.",
+     "The receiver gets exactly `assets` USDT from the vault."
+    ],
+    "shown": "Intent 'Withdraw', the USDT amount as 'Withdraw exactly', the receiver as 'To', and the owner as 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many Re7USDT shares the vault burns from the owner.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` ERC4626._withdraw: `_burn(owner, shares);`",
+      "fix": "None possible from calldata. ERC-4626 withdraw has no maxShares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw intent 'Withdraw' does not name USDT or the Re7USDT vault.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`, no interpolatedIntent.",
+      "fix": "Change the intent to \"Withdraw USDT from Re7USDT vault\" and add an interpolatedIntent \"Withdraw {assets} to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` Re7USDT from `owner`. When the signer is not `owner`, this spends the signer's share allowance.",
+     "The receiver gets USDT computed from the shares at the vault rate, rounded down. No minimum is enforced."
+    ],
+    "shown": "Intent 'Redeem', the share amount as 'Shares to redeem' in Re7USDT, the receiver as 'To', and the owner as 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDT amount the receiver gets, and no minimum applies.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);`",
+      "fix": "None possible from calldata. ERC-4626 redeem has no minAssets parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem intent 'Redeem' and its fields never say that the signer receives USDT.",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"`. Its fields are `shares`, `receiver` and `owner`. Unlike mint and deposit, it has no USDT ticker field.",
+      "fix": "Change the intent to \"Redeem Re7USDT shares for USDT\" and add an interpolatedIntent \"Redeem {shares} for USDT to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.333,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 52,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit intent 'Deposit' does not name the USDT asset or the Re7USDT vault.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say that the signer pays USDT for the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent 'Withdraw' does not name USDT or the Re7USDT vault.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem intent 'Redeem' and its fields never say that the signer receives USDT.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 58,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "mint intent 'Mint' does not say that the signer pays USDT for the shares."
+ }
+}

@@ -1,0 +1,156 @@
+{
+ "hash": "0xa77e9c467d52f5495c1698bc8d711f2240ab8ad982c81224d7333fb3f81ed267",
+ "file": "registry/1inch/calldata-NativeOrderFactory.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  },
+  {
+   "chainId": 10,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  },
+  {
+   "chainId": 56,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  },
+  {
+   "chainId": 100,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  },
+  {
+   "chainId": 137,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  },
+  {
+   "chainId": 146,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  },
+  {
+   "chainId": 43114,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  },
+  {
+   "chainId": 59144,
+   "address": "0xe12e0f117d23a5ccc57f8935cd8c4e80cd91ff01"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "create((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) makerOrder)",
+    "effects": [
+     "The signer sends msg.value in ETH. The code forces it to equal makerOrder.makingAmount, and it leaves the wallet now.",
+     "The ETH goes to a new per-order clone escrow (cloneDeterministic on the order hash). The clone wraps it to WETH and approves the 1inch Limit Order Protocol for exactly that amount.",
+     "A limit order is created with the clone as maker. It sells that WETH for makerOrder.takingAmount of makerOrder.takerAsset, paid to makerOrder.receiver when filled. Partial fills follow makerTraits.",
+     "The signer (makerOrder.maker, which the code forces to be msg.sender) can later cancel and get the ETH back, or call withdraw on the clone to run any call from it.",
+     "After the expiry packed in makerTraits, any resolver holding the access token can cancel the order. The ETH goes back to the signer minus a resolver reward of up to basefee*70000*1.1."
+    ],
+    "shown": "The screen says \"create order\", then shows the ETH value as 'Amount to Send', the takingAmount in the taker token as 'Receive amount', and the receiver as 'Beneficiary'. The maker asset, salt and makerTraits (expiry, flags) are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "create: intent \"create order\" does not say ETH is sold for a token or locked in escrow",
+      "evidence": "descriptor intent \"create order\", interpolatedIntent absent. NativeOrderFactory.create: depositAndApprove{value: msg.value} wraps the ETH and approves LOP; the order sells it for takingAmount of takerAsset. Case 0 reader was unsure 'Whether the ETH leaves immediately or only when the order fills'.",
+      "fix": "Use intent \"Create ETH limit order\" and an interpolatedIntent such as \"Sell {@.value} for {makerOrder.takingAmount} to {makerOrder.receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "create: 'Amount to Send' hides that the ETH is locked as WETH in a cancellable order escrow",
+      "evidence": "descriptor field @.value label 'Amount to Send'. NativeOrderImpl.depositAndApprove: _WETH.safeDeposit(msg.value); _WETH.forceApprove(_LOP, msg.value). Case 0: 0.941237427924501607 ETH goes from the signer to the factory, then to clone 0xe169…, which wraps it and approves 0x1111111254…. The reader asked 'Which contract receives the ETH'.",
+      "fix": "Relabel to 'ETH to sell (locked in order escrow)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "create: order expiry in makerTraits is hidden, and resolvers may cut a reward after expiry",
+      "evidence": "descriptor makerOrder.makerTraits visible 'never'. NativeOrderImpl.cancelExpiredOrderByResolver: resolverReward = Math.min(rewardLimit, block.basefee * _CANCEL_GAS_LOWER_BOUND * 1.1e18 / 1e18), taken from the refund. In case 0, makerTraits bytes 17..21 hold expiry 0x69c1607c. The reader listed 'Order expiry time and whether I can cancel it' as unsure.",
+      "fix": "Add a field 'Expires' with path makerOrder.makerTraits.[17:22], format date, encoding timestamp.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "create: 'Receive amount' is the full-fill amount; partial fills and extension pricing are not stated",
+      "evidence": "Case 0 makerTraits top byte 0x4a: NO_PARTIAL_FILLS is clear, and ALLOW_MULTIPLE_FILLS and HAS_EXTENSION are set. The extension, committed only by hash in the salt, may set the taking-amount getter. The reader wrote 'screen doesn't say at least' and was unsure if it is a minimum.",
+      "fix": "Relabel to 'Receive (if fully filled)'. The extension terms are not in the calldata, so this is a spec limitation.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "create: makerAsset is hidden and not forced to WETH; extension terms are only a hash",
+      "evidence": "NativeOrderFactory.create checks maker, receiver and makingAmount==msg.value, but not that makerAsset is WETH. Descriptor makerOrder.makerAsset is visible 'never'. A wrong makerAsset only makes the order unfillable; the signer can still cancel and get the ETH back. The extension (post-interaction, getters) is committed in the salt and not in this calldata.",
+      "fix": "Optionally show makerAsset as a token field or check it, so the signer can see the order sells WETH.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The only mined signer effect is 0.941237427924501607 ETH out, which the screen shows as 'Amount to Send'. The wrap to WETH in clone 0xe169… and its approval to the 1inch LOP are between other parties and match the code. The reader got the ETH out right but was unsure about the escrow, the expiry and whether the amount is a minimum."
+     }
+    ],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.329,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 189,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "create((uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) makerOrder)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "create: order expiry in makerTraits is hidden, and resolvers may cut a reward after expiry",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 90,
+  "clarity": 72,
+  "functions": "1B",
+  "incomplete": false,
+  "worst": "create: order expiry in makerTraits is hidden, and resolvers may cut a reward after expiry"
+ }
+}

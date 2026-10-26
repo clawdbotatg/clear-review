@@ -1,0 +1,213 @@
+{
+ "hash": "0x7e7c43683417b6b908408b741ee48243ca1913c45876cd6755e23861f6b91098",
+ "file": "registry/morpho/calldata-mev_capital-MCwETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x9a8bc3b04b7f3d87cfc09ba407dced575f2d61d8"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` WETH to the vault, using the signer's WETH allowance to the vault.",
+     "The receiver gets MCwETH shares, the number set by the vault's share price after fee accrual, rounded down; there is no minimum.",
+     "The vault supplies the WETH to Morpho Blue markets; this does not change what the signer gets."
+    ],
+    "shown": "Intent \"Deposit\", with the WETH amount sent, a fixed line 'Share ticker: MCwETH', and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many MCwETH shares the receiver gets; the vault's share price sets it.",
+      "evidence": "MetaMorpho.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);` The price comes from storage and Morpho balances, and calldata has no minimum-shares parameter. The descriptor shows only `Share ticker` (raw constant 'MCwETH').",
+      "fix": "No descriptor change can show the share count. Keep the share ticker line.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit shows a lone 'Share ticker' line with no amount, which a signer can read as an amount they receive.",
+      "evidence": "descriptor deposit field `{\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}`",
+      "fix": "Rename the label to 'Receive shares in' or add an interpolatedIntent such as 'Deposit {assets} for MCwETH shares to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 72
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends WETH to the vault. The amount comes from the share price, rounded up, and calldata gives no upper bound.",
+     "The receiver gets exactly `shares` MCwETH shares.",
+     "The call uses the signer's WETH allowance to the vault."
+    ],
+    "shown": "Intent \"Mint\", with 'Deposit asset: WETH' (ticker only), the exact MCwETH shares minted, and the share receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much WETH leaves the signer; the vault price sets it and nothing caps it.",
+      "evidence": "MetaMorpho.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` The descriptor shows only `Deposit asset` as the raw constant 'WETH'.",
+      "fix": "No descriptor change can show the WETH amount. The only cap is the signer's WETH allowance to the vault.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "The mint intent 'Mint' does not say that the signer pays WETH for the shares.",
+      "evidence": "descriptor mint `\"intent\": \"Mint\"`; the 'Deposit asset' field shows only the ticker 'WETH'.",
+      "fix": "Change the intent to 'Deposit WETH for vault shares', or add interpolatedIntent 'Mint {shares} for WETH to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns MCwETH shares from `owner`. The number of shares comes from the share price, rounded up.",
+     "If the signer is not `owner`, the call spends the owner's share allowance to the signer.",
+     "The receiver gets exactly `assets` WETH."
+    ],
+    "shown": "Intent \"Withdraw\", with the exact WETH amount, the receiver ('To') and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many MCwETH shares the owner burns; the vault price sets it.",
+      "evidence": "MetaMorpho.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` Calldata has no maximum-shares parameter.",
+      "fix": "No descriptor change can show the share count.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` MCwETH from `owner`. If the signer is not `owner`, the call spends the owner's share allowance.",
+     "The receiver gets WETH. The amount comes from the share price, rounded down, and there is no minimum."
+    ],
+    "shown": "Intent \"Redeem\", with the exact MCwETH shares burned, the receiver ('To') and the owner. The screen does not name WETH and does not show an amount for it.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem never says the receiver gets WETH. The asset is a known constant, but no field shows it.",
+      "evidence": "Case 0: the signer receives 0.005050870049653561 WETH from the vault (signer 'in'). The screen has only 'Shares to redeem', 'To' and 'Owner'. The blind reader wrote 'Underlying asset (likely WETH) ... amount not shown'. The descriptor shows `underlyingTicker` in mint but not in redeem.",
+      "fix": "Add a field `{\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}`, or change the intent to 'Redeem shares for WETH'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem shows no WETH amount or minimum received; the vault's share price sets the payout.",
+      "evidence": "MetaMorpho.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` In case 0 the signer receives 5050870049653561 WETH, and the screen shows no such amount.",
+      "fix": "No descriptor change can show the amount. ERC-4626 redeem has no minimum-assets parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 0.004805390814757588 MCwETH burned from the signer. It does not show the asset or the amount of the 0.00505087 WETH that arrives. The reader guessed 'likely WETH' with no amount."
+     }
+    ],
+    "glance": 50,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.334,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never says the receiver gets WETH. The asset is a known constant, but no field shows it.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 61,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem never says the receiver gets WETH. The asset is a known constant, but no field shows it."
+ }
+}

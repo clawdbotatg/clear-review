@@ -1,0 +1,210 @@
+{
+ "hash": "0xfdbb421315a0c48def23f93501ba350fb382d97368246c799c20455b3498d58f",
+ "file": "registry/kiln/calldata-Vault-USDC-Morpho-Gauntlet-USDC-Core-Base-multisig.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xb3e9c49d7e18bda41b5806b66f79a09afd7ad369"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls `assets` USDC (Base USDC 0x8335…2913) from the signer into the vault (standard ERC-4626 behaviour; the implementation behind the beacon could not be read).",
+     "Mints vault shares (lmMgUSDC) to `receiver`. The number of shares comes from the vault's exchange rate, and any deposit fee is set by implementation code that is not available."
+    ],
+    "shown": "Deposit, with the USDC amount, a raw constant 'lmMgUSDC' labelled Share ticker, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown; it comes from the vault's exchange rate in storage.",
+      "evidence": "descriptor.json deposit fields: only `assets`, constant `vaultTicker` (raw) and `receiver`. ERC-4626 deposit has no minShares parameter, so the share amount is not in calldata.",
+      "fix": "None possible in ERC-7730. A label such as 'Receive shares (lmMgUSDC)' would make clearer that the amount is decided by the vault.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' names neither the asset nor the vault.",
+      "evidence": "descriptor.json deposit intent: \"Deposit\"",
+      "fix": "Use an intent like 'Deposit USDC into Gauntlet USDC Core vault' and add an interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 70
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Pulls USDC from the signer. The amount is computed from `shares` at the vault's current rate (previewMint, rounded up) and is not in calldata.",
+     "Mints exactly `shares` vault shares to `receiver`."
+    ],
+    "shown": "Mint, with a raw 'USDC' constant labelled Deposit asset, the share amount, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDC amount taken from the signer is not shown; it comes from the share price in storage.",
+      "evidence": "descriptor.json mint field {label:'Deposit asset', format:'raw', value:'$.metadata.constants.underlyingTicker'} shows only the ticker 'USDC'. ERC-4626 mint has no maxAssets parameter.",
+      "fix": "None possible for the amount. Relabel the field 'Pays in (amount set by vault)' so the bare ticker does not look like a complete amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: 'Deposit asset' displays only a ticker, so it looks like an amount field with no value.",
+      "evidence": "descriptor.json mint: label 'Deposit asset', format 'raw', value '$.metadata.constants.underlyingTicker' (renders 'USDC').",
+      "fix": "Relabel it 'Paid in' or 'Asset spent', or put the asset in the intent: 'Mint vault shares paying USDC'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns the shares needed for `assets` (previewWithdraw, rounded up) from `owner`. When the signer is not `owner`, this spends the owner's share allowance to the signer.",
+     "Sends exactly `assets` USDC to `receiver`. Any withdrawal fee depends on implementation code that is not available."
+    ],
+    "shown": "Withdraw, with the exact USDC amount, the receiver and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown; it comes from the vault rate.",
+      "evidence": "descriptor.json withdraw fields: `assets`, `receiver`, `owner`. ERC-4626 withdraw has no maxShares parameter.",
+      "fix": "None in ERC-7730.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' does not name USDC or the vault.",
+      "evidence": "descriptor.json withdraw intent: \"Withdraw\"",
+      "fix": "Use 'Withdraw USDC from vault' and an interpolatedIntent with the amount and receiver.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `owner`. When the signer is not `owner`, this spends the owner's share allowance to the signer.",
+     "Sends USDC worth `shares` (previewRedeem, minus any fee set by implementation code that is not available) to `receiver`."
+    ],
+    "shown": "Redeem, with the number of shares, the receiver and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC received is not shown; it comes from the vault rate and there is no minimum.",
+      "evidence": "descriptor.json redeem fields: `shares` (tokenAmount @.to), `receiver`, `owner`. ERC-4626 redeem has no minAssets parameter.",
+      "fix": "None for the amount. Add the underlying ticker to the intent ('Redeem shares for USDC') so the asset received is stated.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: nothing on the screen says the shares are redeemed for USDC.",
+      "evidence": "descriptor.json redeem intent \"Redeem\". Fields have no underlying ticker, unlike mint, which shows `underlyingTicker`.",
+      "fix": "Use the intent 'Redeem vault shares for USDC' or add a field with value $.metadata.constants.underlyingTicker labelled 'Receive asset'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "8453:0xb3e9c49d7e18bda41b5806b66f79a09afd7ad369 is a Kiln VaultBeaconProxy (BeaconProxy). The beacon 0x1d011ff40899e22fcba7ac1dedcf227a1b4974db and the vault implementation it points to are not in the directory (proxyResolution has no implementations). So deposit/mint/withdraw/redeem could not be checked against real code: fees on deposit or withdraw, routing into the underlying Morpho vault, and the share/asset math all run in that unverified implementation."
+  ]
+ },
+ "cost": 0.212,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 50,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: 'Deposit asset' displays only a ticker, so it looks like an amount field with no value.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: nothing on the screen says the shares are redeemed for USDC.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 56,
+  "functions": "2B 2C",
+  "incomplete": true,
+  "worst": "mint: 'Deposit asset' displays only a ticker, so it looks like an amount field with no value."
+ }
+}

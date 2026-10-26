@@ -1,0 +1,181 @@
+{
+ "hash": "0x7a40d59484472b936fdcf6e5f4375c4c7241cb2721c71571343f9504c5ea708d",
+ "file": "registry/morpho/calldata-clearstar-NOONECOUSDC-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x8b12106a70fe2f8bb255f691f1cf9a9ccfb278af"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer and sends it to the vault (safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints NOONECOUSDC vault shares to `onBehalf`. The amount comes from previewDeposit at the current share price, after interest accrues.",
+     "The vault may send the USDC on to its liquidity adapter. That is the vault's internal allocation, not a further effect on the signer."
+    ],
+    "shown": "Deposit 1000 USDC, with NOONECOUSDC shares going to the onBehalf address. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown, and the code has no minimum-shares bound.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets);` is computed from storage. Case 0: signer received 996.671 NOONECOUSDC, and no field states this amount. The reader was unsure how many shares they would get.",
+      "fix": "Nothing in the calldata carries it. You could add a note that the share amount depends on the vault price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "1000 USDC out is shown right. The shares go to the signer's own address and the share ticker is shown, but the amount comes from the vault price and cannot be shown."
+     }
+    ],
+    "glance": 88,
+    "depth": 82
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns NOONECOUSDC shares from `onBehalf`. The amount comes from previewWithdraw at the current share price.",
+     "If msg.sender != onBehalf, it spends the signer's share allowance from onBehalf by that number of shares.",
+     "Sends exactly `assets` USDC from the vault to `receiver`."
+    ],
+    "shown": "Withdraw an exact USDC amount to the receiver, with the owner whose shares are burned. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is not shown, and the code has no maximum-shares bound.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets);`. Case 1: signer burned 1225.8475 NOONECOUSDC, and no field states this amount. The reader marked the share amount as unknown.",
+      "fix": "Nothing in the calldata carries it. You could add a label or note saying shares are burned from the Owner at the current price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The USDC in (amount and receiver) is shown exactly. The share burn is only implied: the owner is shown, but the amount is derived on chain."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` NOONECOUSDC from `onBehalf`. It spends the signer's share allowance if msg.sender != onBehalf.",
+     "Sends USDC (the vault's immutable asset) to `receiver`. The amount comes from previewRedeem at the current share price."
+    ],
+    "shown": "Redeem an exact number of NOONECOUSDC shares to the receiver, with the owner. Neither the received token nor its amount is shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never names USDC as the asset paid out to the receiver.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets);` where asset is the immutable USDC. Descriptor redeem fields show only shares, receiver and owner, although metadata.constants.underlyingTicker = \"USDC\" exists. Case 2: signer received 1000.183066 USDC. The reader wrote 'USDC is only a guess from the name'.",
+      "fix": "Add a field such as {\"label\":\"Receive\",\"value\":\"$.metadata.constants.underlyingTicker\",\"format\":\"raw\"}, or reword the intent to 'Redeem {#.shares} for USDC to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is not shown, and the code has no minimum-assets bound.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);`. Case 2: 1000.183066 USDC arrived, and no field states this amount.",
+      "fix": "Nothing in the calldata carries it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out are exact, with the right token from @.to. For the USDC in, only the receiver is shown; the asset is guessed and the amount is unknown."
+     }
+    ],
+    "glance": 72,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.308,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 55,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 79,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDC as the asset paid out to the receiver.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 75,
+  "functions": "3B",
+  "incomplete": false,
+  "worst": null
+ }
+}

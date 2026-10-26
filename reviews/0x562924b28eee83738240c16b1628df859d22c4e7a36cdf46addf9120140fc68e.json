@@ -1,0 +1,127 @@
+{
+ "hash": "0x562924b28eee83738240c16b1628df859d22c4e7a36cdf46addf9120140fc68e",
+ "file": "registry/smartcredit/eip712-smartcredit.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x72e9d9038ce484ee986fea183f8d8df93f9ada13"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:29Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "LoanRequest(address collateralAddress,uint256 initialCollateralAmount,uint256 loanAmount,bytes32 loanId,uint64 loanInterestRate,uint64 loanTerm,address underlyingAddress)",
+    "effects": [
+     "The only verifying contract in the descriptor (0x72e9…ada13) is the plain SMARTCREDIT ERC-20 token. It has no ecrecover, no EIP-712 domain and no LoanRequest type, so it never checks this signature and nothing on-chain there changes because of it.",
+     "Judging by the type, whatever really consumes the message (a SmartCredit 'Credit Line' contract or backend that is not in the directory) would commit the signer to a loan request: initialCollateralAmount of collateralAddress posted as collateral, loanAmount of underlyingAddress borrowed at loanInterestRate for loanTerm, under loanId. None of this can be confirmed from the code provided."
+    ],
+    "shown": "The title is just the brand 'SmartCredit.io'. Below it are seven raw fields: collateral token address, collateral amount, loan amount, loan ID, interest rate, 'Load Term' and underlying token address. Numbers have no decimals or units and addresses have no token names.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "LoanRequest is bound to the SMARTCREDIT ERC-20 token, which never verifies EIP-712 signatures or a LoanRequest type.",
+      "evidence": "descriptor.json context.eip712.deployments = [{chainId 1, address 0x72e9d9038ce484ee986fea183f8d8df93f9ada13}], domain {name 'Credit Line', version '1.0.0'}. contracts/1-0x72e9…/src/SMARTCREDIT.sol: contract SMARTCREDIT is ERC20 with only a constructor calling _mint. The file has no ecrecover, DOMAIN_SEPARATOR or LoanRequest typehash. The domain name 'Credit Line' does not match the token's name 'SMARTCREDIT Token'.",
+      "fix": "Bind the descriptor to the contract that actually verifies the 'Credit Line' domain (the SmartCredit credit-line contract) and use its real domain fields. If the signature is only checked off-chain, remove the deployment binding to the token.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "LoanRequest intent 'SmartCredit.io' only names the brand, not that the signer is requesting a collateralised loan.",
+      "evidence": "descriptor.json format intent: \"SmartCredit.io\". There is no interpolatedIntent. case 0 screen.intent: \"SmartCredit.io\".",
+      "fix": "Use an intent like 'Request loan', plus an interpolatedIntent such as 'Borrow {loanAmount} against {initialCollateralAmount} collateral'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "LoanRequest shows collateral and loan amounts as raw integers, although their token addresses are in the message.",
+      "evidence": "fields initialCollateralAmount and loanAmount use format 'raw'. case 0 shows 'Initial Collateral Amount' = 2500000000000000000 (WETH, 18 decimals) and 'Loan Amount' = 4000000000 (USDC, 6 decimals).",
+      "fix": "Use format tokenAmount with params.tokenPath 'collateralAddress' for initialCollateralAmount and params.tokenPath 'underlyingAddress' for loanAmount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "LoanRequest shows collateral and underlying token addresses as raw hex instead of token names.",
+      "evidence": "fields collateralAddress and underlyingAddress use format 'raw'. case 0 shows 0xC02a…6Cc2 and 0xA0b8…eB48 without the WETH/USDC names.",
+      "fix": "Use format addressName with params.types ['token'], or fold the tokens into the amount fields through tokenPath.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "LoanRequest loanTerm has the typo label 'Load Term' and shows a raw number that looks like a timestamp.",
+      "evidence": "field path loanTerm label 'Load Term', format 'raw'. case 0 shows 1777680000, which reads as a Unix time in May 2026 and not as a duration.",
+      "fix": "Rename the label to 'Loan term'. Use format date (encoding timestamp) if it is a maturity date, or duration if it is a length of time.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "LoanRequest interest rate appears as a raw integer with no stated unit; the scale cannot be confirmed from the code.",
+      "evidence": "field loanInterestRate format 'raw'. case 0 shows 850 (possibly basis points, 8.5%). No source in the directory defines the scale.",
+      "fix": "Once the consuming contract's scale is known, use format unit (e.g. decimals 2, base '%') or say the unit in the label.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "LoanRequest effects cannot be confirmed because the contract that consumes the signature is not provided.",
+      "evidence": "The only source in contracts/ is SMARTCREDIT.sol, a plain ERC-20. The code that acts on a signed LoanRequest (collateral pull, loan payout, interest terms) is not in the directory.",
+      "fix": "Point the descriptor at the verified consuming contract so its effects can be checked.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 10,
+    "depth": 25
+   }
+  ],
+  "couldNotCheck": [
+   "The contract (or backend) that verifies the 'Credit Line' 1.0.0 EIP-712 domain and acts on a LoanRequest is not in the directory. The only deployment given is the SMARTCREDIT ERC-20 token at 1:0x72e9d9038ce484ee986fea183f8d8df93f9ada13, which never verifies this signature. So the collateral, loan and interest effects of signing could not be checked."
+  ]
+ },
+ "cost": 0.296,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 59,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "LoanRequest(address collateralAddress,uint256 initialCollateralAmount,uint256 loanAmount,bytes32 loanId,uint64 loanInterestRate,uint64 loanTerm,address underlyingAddress)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 0,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 4,
+   "worst": "LoanRequest is bound to the SMARTCREDIT ERC-20 token, which never verifies EIP-712 signatures or a LoanRequest type.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 0,
+  "functions": "1F",
+  "incomplete": true,
+  "worst": "LoanRequest is bound to the SMARTCREDIT ERC-20 token, which never verifies EIP-712 signatures or a LoanRequest type."
+ }
+}

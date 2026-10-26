@@ -1,0 +1,143 @@
+{
+ "hash": "0x965ad13a53b53b4477845edf5c6e8986e654d3da6981194cb52b2efdc5c4d43b",
+ "file": "registry/threshold/calldata-L1BitcoinDepositor-bytes32.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x186d048097c7406c64efb0537886e3cae100a1fe"
+  },
+  {
+   "chainId": 1,
+   "address": "0x75a6e4a7c8faa162192fad6c1f7a6d48992c619a"
+  },
+  {
+   "chainId": 1,
+   "address": "0xc9031f76006da0bd4bfa9e02adf0d448db3bc155"
+  },
+  {
+   "chainId": 1,
+   "address": "0xb810abd43d8fcfd812d6feb14fefc236e92a341a"
+  },
+  {
+   "chainId": 1,
+   "address": "0x35d6701640fca561bacfe4151063c8e55af66db7"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x40c74a5f0b0e6cc3ae4e8dd2db46d372504445da"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x25b614064293a6b9012e82bb31bc2b1be34e36cb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:08Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "initializeDeposit((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal, bytes32 destinationChainDepositOwner)",
+    "effects": [
+     "No tokens or ETH leave the signer: the function is not payable and makes no transferFrom from msg.sender.",
+     "Reveals a Bitcoin funding transaction to the tBTC Bridge (bridge.revealDepositWithExtraData). The depositor is the L1 depositor contract and destinationChainDepositOwner is stored as extra data.",
+     "Fixes destinationChainDepositOwner (bytes32, must not be zero) as the party who later gets the minted tBTC, bridged to this contract's destination chain (Base, Arbitrum, StarkNet and so on) in finalizeDeposit.",
+     "The call reverts unless reveal.vault equals the configured tbtcVault, and it can run only once per deposit key (funding tx hash + output index).",
+     "If a reimbursement pool is attached and the signer is authorized, it records a deferred gas refund owed to the signer, paid at finalization."
+    ],
+    "shown": "\"Initialize tBTC deposit\", then raw values: funding output index, wallet and refund pubkey hashes, refund locktime as hex, the vault address, the destination owner as a raw 32-byte hex value, and the raw Bitcoin tx parts as optional fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "initializeDeposit shows the tBTC recipient (destinationChainDepositOwner) only as a raw 32-byte hex value.",
+      "evidence": "descriptor.json field {path: destinationChainDepositOwner, label: 'Destination owner', format: 'raw'}; case 0 screen shows '0x0000000000000000000000005c72f3cbff4a6d323b405fef09c1a0a73e61f4bc'. AbstractL1BTCDepositor.finalizeDeposit sends tBTC to this owner via _transferTbtc(tbtcAmount, destinationChainDepositOwner).",
+      "fix": "Label it 'tBTC recipient (destination chain)'. Where a deployment's destination is EVM, show the last 20 bytes as an address, or split the descriptor per destination chain so the field can say which chain the address is on.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "The initializeDeposit intent hides that minted tBTC is bridged to another chain for the destination owner.",
+      "evidence": "descriptor.json intent 'Initialize tBTC deposit', no interpolatedIntent. One descriptor covers Wormhole Base (0x186d…), Arbitrum (0x75a6…), StarkNet (0xc903…) and BTCDepositorWormhole deployments, so the screen never names the destination chain.",
+      "fix": "Add an interpolatedIntent such as 'Reveal Bitcoin deposit; tBTC goes to {destinationChainDepositOwner} on <chain>', using a separate descriptor per destination chain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "initializeDeposit shows the refund locktime as raw little-endian hex instead of a date.",
+      "evidence": "descriptor.json {path: reveal.refundLocktime, format: 'raw'}; case 0 screen 'Refund locktime' = '0x65f1d480'. It is a 4-byte little-endian Bitcoin timestamp (per the AbstractL1BTCDepositor.initializeDeposit natspec '<locktime> The Bitcoin script refund locktime (4-byte LE)').",
+      "fix": "Keep it optional or hide it. ERC-7730 cannot byte-swap, so a readable date is not possible.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "initializeDeposit cannot show the BTC amount being deposited, which sits inside the raw outputVector.",
+      "evidence": "The amount is the value of output reveal.fundingOutputIndex inside fundingTx.outputVector (case 0 'Bitcoin outputs' = '0x01a086010000…'). The bridge reads it as bridge.deposits(depositKey).amount in AbstractBTCDepositor._initializeDeposit.",
+      "fix": "None in ERC-7730. Bitcoin output vectors cannot be decoded.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "initializeDeposit shows many technical Bitcoin fields that a normal signer cannot check.",
+      "evidence": "descriptor.json shows 'Funding output', 'Wallet pubkey hash' and 'Refund pubkey hash' raw with visible 'always', plus four optional raw fundingTx fields.",
+      "fix": "Make wallet pubkey hash and funding output optional. Keep the refund pubkey hash and destination owner visible.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "The only initializeDeposit test case uses synthetic data and has no mined transaction.",
+      "evidence": "cases/0.json minedError 'tx not found'. Its walletPubKeyHash is 0x1111…, its refundPubKeyHash is 0x2222…, and the descriptor has no other cases.",
+      "fix": "Add a real mined initializeDeposit transaction for each destination-chain deployment.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 45
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.403,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 112,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "initializeDeposit((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal, bytes32 destinationChainDepositOwner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 33,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "initializeDeposit shows the tBTC recipient (destinationChainDepositOwner) only as a raw 32-byte hex value.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 33,
+  "functions": "1C",
+  "incomplete": false,
+  "worst": "initializeDeposit shows the tBTC recipient (destinationChainDepositOwner) only as a raw 32-byte hex value."
+ }
+}

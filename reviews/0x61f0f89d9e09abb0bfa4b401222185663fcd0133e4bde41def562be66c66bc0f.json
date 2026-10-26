@@ -1,0 +1,176 @@
+{
+ "hash": "0x61f0f89d9e09abb0bfa4b401222185663fcd0133e4bde41def562be66c66bc0f",
+ "file": "registry/safe/eip712-SafeL2-1.3.0.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 10,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 56,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 137,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  },
+  {
+   "chainId": 1,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 10,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 56,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 137,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 8453,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xfb1bffc9d739b8d520daf37df666da4c687191ea"
+  },
+  {
+   "chainId": 7777777,
+   "address": "0x3e5c63644e683549055b9be8653de26e0b4cd36e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "effects": [
+     "The Safe sends `value` of the chain's native currency to `to`.",
+     "With operation 0, the Safe calls `to` with `data`, which can move any token or right the Safe holds, as the nested call decides.",
+     "With operation 1, the Safe delegate-calls `to`: `to`'s code runs inside the Safe's own storage and balances. It can move every asset and change owners, threshold, modules, guard or fallback handler.",
+     "If gasPrice > 0, the Safe pays (gasUsed + baseGas) * gasPrice in gasToken (native currency when gasToken is zero, with the price capped at tx.gasprice) to refundReceiver (tx.origin when that is zero). It pays this fee even if the inner call fails.",
+     "If safeTxGas or gasPrice is non-zero, the inner call may fail without reverting: the nonce is used up and the fee is still paid.",
+     "The Safe nonce goes up by one, and this signature counts toward the threshold for this exact transaction."
+    ],
+    "shown": "Intent 'Safe' with no sentence. Fields: recipient, native value, operation type (Call / Delegate Call), the nested call decoded against `to`, and baseGas, gasPrice, gasToken and refundReceiver as raw values. safeTxGas and nonce are hidden.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "SafeTx decodes `data` as a call to `to` even when operation is a delegate call.",
+      "evidence": "descriptor.json field `data`: format calldata, params {calleePath: \"to\", amountPath: \"value\", spenderPath: \"@.to\"}, with no condition on `operation`. Executor.execute (called from GnosisSafe.sol execTransaction, line 176) runs a delegatecall when operation == 1. Then `to`'s code runs in the Safe's context with the Safe's balances and storage, so the nested screen (for example 'Transfer X to Y' from `to`) states an outcome that does not happen. A separate 'Operation type: Delegate Call' row does not undo the wrong nested decode.",
+      "fix": "Show the nested call only when operation is 0. For operation 1, show a clear warning label (for example 'Delegate call: runs the code of {to} with full control of this Safe'), or decode it with a descriptor meant for delegate-call targets such as MultiSend. Add a test case with operation 1.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "SafeTx gas refund (gasPrice, gasToken, refundReceiver, baseGas) is shown as raw numbers and addresses.",
+      "evidence": "descriptor.json: `gasPrice` format raw, `gasToken` format raw, `refundReceiver` format raw, `baseGas` format raw with the label 'Gas amount'. GnosisSafe.sol handlePayment: payment = gasUsed.add(baseGas).mul(gasPrice) is paid in gasToken (native when address(0)) to refundReceiver (tx.origin when address(0)). The zero addresses in cases 0 and 1 appear as literal 0x000… with no meaning given. 'Gas amount' is really the base gas overhead, not the fee.",
+      "fix": "Show gasPrice as a tokenAmount with tokenPath gasToken (native currency when zero) under the label 'Refund price per gas'. Show gasToken with tokenName or addressName. Show refundReceiver with addressName and say that zero means the executor (tx.origin). Rename baseGas to 'Base gas (refunded)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "SafeTx hides safeTxGas, which limits the refund and lets the inner call fail while the fee is still paid.",
+      "evidence": "descriptor.json: {path: \"safeTxGas\", visible: \"never\"}. GnosisSafe.sol execTransaction: execute(..., gasPrice == 0 ? (gasleft() - 2500) : safeTxGas), then require(success || safeTxGas != 0 || gasPrice != 0, \"GS013\"), and handlePayment runs whatever the outcome ('fees are always transferred, even if the user transaction fails').",
+      "fix": "Make safeTxGas visible, at least when gasPrice > 0 or safeTxGas > 0, with a label such as 'Gas limit for inner call (refund basis)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "SafeTx intent 'Safe' says nothing about the transfer, the call or the delegate call.",
+      "evidence": "descriptor.json intent: \"Safe\", and there is no interpolatedIntent. In cases 0 and 1 the screen only reads 'Safe' while 0.75 ETH and 0.005 ETH leave the Safe.",
+      "fix": "Use the intent 'Execute Safe transaction' and an interpolatedIntent such as 'Send {value} to {to} ({operation})'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "SafeTx hides the nonce, so the signer cannot tell which queued transaction they confirm or replace.",
+      "evidence": "descriptor.json: {path: \"nonce\", visible: \"never\"}. GnosisSafe.sol execTransaction hashes the nonce into txHash and then runs nonce++.",
+      "fix": "Show the nonce as a raw field labelled 'Safe nonce'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "SafeTx tests cover only plain native transfers, with no delegate call, nested call or gas refund.",
+      "evidence": "cases/0.json and cases/1.json both have data \"0x\", operation 0, and gasPrice/baseGas/safeTxGas 0. Their domain.verifyingContract is the singleton itself, not a Safe proxy as in real messages.",
+      "fix": "Add cases with operation 1 (MultiSend), with an ERC-20 transfer as nested data, and with a non-zero gasPrice and gasToken. Use a proxy address as verifyingContract.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 15,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.359,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 71,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 22,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 3,
+   "worst": "SafeTx decodes `data` as a call to `to` even when operation is a delegate call.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 22,
+  "functions": "1F",
+  "incomplete": false,
+  "worst": "SafeTx decodes `data` as a call to `to` even when operation is a delegate call."
+ }
+}

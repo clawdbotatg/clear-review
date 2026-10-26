@@ -1,0 +1,253 @@
+{
+ "hash": "0xec28169d52217167e51d4886680f9d2b0edf4c739118e68124a1637eb58862fc",
+ "file": "registry/p2p/calldata-NativeTokenVault.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xb72668d6ff7a0e318f83097a754c6aed0f8af034"
+  },
+  {
+   "chainId": 560048,
+   "address": "0x8f73c1ce7fe0e17f45b317b33620924a94256fbb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address receiver, address referrer)",
+    "effects": [
+     "The signer sends msg.value of ETH to the vault (VaultEthStaking.deposit -> _deposit(receiver, msg.value, referrer)).",
+     "The vault mints vault shares, worth the deposited ETH, to `receiver`, which can be any address (_mintShares(to, shares)).",
+     "The referrer is only written to the Deposited event and moves no assets."
+    ],
+    "shown": "\"Stake ETH with p2p\" with the receiver as 'Client address', the referrer, and the ETH value as 'Amount to deposit'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit labels the share receiver 'Client address' and does not say the stake goes to it.",
+      "evidence": "VaultEnterExit._deposit: `_mintShares(to, shares);` with to = receiver. Descriptor: `\"label\": \"Client address\", \"path\": \"#.receiver\"`. A receiver other than the signer gets the whole position.",
+      "fix": "Rename the label to \"Shares receiver\" (or \"Stake owner\") and add an interpolatedIntent such as \"Stake {@.value} for {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many vault shares the receiver gets; the code computes them from storage.",
+      "evidence": "VaultEnterExit._deposit: `shares = _convertToShares(assets, Math.Rounding.Ceil);` uses _totalShares and _totalAssets from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Signer sent 0.01 ETH to the vault; screen shows 0.01 ETH. Receiver was the signer. Vault shares are internal balances, so no token event exists."
+     }
+    ],
+    "glance": 78,
+    "depth": 80
+   },
+   {
+    "key": "updateStateAndDeposit(address receiver, address referrer, (bytes32 rewardsRoot, int160 reward, uint160 unlockedMevReward, bytes32[] proof) harvestParams)",
+    "effects": [
+     "The call first harvests vault rewards with the keeper proof (updateState(harvestParams)), which changes the share price for all holders.",
+     "The signer sends msg.value of ETH to the vault.",
+     "The vault mints vault shares to `receiver`, which can be any address."
+    ],
+    "shown": "\"Stake ETH with p2p\" with the receiver as 'Client address', the referrer, and the ETH value as 'Amount to deposit'; the harvest params are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "updateStateAndDeposit labels the share receiver 'Client address' and does not say the stake goes to it.",
+      "evidence": "VaultEthStaking.updateStateAndDeposit -> deposit(receiver, referrer) -> _mintShares(to, shares). Descriptor: `\"label\": \"Client address\", \"path\": \"#.receiver\"`.",
+      "fix": "Rename the label to \"Shares receiver\" and add an interpolatedIntent such as \"Stake {@.value} for {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "updateStateAndDeposit does not show the minted share amount; it depends on storage and the harvest.",
+      "evidence": "VaultState.updateState: `_processTotalAssetsDelta(totalAssetsDelta);` runs before `_convertToShares(assets, ...)` in _deposit.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Not mined (chain 560048 cannot be read). From code: 0.1 ETH out is shown; shares go to the receiver shown as 'Client address'."
+     }
+    ],
+    "glance": 78,
+    "depth": 78
+   },
+   {
+    "key": "claimExitedAssets(uint256 positionTicket, uint256 timestamp, uint256 exitQueueIndex)",
+    "effects": [
+     "The vault sends the processed exited ETH of the signer's exit request to the signer (msg.sender) (_transferVaultAssets(msg.sender, exitedAssets)).",
+     "The signer's exit request is deleted. If only part was processed, a new request with the remaining tickets is created at a new position ticket."
+    ],
+    "shown": "\"Claim exited assets\" with the exit request timestamp as 'Exit initiated at'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimExitedAssets does not show the ETH amount received; the exit queue in storage decides it.",
+      "evidence": "VaultEnterExit.claimExitedAssets: `(uint256 leftTickets, uint256 exitedTickets, uint256 exitedAssets) = calculateExitedAssets(msg.sender, positionTicket, timestamp, exitQueueIndex);` then `_transferVaultAssets(msg.sender, exitedAssets);`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "claimExitedAssets intent does not name ETH or say the claim can be partial.",
+      "evidence": "Descriptor intent \"Claim exited assets\". VaultEnterExit.claimExitedAssets: `if (leftTickets > 1) { newPositionTicket = positionTicket + exitedTickets; ... }` keeps the rest in the queue.",
+      "fix": "Change the intent to \"Claim unstaked ETH from p2p\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Not mined (chain 560048 cannot be read). From code: the signer receives ETH, and the screen gives no amount."
+     }
+    ],
+    "glance": 62,
+    "depth": 40
+   },
+   {
+    "key": "enterExitQueue(uint256 shares, address receiver)",
+    "effects": [
+     "The call takes `shares` vault shares from the signer's balance (_balances[user] -= shares, or _burnShares when the vault is not collateralized).",
+     "If the vault is collateralized, the call creates an exit request keyed to `receiver`. Only `receiver` can later claim the ETH with claimExitedAssets.",
+     "If the vault is not collateralized, the vault sends the ETH value of the shares to `receiver` at once.",
+     "The call reverts if the signer's osToken position LTV becomes too low (view check only)."
+    ],
+    "shown": "\"Exit funds\" with 'Shares to exit' (18 decimals, unit 'shares') and the receiver as 'Client address'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "enterExitQueue labels the ETH receiver 'Client address'; it does not say this address gets the ETH.",
+      "evidence": "VaultEnterExit._enterExitQueue: `_exitRequests[keccak256(abi.encode(receiver, block.timestamp, positionTicket))] = shares;` and `_transferVaultAssets(receiver, assets);`. claimExitedAssets keys on msg.sender. Descriptor: `\"label\": \"Client address\", \"path\": \"#.receiver\"`.",
+      "fix": "Rename the label to \"ETH receiver\" and add an interpolatedIntent such as \"Unstake {shares} shares, ETH to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "enterExitQueue intent 'Exit funds' does not say it queues an unstake of vault shares for ETH.",
+      "evidence": "Descriptor intent \"Exit funds\". VaultEnterExit._enterExitQueue puts the shares in the exit queue: `_queuedShares = SafeCast.toUint128(queuedShares + shares);`.",
+      "fix": "Change the intent to \"Request ETH unstake from p2p\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "enterExitQueue does not show the ETH value of the shares; the share price comes from storage.",
+      "evidence": "VaultEnterExit._enterExitQueue: `uint256 assets = convertToAssets(shares);`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Not mined (chain 560048 cannot be read). From code: shares leave the signer (shown), and the receiver of the ETH is shown under an unclear label."
+     }
+    ],
+    "glance": 50,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.487,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 123,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address receiver, address referrer)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 87,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit labels the share receiver 'Client address' and does not say the stake goes to it.",
+   "comprehension": 100
+  },
+  "updateStateAndDeposit(address receiver, address referrer, (bytes32 rewardsRoot, int160 reward, uint160 unlockedMevReward, bytes32[] proof) harvestParams)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "updateStateAndDeposit labels the share receiver 'Client address' and does not say the stake goes to it.",
+   "comprehension": null
+  },
+  "claimExitedAssets(uint256 positionTicket, uint256 timestamp, uint256 exitQueueIndex)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimExitedAssets intent does not name ETH or say the claim can be partial.",
+   "comprehension": null
+  },
+  "enterExitQueue(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "enterExitQueue labels the ETH receiver 'Client address'; it does not say this address gets the ETH.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 63,
+  "functions": "1A 1B 2C",
+  "incomplete": false,
+  "worst": "claimExitedAssets intent does not name ETH or say the claim can be partial."
+ }
+}

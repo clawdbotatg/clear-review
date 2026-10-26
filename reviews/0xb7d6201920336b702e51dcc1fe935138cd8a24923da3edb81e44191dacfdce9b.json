@@ -1,0 +1,242 @@
+{
+ "hash": "0xb7d6201920336b702e51dcc1fe935138cd8a24923da3edb81e44191dacfdce9b",
+ "file": "registry/symbiotic/calldata-VaultV1-lvlwaUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x67f91a36c5287709e68e3420cd17dd5b13c60d6d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` lvlwaUSDC (the vault collateral 0x78c6…5e33) to the vault through transferFrom, which spends the signer's allowance.",
+     "The vault credits active shares, computed from the amount actually received, to `onBehalfOf` and not to the signer when `onBehalfOf` is another address."
+    ],
+    "shown": "Deposit 123.25 lvlwaUSDC into the named vault, with the shares credited to the beneficiary address shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show the number of vault shares the beneficiary receives.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` The descriptor shows only `#.amount` and `#.onBehalfOf`.",
+      "fix": "None. The share count depends on vault storage at execution time.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The signer's active shares are burned. The number is previewWithdraw(amount), rounded up, and comes from storage.",
+     "`amount` lvlwaUSDC moves from active stake into the withdrawal queue for the next epoch.",
+     "`claimer` gets withdrawal shares for epoch currentEpoch()+1, and only that address can claim the lvlwaUSDC after the epoch ends.",
+     "No tokens move in this call. Slashing during the pending epoch can reduce what the claimer gets later."
+    ],
+    "shown": "Request a 2.5 lvlwaUSDC withdrawal from the vault, with the claim owner address shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw intent does not say that the funds are only claimable later, by the claim owner.",
+      "evidence": "Vault.sol _withdraw: `uint256 epoch = currentEpoch() + 1; ... withdrawalSharesOf[epoch][claimer] += mintedShares;` Descriptor intent: \"Request withdrawal\". Interpolated: \"Request {amount} withdrawal for {claimer}\".",
+      "fix": "Change interpolatedIntent to \"Queue {amount} withdrawal, claimable by {claimer}\" so it says no tokens arrive now and who can claim.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the active shares burned or the slashing risk while the request is pending.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` onSlash reduces `withdrawals[currentEpoch_ + 1]`.",
+      "fix": "None. Both values come from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 82
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The signer burns `shares` of its active vault shares.",
+     "The vault converts those shares to lvlwaUSDC with previewRedeem, using storage, and queues that amount for the next epoch.",
+     "`claimer` gets the withdrawal shares and the right to claim the lvlwaUSDC after the epoch ends. No tokens move now."
+    ],
+    "shown": "Queue a raw share count for withdrawal, with the claim owner address shown. The lvlwaUSDC value is not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem shows the vault share amount as a raw integer without decimals or unit.",
+      "evidence": "Descriptor redeem field `#.shares` uses format \"raw\", label \"Vault shares (raw)\". Case 2 shows \"987654321123456789\". ERC4626Math._decimalsOffset() returns 0, so shares use the collateral decimals (6).",
+      "fix": "Use {\"path\":\"#.shares\",\"label\":\"Vault shares\",\"format\":\"unit\",\"params\":{\"base\":\"shares\",\"decimals\":6}} and keep it in interpolatedIntent as \"Queue {shares} withdrawal, claimable by {claimer}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the lvlwaUSDC amount queued for the shares redeemed.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "fix": "None. The exchange rate comes from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 58,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault marks the signer's withdrawal for `epoch` as claimed. This uses up the signer's claim right for that epoch.",
+     "The vault sends withdrawalsOf(epoch, signer) lvlwaUSDC to `recipient`. The amount comes from storage and can be cut by slashing."
+    ],
+    "shown": "Claim the withdrawal for epoch 42 and send it to the recipient address shown. The asset and amount are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claim never names the asset sent to the recipient (lvlwaUSDC), though the collateral is fixed.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount);` Descriptor intent \"Claim withdrawal\", interpolatedIntent \"Claim epoch {epoch} to {recipient}\". No field names the token.",
+      "fix": "Change intent to \"Claim lvlwaUSDC withdrawal\" and interpolatedIntent to \"Claim lvlwaUSDC for epoch {epoch} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim cannot show the lvlwaUSDC amount, which comes from the signer's stored withdrawal shares.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);`",
+      "fix": "None.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "For each listed epoch, the vault marks the signer's withdrawal as claimed. This uses up those claim rights.",
+     "The vault sends the sum of withdrawalsOf(epoch, signer) over all listed epochs to `recipient` in one lvlwaUSDC transfer. The amount comes from storage."
+    ],
+    "shown": "Claim the withdrawals for the listed epochs, each one shown, and send them to the recipient address shown. The asset and total are not shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "claimBatch never names the asset sent to the recipient (lvlwaUSDC).",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount);` Descriptor intent \"Claim withdrawals\", interpolatedIntent \"Claim epochs {epochs.[]} to {recipient}\".",
+      "fix": "Change intent to \"Claim lvlwaUSDC withdrawals\" and interpolatedIntent to \"Claim lvlwaUSDC for epochs {epochs.[]} to {recipient}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch cannot show the total lvlwaUSDC sent, which comes from storage for each epoch.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);`",
+      "fix": "None.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.421,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 87,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw intent does not say that the funds are only claimable later, by the claim owner.",
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 54,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem shows the vault share amount as a raw integer without decimals or unit.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim never names the asset sent to the recipient (lvlwaUSDC), though the collateral is fixed.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch never names the asset sent to the recipient (lvlwaUSDC).",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 67,
+  "functions": "1A 3B 1C",
+  "incomplete": false,
+  "worst": "redeem shows the vault share amount as a raw integer without decimals or unit."
+ }
+}

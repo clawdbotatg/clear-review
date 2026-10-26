@@ -1,0 +1,221 @@
+{
+ "hash": "0x760da3b55d027b13b8b50586487eeb24d7ff96ce22ee0dc7f986a46828791ffe",
+ "file": "registry/symbiotic/calldata-VaultV1Tokenized-HYPER.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe1f23869776c82f691d9cb34597ab1830fb0de58"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:31Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The vault takes `amount` HYPER from the signer with safeTransferFrom and spends the signer's allowance to the vault.",
+     "The vault gives vault shares (stHYPER) to `onBehalfOf`. The share amount comes from previewDeposit and the vault's stake and shares in storage."
+    ],
+    "shown": "\"Deposit 123.25 HYPER for 0x2222…\", with fields for the vault, the HYPER amount and the deposit beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many stHYPER shares the beneficiary receives.",
+      "evidence": "Vault.deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_); _activeSharesOf[onBehalfOf].push(...)`. The descriptor has only the fields `Deposit amount` and `Deposit beneficiary`.",
+      "fix": "Nothing to change in the descriptor. The share amount comes from storage, so the calldata cannot show it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 85
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The vault burns stHYPER shares from the signer. It computes the number of shares from `amount` with previewWithdraw.",
+     "The vault queues `amount` HYPER for the next epoch. Only `claimer` gets the right to claim it after that epoch ends.",
+     "No HYPER moves in this call. Slashing can reduce the queued amount before the claim."
+    ],
+    "shown": "\"Request 2.5 HYPER withdrawal for 0x3333…\", with fields for the vault, the requested assets and the claim owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many stHYPER shares it burns from the signer.",
+      "evidence": "Vault.withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());`. VaultTokenized._withdraw: `emit Transfer(msg.sender, address(0), burnedShares)`. No field shows burned shares.",
+      "fix": "Nothing to change in the descriptor. The burned shares come from storage.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw queues an amount that slashing can reduce before the claim; the screen shows a fixed amount.",
+      "evidence": "Vault.onSlash reduces `withdrawals[currentEpoch_ + 1]`, so withdrawalsOf at claim time can be lower than `amount`. The field is labeled `Requested assets`.",
+      "fix": "Nothing to change in the descriptor. The label 'Requested assets' already says the amount is a request.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "The vault burns `shares` stHYPER from the signer.",
+     "The vault queues the HYPER value of those shares, computed with previewRedeem, for the next epoch. `claimer` can claim it later."
+    ],
+    "shown": "\"Queue 0.987654321123456789 stHYPER for 0x3333…\", with fields for the vault, the vault shares and the claim owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem interpolated intent does not say the shares are burned for a later HYPER claim.",
+      "evidence": "Descriptor: interpolatedIntent \"Queue {shares} for {claimer}\". Vault.redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, ...); _withdraw(claimer, withdrawnAssets, shares)` burns the signer's shares.",
+      "fix": "Change interpolatedIntent to \"Burn {shares} to queue a withdrawal for {claimer}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the HYPER amount that gets queued.",
+      "evidence": "Vault.redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());` reads it from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The vault marks the signer's withdrawal for `epoch` as claimed.",
+     "The vault sends withdrawalsOf(epoch, signer) HYPER to `recipient`."
+    ],
+    "shown": "\"Claim epoch 42 to 0x2222…\", with fields for the vault, the raw epoch and the recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim does not show the HYPER amount sent, and the intent does not name HYPER.",
+      "evidence": "Vault.claim: `amount = _claim(epoch); IERC20(collateral).safeTransfer(recipient, amount);` takes the amount from storage. The intent is \"Claim withdrawal\".",
+      "fix": "Change the intent to \"Claim HYPER withdrawal\". The amount comes from storage and cannot be shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "The vault marks the signer's withdrawals for every listed epoch as claimed.",
+     "The vault sends the sum of the signer's claimable HYPER over those epochs to `recipient`."
+    ],
+    "shown": "\"Claim epochs 42 and 44 and 128 to 0x2222…\", with one field per epoch and a recipient field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch does not show the total HYPER sent, and the intent does not name HYPER.",
+      "evidence": "Vault.claimBatch: `amount += _claim(epochs[i]); ... IERC20(collateral).safeTransfer(recipient, amount);` takes the amount from storage. The intent is \"Claim withdrawals\".",
+      "fix": "Change the intent to \"Claim HYPER withdrawals\". The amount comes from storage and cannot be shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.413,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 58,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 75,
+  "functions": "1A 4B",
+  "incomplete": false,
+  "worst": null
+ }
+}

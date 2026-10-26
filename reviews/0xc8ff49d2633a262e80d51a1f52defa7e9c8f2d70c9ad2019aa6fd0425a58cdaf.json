@@ -1,0 +1,212 @@
+{
+ "hash": "0xc8ff49d2633a262e80d51a1f52defa7e9c8f2d70c9ad2019aa6fd0425a58cdaf",
+ "file": "registry/morpho/calldata-gauntlet-smcbBTC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x5a47c803488fe2bb0a0eaaf346b420e4df22f3c7"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:22Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` cbBTC (0xcbB7…33Bf) to the vault via safeTransferFrom, spending the signer's cbBTC allowance to the vault.",
+     "The vault mints smcbBTC shares to `receiver`; the share count comes from the current exchange rate after interest and fee accrual, rounded down.",
+     "The vault supplies the cbBTC to Morpho Blue markets in its supply queue; the signer gets no direct position there."
+    ],
+    "shown": "Deposit: the exact cbBTC amount, a constant 'Share ticker: smcbBTC', and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many smcbBTC shares the receiver gets; the vault's exchange rate sets it.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. The descriptor shows only `assets`, 'Share ticker' (constant) and `receiver`.",
+      "fix": "None possible from calldata. Optionally rename 'Share ticker' to 'Receive shares in' so it is clear that the share amount is not known in advance.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit intent 'Deposit' does not name cbBTC or the Seamless vault.",
+      "evidence": "descriptor deposit format: `\"intent\": \"Deposit\"`, interpolatedIntent absent; the asset only appears in the 'Deposit asset' amount field.",
+      "fix": "Change the intent to \"Deposit cbBTC into smcbBTC vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault takes cbBTC from the signer via safeTransferFrom. The amount comes from `shares` at the current exchange rate, rounded up, and calldata sets no maximum.",
+     "The vault mints exactly `shares` smcbBTC to `receiver`.",
+     "The vault supplies the cbBTC to Morpho Blue markets."
+    ],
+    "shown": "Mint: 'Deposit asset: cbBTC' as a raw ticker with no amount, the exact smcbBTC share amount, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much cbBTC leaves the signer; the vault rate sets it, with no cap.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. The descriptor field 'Deposit asset' is the constant `$.metadata.constants.underlyingTicker` with no amount.",
+      "fix": "None possible from calldata. Use a label such as 'Pay with (amount set by vault rate)' so that the signer knows the cbBTC amount is not shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent 'Mint' does not say cbBTC leaves the signer's wallet.",
+      "evidence": "descriptor mint format: `\"intent\": \"Mint\"`; cbBTC leaves via `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets)` in ERC4626._deposit. The only hint is the raw field 'Deposit asset: cbBTC'.",
+      "fix": "Change the intent to \"Deposit cbBTC for exact smcbBTC shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns smcbBTC shares from `owner`; the share count comes from the exchange rate, rounded up.",
+     "When the signer is not `owner`, the signer's share allowance from `owner` decreases by the burned shares.",
+     "The vault withdraws liquidity from Morpho Blue markets and sends exactly `assets` cbBTC to `receiver`."
+    ],
+    "shown": "Withdraw: exactly the cbBTC amount, the receiver ('To') and the share owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many smcbBTC shares the vault burns from the owner.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` then ERC4626._withdraw `_burn(owner, shares)`. The descriptor shows `assets`, `receiver` and `owner` only.",
+      "fix": "None possible from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw intent 'Withdraw' does not name cbBTC or the vault.",
+      "evidence": "descriptor withdraw format: `\"intent\": \"Withdraw\"`, interpolatedIntent absent.",
+      "fix": "Change the intent to \"Withdraw cbBTC from smcbBTC vault\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 82
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` smcbBTC from `owner`.",
+     "When the signer is not `owner`, the signer's share allowance from `owner` decreases by `shares`.",
+     "The vault sends cbBTC to `receiver`. The amount comes from the exchange rate, rounded down, with no minimum in calldata."
+    ],
+    "shown": "Redeem: the exact smcbBTC share amount, the receiver ('To') and the share owner. The asset received is not named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the cbBTC amount the receiver gets; the vault rate sets it, no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` then `SafeERC20.safeTransfer(_asset, receiver, assets)`. The descriptor has no field for the asset received.",
+      "fix": "None possible for the amount. Add a constant field such as {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} so the signer knows cbBTC arrives.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem screen and intent never say that cbBTC is the asset paid out.",
+      "evidence": "descriptor redeem format: `\"intent\": \"Redeem\"`, fields 'Shares to redeem', 'To', 'Owner'; the underlying ticker constant that deposit and mint use is missing here.",
+      "fix": "Change the intent to \"Redeem smcbBTC shares for cbBTC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.336,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 51,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent 'Mint' does not say cbBTC leaves the signer's wallet.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem screen and intent never say that cbBTC is the asset paid out.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 60,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "mint intent 'Mint' does not say cbBTC leaves the signer's wallet."
+ }
+}

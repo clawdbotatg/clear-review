@@ -1,0 +1,232 @@
+{
+ "hash": "0xe79ab96793ba5816dddea57c7a40857cad2c687457b17ffa9e530b2133d840db",
+ "file": "registry/kiln/calldata-Vault-USDT-Morpho-Steakhouse-USDT-multisig.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x00f05efa6d73335225f23b5adb1fc873795aaccf"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDT to the vault (safeTransferFrom(asset, caller, this, assets) in Vault._deposit).",
+     "The vault mints vault shares (lmMsthUSDT) to `receiver`. The number of shares comes from the share price and a deposit fee kept in storage, and there is no minimum.",
+     "The vault puts the USDT into Morpho Steakhouse USDT through a connector it delegatecalls. Nothing else of the signer's moves."
+    ],
+    "shown": "\"Deposit\", with the USDT amount, the share ticker lmMsthUSDT as a fixed label, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: bare intent \"Deposit\" with no interpolatedIntent names neither the asset, the amount nor the vault.",
+      "evidence": "descriptor.json deposit: \"intent\": \"Deposit\", no interpolatedIntent. Case 0 screen intent \"Deposit\".",
+      "fix": "Add \"interpolatedIntent\": \"Deposit {assets} into Kiln Steakhouse USDT vault for shares sent to {receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is computed on chain and has no minimum, so it cannot be shown.",
+      "evidence": "Vault.sol deposit: (_shares, _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply()). The deposit fee is read from $._depositFee. Case 0: 1000001 lmMsthUSDT in, with no amount on screen.",
+      "fix": "None in the descriptor. The 'Share ticker' field could be relabeled 'Receive shares (amount set by vault price)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Deposit asset' label sits on an amount, and 'Share ticker' shows a constant with no amount.",
+      "evidence": "descriptor.json deposit fields: label \"Deposit asset\" on path assets (tokenAmount); label \"Share ticker\" raw value $.metadata.constants.vaultTicker. Case 0 screen: 'Share ticker: lmMsthUSDT'.",
+      "fix": "Rename the fields to 'Amount to deposit' and 'You receive (shares)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The USDT out (1.000001) is shown right. The share token and receiver are shown, but the share amount (1000001 lmMsthUSDT) is not, because it is computed on chain. The reader correctly noted the share amount as unknown."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer pays the USDT amount that previewMint computes (shares converted at the vault price, plus a deposit fee from storage). The amount is not in the calldata and has no maximum except the signer's allowance.",
+     "The vault mints exactly `shares` vault shares to `receiver`.",
+     "The vault puts the USDT into Morpho through the delegatecalled connector."
+    ],
+    "shown": "\"Mint\", with 'Deposit asset: USDT' as a fixed label, the exact number of shares to mint (vault token), and the receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDT amount taken from the signer is computed on chain and not shown.",
+      "evidence": "Vault.sol mint: (_assets, _depositFeeAmount) = _previewMint(shares, ...); _deposit(_msgSender(), receiver, _assets, shares, ...). descriptor.json mint shows only the raw constant underlyingTicker 'USDT' as 'Deposit asset'.",
+      "fix": "None possible from calldata. Relabel the field 'Pays in USDT (amount set by vault price)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the bare intent \"Mint\" does not say that USDT is spent to get vault shares.",
+      "evidence": "descriptor.json mint: \"intent\": \"Mint\", no interpolatedIntent.",
+      "fix": "Use intent 'Deposit USDT for shares' and interpolatedIntent 'Mint {shares} vault shares to {receiver}, paid in USDT'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns the shares from `owner` that cover `assets`, rounded up. If the signer is not the owner, the signer's share allowance from the owner is spent.",
+     "The connector withdraws `assets` USDT from Morpho, and the balance increase is transferred to `receiver`."
+    ],
+    "shown": "\"Withdraw\", with the exact USDT amount, the receiver and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is computed on chain and not shown.",
+      "evidence": "Vault.sol withdraw: _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); _withdraw(...) burns _shares from owner.",
+      "fix": "None from calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the bare intent \"Withdraw\" names neither the asset nor that vault shares are burned.",
+      "evidence": "descriptor.json withdraw: \"intent\": \"Withdraw\", no interpolatedIntent.",
+      "fix": "Add interpolatedIntent 'Withdraw {assets} to {receiver} by burning shares of {owner}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` from `owner`. If the signer is not the owner, the signer's share allowance is spent.",
+     "The receiver gets the USDT those shares convert to, rounded down, with no minimum. It is paid as the balance increase from the connector withdrawal."
+    ],
+    "shown": "\"Redeem\", with the number of shares, the receiver and the owner. The USDT amount received is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT amount received is computed on chain and has no minimum, so it cannot be shown.",
+      "evidence": "Vault.sol redeem: _assets = _convertToAssets(shares, Math.Rounding.Floor, ...); _withdraw(...) transfers the balance delta to receiver.",
+      "fix": "None from calldata. Add a constant field 'Receive: USDT' so the asset is named.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the bare intent \"Redeem\" and the fields never name USDT as the asset received.",
+      "evidence": "descriptor.json redeem: \"intent\": \"Redeem\", fields shares/receiver/owner only. No underlyingTicker field, unlike mint.",
+      "fix": "Add interpolatedIntent 'Redeem {shares} for USDT sent to {receiver}' and a constant field for the USDT ticker.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "Vault._deposit and _withdraw delegatecall a connector looked up in the connector registry 0xde63817c82e93499357ae198518f90ac1be93a72 (name MORPHO_STEAKHOUSE_USDT). Neither the registry nor the connector source is in the directory, and the connector withdrawal decides how much USDT reaches the receiver in withdraw and redeem."
+  ]
+ },
+ "cost": 0.457,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 66,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit: bare intent \"Deposit\" with no interpolatedIntent names neither the asset, the amount nor the vault.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the bare intent \"Mint\" does not say that USDT is spent to get vault shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the bare intent \"Withdraw\" names neither the asset nor that vault shares are burned.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the bare intent \"Redeem\" and the fields never name USDT as the asset received.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 54,
+  "functions": "1B 3C",
+  "incomplete": true,
+  "worst": "mint: the bare intent \"Mint\" does not say that USDT is spent to get vault shares."
+ }
+}

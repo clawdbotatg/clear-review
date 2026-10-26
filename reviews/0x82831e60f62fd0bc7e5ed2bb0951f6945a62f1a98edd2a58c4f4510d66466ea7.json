@@ -1,0 +1,144 @@
+{
+ "hash": "0x82831e60f62fd0bc7e5ed2bb0951f6945a62f1a98edd2a58c4f4510d66466ea7",
+ "file": "registry/ophis/calldata-Ophis-GPv2Settlement.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 10,
+   "address": "0x310784c7fce12d578da6f53460777bac9718b859"
+  },
+  {
+   "chainId": 130,
+   "address": "0x108a678716e5e1776036ef044cab7064226f714e"
+  },
+  {
+   "chainId": 4663,
+   "address": "0x886d9fd312f442c4e1f3cdeae7b4ab73493e57cd"
+  },
+  {
+   "chainId": 5042,
+   "address": "0x78799f98276efba1edeed32eae03a3fd8cdfec3a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "invalidateOrder(bytes orderUid)",
+    "effects": [
+     "Permanently cancels the signer's order with this UID by setting filledAmount[orderUid] to the max value. This blocks any later fill of an order signed off-chain or pre-signed. The call reverts unless the signer is the owner encoded in the UID.",
+     "No tokens, ETH or allowances move. The call is not payable."
+    ],
+    "shown": "\"Cancel order\" with the 56-byte order UID shown as raw hex.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "invalidateOrder: the order UID hides the order's terms (sell/buy token, amounts, receiver) that are being cancelled.",
+      "evidence": "GPv2Order.sol extractOrderUidParams: the UID is the packed orderDigest (32 bytes) + owner (20 bytes) + validTo (4 bytes). Descriptor field orderUid 'Order ID' format raw. Case 0 shows 0x3fae…6b36ec80.",
+      "fix": "No descriptor can decode the digest. Optionally, a note in the label that the ID stands for an order placed on Ophis.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "invalidateOrder: the order expiry inside the UID could be shown as a date with a slice.",
+      "evidence": "GPv2Order.sol extractOrderUidParams: validTo := shr(224, calldataload(add(orderUid.offset, 52))). The descriptor shows only the raw 56-byte orderUid.",
+      "fix": "Add a field with path orderUid.[52:56], format date (encoding timestamp), label 'Order expires'. That helps the signer recognise which order is being cancelled.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 45
+   },
+   {
+    "key": "setPreSignature(bytes orderUid,bool signed)",
+    "effects": [
+     "If signed is true, the signer's order becomes executable (preSignature[orderUid] = PRE_SIGNED). Solvers can then settle it, pulling the order's sell token from the signer through the vault relayer allowance and paying the buy token to the order's receiver.",
+     "If signed is false, the pre-signature is cleared, so the order can no longer be settled through a pre-signature.",
+     "The call reverts unless the signer is the owner encoded in the UID. No tokens or ETH move in this call, and it is not payable."
+    ],
+    "shown": "The static intent \"Authorize or revoke order\", the raw order UID, and an 'Authorized' field reading true or false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "setPreSignature: the static intent does not say whether this call authorizes or revokes the order.",
+      "evidence": "descriptor: \"intent\": \"Authorize or revoke order\", no interpolatedIntent. Only the 'Authorized' field (raw true/false) tells the direction. In GPv2Signing.sol setPreSignature, signed=true sets PRE_SIGNED and signed=false clears it. Cases 1 and 2 render the same intent for opposite actions.",
+      "fix": "Add an interpolatedIntent that carries the flag, e.g. \"Set pre-signature of order {orderUid} to {signed}\", or a clearer label such as 'Order can be executed' for signed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "setPreSignature: authorizing makes an order executable whose sell amount, tokens and receiver are hidden behind the UID digest.",
+      "evidence": "GPv2Signing.sol setPreSignature stores PRE_SIGNED for orderUid. GPv2Order.sol extractOrderUidParams shows the UID packs only digest+owner+validTo. Descriptor field orderUid format raw.",
+      "fix": "Not decodable from calldata. Wallets should pair this with the order details from the Ophis API. Optionally show validTo via the orderUid.[52:56] date slice.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "setPreSignature: the order expiry packed in the UID is not shown, although a slice could extract it.",
+      "evidence": "GPv2Order.sol: validTo := shr(224, calldataload(add(orderUid.offset, 52))). The descriptor shows only the raw orderUid.",
+      "fix": "Add a field {path: orderUid.[52:56], format: date, params: {encoding: timestamp}, label: 'Valid until'}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 40
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.3,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 96,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "invalidateOrder(bytes orderUid)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "setPreSignature(bytes orderUid,bool signed)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 43,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setPreSignature: the static intent does not say whether this call authorizes or revokes the order.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 52,
+  "functions": "1B 1C",
+  "incomplete": false,
+  "worst": "setPreSignature: the static intent does not say whether this call authorizes or revokes the order."
+ }
+}

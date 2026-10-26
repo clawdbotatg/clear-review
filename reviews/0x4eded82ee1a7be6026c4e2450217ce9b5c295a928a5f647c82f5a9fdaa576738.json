@@ -1,0 +1,246 @@
+{
+ "hash": "0x4eded82ee1a7be6026c4e2450217ce9b5c295a928a5f647c82f5a9fdaa576738",
+ "file": "registry/kiln/calldata-Vault-WETH-Morpho-Gauntlet-Core.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xc90cb928711d7dff6564ede7d7ce3fb6e3e654f2"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` WETH from the signer into the vault with safeTransferFrom, using the signer's WETH allowance to the vault.",
+     "Mints kmgcWETH shares to `receiver`. The amount is computed from the share price, less a deposit fee set by the fee manager (0 at init), rounded down; there is no minimum.",
+     "Delegatecalls the registry connector, which puts the WETH into the Morpho Gauntlet WETH Core vault. That position belongs to the vault, not the signer.",
+     "Reverts if the receiver is not the signer while shares are non-transferable and nobody holds SPENDER_ROLE, if the signer is blocked, or if deposits are paused."
+    ],
+    "shown": "\"Deposit\" with the WETH amount, the share ticker kmgcWETH as a constant, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown, and the call takes no minimum.",
+      "evidence": "Vault.sol deposit: `(uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply())`. Shares are computed on chain. Case 0: the reader says 'kmgcWETH shares, amount not shown'.",
+      "fix": "None in the descriptor. The amount is a return value and not in the calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: a deposit fee from storage can reduce the shares minted, and the screen never mentions it.",
+      "evidence": "Vault.sol _previewDeposit: `depositFeeAmount = assets.mulDiv($._depositFee, ...)`, and shares come from `assets - depositFeeAmount`. The fee is set by FEE_MANAGER and capped at 35%. In case 0 shares equalled assets (no fee).",
+      "fix": "None possible from calldata. A label note could say shares are net of any vault fee.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' names neither WETH nor the vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor.json deposit: `\"intent\": \"Deposit\"` and no interpolatedIntent. Case 0: the reader was unsure 'which contract or vault receives the WETH'.",
+      "fix": "Add interpolatedIntent \"Deposit {assets} into Kiln Morpho Gauntlet WETH vault for kmgcWETH shares\" and an intent like \"Deposit WETH\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "0.000386000000000001 WETH out is shown right. 386000000000001 kmgcWETH in: the receiver and ticker are shown but not the amount, which the descriptor cannot show."
+     }
+    ],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` kmgcWETH to `receiver`.",
+     "Pulls from the signer a WETH amount computed on chain (share price plus any deposit fee, rounded up). There is no maximum.",
+     "Delegatecalls the connector, which deposits the WETH into the Morpho vault for the vault.",
+     "Reverts if shares is not a multiple of 10^offset, if the receiver is not the signer while shares are non-transferable, if the signer is blocked, or if deposits are paused."
+    ],
+    "shown": "\"Mint\" with 'Deposit asset: WETH' as a constant, the share amount in kmgcWETH, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the WETH amount taken from the signer is not shown and has no upper bound.",
+      "evidence": "Vault.sol mint: `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, ...)`, then `_deposit(_msgSender(), receiver, _assets, ...)`. The descriptor only shows the constant `underlyingTicker`.",
+      "fix": "None in calldata. A label like 'Pay with: WETH (amount set by share price)' would make that explicit.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint' does not say that WETH leaves the wallet.",
+      "evidence": "descriptor.json mint: `\"intent\": \"Mint\"` and no interpolatedIntent. The WETH payment appears only as a raw constant field.",
+      "fix": "Use an intent like \"Deposit WETH for shares\" and interpolatedIntent \"Mint {shares} kmgcWETH by depositing WETH\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns kmgcWETH shares from `owner`. The amount is computed on chain, rounded up, and not shown.",
+     "If the caller is not the owner, spends the owner's share allowance to the caller.",
+     "Delegatecalls the connector to withdraw `assets` WETH from Morpho, then sends the vault's WETH balance increase to `receiver`.",
+     "Reverts if transferability rules fail for the receiver or owner, if either is blocked, or if `assets` exceeds the max withdraw."
+    ],
+    "shown": "\"Withdraw\" with the exact WETH amount, the receiver, and the owner of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown, and the call takes no maximum.",
+      "evidence": "Vault.sol withdraw: `uint256 _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply())`, then `_burn(owner, shares)` in _withdraw.",
+      "fix": "None in calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "withdraw: the receiver gets the vault's WETH balance change, which depends on unverified connector code.",
+      "evidence": "Vault.sol _withdraw: `SafeERC20.safeTransfer(IERC20(asset()), receiver, IERC20(asset()).balanceOf(address(this)) - _balanceBefore)`, after the connector delegatecall. The descriptor label is 'Withdraw exactly'.",
+      "fix": "Keep the label if the connector always returns exactly `assets`, which needs checking against the connector source.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' names no asset and does not say kmgcWETH shares are burned.",
+      "evidence": "descriptor.json withdraw: `\"intent\": \"Withdraw\"` and no interpolatedIntent.",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver} by burning {owner}'s kmgcWETH shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` kmgcWETH from `owner`. If the caller is not the owner, spends the owner's share allowance.",
+     "Delegatecalls the connector to withdraw the computed WETH value from Morpho and sends the balance increase to `receiver`. There is no minimum.",
+     "Reverts if shares is not a multiple of 10^offset, if transferability or blocklist checks fail, or if shares exceed the max redeem."
+    ],
+    "shown": "\"Redeem\" with the share amount in kmgcWETH, the receiver, and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the WETH amount received is not shown, and the call takes no minimum.",
+      "evidence": "Vault.sol redeem: `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply)`. Assets are computed on chain.",
+      "fix": "None in calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: neither the intent nor any field says the receiver gets WETH.",
+      "evidence": "descriptor.json redeem: `\"intent\": \"Redeem\"`, with fields shares, receiver and owner only. The mint format has a constant 'Deposit asset' field, but redeem has no 'Receive asset' field.",
+      "fix": "Add a constant field 'Receive asset' = $.metadata.constants.underlyingTicker, and interpolatedIntent \"Redeem {shares} for WETH to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": [
+   "The connector named MORPHO_GAUNTLET_WETH_CORE is resolved at runtime from connector registry 0xde63817c82e93499357ae198518f90ac1be93a72 and delegatecalled in Vault._deposit and Vault._withdraw. Neither its source nor the registry's is in the directory, so the WETH sent to the receiver in withdraw and redeem (the vault's balance change after the connector withdraws) cannot be checked from code."
+  ]
+ },
+ "cost": 0.488,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 78,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the intent 'Deposit' names neither WETH nor the vault, and there is no interpolatedIntent.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that WETH leaves the wallet.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the intent 'Withdraw' names no asset and does not say kmgcWETH shares are burned.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: neither the intent nor any field says the receiver gets WETH.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 55,
+  "functions": "2B 2C",
+  "incomplete": true,
+  "worst": "mint: the intent 'Mint' does not say that WETH leaves the wallet."
+ }
+}

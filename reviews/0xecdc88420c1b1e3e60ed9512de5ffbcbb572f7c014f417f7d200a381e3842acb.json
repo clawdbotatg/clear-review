@@ -1,0 +1,165 @@
+{
+ "hash": "0xecdc88420c1b1e3e60ed9512de5ffbcbb572f7c014f417f7d200a381e3842acb",
+ "file": "registry/safe/calldata-SafeProxyFactory-1.4.1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x4e1dcf7ad4e460cfd30791ccc4f9c8a4f820ec67"
+  },
+  {
+   "chainId": 10,
+   "address": "0x4e1dcf7ad4e460cfd30791ccc4f9c8a4f820ec67"
+  },
+  {
+   "chainId": 56,
+   "address": "0x4e1dcf7ad4e460cfd30791ccc4f9c8a4f820ec67"
+  },
+  {
+   "chainId": 137,
+   "address": "0x4e1dcf7ad4e460cfd30791ccc4f9c8a4f820ec67"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x4e1dcf7ad4e460cfd30791ccc4f9c8a4f820ec67"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x4e1dcf7ad4e460cfd30791ccc4f9c8a4f820ec67"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x4e1dcf7ad4e460cfd30791ccc4f9c8a4f820ec67"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "createProxyWithNonce(address _singleton, bytes initializer, uint256 saltNonce)",
+    "effects": [
+     "Deploys a new Safe proxy with CREATE2 that points at `_singleton`. The address comes from keccak(initializer) and saltNonce.",
+     "Calls the new proxy with `initializer` (Safe.setup). This sets the owners, threshold, fallback handler and an optional delegatecall `to`/`data`, all in the new Safe's context. It may also pay `payment` of paymentToken from the new Safe to paymentReceiver, or to tx.origin (the signer) when the receiver is zero.",
+     "The function is not payable. None of the signer's tokens or ETH move, apart from gas. If the signer is listed as an owner, they gain owner rights on the new Safe."
+    ],
+    "shown": "\"Create Safe\" with the singleton address and the decoded setup call (signers, threshold, fallback handler, payment, payment receiver, module). The salt nonce is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createProxyWithNonce: the address of the new Safe is not shown because CREATE2 derives it on chain.",
+      "evidence": "SafeProxyFactory.sol createProxyWithNonce: salt = keccak256(abi.encodePacked(keccak256(initializer), saltNonce)); deployProxy uses create2. saltNonce is visible: never in the descriptor.",
+      "fix": "Nothing can be done in the descriptor. The wallet could compute the predicted address.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "createProxyWithNonce: the nested setup shows the zero-address fallback handler/receiver and the module \"0x\" raw.",
+      "evidence": "cases/0.json screen: 'Fallback handler' 0x000…0, 'Payment receiver' 0x000…0, 'Module' '0x'. These come from the Safe singleton descriptor (calleePath _singleton), not from this file.",
+      "fix": "In the Safe setup descriptor, add a label or message for the zero receiver (meaning tx.origin) and for an empty module call.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Synthetic case with no mined tx. The code moves none of the signer's assets. The screen states the setup that creates the Safe: 3 owners, threshold 2, no payment."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "createProxyWithCallback(address _singleton, bytes initializer, uint256 saltNonce, address callback)",
+    "effects": [
+     "Deploys a new Safe proxy with CREATE2 that points at `_singleton`. The salt mixes saltNonce with the callback address.",
+     "Calls the new proxy with `initializer` (Safe.setup). This sets the owners, threshold, fallback handler and an optional delegatecall, all in the new Safe's context. It may also pay `payment` from the new Safe to paymentReceiver, or to tx.origin when the receiver is zero.",
+     "If `callback` is not zero, the factory calls callback.proxyCreated(proxy, singleton, initializer, saltNonce). The caller of that call is the factory, not the signer.",
+     "The function is not payable. None of the signer's assets move, apart from gas."
+    ],
+    "shown": "\"Create Safe\" with the singleton address and the decoded setup call (signers, threshold, fallback handler, payment, receiver, module). The salt nonce and the callback contract are hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "createProxyWithCallback: the callback contract is visible: never, though the factory calls it after deployment.",
+      "evidence": "SafeProxyFactory.sol createProxyWithCallback: if (address(callback) != address(0)) callback.proxyCreated(proxy, _singleton, initializer, saltNonce); descriptor: {\"label\":\"Callback\",\"path\":\"callback\",\"visible\":\"never\"}. In case 1 the callback is 0x1e6e5a1c…ea9a. Its caller is the factory, so it cannot move the signer's assets.",
+      "fix": "Optionally show the callback as an addressName field so the signer sees which contract is notified.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createProxyWithCallback: the address of the new Safe is not shown because CREATE2 derives it on chain.",
+      "evidence": "createProxyWithCallback: saltNonceWithCallback = keccak256(saltNonce, callback), then createProxyWithNonce with create2.",
+      "fix": "Nothing can be done in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Synthetic case with no mined tx. The code moves none of the signer's assets. The setup is decoded in full: 3 owners, threshold 2."
+     }
+    ],
+    "glance": 80,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.222,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 99,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "createProxyWithNonce(address _singleton, bytes initializer, uint256 saltNonce)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "createProxyWithCallback(address _singleton, bytes initializer, uint256 saltNonce, address callback)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 81,
+  "functions": "2A",
+  "incomplete": false,
+  "worst": null
+ }
+}

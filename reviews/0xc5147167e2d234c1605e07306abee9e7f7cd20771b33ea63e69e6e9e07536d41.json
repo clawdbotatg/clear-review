@@ -1,0 +1,191 @@
+{
+ "hash": "0xc5147167e2d234c1605e07306abee9e7f7cd20771b33ea63e69e6e9e07536d41",
+ "file": "registry/morpho/calldata-architect-archGV1USDC-v2-8453.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x8effa741061aaa2d8a5012a9b09a2d31d8b628d7"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDC from the signer and sends it to the vault (safeTransferFrom in enter).",
+     "Mints vault shares to `onBehalf`. The number is computed by previewDeposit at the current share price, and nothing in the call sets a minimum.",
+     "Runs accrueInterest first, which can mint fee shares to the fee recipients and dilute the share price used."
+    ],
+    "shown": "Deposit 7.98 USDC for <onBehalf>, with fields for the USDC amount, a constant share ticker and the address that gets the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown because it is computed from vault storage.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. No minShares parameter exists. Case 0 minted 7.710079747102080516 shares, and the screen shows only the ticker 'archGV1USDC'.",
+      "fix": "No calldata value to show. A label such as 'Shares at current price' would set the expectation.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "wrong-metadata",
+      "title": "deposit: the 'Share ticker' constant archGV1USDC differs from the on-chain share symbol 'ARCHITECT INDIRECT'.",
+      "evidence": "descriptor metadata.constants.vaultTicker = \"archGV1USDC\". In case 0 the share token 0x8effa741… has symbol \"ARCHITECT INDIRECT\" in the mined effects. The signer's wallet will list the shares under the other name.",
+      "fix": "Align the constant with the token's symbol, or label the field 'Vault' rather than 'Share ticker'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The USDC out matches the screen exactly. Shares do go to the signer (onBehalf = signer), but the screen gives no share amount."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` USDC from the vault to `receiver` (safeTransfer in exit).",
+     "Burns vault shares from `onBehalf`. The number is previewWithdraw(assets), rounded up, and there is no maximum bound.",
+     "If msg.sender is not onBehalf, it spends the signer's share allowance from onBehalf by that number of shares.",
+     "May pull liquidity back from the liquidity adapter. This does not change what the signer gets."
+    ],
+    "shown": "Withdraw 50000 USDC to <receiver>, with fields for the exact USDC amount, the receiver and the owner whose shares pay for it.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the owner are not shown because the number is computed from vault storage.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` → `deleteShares(onBehalf, shares)`. Case 1 burned 48789.537445209044545715 shares from the signer. The screen shows only the USDC amount and the Owner.",
+      "fix": "No calldata value exists. The Owner label could read 'Shares burned from' so it is clear that shares leave this address.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The reader got 50000 USDC to their own address right. They understood that the position shrinks, but believed nothing leaves the wallet, when in fact share tokens are burned."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `onBehalf`. If msg.sender is not onBehalf, it also spends the signer's share allowance.",
+     "Sends USDC to `receiver`. The amount is previewRedeem(shares), computed from vault storage, and there is no minimum bound."
+    ],
+    "shown": "Redeem 7.71 archGV1USDC to <receiver>, with fields for the share amount, the receiver and the owner. Nothing says which asset arrives.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names USDC as the asset paid out to the receiver.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. In case 2 the signer received 7.982883 USDC. The screen fields are 'Shares to redeem', 'To' and 'Owner', and none names the asset. The reader wrote: 'Which asset is paid out; USDC is only a guess from the name'. The descriptor already has the constant underlyingTicker \"USDC\" but does not use it here.",
+      "fix": "Add a constant field such as {\"label\":\"Receive\",\"value\":\"$.metadata.constants.underlyingTicker\"}, and say 'Redeem {#.shares} for USDC to {#.receiver}' in the interpolated intent.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount received is computed from the share price and has no bound in calldata.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);`. Case 2 paid out 7.982883 USDC, which appears nowhere on the screen.",
+      "fix": "Nothing in calldata to show.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The shares out match the screen. For the USDC in, the reader only guessed the asset from the ticker and the amount was not shown."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.348,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 66,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDC as the asset paid out to the receiver.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 75,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names USDC as the asset paid out to the receiver."
+ }
+}

@@ -1,0 +1,231 @@
+{
+ "hash": "0x0f66b83f04ef35402fc8ad32974aba1b6f575c2f947263ced7b4b6bf967763d6",
+ "file": "registry/symbiotic/calldata-VaultV1-sfrxETH.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x3b512427ca6345e67101eccb78d9c8508714818c"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "Pulls `amount` sfrxETH (the vault collateral 0xac3E…e38F) from the signer to the vault via safeTransferFrom, which uses the signer's allowance.",
+     "Mints vault active shares for `onBehalfOf`, not the signer, in a number computed from the vault's stake and shares (previewDeposit)."
+    ],
+    "shown": "Deposit X sfrxETH into the vault, with the stake credited to the named beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to onBehalfOf is computed on chain and not shown.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_)`, which depends on storage. The descriptor shows only #.amount and #.onBehalfOf.",
+      "fix": "None needed. A descriptor cannot compute this value.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "Burns the signer's active vault shares, enough to cover `amount` sfrxETH (rounded up by previewWithdraw). Reverts if the signer does not hold enough.",
+     "Adds `amount` sfrxETH to the next epoch's withdrawal queue and credits the withdrawal shares to `claimer`. Only `claimer` can claim them later, and no tokens move now.",
+     "The queued amount stays slashable until the epoch ends, so the later claim can be smaller than `amount`."
+    ],
+    "shown": "Request an X sfrxETH withdrawal from the vault, with the claim owned by the named claimer.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned from the signer and slashing of the queued amount are not shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake())`. onSlash lowers `withdrawals[currentEpoch_ + 1]`. Both depend on storage.",
+      "fix": "None needed. You could add a note that the claim becomes available after the next epoch and may be reduced by slashing.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 82,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "Burns `shares` of the signer's active vault shares. Reverts if the signer holds fewer.",
+     "Converts them to sfrxETH at the current rate (previewRedeem), queues that amount for the next epoch and credits the withdrawal shares to `claimer`. No tokens move now."
+    ],
+    "shown": "Queue a withdrawal of N raw vault shares, with the claim owned by the named claimer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: shares are shown as a raw 18-decimal integer when a unit format could scale them.",
+      "evidence": "ERC4626Math.sol `_decimalsOffset()` returns 0, so shares use the collateral's 18-decimal scale. The descriptor has `#.shares` format `raw`. Case 2 shows 'Queue 987654321123456789 raw shares'.",
+      "fix": "Use format `unit` with params {decimals: 18, base: \"shares\"} so the screen reads about 0.9877 shares.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the sfrxETH amount queued for the redeemed shares is computed on chain and not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares())`.",
+      "fix": "None needed. A descriptor cannot compute this value.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "Uses up the signer's claim for `epoch` (isWithdrawalsClaimed set to true). Reverts if the epoch is not over or the claim is already used.",
+     "Sends the signer's withdrawable sfrxETH for that epoch, an amount read from storage, from the vault to `recipient`."
+    ],
+    "shown": "Claim the withdrawal for epoch N and send it to the named recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claim: the screen never says the asset sent to the recipient is sfrxETH.",
+      "evidence": "Vault.sol claim: `IERC20(collateral).safeTransfer(recipient, amount)`, where collateral is sfrxETH. The intent reads 'Claim withdrawal' and the sentence 'Claim epoch {epoch} to {recipient}'. No field names the token.",
+      "fix": "Use intent 'Claim sfrxETH withdrawal' and sentence 'Claim sfrxETH from epoch {epoch} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount paid out is read from storage and cannot be shown.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None needed. The amount is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 62
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Uses up the signer's claim for every epoch listed. Reverts if any epoch is not over or already claimed.",
+     "Sends the total of the signer's withdrawable sfrxETH for those epochs, read from storage, from the vault to `recipient` in one transfer."
+    ],
+    "shown": "Claim the withdrawals for the listed epochs and send them to the named recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "claimBatch: the screen never says the asset sent to the recipient is sfrxETH.",
+      "evidence": "Vault.sol claimBatch: `IERC20(collateral).safeTransfer(recipient, amount)`. The intent reads 'Claim withdrawals' and the sentence 'Claim epochs {epochs.[]} to {recipient}'. No field names the token.",
+      "fix": "Use intent 'Claim sfrxETH withdrawals' and sentence 'Claim sfrxETH from epochs {epochs.[]} to {recipient}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total paid out is read from storage and cannot be shown.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i])`, and _claim reads `withdrawalsOf(epoch, msg.sender)`.",
+      "fix": "None needed. The amount is not in the calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 62
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.353,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 69,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: shares are shown as a raw 18-decimal integer when a unit format could scale them.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: the screen never says the asset sent to the recipient is sfrxETH.",
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claimBatch: the screen never says the asset sent to the recipient is sfrxETH.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: shares are shown as a raw 18-decimal integer when a unit format could scale them."
+ }
+}

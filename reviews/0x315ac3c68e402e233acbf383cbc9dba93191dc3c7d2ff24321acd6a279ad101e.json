@@ -1,0 +1,155 @@
+{
+ "hash": "0x315ac3c68e402e233acbf383cbc9dba93191dc3c7d2ff24321acd6a279ad101e",
+ "file": "registry/enso/calldata-EnsoRouter.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 137,
+   "address": "0xf75584ef6673ad213a685a1b58cc0330b8ea22cf"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "safeRouteSingle((uint8 tokenType,bytes data) tokenIn,(uint8 tokenType,bytes data) tokenOut,address receiver,bytes data)",
+    "effects": [
+     "The router takes the input amount of the ERC-20 token in tokenIn from the signer and sends it to the EnsoShortcuts contract, which spends the signer's allowance to the router.",
+     "The hidden route data runs in the EnsoShortcuts contract and decides which swaps happen and where the tokens go.",
+     "The call reverts unless the receiver's balance of the tokenOut token grows by at least the minimum amount.",
+     "No native value can leave: tokenType must be ERC20 (mustMatch 1), and routeSingle reverts when msg.value is not 0 for a non-native input."
+    ],
+    "shown": "\"Route 10 USDC via Enso, at least 9.95 USDT0 to <receiver>\" with fields Amount (token and amount), Minimum received (token and amount) and Receiver; the token types are checked to be ERC20 and the route is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "safeRouteSingle intent says 'Route tokens' and the sentence has no verb for receiving the output token.",
+      "evidence": "descriptor safeRouteSingle: intent \"Route tokens via Enso\", interpolatedIntent \"Route {#.tokenIn.data.[32:64]} via Enso, at least {#.tokenOut.data.[32:64]} to {#.receiver}\"; case 0 renders \"Route 10 USDC via Enso, at least 9.95 USDT0 to 0x5aAe…\". EnsoRouter.safeRouteSingle is a swap with a minimum-output check (_checkMinAmountOut).",
+      "fix": "Set intent to \"Swap tokens via Enso\" and interpolatedIntent to \"Swap {#.tokenIn.data.[32:64]} for at least {#.tokenOut.data.[32:64]} to {#.receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "safeRouteSingle hides the route bytes; only the minimum output to the receiver is enforced.",
+      "evidence": "EnsoRouter._execute: shortcuts.call{value: msg.value}(data); _checkMinAmountOut: if (amountOut < minAmountOut) revert. Descriptor field #.data 'Route' visible never.",
+      "fix": "No descriptor change can decode the weiroll route. A minimum of 0 removes all protection, so wallets should warn on it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "safeRouteSingle with a native POL or NFT input or output cannot be clear signed because of mustMatch [1].",
+      "evidence": "EnsoRouter._transfer handles TokenType Native, ERC721, ERC1155; descriptor tokenType fields use visible {mustMatch:[1]}, and data slices [12:32]/[32:64] fit only the ERC20 layout.",
+      "fix": "Nothing to change now: the native layout (uint256 only) does not fit the ERC20 slices. A separate format per token type needs spec support for conditional paths.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 82
+   },
+   {
+    "key": "safeRouteMulti((uint8 tokenType,bytes data)[] tokensIn,(uint8 tokenType,bytes data)[] tokensOut,address receiver,bytes data)",
+    "effects": [
+     "The router takes each ERC-20 amount listed in tokensIn from the signer and sends it to the EnsoShortcuts contract, which spends the signer's allowances to the router.",
+     "The hidden route data runs in the EnsoShortcuts contract and decides which swaps happen and where the tokens go.",
+     "For each tokensOut entry, the call reverts unless the receiver's balance of that token grows by at least its minimum. Each entry is checked separately against the same starting balance.",
+     "No native value can leave: every tokenType must be ERC20 (mustMatch 1), and routeMulti reverts when msg.value is not 0 and no native input is present."
+    ],
+    "shown": "\"Route 9.998579 USDC.e and 0.00043 USDC via Enso, at least 9.9 USDT0 to <receiver>\" with one Amount field per input token, one Minimum received per output token, and Receiver; the route is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "safeRouteMulti intent says 'Route tokens' and the sentence has no verb for receiving the output tokens.",
+      "evidence": "descriptor safeRouteMulti: intent \"Route tokens via Enso\"; case 1 renders \"Route 9.998579 USDC.e and 0.00043 USDC via Enso, at least 9.9 USDT0 to 0x5aAe…\".",
+      "fix": "Set intent to \"Swap tokens via Enso\" and interpolatedIntent to \"Swap {#.tokensIn.[].data.[32:64]} for at least {#.tokensOut.[].data.[32:64]} to {#.receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "safeRouteMulti hides the route bytes, and an empty tokensOut array removes every output check.",
+      "evidence": "EnsoRouter.safeRouteMulti: for (uint256 i; i < tokensOut.length; ++i) _checkMinAmountOut(...); _execute forwards data to shortcuts. Descriptor #.data visible never.",
+      "fix": "No descriptor change can require a non-empty tokensOut. Wallets should warn when no 'Minimum received' field shows.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "safeRouteMulti checks a token listed twice in tokensOut against one balance increase, not their sum.",
+      "evidence": "EnsoRouter.safeRouteMulti records balances[i] before the route, then _checkMinAmountOut per entry: amountOut = balance - prevBalance for each entry independently.",
+      "fix": "No descriptor change can fix this. Two 'Minimum received' lines for the same token guarantee only the larger one.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "safeRouteMulti with native POL or NFT entries cannot be clear signed because of mustMatch [1].",
+      "evidence": "EnsoRouter._transfer supports Native, ERC721, ERC1155; descriptor #.tokensIn.[].tokenType and #.tokensOut.[].tokenType use visible {mustMatch:[1]}.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.389,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [
+  "safeRouteSingle((uint8 tokenType,bytes data) tokenIn,(uint8 tokenType,bytes data) tokenOut,address receiver,bytes data)",
+  "safeRouteMulti((uint8 tokenType,bytes data)[] tokensIn,(uint8 tokenType,bytes data)[] tokensOut,address receiver,bytes data)"
+ ],
+ "seconds": 66,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "safeRouteSingle((uint8 tokenType,bytes data) tokenIn,(uint8 tokenType,bytes data) tokenOut,address receiver,bytes data)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "safeRouteSingle takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  },
+  "safeRouteMulti((uint8 tokenType,bytes data)[] tokensIn,(uint8 tokenType,bytes data)[] tokensOut,address receiver,bytes data)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "safeRouteMulti takes ETH but never shows how much (@.value)",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 25,
+  "clarity": 71,
+  "functions": "2F",
+  "incomplete": false,
+  "worst": "safeRouteSingle takes ETH but never shows how much (@.value)"
+ }
+}

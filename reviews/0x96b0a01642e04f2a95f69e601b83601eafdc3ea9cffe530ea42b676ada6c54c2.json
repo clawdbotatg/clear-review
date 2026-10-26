@@ -1,0 +1,188 @@
+{
+ "hash": "0x96b0a01642e04f2a95f69e601b83601eafdc3ea9cffe530ea42b676ada6c54c2",
+ "file": "registry/flyingtulip/calldata-MintAndRedeem.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xaa48ecbc843cf7e9a29155d112b8cb27902bd23c"
+  },
+  {
+   "chainId": 146,
+   "address": "0x0c6f8ec81c3ea5bff06f6cd0791780f9f050ee31"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "mint(address collateralToken, uint256 collateralAmount, uint256 txDeadline, uint256 minFtUSDOut)",
+    "effects": [
+     "Pulls exactly collateralAmount of collateralToken from the signer, using an allowance the signer already gave (_executeMintWithRelayerFee: collateral.safeTransferFrom(payer, address(this), collateralAmount)).",
+     "Mints ftUSD at the oracle price (capped by mintPriceHardcapWad), keeps a mint fee in ftUSD, and sends the net ftUSD to the signer. The call reverts if the net is below minFtUSDOut (mintTo: if (ftUSDAmount < minFtUSDOut) revert).",
+     "When a circuit breaker is set, the signer's ftUSD can be queued in the breaker instead of arriving at once (_protectedTransferWithTvl: safeTransfer(cb, _amount) and OutflowQueued).",
+     "Reverts after txDeadline, unless txDeadline is 0, which means no deadline (_enforceDeadline)."
+    ],
+    "shown": "\"Buy ftUSD\" / \"Buy {minFtUSDOut}\", with Pay = collateralAmount in collateralToken, Minimum receive = minFtUSDOut in ftUSD, and the Deadline as a date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint interpolatedIntent shows the minimum as if it were the exact amount bought and leaves out the payment.",
+      "evidence": "descriptor.json mint: \"interpolatedIntent\": \"Buy {minFtUSDOut}\". MintAndRedeem.sol mintTo: the net ftUSD comes from the oracle and only has to be >= minFtUSDOut. The collateral paid (collateralAmount) is missing from the sentence. Case 0 renders \"Buy 990000000000 ftUSD\".",
+      "fix": "Use \"Buy at least {minFtUSDOut} for {collateralAmount}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "mint Deadline field shows 1970 when txDeadline is 0, but the code reads 0 as no deadline.",
+      "evidence": "MintAndRedeem.sol _enforceDeadline: if (txDeadline == 0) return. descriptor.json: txDeadline uses format date with encoding timestamp and no note about 0.",
+      "fix": "Add a label or message that says 0 means no deadline, e.g. \"Deadline (0 = none)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "mint test case uses an 18-decimal minFtUSDOut for a 6-decimal ftUSD, so it renders 990 billion ftUSD.",
+      "evidence": "cases/0.json: minFtUSDOut = 0x0dbd2fc137a30000 (0.99e18), screen \"Minimum receive\": \"990000000000 ftUSD\". MintAndRedeem.sol header: ftUSD is treated as USD with 6 decimals (FTUSD_SCALE = 1e6).",
+      "fix": "Set minFtUSDOut to 990000 (0.99 ftUSD) to match 1 USDC paid.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "mint hardcodes the mainnet ftUSD address for the Sonic (146) deployment as well; not verifiable here.",
+      "evidence": "descriptor.json: minFtUSDOut params.token = 0xF7D85EC4E7710f71992752eac2111312e73E9C9C, deployments include chainId 146 at 0x0C6f8eC8.... Only the chain 1 constructor args (ftUSD_ = 0xF7D85EC4...) are in the directory.",
+      "fix": "Confirm that ftUSD has the same address on Sonic. If it does not, split the descriptor per chain or use a per-deployment constant.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the circuit breaker can queue the minted ftUSD instead of sending it right away.",
+      "evidence": "ProtectedContract.sol _protectedTransferWithTvl: if not immediate, IERC20(_token).safeTransfer(cb, _amount) and emit OutflowQueued. _executeMintWithRelayerFee emits MintQueued(recipient, ...).",
+      "fix": "No descriptor field can show this because it depends on runtime state. A note in the intent or docs could warn about possible delayed delivery.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address collateralToken, uint256 ftUSDAmount, uint256 txDeadline, uint256 minCollateralOut)",
+    "effects": [
+     "Pulls exactly ftUSDAmount of ftUSD from the signer, using an allowance the signer already gave (_executeRedeemWithRelayerFee: safeTransferFrom(p.payer, address(this), p.ftUSDAmount)).",
+     "Keeps a redeem fee in ftUSD and burns the rest (core.burn(burnFtUSDAmount)).",
+     "Sends collateralToken to the signer through the yield wrapper (wrapper.withdraw(collateralToRecipient, msg.sender)). The amount is priced at the conservative redeem factor and must be >= minCollateralOut, or the call reverts.",
+     "The collateral payout can be queued by the wrapper's rate limiter (queueId is returned).",
+     "Reverts after txDeadline, unless txDeadline is 0, which means no deadline."
+    ],
+    "shown": "\"Sell ftUSD\" / \"Sell {ftUSDAmount}\", with Pay = ftUSDAmount in ftUSD, Minimum receive = minCollateralOut in collateralToken, and the Deadline as a date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem interpolatedIntent leaves out what the signer receives in return.",
+      "evidence": "descriptor.json redeem: \"interpolatedIntent\": \"Sell {ftUSDAmount}\". The collateral received (minCollateralOut in collateralToken) only appears as a field. Case 1 renders \"Sell 1000000000000 ftUSD\".",
+      "fix": "Use \"Sell {ftUSDAmount} for at least {minCollateralOut}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem Deadline field shows 1970 when txDeadline is 0, but the code reads 0 as no deadline.",
+      "evidence": "MintAndRedeem.sol _enforceDeadline: if (txDeadline == 0) return. descriptor.json: txDeadline uses format date with encoding timestamp.",
+      "fix": "Add a label or message that says 0 means no deadline.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "redeem test case uses an 18-decimal ftUSDAmount for a 6-decimal ftUSD, so it renders 1 trillion ftUSD for 0.99 USDC.",
+      "evidence": "cases/1.json: ftUSDAmount = 0x0de0b6b3a7640000 (1e18), screen \"Pay\": \"1000000000000 ftUSD\", \"Minimum receive\": \"0.99 USDC\". MintAndRedeem.sol: FTUSD_SCALE = 1e6.",
+      "fix": "Set ftUSDAmount to 1000000 (1 ftUSD).",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-asset",
+      "title": "redeem hardcodes the mainnet ftUSD address for the Sonic (146) deployment as well; not verifiable here.",
+      "evidence": "descriptor.json: ftUSDAmount params.token = 0xF7D85EC4E7710f71992752eac2111312e73E9C9C, deployments include chainId 146. Only the chain 1 ftUSD_ constructor arg is in the directory.",
+      "fix": "Confirm that ftUSD has the same address on Sonic, or split the descriptor per chain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the yield wrapper's rate limiter can queue the collateral payout instead of paying at once.",
+      "evidence": "MintAndRedeem.sol _executeRedeemWithRelayerFee: queueIdTo = wrapper.withdraw(collateralToRecipient, p.recipient), with the comment \"Wrapper is already a ProtectedContract - it handles rate limiting of collateral outflows\". redeem returns queueId.",
+      "fix": "No descriptor field can show this because it depends on runtime state.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": [
+   "redeem: the collateral payout to the signer happens inside the per-collateral ftYieldWrapper (wrapper.withdraw(collateralToRecipient, recipient)), whose source is not in the directory. Whether it delivers the full amount, takes a cut or queues it can't be checked.",
+   "mint and redeem: the CircuitBreakerV2 contract (attemptOutflow) decides whether the signer's ftUSD is sent at once or queued, and its source is not in the directory."
+  ]
+ },
+ "cost": 0.664,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 87,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "mint(address collateralToken, uint256 collateralAmount, uint256 txDeadline, uint256 minFtUSDOut)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "mint interpolatedIntent shows the minimum as if it were the exact amount bought and leaves out the payment.",
+   "comprehension": null
+  },
+  "redeem(address collateralToken, uint256 ftUSDAmount, uint256 txDeadline, uint256 minCollateralOut)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "redeem interpolatedIntent leaves out what the signer receives in return.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 58,
+  "functions": "1B 1C",
+  "incomplete": true,
+  "worst": "redeem interpolatedIntent leaves out what the signer receives in return."
+ }
+}

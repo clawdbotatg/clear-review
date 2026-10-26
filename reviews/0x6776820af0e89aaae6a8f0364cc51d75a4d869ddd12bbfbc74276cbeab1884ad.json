@@ -1,0 +1,244 @@
+{
+ "hash": "0x6776820af0e89aaae6a8f0364cc51d75a4d869ddd12bbfbc74276cbeab1884ad",
+ "file": "registry/morpho/calldata-gauntlet-gtusdgp-v2-42161.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 42161,
+   "address": "0x390c1bb01f3f627144a40617e287d4ce3d5abcfa"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Takes exactly `assets` USDG (0x004B…9bbC) from the signer and sends it to the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints gtusdgp vault shares to `onBehalf`. The amount is previewDeposit(assets), set by the vault's share price after fees accrue. It is not in calldata and has no minimum.",
+     "Spends the signer's existing USDG allowance to the vault by `assets`."
+    ],
+    "shown": "Deposit an exact USDG amount into the gtusdgp vault, with the shares going to the onBehalf address. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of gtusdgp shares received is not shown because the vault price sets it.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` comes from storage. Case 0: signer in 5.004540666776668005 gtusdgp, and the screen shows only 'Share ticker: gtusdgp'.",
+      "fix": "None possible: the amount is not in calldata and the function has no minimum-shares parameter.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the 10 USDG out correctly. The gtusdgp shares going in show the right asset and recipient but no amount (5.0045 shares), and the reader noticed it was missing."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Sends exactly `assets` USDG from the vault to `receiver`.",
+     "Burns gtusdgp shares from `onBehalf` (the signer when the owner is the signer). The amount is previewWithdraw(assets), rounded up. It is not in calldata and has no maximum.",
+     "When msg.sender != onBehalf, spends the shares allowance that onBehalf gave the signer."
+    ],
+    "shown": "Withdraw an exact USDG amount to the receiver, with the owner shown. Nothing says that gtusdgp shares are burned or how many.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "withdraw: the screen never names the gtusdgp shares burned from the owner.",
+      "evidence": "VaultV2.sol exit: `deleteShares(onBehalf, shares);`. The descriptor's withdraw fields are only assets, receiver and onBehalf, with no vaultTicker. Case 2: signer out 2.502269576391995953 gtusdgp, and the reader only guessed 'Likely 5 USDG worth of Gauntlet vault shares'.",
+      "fix": "Add a constant field such as {label: 'Shares burned from Owner', value: '$.metadata.constants.vaultTicker'}, or relabel Owner 'Burn gtusdgp shares of'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned comes from the vault price and has no maximum in calldata.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets);`. Case 2 burned 2.502269576391995953 gtusdgp, and no field carries that number.",
+      "fix": "None possible with this function signature.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 5 USDG coming in is shown right. The burned gtusdgp shares are not named and have no amount, so the reader only inferred them."
+     }
+    ],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` gtusdgp from `onBehalf`.",
+     "Sends USDG from the vault to `receiver`. The amount is previewRedeem(shares), rounded down, and there is no minimum.",
+     "When msg.sender != onBehalf, spends the shares allowance that onBehalf gave the signer."
+    ],
+    "shown": "Redeem an exact number of gtusdgp shares to the receiver, with the owner shown. The asset received (USDG) and its amount are not stated.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "redeem: the screen never says that USDG is the asset paid out to the receiver.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The descriptor's redeem fields have no underlyingTicker constant, while mint shows one. Case 3: signer in 7.036768 USDG, and the reader was 'unsure: Which token I receive'.",
+      "fix": "Add {label: 'Receive', format: 'raw', value: '$.metadata.constants.underlyingTicker'} and say USDG in the interpolatedIntent, e.g. 'Redeem {#.shares} for USDG to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDG amount received comes from the vault price and has no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);` reads storage. Case 3 received 7.036768 USDG, which is not on the screen.",
+      "fix": "None possible with this function signature.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 3.52 gtusdgp leaving is shown exactly. The USDG coming in has no named asset and no amount."
+     }
+    ],
+    "glance": 65,
+    "depth": 60
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Mints exactly `shares` gtusdgp to `onBehalf`.",
+     "Takes USDG from the signer. The amount is previewMint(shares), rounded up and set by the vault price. It is not in calldata and has no maximum, so it is limited only by the signer's allowance.",
+     "Spends the signer's existing USDG allowance to the vault."
+    ],
+    "shown": "Mint an exact number of gtusdgp shares for onBehalf. A 'Deposit asset: USDG' field names the asset paid but not the amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: neither the intent nor the sentence says USDG leaves the signer's wallet.",
+      "evidence": "descriptor mint: intent 'Mint', interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. USDG appears only as a raw constant field 'Deposit asset'. Case 1: signer out 1 unit of USDG.",
+      "fix": "Use intent 'Deposit USDG for shares' and an interpolatedIntent like 'Pay USDG to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDG amount taken from the signer comes from the vault price and has no maximum.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);`. Case 1 took 0.000001 USDG, and no field shows any amount.",
+      "fix": "None possible with this function signature. Deposit gives an exact amount instead.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The USDG going out is named only as an asset, with no amount. The shares went to 0xdead, which the screen shows and which is not a signer effect."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.427,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 102,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the screen never names the gtusdgp shares burned from the owner.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says that USDG is the asset paid out to the receiver.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: neither the intent nor the sentence says USDG leaves the signer's wallet.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 66,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "withdraw: the screen never names the gtusdgp shares burned from the owner."
+ }
+}

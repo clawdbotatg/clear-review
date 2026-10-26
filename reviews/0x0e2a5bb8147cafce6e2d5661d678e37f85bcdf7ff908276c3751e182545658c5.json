@@ -1,0 +1,212 @@
+{
+ "hash": "0x0e2a5bb8147cafce6e2d5661d678e37f85bcdf7ff908276c3751e182545658c5",
+ "file": "registry/morpho/calldata-gauntlet-gtmsUSDc.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x6859b34a9379122d25a9fa46f0882d434fee36c3"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` msUSD from the signer into the vault, using the signer's msUSD allowance to the vault.",
+     "Mints gtmsUSDc vault shares to `receiver`. The share amount is worked out on-chain from the vault's total assets and supply, after fees accrue. The call has no minimum-shares parameter.",
+     "Supplies the msUSD to Morpho Blue markets in the vault's name. This is internal to the vault; the signer gets no direct position in Morpho."
+    ],
+    "shown": "Deposit: the msUSD amount, the share ticker gtmsUSDc as text, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown because the contract computes it.",
+      "evidence": "MetaMorpho.sol deposit(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor). There is no shares or minShares parameter in the calldata. The descriptor shows only a 'Share ticker' constant.",
+      "fix": "None possible from calldata. A label like 'Receive (shares)' next to the ticker would make it clearer that the amount is decided at execution.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the amount field is labelled 'Deposit asset' and the ticker field 'Share ticker', which reads awkwardly.",
+      "evidence": "descriptor.json deposit fields: 'Deposit asset' (tokenAmount of assets) and 'Share ticker' (raw $.metadata.constants.vaultTicker).",
+      "fix": "Rename them to 'Deposit amount' and 'Receive shares (gtmsUSDc)', or use an interpolatedIntent like 'Deposit {assets} for gtmsUSDc shares to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` gtmsUSDc to `receiver`.",
+     "Pulls msUSD from the signer into the vault. The amount is computed on-chain by rounding up (shares × totalAssets / totalSupply), with no maximum-assets bound in the calldata. It uses the signer's msUSD allowance to the vault.",
+     "Accrues performance fees first (fee shares minted to the fee recipient). This changes the share price the signer pays."
+    ],
+    "shown": "Mint: deposit asset msUSD (ticker only, no amount), the exact number of gtmsUSDc shares minted, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the msUSD amount taken from the signer is not shown and has no bound in the calldata.",
+      "evidence": "MetaMorpho.sol mint(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares). Case 0: the signer sent 1032957380 wei of msUSD out; the screen shows only 'Deposit asset: msUSD'.",
+      "fix": "None from calldata (ERC-4626 mint has no maxAssets). A label such as 'Pay with (amount set by vault price)' would tell the signer the amount is decided at execution.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent 'Mint' does not say that msUSD is spent to get the shares.",
+      "evidence": "descriptor.json mint intent 'Mint' with no interpolatedIntent. The cost appears only in the raw field 'Deposit asset: msUSD'. Case 0 reader: 'msUSD, amount not shown on screen'.",
+      "fix": "Use the intent 'Deposit msUSD for vault shares' and an interpolatedIntent like 'Mint {shares} gtmsUSDc to {receiver} by depositing msUSD'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The only signer effect is 1032957380 wei of msUSD out to the vault. The screen names msUSD and the vault but not the amount, so the reader got the direction and asset but no amount. The 0.000000001 gtmsUSDc shares went to 0xdead, and the screen shows that correctly."
+     }
+    ],
+    "glance": 45,
+    "depth": 65
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Sends exactly `assets` msUSD from the vault (withdrawn from Morpho markets) to `receiver`.",
+     "Burns gtmsUSDc shares from `owner`. The number burned is computed on-chain by rounding up, with no max-shares bound in the calldata.",
+     "If `owner` is not the signer, spends the share allowance that `owner` gave the signer."
+    ],
+    "shown": "Withdraw: the exact msUSD amount, the receiver, and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown because the contract computes it.",
+      "evidence": "MetaMorpho.sol withdraw(): shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil); _withdraw(_msgSender(), receiver, owner, assets, shares). No shares parameter exists in the calldata.",
+      "fix": "None from calldata. A label like 'Burns gtmsUSDc shares from' on the owner field would name the asset given up.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` gtmsUSDc from `owner`. If `owner` is not the signer, this spends the share allowance that `owner` gave the signer.",
+     "Sends msUSD to `receiver`. The amount is computed on-chain by rounding down, with no minimum-assets bound in the calldata."
+    ],
+    "shown": "Redeem: the exact gtmsUSDc shares, the receiver, and the owner. Nothing says what asset is paid out.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "redeem: the asset paid out (msUSD) is not named, though a constant could show it.",
+      "evidence": "MetaMorpho.sol redeem() sends `assets` of the underlying to receiver via _withdraw. descriptor.json redeem fields show only 'Shares to redeem', 'To' and 'Owner'. mint already shows $.metadata.constants.underlyingTicker.",
+      "fix": "Add a field {label:'Receive asset', value:'$.metadata.constants.underlyingTicker', format:'raw'}, or use an interpolatedIntent like 'Redeem {shares} for msUSD to {receiver}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the msUSD amount received is not shown and has no minimum bound.",
+      "evidence": "MetaMorpho.sol redeem(): assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor). There is no minAssets parameter.",
+      "fix": "None from calldata.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.306,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 85,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 47,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say that msUSD is spent to get the shares.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the asset paid out (msUSD) is not named, though a constant could show it.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 60,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem: the asset paid out (msUSD) is not named, though a constant could show it."
+ }
+}

@@ -1,0 +1,215 @@
+{
+ "hash": "0x9a9969a6aae71356399e0c0ac199e4202bcd37d471acf747429a16d03db210d3",
+ "file": "registry/symbiotic/calldata-VaultV1-BaseTHQInternal.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x19c93c4fee3a70f2e359c7d09a19b5bac7a2a1f3"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:30Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address onBehalfOf,uint256 amount)",
+    "effects": [
+     "The signer sends `amount` of the vault collateral (0xA9402c88…, BaseTHQInternal) to the vault through transferFrom, which uses up that much of the signer's allowance to the vault.",
+     "Active vault shares, worth what actually arrived (measured as a balance difference), are credited to `onBehalfOf`, not to the signer unless they are the same address.",
+     "No native value is taken: the function is not payable."
+    ],
+    "shown": "Deposit a stated amount of BaseTHQInternal into the named vault, with the shares credited to the stated beneficiary.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted depends on the vault's stake and share totals in storage and is not shown.",
+      "evidence": "Vault.sol deposit: `mintedShares = ERC4626Math.previewDeposit(depositedAmount, activeShares_, activeStake_);` These totals are read from storage, and no field shows the shares.",
+      "fix": "None possible in the descriptor. The beneficiary and the amount of collateral are shown, and that is enough.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "withdraw(address claimer,uint256 amount)",
+    "effects": [
+     "The vault burns enough of the signer's active shares to cover `amount` of collateral (previewWithdraw, rounded up).",
+     "`amount` of collateral is queued for withdrawal in the next epoch, and the right to claim it goes to `claimer`, who may be someone other than the signer.",
+     "No tokens move in this call. The queued amount can still be slashed until it is claimed, and it can only be claimed after the epoch ends."
+    ],
+    "shown": "Request a withdrawal of a stated amount of BaseTHQInternal, with the stated address as the claim owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the shares burned and the later slashing exposure come from storage and cannot be shown.",
+      "evidence": "Vault.sol withdraw: `burnedShares = ERC4626Math.previewWithdraw(amount, activeShares(), activeStake());` In onSlash, `withdrawals[currentEpoch_ + 1] = nextWithdrawals - nextWithdrawalsSlashed;` can cut the queued amount.",
+      "fix": "None needed beyond the current fields. Optionally, word the intent as 'Request withdrawal (claimable next epoch)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 85
+   },
+   {
+    "key": "redeem(address claimer,uint256 shares)",
+    "effects": [
+     "`shares` of the signer's active vault shares are burned.",
+     "Collateral worth those shares (previewRedeem, rounded down) is queued for the next epoch, and the right to claim it goes to `claimer`.",
+     "No tokens move in this call. The queued collateral can still be slashed before it is claimed."
+    ],
+    "shown": "Queue a raw number of vault shares for withdrawal, with the stated address as the claim owner.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "redeem: the share amount is shown as a raw integer, although shares use the collateral's 18 decimals.",
+      "evidence": "In descriptor `#.shares` the format is \"raw\" and the label is 'Vault shares (raw)'. Case 2 shows '987654321123456789'. ERC4626Math `_decimalsOffset()` returns 0, so shares are on the same scale as the 18-decimal collateral (case 0: 0x6ae6ff5fe56e50000 = 123.25).",
+      "fix": "Use the `unit` format with `decimals: 18` and `base: \"shares\"` (or a similar label), so the signer sees about 0.9877 shares instead of an 18-digit integer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the collateral queued for these shares depends on the exchange rate in storage and is not shown.",
+      "evidence": "Vault.sol redeem: `withdrawnAssets = ERC4626Math.previewRedeem(shares, activeStake(), activeShares());`",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 65
+   },
+   {
+    "key": "claim(address recipient,uint256 epoch)",
+    "effects": [
+     "The signer's withdrawal for `epoch` is marked as claimed, which uses up their claim right for that epoch.",
+     "The signer's full claimable amount for that epoch (withdrawalsOf(epoch, msg.sender)) is sent in collateral (BaseTHQInternal) from the vault to `recipient`, who may be someone other than the signer."
+    ],
+    "shown": "Claim the withdrawal for a numbered epoch and send it to the stated recipient. Neither the token nor the amount is named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the amount paid comes from storage, and the screen never names the token.",
+      "evidence": "Vault.sol _claim: `amount = withdrawalsOf(epoch, msg.sender);` then claim: `IERC20(collateral).safeTransfer(recipient, amount);` The descriptor's intent 'Claim withdrawal' and its fields (Vault, Epoch, Recipient) do not mention BaseTHQInternal.",
+      "fix": "The amount cannot be shown. Name the asset in the intent, for example 'Claim BaseTHQInternal withdrawal'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   },
+   {
+    "key": "claimBatch(address recipient,uint256[] epochs)",
+    "effects": [
+     "Every listed epoch is marked as claimed for the signer, which uses up those claim rights.",
+     "The sum of the signer's claimable amounts across those epochs is sent in collateral (BaseTHQInternal) from the vault to `recipient` in one transfer."
+    ],
+    "shown": "Claim the withdrawals for the listed epochs and send them to the stated recipient. Neither the token nor the amount is named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claimBatch: the total paid comes from storage, and the screen never names the token.",
+      "evidence": "Vault.sol claimBatch: `amount += _claim(epochs[i]);` then `IERC20(collateral).safeTransfer(recipient, amount);` The descriptor's intent 'Claim withdrawals' does not name the asset.",
+      "fix": "The amount cannot be shown. Name the asset in the intent, for example 'Claim BaseTHQInternal withdrawals'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 70
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.35,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 77,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(address onBehalfOf,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "withdraw(address claimer,uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(address claimer,uint256 shares)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 57,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the share amount is shown as a raw integer, although shares use the collateral's 18 decimals.",
+   "comprehension": null
+  },
+  "claim(address recipient,uint256 epoch)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "claimBatch(address recipient,uint256[] epochs)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 72,
+  "functions": "2A 2B 1C",
+  "incomplete": false,
+  "worst": "redeem: the share amount is shown as a raw integer, although shares use the collateral's 18 decimals."
+ }
+}

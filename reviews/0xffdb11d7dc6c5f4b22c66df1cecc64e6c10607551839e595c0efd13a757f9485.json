@@ -1,0 +1,157 @@
+{
+ "hash": "0xffdb11d7dc6c5f4b22c66df1cecc64e6c10607551839e595c0efd13a757f9485",
+ "file": "registry/ocarina-trade/eip712-OTCRegistry.json",
+ "kind": "eip712",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x07c0000007b4b558e2fcd47f47a573413b0caf7c"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xfc9e05bf732fb5aeee7e270928f349ed3fa3cc0d"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x07c00000057b66a84004add3b0f9164e744354cb"
+  },
+  {
+   "chainId": 137,
+   "address": "0x07c000000e10b73c0506f36ba75e50a5d3147061"
+  },
+  {
+   "chainId": 57073,
+   "address": "0x07c00000025cf03243e6fde1be86af60d12fbf8f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:10Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "OrderRegistration(bytes32 orderHash,bytes seaportSignature,string memo)",
+    "effects": [
+     "The signature lets anyone call registerOrder, which marks the signer's Seaport order as registered in OTCRegistry; validateOrder rejects fills of unregistered orders, so this signature is what lets the order be filled.",
+     "registerOrder calls Seaport validate() with the bound seaportSignature, so Seaport marks the order pre-validated and any allowed taker can fill it with no further signature from the signer.",
+     "When the order is filled, the signer's offer items (whitelisted ERC-20s, ERC-721 or ERC-1155, never native) leave the signer and the fixed consideration items come back to the signer (the code forces every consideration recipient to be the offerer).",
+     "The order and the memo (max 280 chars) are published in the OrderRegistered event, together with the allowed taker taken from the zoneHash."
+    ],
+    "shown": "Intent 'Authorize listing' with the raw order hash and the memo; the Seaport signature is hidden, and what the order offers and asks for is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "OrderRegistration shows only the order hash; the offer, consideration, taker and expiry it commits to are not shown.",
+      "evidence": "OTCRegistry.sol registerOrder: `bytes32 orderHash = SeaportInterface(seaport).getOrderHash(reg.components);` ... `if (!SeaportInterface(seaport).validate(orders)) revert SeaportValidationFailed();`. Descriptor: field `orderHash` 'Order hash' format raw is the only term of the trade. Case 0 shows 'Order hash: 0xf755…b198'.",
+      "fix": "No descriptor fix exists, because the message carries only the hash. Point the signer to the Seaport order signature, where the terms are shown, for example by changing the intent to 'Publish and activate signed OTC order'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "OrderRegistration hides seaportSignature; it is bound to the order hash and only Seaport validates it.",
+      "evidence": "Descriptor: `seaportSignature` 'Seaport signature' visible never. OTCRegistry.sol registerOrder hashes `keccak256(reg.seaportSignature)` into the struct and passes it to Seaport validate().",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "OrderRegistration intent 'Authorize listing' does not say the signature makes the order fillable through Seaport.",
+      "evidence": "OTCRegistry.sol validateOrder: `if (!registered[zoneParameters.orderHash]) revert OrderNotRegistered(...)`; registerOrder pre-validates the order in Seaport. Descriptor intent: 'Authorize listing'.",
+      "fix": "Change the intent to 'Publish and activate OTC order'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 35
+   },
+   {
+    "key": "TipAuthorization(bytes32 orderHash,address fulfiller,TipItem[] tips,uint256 deadline)TipItem(uint8 itemType,address token,uint256 identifier,uint256 amount,address recipient)",
+    "effects": [
+     "The signer, as fulfiller, authorizes extra consideration items (tips) on one specific order. In the fill, Seaport takes each tip amount from the signer and sends it to the tip recipient: native currency from msg.value, or a whitelisted ERC-20.",
+     "The authorization only works for the given orderHash and fulfiller, and only until the deadline. The tips array hash fixes each tip's type, token, amount and recipient.",
+     "Each tip must have a non-zero amount and identifier 0. Only NATIVE (0) and ERC20 (1) item types are allowed."
+    ],
+    "shown": "Intent 'Authorize tip' and a sentence that lists the tip amounts with tokens and the recipients. The fields show each tip's amount and recipient, the tip token address, 'Tip from' (fulfiller), the expiry date and the raw order hash.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "TipAuthorization interpolatedIntent lists amounts and recipients separately, so with several tips the signer cannot pair them.",
+      "evidence": "Descriptor interpolatedIntent: 'Authorize {tips.[].amount} tip to {tips.[].recipient}'. Case 2 renders 'Authorize 0.01 ETH and 2 USDC tip to 0x9a65…7a6e and 0x7777…7777'.",
+      "fix": "Use 'Authorize tips paid by you' as the intent and let the per-tip fields carry the pairing. Or keep the sentence for the single-tip case only and use a short plain intent such as 'Authorize tips on OTC order'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "TipAuthorization 'Tip token' shows apart from its tip in multi-tip renderings and repeats the amount's ticker.",
+      "evidence": "Case 2 fields: 'Tip amount 0.01 ETH', 'Tip to …', 'Tip amount 2 USDC', 'Tip to …', then 'Tip token 0x8335…2913'. Case 1 shows '1 USDC' and also 'Tip token 0xA0b8…eB48'.",
+      "fix": "Move `tips.[].token` before `tips.[].amount` in the bundled group so each token sits with its own tip.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "TipAuthorization binds tips to an order hash; the order the signer is filling is not shown.",
+      "evidence": "OTCRegistry.sol _validateTips: `abi.encode(_TIP_AUTHORIZATION_TYPEHASH, zoneParameters.orderHash, zoneParameters.fulfiller, tipsArrayHash, deadline)`. Descriptor: `orderHash` 'Order hash' raw.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.42,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 73,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "OrderRegistration(bytes32 orderHash,bytes seaportSignature,string memo)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "TipAuthorization(bytes32 orderHash,address fulfiller,TipItem[] tips,uint256 deadline)TipItem(uint8 itemType,address token,uint256 identifier,uint256 amount,address recipient)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "TipAuthorization interpolatedIntent lists amounts and recipients separately, so with several tips the signer cannot pair them.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 59,
+  "functions": "1B 1C",
+  "incomplete": false,
+  "worst": null
+ }
+}

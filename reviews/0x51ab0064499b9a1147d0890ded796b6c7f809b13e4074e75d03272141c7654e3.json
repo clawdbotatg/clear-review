@@ -1,0 +1,220 @@
+{
+ "hash": "0x51ab0064499b9a1147d0890ded796b6c7f809b13e4074e75d03272141c7654e3",
+ "file": "registry/morpho/calldata-mev_capital-MC-USR.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xd50da5f859811a91fd1876c9461fd39c23c747ad"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:23Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Pulls exactly `assets` USR from the signer into the vault (ERC4626 _deposit uses safeTransferFrom and spends the signer's USR allowance to the vault).",
+     "Mints MC-USR shares to `receiver`. The share count is computed from totalSupply and lastTotalAssets after interest accrues, rounded down.",
+     "The vault then supplies the USR to Morpho Blue markets (_supplyMorpho). The signer's balance does not change at this step."
+    ],
+    "shown": "Intent 'Deposit', the exact USR amount, a constant 'MC-USR' share ticker, and the shares receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of MC-USR shares received is computed on chain and is not shown.",
+      "evidence": "MetaMorphoV1_1.sol deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Descriptor only shows `Share ticker` = $.metadata.constants.vaultTicker, with no amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the 'Share ticker' field shows a constant string and says nothing about this transaction.",
+      "evidence": "descriptor deposit field {\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}",
+      "fix": "Drop the field, or put the share token in the intent, e.g. intent 'Deposit USR for MC-USR shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Pulls a computed amount of USR from the signer: assets = convertToAssets(shares), rounded up. It is bounded only by the signer's USR allowance and balance; there is no maximum-in parameter.",
+     "Mints exactly `shares` MC-USR to `receiver`.",
+     "The vault supplies the pulled USR to Morpho Blue."
+    ],
+    "shown": "Intent 'Mint', 'Deposit asset: USR' with no amount, the exact shares minted, and the shares receiver.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USR amount taken from the signer is computed on chain and not shown, with no bound.",
+      "evidence": "MetaMorphoV1_1.sol mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);`. Case 0: the signer sent 1044326515 wei of USR to the vault, but the screen only shows 'Deposit asset: USR'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the 'Deposit asset' label shows only a ticker, so the reader may think the deposit amount is missing.",
+      "evidence": "descriptor mint field {\"label\":\"Deposit asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}. Case 0 reader: 'How much USR is actually deposited; screen shows no amount'.",
+      "fix": "Use an intent like 'Mint MC-USR shares, paying USR' and relabel the field 'Pays with (amount set by vault)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer's only effect is 1044326515 wei of USR out to the vault. The screen shows the USR asset but no amount, and the reader got the direction and asset but not the amount. The minted shares went to 0xdead, which is shown correctly (signer null)."
+     }
+    ],
+    "glance": 45,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns a computed number of the owner's MC-USR shares (convertToShares(assets), rounded up).",
+     "If the caller is not the owner, spends that many shares of the owner's allowance to the caller.",
+     "The vault withdraws exactly `assets` USR from Morpho Blue and sends it to `receiver`."
+    ],
+    "shown": "Intent 'Withdraw', the exact USR amount, the receiver, and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of MC-USR shares burned from the owner is computed on chain and not shown.",
+      "evidence": "MetaMorphoV1_1.sol withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _withdraw(_msgSender(), receiver, owner, assets, shares);`. The descriptor shows only `assets`, `receiver` and `owner`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` MC-USR from the owner. If the caller is not the owner, it spends the owner's share allowance to the caller.",
+     "Sends a computed amount of USR to `receiver`: convertToAssets(shares), rounded down. There is no minimum-out bound.",
+     "The vault withdraws the USR from Morpho Blue markets first."
+    ],
+    "shown": "Intent 'Redeem', the exact MC-USR shares, the receiver and the owner. It does not say which asset arrives or how much.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USR amount received is computed on chain and not shown, with no minimum.",
+      "evidence": "MetaMorphoV1_1.sol redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`. Case 1: the signer received 10558615422852178637 wei of USR, which is not on the screen.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: neither the intent nor any field names USR as the asset received.",
+      "evidence": "descriptor redeem intent \"Redeem\", with only the shares, To and Owner fields. Case 1 reader: 'An unspecified amount of the vault's underlying asset (likely USR-related)'.",
+      "fix": "Use intent 'Redeem MC-USR shares for USR', or add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 10.048273112705701174 MC-USR shares out are shown correctly. The 10.5586 USR in is not shown, and the reader guessed an underlying asset with no amount."
+     }
+    ],
+    "glance": 50,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.265,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 72,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the 'Deposit asset' label shows only a ticker, so the reader may think the deposit amount is missing.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: neither the intent nor any field names USR as the asset received.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 61,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the 'Deposit asset' label shows only a ticker, so the reader may think the deposit amount is missing."
+ }
+}

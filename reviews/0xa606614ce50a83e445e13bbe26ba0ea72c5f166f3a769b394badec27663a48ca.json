@@ -1,0 +1,206 @@
+{
+ "hash": "0xa606614ce50a83e445e13bbe26ba0ea72c5f166f3a769b394badec27663a48ca",
+ "file": "registry/morpho/calldata-sky_money-skyMoneyUsdtSavings-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x23f5e9c35820f4bab695ac1f19c203cc3f8e1e11"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` USDT moves from the signer to the vault (safeTransferFrom of `asset`, from msg.sender, in enter).",
+     "Vault shares worth previewDeposit(assets) are minted to `onBehalf`. The share price comes from storage and adapters. There is no minimum."
+    ],
+    "shown": "Deposit the given USDT amount and send skyMoneyUsdtSavings shares to the onBehalf address. The number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted to onBehalf is not shown and has no minimum in the calldata.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The price comes from _totalAssets and totalSupply in storage. The descriptor only has a constant 'Share ticker' field and no share amount. Case 0 mints 1e18 shares to 0xdead (signer null).",
+      "fix": "No descriptor change can show a price-derived amount. Only a minShares parameter in the contract would make a bound possible.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "deposit: the 'Share ticker' field shows a constant string, not a value from this transaction.",
+      "evidence": "descriptor deposit field `{\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}` renders 'skyMoneyUsdtSavings' (case 0).",
+      "fix": "Fold the ticker into the shares label, e.g. 'Send skyMoneyUsdtSavings shares to', and drop the constant field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1 USDT out of the signer is shown exactly. The shares went to 0xdead (signer null). The screen flags 0xdead as the share receiver, and the reader understood that."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "previewWithdraw(assets) vault shares (rounded up) are burned from `onBehalf`. There is no maximum.",
+     "If the signer is not `onBehalf`, the signer's share allowance from onBehalf drops by the burned shares, unless it is unlimited.",
+     "Exactly `assets` USDT is sent from the vault to `receiver`."
+    ],
+    "shown": "Withdraw exactly the given USDT amount to the receiver, with the Owner address shown. The screen never says that the Owner's shares are burned, or how many.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is derived from the vault price and is not shown.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)`. exit runs `deleteShares(onBehalf, shares)`. Case 1: the signer lost 499951.924934031944474822 skyMoneyUsdtSavings, which no field shows.",
+      "fix": "No calldata value holds it. Only a maxShares parameter in the contract would allow a bound.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw: the screen never says that skyMoneyUsdtSavings shares of the Owner are burned to pay.",
+      "evidence": "descriptor withdraw: intent 'Withdraw', interpolatedIntent 'Withdraw {#.assets} to {#.receiver}', `onBehalf` labelled 'Owner'. In case 1 the reader was unsure 'Which token or shares are burned from my position'.",
+      "fix": "Use an interpolatedIntent such as 'Withdraw {#.assets} to {#.receiver} by burning skyMoneyUsdtSavings shares of {#.onBehalf}', and label onBehalf 'Burn shares from'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "withdraw: the allowance spent when the signer is not the owner is not stated.",
+      "evidence": "VaultV2.sol exit: `if (msg.sender != onBehalf) { ... allowance[onBehalf][msg.sender] = _allowance - shares; }`. The Owner field is shown, but nothing mentions the allowance.",
+      "fix": "Optionally add a note to the Owner label, e.g. 'Owner (your allowance is used if not you)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "500000 USDT in to the signer is shown exactly. The burn of 499951.92 shares is not shown. The reader guessed that some position is given up but did not know the asset or the amount."
+     }
+    ],
+    "glance": 72,
+    "depth": 65
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` vault shares are burned from `onBehalf`. If the signer is not onBehalf, the signer's allowance drops by the same amount.",
+     "previewRedeem(shares) USDT (rounded down, price from storage) is sent from the vault to `receiver`. There is no minimum."
+    ],
+    "shown": "Redeem the given number of skyMoneyUsdtSavings shares to the receiver, with the Owner shown. The screen does not name the asset received (USDT) or the amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT amount received is derived from the vault price and is not shown.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. Case 2: the signer received 0.01 USDT (10000 at 6 decimals), which the screen does not show.",
+      "fix": "No calldata value holds it. Only a minAssets parameter in the contract would allow a bound.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never names USDT as the asset the receiver gets.",
+      "evidence": "descriptor redeem: interpolatedIntent 'Redeem {#.shares} to {#.receiver}'. The only fields are shares, receiver and Owner, and the constant underlyingTicker is not used. In case 2 the reader said 'probably USDT ... the screen doesn't show the amount'.",
+      "fix": "Use an interpolatedIntent such as 'Redeem {#.shares} for USDT to {#.receiver}', or add a constant field 'Receive' = $.metadata.constants.underlyingTicker.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The burn of 0.009999402492649655 shares is shown exactly. The 0.01 USDT received is not shown. The reader guessed the asset and did not know the amount."
+     }
+    ],
+    "glance": 62,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.412,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 141,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the screen never says that skyMoneyUsdtSavings shares of the Owner are burned to pay.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 69,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names USDT as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 76,
+  "functions": "1A 1B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never names USDT as the asset the receiver gets."
+ }
+}

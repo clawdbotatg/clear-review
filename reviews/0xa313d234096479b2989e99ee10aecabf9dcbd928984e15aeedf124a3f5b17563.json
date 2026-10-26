@@ -1,0 +1,209 @@
+{
+ "hash": "0xa313d234096479b2989e99ee10aecabf9dcbd928984e15aeedf124a3f5b17563",
+ "file": "registry/threshold/calldata-Bridge.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5e4861a80b55f035d899f66772117f00fa0e8e7b"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:32Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "revealDeposit((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal)",
+    "effects": [
+     "Records a pending BTC deposit on the Bridge with depositor = msg.sender (the signer), keyed by funding tx hash and output index; no ETH or tokens move in this call.",
+     "The deposit amount is read from the Bitcoin output inside fundingTx.outputVector, not from a separate parameter.",
+     "Routes the future credit to reveal.vault: if it is a trusted vault (TBTCVault), tBTC is later minted to the depositor; if it is zero, the depositor's Bank balance is credited after the sweep.",
+     "The refund pubkey hash and refund locktime decide who can take the BTC back on Bitcoin, and when, if the deposit is never swept."
+    ],
+    "shown": "\"Reveal tBTC deposit\", with the funding output index, wallet and refund pubkey hashes, the refund locktime as raw hex, the vault address, and the raw Bitcoin tx parts as optional fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "revealDeposit: the BTC deposit amount is buried in the raw outputVector and never shown as an amount.",
+      "evidence": "Bridge.sol revealDeposit forwards fundingTx to Deposit.revealDeposit, which reads the value from the output at fundingOutputIndex. descriptor: fundingTx.outputVector 'Bitcoin outputs' raw, optional. In case 0 the 100000-sat value (a086010000000000) appears only inside the hex.",
+      "fix": "No ERC-7730 format can parse a Bitcoin output vector. A label like 'Bitcoin outputs (contains deposit amount)' would at least say where the amount is.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "revealDeposit: the refund locktime shows as little-endian hex bytes, not as a date.",
+      "evidence": "descriptor reveal.refundLocktime 'Refund locktime' format raw; case 0 shows 0x65f1d480. This is a bytes4 little-endian Bitcoin timestamp.",
+      "fix": "No format reads little-endian bytes4 as a date. A label that says it is the time after which the BTC can be refunded would help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "revealDeposit: the wallet and refund pubkey hashes are shown as raw 20-byte hex, which a signer cannot match to a Bitcoin address.",
+      "evidence": "descriptor reveal.walletPubKeyHash and reveal.refundPubKeyHash, format raw; case 0 shows 0x1111…, 0x2222….",
+      "fix": "ERC-7730 has no Bitcoin address format, so this is a spec limitation.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 35
+   },
+   {
+    "key": "revealDepositWithExtraData((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal, bytes32 extraData)",
+    "effects": [
+     "Records a pending BTC deposit with depositor = msg.sender (the signer) and stores the 32-byte extraData with it; no ETH or tokens move in this call.",
+     "The deposit amount is read from the Bitcoin output inside fundingTx.outputVector.",
+     "Routes the future credit to reveal.vault (a trusted vault mints tBTC to the depositor) or to the depositor's Bank balance.",
+     "extraData has to match the deposit script. The Bridge does not use it to pick the owner; only a calling contract that reads it can act on it."
+    ],
+    "shown": "\"Reveal cross-chain deposit\", with the same reveal fields as revealDeposit plus 'Deposit owner data' as a raw bytes32, and the raw Bitcoin tx parts as optional fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "revealDepositWithExtraData: 'cross-chain' intent and 'Deposit owner data' label suggest extraData decides the owner; Bridge credits msg.sender.",
+      "evidence": "Bridge.sol natspec: 'extraData … allows a third-party smart contract to reveal the deposit on behalf of the original depositor … the address of the original depositor can be encoded as extra data.' The Bridge records the caller as depositor. descriptor intent 'Reveal cross-chain deposit', extraData label 'Deposit owner data'.",
+      "fix": "Use the intent 'Reveal tBTC deposit with extra data' and the label 'Extra data (read by depositor contract)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "revealDepositWithExtraData: extraData shows as raw bytes32 even when it holds an address.",
+      "evidence": "descriptor extraData format raw; case 1 shows 0x0000000000000000000000005c72f3cbff4a6d323b405fef09c1a0a73e61f4bc.",
+      "fix": "Where the integration encodes an address, show its low 20 bytes with an address format. Otherwise keep it raw and label it clearly.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "revealDepositWithExtraData: the BTC deposit amount appears only inside the raw outputVector.",
+      "evidence": "descriptor fundingTx.outputVector raw, optional; case 1 has the value a086010000000000 only inside the hex.",
+      "fix": "No format can parse Bitcoin outputs. Say in the label that the amount is in there.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "revealDepositWithExtraData: the refund locktime is little-endian hex, and the pubkey hashes are raw.",
+      "evidence": "descriptor reveal.refundLocktime raw; case 1 shows 0x65f1d480.",
+      "fix": "Spec limitation; improve the labels.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 30
+   },
+   {
+    "key": "requestRedemption(bytes20 walletPubKeyHash, (bytes32 txHash, uint32 txOutputIndex, uint64 txOutputValue) mainUtxo, bytes redeemerOutputScript, uint64 amount)",
+    "effects": [
+     "Takes `amount` satoshi of the signer's Bank balance (msg.sender is the balance owner) into the Bridge. This spends the signer's Bank allowance to the Bridge; tBTC ERC20 tokens are not touched.",
+     "Creates a pending redemption request: the wallet behind walletPubKeyHash is to send BTC to redeemerOutputScript.",
+     "The BTC that arrives is lower than `amount`: the treasury fee (amount / redemptionTreasuryFeeDivisor) and up to redemptionTxMaxFee are deducted, at the rates in force when the request is made.",
+     "If the request times out, the Bank balance can be returned to the signer through the timeout flow."
+    ],
+    "shown": "\"Request tBTC redemption\", with Amount in BTC (8 decimals), the wallet pubkey hash, the BTC output script as raw hex, and the main UTXO data as optional fields.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-amount",
+      "title": "requestRedemption: Amount reads as BTC received, but treasury and Bitcoin tx fees are cut from it.",
+      "evidence": "Bridge.sol requestRedemption natspec: 'the actual amount of BTC locked on the redeemer output script will be always lower than this value since the treasury and Bitcoin transaction fees must be incurred … amount - (amount / redemptionTreasuryFeeDivisor) - redemptionTxMaxFee'. descriptor: field 'Amount' unit BTC; case 2 shows '0.5BTC' with no mention of fees.",
+      "fix": "Label it 'Bank balance redeemed (BTC received is lower after fees)', or put the fee deduction in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "requestRedemption: the intent says tBTC, but the call debits the signer's Bank balance, not tBTC tokens.",
+      "evidence": "Bridge.sol natspec: 'Handles the simplest case in which the redeemer's balance is decreased in the Bank … Redeemer must make an allowance in the Bank that the Bridge contract can spend the given amount.' descriptor intent 'Request tBTC redemption'.",
+      "fix": "Use the intent 'Redeem Bank balance to BTC' and the label 'Bank balance debited'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "requestRedemption: the BTC recipient is a raw length-prefixed script, not a Bitcoin address.",
+      "evidence": "descriptor redeemerOutputScript 'BTC output script' raw; case 2 shows 0x1600143bde42dcca7a1b985b7d2272ddce5b66d113feab (a P2WPKH script).",
+      "fix": "ERC-7730 has no Bitcoin address format. Say in the label that this is where the BTC is sent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 45
+   }
+  ],
+  "couldNotCheck": [
+   "Deposit.sol is missing from the directory. Bridge.revealDeposit and revealDepositWithExtraData only call self.revealDeposit / self.revealDepositWithExtraData, so I could not read the deposit recording, the vault check or the amount parsing.",
+   "Redemption.sol is missing from the directory. Bridge.requestRedemption calls self.requestRedemption, which holds the Bank.transferBalanceFrom debit, the fee computation and any rebate-staking hook; Bank.sol is missing too. Those effects come only from the natspec."
+  ]
+ },
+ "cost": 0.409,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 101,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "revealDeposit((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "revealDepositWithExtraData((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal, bytes32 extraData)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 30,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "revealDepositWithExtraData: 'cross-chain' intent and 'Deposit owner data' label suggest extraData decides the owner; Bridge credits msg.sender.",
+   "comprehension": null
+  },
+  "requestRedemption(bytes20 walletPubKeyHash, (bytes32 txHash, uint32 txOutputIndex, uint64 txOutputValue) mainUtxo, bytes redeemerOutputScript, uint64 amount)": {
+   "grade": "F",
+   "truth": 25,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 1,
+   "warnings": 1,
+   "worst": "requestRedemption: Amount reads as BTC received, but treasury and Bitcoin tx fees are cut from it.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 75,
+  "clarity": 41,
+  "functions": "2C 1F",
+  "incomplete": true,
+  "worst": "requestRedemption: Amount reads as BTC received, but treasury and Bitcoin tx fees are cut from it."
+ }
+}

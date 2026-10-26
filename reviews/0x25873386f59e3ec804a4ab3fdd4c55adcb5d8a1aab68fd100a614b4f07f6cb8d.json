@@ -1,0 +1,199 @@
+{
+ "hash": "0x25873386f59e3ec804a4ab3fdd4c55adcb5d8a1aab68fd100a614b4f07f6cb8d",
+ "file": "registry/morpho/calldata-clearstar-CSAAUSD-v2-143.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 143,
+   "address": "0xbe3e6d3f857812b4731677c88288d4f3aff8e9a1"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:20Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` AUSD moves from the signer to the vault through transferFrom, which spends the signer's AUSD allowance to the vault.",
+     "Vault shares are minted to `onBehalf`. The number of shares is previewDeposit(assets), set by the share price after interest accrues, and no minimum is enforced.",
+     "The deposited AUSD may then go to the liquidity adapter. This does not affect the signer."
+    ],
+    "shown": "Deposit 1 AUSD for <onBehalf>, with fields for the AUSD amount, a constant share ticker 'CSAAUSD' and the share recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "deposit: the 'Share ticker' constant reads CSAAUSD, but the vault's on-chain share symbol is CSYAUSD.",
+      "evidence": "descriptor.json metadata.constants.vaultTicker = \"CSAAUSD\", shown as the 'Share ticker' field (raw). Case 0 mined effect: the share mint from vault 0xbe3e…9a1 has symbol \"CSYAUSD\". Cases 1 and 2 also show CSYAUSD.",
+      "fix": "Set vaultTicker to the vault's actual symbol (CSYAUSD), or drop the constant and name the share token through the vault address.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is computed from the vault price and cannot be shown; no minimum exists.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The shares come from storage (totalAssets/totalSupply), and the calldata has no min-shares parameter.",
+      "fix": "None possible in the descriptor. A label such as 'Shares (CSYAUSD) at current price' could set expectations.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The signer's only effect is 1 AUSD out to the vault, which the screen shows. The shares went to 0xdead, which is shown as 'Send shares to', and the reader understood this."
+     }
+    ],
+    "glance": 78,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Vault shares equal to previewWithdraw(assets) (rounded up) are burned from `onBehalf`, the signer in the usual case. If the signer is not onBehalf, the signer instead spends onBehalf's share allowance.",
+     "Exactly `assets` AUSD moves from the vault to `receiver`.",
+     "Interest accrues first and fee shares are minted to the fee recipients. This sets the share price but is not a direct effect on the signer."
+    ],
+    "shown": "Withdraw exactly 20000 AUSD to <receiver>, with fields for the amount, the receiver and the owner whose shares are used.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned comes from the vault price and is not shown.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)` → `deleteShares(onBehalf, shares)`. Case 1: 19987.35 CSYAUSD left the signer, and the screen shows no share amount.",
+      "fix": "None possible: the value is not in the calldata. The intent could say 'Withdraw AUSD by burning vault shares'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows the 20000 AUSD in exactly. The 19987.35 CSYAUSD shares burned cannot be shown because they come from storage. The reader correctly inferred that shares leave but had no amount."
+     }
+    ],
+    "glance": 78,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` vault shares are burned from `onBehalf`, the signer in the usual case. If the signer is not onBehalf, onBehalf's allowance to the signer is spent instead.",
+     "AUSD equal to previewRedeem(shares) (rounded down) moves from the vault to `receiver`. No minimum is enforced.",
+     "Interest accrues first and fee shares are minted to the fee recipients. This sets the redemption price."
+    ],
+    "shown": "Redeem <shares> CSAAUSD to <receiver>, with fields for the share amount, the receiver and the owner. Nothing says which asset comes back.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the screen never names AUSD as the asset the receiver gets.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets)`, where asset = AUSD. The redeem fields show only shares, receiver and owner. Case 2 reader: 'Underlying asset of the vault, amount not shown… Which token I receive and how much; the screen doesn't say'.",
+      "fix": "Add a constant field 'Receive' = $.metadata.constants.underlyingTicker (AUSD) and change the sentence to 'Redeem {#.shares} for AUSD to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the AUSD amount received comes from the vault price and has no minimum bound.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. Case 2: 450.19 AUSD came in, and no field shows an amount or a bound.",
+      "fix": "None possible: the function takes no min-assets parameter.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "redeem: the share token renders as CSAAUSD while the vault's on-chain symbol is CSYAUSD.",
+      "evidence": "Case 2 screen: '449.313202708999966601 CSAAUSD'. The mined effect for the same asset 0xbe3e…9a1 has symbol 'CSYAUSD'. The field uses tokenPath @.to, so the address is right.",
+      "fix": "Align the descriptor's vaultTicker and file name with the on-chain symbol.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 449.31 shares out are shown exactly. The 450.19 AUSD in is not shown, neither its asset nor its amount. The reader knew something underlying would arrive but not what."
+     }
+    ],
+    "glance": 62,
+    "depth": 58
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.391,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 73,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 91,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: the 'Share ticker' constant reads CSAAUSD, but the vault's on-chain share symbol is CSYAUSD.",
+   "comprehension": 100
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never names AUSD as the asset the receiver gets.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 97,
+  "clarity": 77,
+  "functions": "1A 2B",
+  "incomplete": false,
+  "worst": null
+ }
+}

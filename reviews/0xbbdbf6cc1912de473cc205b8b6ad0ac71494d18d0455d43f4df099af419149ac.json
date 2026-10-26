@@ -1,0 +1,220 @@
+{
+ "hash": "0xbbdbf6cc1912de473cc205b8b6ad0ac71494d18d0455d43f4df099af419149ac",
+ "file": "registry/morpho/calldata-gauntlet-gtUSDT-747474.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 747474,
+   "address": "0x1ecdc3f2b5e90bfb55ff45a7476ff98a8957388e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:21Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The vault pulls exactly `assets` vbUSDT (0x2DCa…D2F2) from the signer through transferFrom, which spends the signer's vbUSDT allowance to the vault.",
+     "The vault mints gtUSDT shares to `receiver`; the number of shares comes from the stored share price (floor rounding), and the call sets no minimum.",
+     "No native value: the function is not payable."
+    ],
+    "shown": "Intent 'Deposit', with the vbUSDT amount, the share ticker gtUSDT as a constant, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many gtUSDT shares the receiver gets; the vault computes it from storage.",
+      "evidence": "MetaMorphoV1_1.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Floor);` The descriptor shows only `Share ticker` = gtUSDT (raw constant).",
+      "fix": "None possible. The share amount is not in calldata, and the function takes no minimum-shares parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit shows the share ticker as a separate raw field that has no amount, which can read like the deposit token.",
+      "evidence": "descriptor deposit field `{\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"}`; case 0 shows 'Deposit asset 1624.946658 vbUSDT' and then 'Share ticker gtUSDT'.",
+      "fix": "Rename the field to 'Receive shares' with value gtUSDT. Add interpolatedIntent 'Deposit {assets} for gtUSDT shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The vault mints exactly `shares` gtUSDT to `receiver`.",
+     "The vault pulls vbUSDT from the signer through transferFrom, in an amount computed from the stored share price (rounded up). The call sets no maximum, and this spends the signer's vbUSDT allowance.",
+     "No native value: the function is not payable."
+    ],
+    "shown": "Intent 'Mint', with 'Deposit asset' showing only the ticker vbUSDT (no amount), the share amount minted, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much vbUSDT leaves the signer; the vault computes the amount from storage, with no cap.",
+      "evidence": "MetaMorphoV1_1.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Ceil); _deposit(_msgSender(), receiver, assets, shares);` ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);` The descriptor shows 'Deposit asset' = vbUSDT with no amount.",
+      "fix": "None possible in the descriptor. The amount is not in calldata, and the function takes no max-assets parameter.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "The mint intent 'Mint' does not say that the signer pays vbUSDT to get the shares.",
+      "evidence": "descriptor mint `\"intent\": \"Mint\"`; case 1 screen: 'Mint', 'Deposit asset vbUSDT', 'Minted shares 0.000000999 gtUSDT'.",
+      "fix": "Change the intent to 'Deposit vbUSDT to mint shares'. Add interpolatedIntent 'Mint {shares} by depositing vbUSDT'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 40,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault sends exactly `assets` vbUSDT to `receiver`.",
+     "The vault burns gtUSDT shares from `owner`, in an amount computed from the stored share price (rounded up).",
+     "When `owner` is not the signer, the call spends the signer's gtUSDT allowance from `owner` by the number of shares burned.",
+     "No native value: the function is not payable."
+    ],
+    "shown": "Intent 'Withdraw', with the exact vbUSDT amount, the receiver ('To') and 'Owner'.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many gtUSDT shares burn from owner; the vault computes it from storage.",
+      "evidence": "MetaMorphoV1_1.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Math.Rounding.Ceil);` ERC4626._withdraw: `_burn(owner, shares);`",
+      "fix": "None possible. The share amount is not in calldata.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "withdraw labels the share holder 'Owner' but does not say that shares burn from this address.",
+      "evidence": "ERC4626._withdraw: `if (caller != owner) { _spendAllowance(owner, caller, shares); } _burn(owner, shares);` The descriptor field `owner` has label 'Owner'.",
+      "fix": "Rename the `owner` field to 'Burn shares from'. Add interpolatedIntent 'Withdraw {assets} to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` gtUSDT from `owner`. When `owner` is not the signer, this spends the signer's share allowance from `owner`.",
+     "The vault sends vbUSDT to `receiver`, in an amount computed from the stored share price (floor rounding), with no minimum.",
+     "No native value: the function is not payable."
+    ],
+    "shown": "Intent 'Redeem', with the gtUSDT shares to redeem, the receiver ('To') and 'Owner'. Nothing names the vbUSDT that arrives.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem does not name the asset that the receiver gets; nothing on screen says vbUSDT.",
+      "evidence": "ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);` The redeem fields are only `shares`, `receiver` and `owner`. Case 3 screen: 'Redeem', 'Shares to redeem 10.9544677862674587 gtUSDT', 'To', 'Owner'. The mint format already shows the constant underlyingTicker.",
+      "fix": "Add a field `{\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}`. Change the intent to 'Redeem shares for vbUSDT'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the vbUSDT amount the receiver gets; the vault computes it, with no minimum.",
+      "evidence": "MetaMorphoV1_1.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), lastTotalAssets, Math.Rounding.Floor);`",
+      "fix": "None possible. The amount is not in calldata, and the function takes no minimum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem labels the share holder 'Owner' but does not say that shares burn from this address.",
+      "evidence": "ERC4626._withdraw: `_spendAllowance(owner, caller, shares); ... _burn(owner, shares);` The descriptor field `owner` has label 'Owner'.",
+      "fix": "Rename the `owner` field to 'Burn shares from'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.394,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 65,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit shows the share ticker as a separate raw field that has no amount, which can read like the deposit token.",
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "The mint intent 'Mint' does not say that the signer pays vbUSDT to get the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw labels the share holder 'Owner' but does not say that shares burn from this address.",
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem does not name the asset that the receiver gets; nothing on screen says vbUSDT.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 98,
+  "clarity": 55,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "redeem does not name the asset that the receiver gets; nothing on screen says vbUSDT."
+ }
+}

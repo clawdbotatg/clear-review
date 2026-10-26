@@ -1,0 +1,162 @@
+{
+ "hash": "0x735f071af1e365d1782bfccdc5c721bfcd8ab8cf388b565dc8fffc05f784282d",
+ "file": "registry/corestake/calldata-coreagent.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1116,
+   "address": "0x0000000000000000000000000000000000001011"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:14Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "delegateCoin(address candidate)",
+    "effects": [
+     "The signer sends msg.value CORE (native) to the CoreAgent contract. It must be at least requiredCoinDeposit (1 CORE at init) or the call reverts.",
+     "The signer's stake on `candidate` and their total delegated amount both grow by msg.value. The candidate is added to the signer's delegation list if it was not there.",
+     "Rewards the signer earned on this candidate in earlier rounds are moved into rewardMap, to be claimed later. Nothing is paid out in this call."
+    ],
+    "shown": "\"Delegate CORE\", with the validator address and the CORE amount taken from the transaction value.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "delegateCoin has no interpolatedIntent, so the intent line leaves out the amount and the validator.",
+      "evidence": "descriptor.json delegateCoin: \"intent\": \"Delegate CORE\" and no interpolatedIntent. Both values appear only as fields (`@.value` 'CORE amount', `candidate` 'Validator Address').",
+      "fix": "Add \"interpolatedIntent\": \"Delegate {@.value} to {candidate}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "delegateCoin's minimum stake of requiredCoinDeposit comes from storage and is not shown.",
+      "evidence": "CoreAgent.sol delegateCoin: require(msg.value >= requiredCoinDeposit, \"delegate amount is too small\"). The value is a governance parameter in storage.",
+      "fix": "None needed. A smaller amount only makes the call revert.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "undelegateCoin(address candidate, uint256 amount)",
+    "effects": [
+     "The signer's stake on `candidate` and their total delegated amount both fall by `amount`. If this empties the position and nothing was transferred, the delegation record is removed.",
+     "`amount` CORE (native) is sent from the contract back to the signer (msg.sender).",
+     "An amount of 0 reverts ('Undelegate zero coin'). A partial amount must be at least requiredCoinDeposit and must leave at least requiredCoinDeposit staked.",
+     "Rewards from earlier rounds on this candidate are moved into rewardMap, to be claimed later. Transferred-amount bookkeeping is reduced across the signer's other candidates."
+    ],
+    "shown": "\"Unstake CORE\", with the validator address and the amount, labelled 'CORE amount (0=All)'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "undelegateCoin's label says 0 unstakes everything, but a direct call with 0 reverts.",
+      "evidence": "descriptor.json undelegateCoin field `amount` label \"CORE amount (0=All)\". CoreAgent.sol undelegateCoin calls _undelegateCoin(candidate, msg.sender, amount, false), which starts with require(amount != 0, 'Undelegate zero coin'). Only proxyUnDelegate (onlyPledgeAgent) turns 0 into the full balance. Following the label gives a failed transaction, not a full unstake. Per not_critical #10 this is a wording issue: the outcome is not different, so it is a warning.",
+      "fix": "Change the label to \"CORE amount\" (or \"CORE to unstake\") and drop \"(0=All)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "undelegateCoin's intent does not say the CORE comes back to the signer or how much.",
+      "evidence": "descriptor.json undelegateCoin: \"intent\": \"Unstake CORE\" and no interpolatedIntent. CoreAgent.sol: Address.sendValue(payable(msg.sender), amount).",
+      "fix": "Add \"interpolatedIntent\": \"Unstake {amount} from {candidate}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "transferCoin(address sourceCandidate, address targetCandidate, uint256 amount)",
+    "effects": [
+     "The signer's stake on `sourceCandidate` falls by `amount`, and the moved part is recorded as transferredAmount so it still earns this round's reward.",
+     "The signer's stake on `targetCandidate` grows by `amount`. No CORE enters or leaves the wallet.",
+     "It reverts if the target cannot accept delegations, if source equals target, if amount is 0, or if the partial-amount minimums are not met.",
+     "Rewards from earlier rounds on both candidates are moved into rewardMap, to be claimed later."
+    ],
+    "shown": "\"Move staked CORE\", with the From validator, the To validator and the amount in CORE.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "transferCoin has no interpolatedIntent, so the intent line leaves out the amount and both validators.",
+      "evidence": "descriptor.json transferCoin: \"intent\": \"Move staked CORE\" and no interpolatedIntent. The values appear only as the fields sourceCandidate, targetCandidate and amount.",
+      "fix": "Add \"interpolatedIntent\": \"Move {amount} staked from {sourceCandidate} to {targetCandidate}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 92
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.262,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 43,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "delegateCoin(address candidate)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "undelegateCoin(address candidate, uint256 amount)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "undelegateCoin's label says 0 unstakes everything, but a direct call with 0 reverts.",
+   "comprehension": null
+  },
+  "transferCoin(address sourceCandidate, address targetCandidate, uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 97,
+  "clarity": 79,
+  "functions": "2A 1B",
+  "incomplete": false,
+  "worst": "undelegateCoin's label says 0 unstakes everything, but a direct call with 0 reverts."
+ }
+}

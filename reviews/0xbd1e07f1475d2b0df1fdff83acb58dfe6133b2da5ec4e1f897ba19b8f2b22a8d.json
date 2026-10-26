@@ -1,0 +1,223 @@
+{
+ "hash": "0xbd1e07f1475d2b0df1fdff83acb58dfe6133b2da5ec4e1f897ba19b8f2b22a8d",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakUSDQ.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xa1b60d96e5c50da627095b9381dc5a46af1a9a42"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` USDQ from the signer and puts it into the vault (ERC4626._deposit pulls it with safeTransferFrom).",
+     "Mints steakUSDQ shares to `receiver`. The vault computes the number at the current price, rounded down (deposit: _convertToSharesWithTotals(..., Floor)).",
+     "Before the deposit, accrued performance-fee shares are minted to the fee recipient (_accrueInterest). This sets the price the signer gets."
+    ],
+    "shown": "Deposit: the exact USDQ amount, the share ticker steakUSDQ, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is computed on chain and not shown; no minimum is enforced.",
+      "evidence": "MetaMorphoV1_1.sol deposit: shares = _convertToSharesWithTotals(assets, totalSupply(), lastTotalAssets, Floor). The descriptor shows only the 'Share ticker' constant steakUSDQ.",
+      "fix": "None possible from calldata. A label such as 'Receive shares (steakUSDQ, at vault price)' would help.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: the intent 'Deposit' names neither the asset nor the vault, and there is no interpolatedIntent.",
+      "evidence": "descriptor deposit intent: \"Deposit\", interpolatedIntent absent",
+      "fix": "Add interpolatedIntent \"Deposit {assets} for steakUSDQ shares to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Takes USDQ from the signer. The amount is computed on chain from `shares` at the current vault price, rounded up (mint: _convertToAssetsWithTotals(..., Ceil)), and pulled with safeTransferFrom.",
+     "Mints exactly `shares` steakUSDQ to `receiver`.",
+     "Before the mint, accrued fee shares are minted to the fee recipient (_accrueInterest)."
+    ],
+    "shown": "Mint: the deposit asset as the ticker 'USDQ' with no amount, the exact steakUSDQ shares minted, and the address that receives the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDQ amount taken from the signer is computed on chain and never shown.",
+      "evidence": "MetaMorphoV1_1.sol mint: assets = _convertToAssetsWithTotals(shares, ..., Ceil). The descriptor's 'Deposit asset' field shows only the raw constant 'USDQ'. In case 0 the signer sent 2 raw USDQ (0.000002) out, and the screen has no amount.",
+      "fix": "None from calldata. Rename the label to 'Pay with (amount set by vault price)' so the signer knows the cost is not shown.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the 'Deposit asset' field shows a bare ticker, and the 'Mint' intent does not say USDQ is paid.",
+      "evidence": "descriptor mint field {label:'Deposit asset', format:'raw', value:'$.metadata.constants.underlyingTicker'}; intent \"Mint\". Case 0 reader was unsure: 'How much USDQ is taken. The screen only shows the shares minted.'",
+      "fix": "Use the intent \"Deposit USDQ for exact shares\" and interpolatedIntent \"Mint {shares} to {receiver}, paying USDQ at vault price\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The signer paid 2 raw USDQ (0.000002). The screen names USDQ but no amount, and the reader got the direction and asset right but not the amount. The 999e9 shares to 0xdead and the fee mint to 0x255c have signer null; the shares to 0xdead match the screen."
+     }
+    ],
+    "glance": 40,
+    "depth": 60
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns steakUSDQ shares from `owner`. The vault computes the number at the current price, rounded up (withdraw: Ceil).",
+     "When the caller is not `owner`, spends the caller's share allowance from `owner` (ERC4626._withdraw → _spendAllowance).",
+     "Sends exactly `assets` USDQ to `receiver`, after pulling liquidity from Morpho markets (_withdrawMorpho). It reverts if there is not enough liquidity.",
+     "Accrued fee shares are minted to the fee recipient first (_accrueInterest)."
+    ],
+    "shown": "Withdraw: the exact USDQ amount, the receiver, and the owner whose shares are burned.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned is computed on chain and not shown.",
+      "evidence": "MetaMorphoV1_1.sol withdraw: shares = _convertToSharesWithTotals(assets, ..., Ceil). The descriptor fields are assets, receiver, owner.",
+      "fix": "None from calldata. Note 'Shares burned at vault price' in the intent.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "withdraw: the intent 'Withdraw' has no interpolatedIntent naming the amount and recipient.",
+      "evidence": "descriptor withdraw intent: \"Withdraw\"",
+      "fix": "Add interpolatedIntent \"Withdraw {assets} to {receiver} from {owner}'s shares\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 85
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` steakUSDQ from `owner`, spending the caller's allowance when the caller is not `owner`.",
+     "Sends USDQ to `receiver`. The amount is computed from `shares` at the current price, rounded down (redeem: Floor), and there is no minimum.",
+     "Accrued fee shares are minted to the fee recipient first (_accrueInterest)."
+    ],
+    "shown": "Redeem: the exact steakUSDQ shares, the receiver, and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDQ amount received is computed on chain, has no minimum, and the asset is not named.",
+      "evidence": "MetaMorphoV1_1.sol redeem: assets = _convertToAssetsWithTotals(shares, ..., Floor). The descriptor fields are shares, receiver, owner, with no USDQ field.",
+      "fix": "Add a field with the constant underlyingTicker labelled 'Receive (at vault price)', as mint does.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "redeem: the intent 'Redeem' does not say USDQ is received.",
+      "evidence": "descriptor redeem intent: \"Redeem\", no interpolatedIntent",
+      "fix": "Add interpolatedIntent \"Redeem {shares} for USDQ to {receiver}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.256,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 61,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 45,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the 'Deposit asset' field shows a bare ticker, and the 'Mint' intent does not say USDQ is paid.",
+   "comprehension": 50
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 64,
+  "functions": "3B 1C",
+  "incomplete": false,
+  "worst": "mint: the 'Deposit asset' field shows a bare ticker, and the 'Mint' intent does not say USDQ is paid."
+ }
+}

@@ -1,0 +1,404 @@
+{
+ "hash": "0x6b263da6dd1bd278b029139d0b791bd7cae381b93c5edabdb816039383e9503c",
+ "file": "registry/safe/calldata-Safe-1.4.1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
+  },
+  {
+   "chainId": 10,
+   "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
+  },
+  {
+   "chainId": 56,
+   "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
+  },
+  {
+   "chainId": 137,
+   "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x41675c099f32341bf84bfc5382af534df5c7461a"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:07Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)",
+    "effects": [
+     "Sets the owners of a new Safe proxy to `_owners` and the signing threshold to `_threshold`. This is a one-time call: it reverts when the threshold is already set.",
+     "Sets `fallbackHandler` as the Safe's fallback handler when it is not zero.",
+     "Runs `data` as a DELEGATECALL to `to` inside the new Safe when `to` is not zero. This runs any code with the Safe's storage and balances.",
+     "Pays `payment` of `paymentToken` (zero address = ETH) from the Safe to `paymentReceiver`. When `paymentReceiver` is zero, tx.origin (the signer) receives it.",
+     "Called on the deployed singleton 0x41675C…, the call always reverts with GS200, because the constructor sets threshold = 1."
+    ],
+    "shown": "\"Setup Safe\" with the owners, the threshold, the fallback handler, the payment in its token, the payment receiver, and the delegate-call payload under the label \"Module\", decoded as a nested call.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "setup is bound to the Safe 1.4.1 singleton, where every call reverts; real Safe proxies never match.",
+      "evidence": "descriptor context.contract.deployments: only 0x41675C099F32341bf84BFc5382aF534df5C7461a on each chain. Safe.sol constructor: `threshold = 1;` OwnerManager.setupOwners: `require(threshold == 0, \"GS200\");`. Case 0: the mined tx 0x1b47aa… to the singleton has status 0 (reverted), and effects are empty.",
+      "fix": "Bind the descriptor to Safe proxies instead of the singleton. Use a `factory` constraint on SafeProxyFactory 1.4.1 with its ProxyCreation deployEvent, or match on the proxy's singleton.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setup labels the delegate-call payload \"Module\" and never says it runs as a delegate call.",
+      "evidence": "ModuleManager.setupModules: `require(execute(to, 0, data, Enum.Operation.DelegateCall, type(uint256).max), \"GS000\");`. Descriptor: `\"path\": \"data\", \"label\": \"Module\", \"format\": \"calldata\", \"params\": {\"calleePath\": \"to\"}`. Case 0: the reader believed \"Module 0x29fcB43b… is enabled\", but the payload is setupToL2(l2Singleton). No module is enabled.",
+      "fix": "Rename the label to \"Delegate call (runs in Safe)\". Add a field for `to` labelled \"Delegate call target\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "setup shows the zero address as payment receiver; the code then pays tx.origin, the signer.",
+      "evidence": "Safe.handlePayment: `address payable receiver = refundReceiver == address(0) ? payable(tx.origin) : refundReceiver;`. Descriptor: the `paymentReceiver` field is addressName with no special value for zero.",
+      "fix": "Add `\"senderAddress\": \"$.metadata.constants.addressAsNull\"` to the paymentReceiver params, or a label that says zero means the transaction sender.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "test-gap",
+      "title": "The only setup test targets the singleton and reverts, so no real Safe setup is checked.",
+      "evidence": "Case 0: input.to = 0x41675c…, and mined.status = 0 with no effects.",
+      "fix": "Add a test from a SafeProxyFactory createProxyWithNonce transaction, with the initializer as the setup call on the proxy.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The mined tx reverted (status 0) because setup was sent to the singleton, where the threshold is already 1. The signer has no effects. The reader also wrongly thought a module would be enabled. The payload is setupToL2, which switches the Safe to the L2 singleton."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "effects": [
+     "Sends msg.value native currency from the signer to the Safe. The function is payable.",
+     "Has the Safe CALL or DELEGATECALL `to` with `data` and `value` ETH from the Safe's balance, as `operation` says. A delegate call runs `to`'s code with the Safe's storage and balances.",
+     "Pays a refund of (gasUsed + baseGas) * gasPrice in `gasToken` (zero = ETH, capped at tx.gasprice) from the Safe to `refundReceiver`. When `refundReceiver` is zero, tx.origin receives it. The refund is paid even when the inner call fails, if safeTxGas or gasPrice is not zero.",
+     "Increases the Safe nonce. With a v=1 signature, the signer's own submission counts as their approval of the Safe transaction."
+    ],
+    "shown": "\"sign multisig operation\" with the operation type, the Safe, the executing signer, the decoded nested call, baseGas raw as \"Gas amount\", gasPrice as a token amount, and the refund receiver. msg.value, `value` and safeTxGas have no field.",
+    "findings": [
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "execTransaction is payable, but no field shows the native value the signer sends.",
+      "evidence": "Safe.sol: `) public payable virtual returns (bool success) {` with no check that msg.value is zero. The descriptor execTransaction fields have no `@.value` field.",
+      "fix": "Add `{\"path\": \"@.value\", \"label\": \"ETH sent to Safe\", \"format\": \"amount\"}`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "execTransaction never shows the `value` ETH that the Safe sends to `to`. A plain ETH transfer shows no amount.",
+      "evidence": "Safe.execTransaction: `success = execute(to, value, data, operation, ...)`. The descriptor passes `value` only as `amountPath` of the `data` calldata field. Per the spec, a nested descriptor MAY use @.value. An empty or unmatched `data` gets only a hash.",
+      "fix": "Add `{\"path\": \"value\", \"label\": \"ETH sent from Safe\", \"format\": \"amount\"}` and `{\"path\": \"to\", \"label\": \"To\", \"format\": \"addressName\"}`.",
+      "groundTruth": false
+     },
+     {
+      "severity": "critical",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "execTransaction decodes `data` as a call to `to`, even when `operation` makes it a delegate call.",
+      "evidence": "Executor.execute runs delegatecall when operation == DelegateCall. Descriptor: `\"path\": \"data\", \"format\": \"calldata\", \"params\": {\"calleePath\": \"to\", ...}` has no condition on `operation`.",
+      "fix": "Show the nested calldata only when operation is Call. For operation 1, show a fixed warning such as \"Delegate call: runs target code inside your Safe\". Or limit nested decoding to known delegate-call targets such as MultiSend.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "execTransaction says \"sign multisig operation\", but it executes the operation and can pay a refund.",
+      "evidence": "Descriptor: `\"intent\": \"sign multisig operation\"`. Safe.execTransaction runs execute(...) and then handlePayment(...).",
+      "fix": "Change the intent to \"Execute Safe transaction\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "execTransaction shows the gas price and baseGas apart and never shows the total refund the Safe pays.",
+      "evidence": "Safe.handlePayment: `payment = gasUsed.add(baseGas).mul(gasPrice)`. Descriptor: baseGas is labelled 'Gas amount' (raw) and gasPrice 'Gas price' (tokenAmount). safeTxGas has visible: never.",
+      "fix": "Rename baseGas to \"Base gas (refunded)\" and gasPrice to \"Refund per gas unit\". Make safeTxGas visible as \"Safe Tx gas\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "execTransaction shows a zero refundReceiver as the zero address; the code pays tx.origin.",
+      "evidence": "Safe.handlePayment: `refundReceiver == address(0) ? payable(tx.origin) : refundReceiver`. Descriptor: refundReceiver is addressName with no senderAddress.",
+      "fix": "Add `\"senderAddress\": \"$.metadata.constants.addressAsNull\"` to the refundReceiver params.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "execTransaction is bound to the singleton; signers call Safe proxies, so this format never matches.",
+      "evidence": "deployments: only 0x41675C… The singleton has no owners, so checkNSignatures always fails with GS026.",
+      "fix": "Bind to Safe proxies with a factory constraint on SafeProxyFactory.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 30,
+    "depth": 40
+   },
+   {
+    "key": "addOwnerWithThreshold(address owner, uint256 _threshold)",
+    "effects": [
+     "Adds `owner` as a Safe owner. The function is `authorized`: only the Safe itself can call it, through execTransaction.",
+     "Sets the threshold to `_threshold` when it differs from the current one."
+    ],
+    "shown": "\"Add signer\" with the new signer and the new threshold.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "addOwnerWithThreshold binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+      "evidence": "OwnerManager.addOwnerWithThreshold is `public authorized` (msg.sender == address(this)). The only deployment is singleton 0x41675C…",
+      "fix": "Bind to Safe proxies, which is the callee when execTransaction calls the Safe itself.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "addOwnerWithThreshold limits the owner to type eoa, but owners can be contracts such as nested Safes.",
+      "evidence": "Descriptor owner params: `\"types\": [\"eoa\"]`. OwnerManager only rejects address(0), the sentinel and address(this).",
+      "fix": "Use types [\"eoa\", \"wallet\", \"contract\"].",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "removeOwner(address prevOwner, address owner, uint256 _threshold)",
+    "effects": [
+     "Removes `owner` from the Safe owners. Only the Safe itself can call it.",
+     "Sets the threshold to `_threshold` when it differs from the current one."
+    ],
+    "shown": "\"Remove signer\" with the signer and the new threshold. prevOwner, a linked-list pointer, is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "removeOwner binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+      "evidence": "OwnerManager.removeOwner is `public authorized`. The only deployment is singleton 0x41675C…",
+      "fix": "Bind to Safe proxies.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "swapOwner(address prevOwner, address oldOwner, address newOwner)",
+    "effects": [
+     "Replaces `oldOwner` with `newOwner` as a Safe owner. The threshold does not change. Only the Safe itself can call it."
+    ],
+    "shown": "\"Swap signer\" with the old signer and the new signer.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "swapOwner binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+      "evidence": "OwnerManager.swapOwner is `public authorized`. The only deployment is singleton 0x41675C…",
+      "fix": "Bind to Safe proxies.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "changeThreshold(uint256 _threshold)",
+    "effects": [
+     "Sets the number of owner confirmations the Safe needs to `_threshold`. Only the Safe itself can call it."
+    ],
+    "shown": "\"Modify threshold\" with the new threshold.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "changeThreshold binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+      "evidence": "OwnerManager.changeThreshold is `public authorized`. The only deployment is singleton 0x41675C…",
+      "fix": "Bind to Safe proxies.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "approveHash(bytes32 hashToApprove)",
+    "effects": [
+     "Records the signer, who must be an owner, as approving the Safe transaction hash `hashToApprove`. The approval is permanent and cannot be revoked. Anyone can then execute that Safe transaction with the signer's approval counted."
+    ],
+    "shown": "\"Approve Safe hash\" with the raw hash.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "approveHash shows only a hash; the Safe transaction it approves cannot be decoded from it.",
+      "evidence": "Safe.approveHash: `approvedHashes[msg.sender][hashToApprove] = 1;` The devdoc says \"The approved hash stays approved forever. There's no revocation mechanism\". Descriptor: hashToApprove is raw.",
+      "fix": "Change the intent to say it is permanent, for example \"Approve Safe tx hash (permanent)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-binding",
+      "title": "approveHash binds to the singleton; owners call it on their Safe proxy, so it never matches.",
+      "evidence": "Safe.approveHash: `require(owners[msg.sender] != address(0), \"GS030\");`. The singleton has no owners. The only deployment is 0x41675C…",
+      "fix": "Bind to Safe proxies.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 45
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.605,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [
+  "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)"
+ ],
+ "seconds": 113,
+ "rubric": "v1.1",
+ "result": "fail",
+ "formats": {
+  "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 45,
+   "measured": false,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "setup is bound to the Safe 1.4.1 singleton, where every call reverts; real Safe proxies never match.",
+   "comprehension": null
+  },
+  "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)": {
+   "grade": "F",
+   "truth": 0,
+   "clarity": 20,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 4,
+   "warnings": 4,
+   "worst": "execTransaction is payable, but no field shows the native value the signer sends.",
+   "comprehension": null
+  },
+  "addOwnerWithThreshold(address owner, uint256 _threshold)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "addOwnerWithThreshold binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+   "comprehension": null
+  },
+  "removeOwner(address prevOwner, address owner, uint256 _threshold)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "removeOwner binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+   "comprehension": null
+  },
+  "swapOwner(address prevOwner, address oldOwner, address newOwner)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "swapOwner binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+   "comprehension": null
+  },
+  "changeThreshold(uint256 _threshold)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "changeThreshold binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+   "comprehension": null
+  },
+  "approveHash(bytes32 hashToApprove)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "approveHash binds to the singleton; owners call it on their Safe proxy, so it never matches.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "F",
+  "truth": 77,
+  "clarity": 66,
+  "functions": "4A 2C 1F",
+  "incomplete": false,
+  "worst": "execTransaction is payable, but no field shows the native value the signer sends."
+ }
+}

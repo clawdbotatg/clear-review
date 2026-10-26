@@ -1,0 +1,235 @@
+{
+ "hash": "0xb9c4cc1b9182ca7d3810c29ccf27e11b1ac371c27024292488e2ffd5e618f50c",
+ "file": "registry/morpho/calldata-armitage_by_wintermute-armUSDTp-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbf29043164660c60a2a72cd15ffe2304e87b6838"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:19Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` USDT from the signer into the vault (safeTransferFrom in enter).",
+     "Mints shares = previewDeposit(assets) armUSDTp to `onBehalf`, at the share price after fees accrue (rounded down, no minimum).",
+     "The vault may then move the deposited USDT into its liquidity adapter. That changes the vault's holdings, not the signer's."
+    ],
+    "shown": "Deposit 4.5 USDT for the onBehalf address, with the share ticker armUSDTp and the share recipient, but no share amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: number of armUSDTp shares received is not shown; the vault computes it from its share price.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets);` comes from storage, not calldata. Case 0: signer received 4.5 armUSDTp; the screen shows only 'Share ticker: armUSDTp'.",
+      "fix": "Nothing in calldata bounds it. Optionally add a note that shares follow the current share price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "USDT out 4.5 is shown exactly. armUSDTp in: the asset and recipient are shown but not the amount, which comes from the vault's price."
+     }
+    ],
+    "glance": 82,
+    "depth": 78
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns shares = previewWithdraw(assets) armUSDTp from `onBehalf` (rounded up, no maximum).",
+     "If the signer is not `onBehalf`, spends the share allowance that `onBehalf` gave the signer.",
+     "Sends exactly `assets` USDT from the vault to `receiver`. The vault may pull liquidity back from its adapter first."
+    ],
+    "shown": "Withdraw exactly the given USDT amount to the receiver, with the owner whose shares pay for it shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: number of armUSDTp shares burned is not shown; the vault computes it, with no cap.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)` then `deleteShares(onBehalf, shares)`. Case 2: 0.157544 armUSDTp left the signer. The screen shows only 'Owner'.",
+      "fix": "No calldata value exists. A label such as 'Shares burned from' on the owner field would hint at it.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The reader thought the Armitage balance drops in USDT terms, but missed that armUSDTp shares are burned and how many. The USDT in is shown exactly, to the signer."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` armUSDTp from `onBehalf`.",
+     "If the signer is not `onBehalf`, spends the share allowance that `onBehalf` gave the signer.",
+     "Sends previewRedeem(shares) USDT to `receiver` (rounded down, no minimum). The vault may pull liquidity from its adapter first."
+    ],
+    "shown": "Redeem the given armUSDTp shares to the receiver, with the owner shown, but nothing says what asset is paid out.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the asset received (USDT) is never named, though mint and deposit name it via constants.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets);` asset = USDT. The descriptor's redeem fields are only shares, receiver, onBehalf. Case 3: signer received 5,002,874.852382 USDT; the reader wrote 'likely USDT, not shown'.",
+      "fix": "Add a field {\"label\":\"Receive asset\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"} and say 'Redeem {#.shares} for USDT to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: USDT amount paid out is not shown; it comes from the vault price with no minimum.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);` comes from storage. Case 3: 5,002,874.852382 USDT in, not on the screen.",
+      "fix": "No calldata value exists to show.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The armUSDTp shares out are exact. For the USDT in, the reader saw the direction but neither the asset nor the amount."
+     }
+    ],
+    "glance": 58,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "Pulls assets = previewMint(shares) USDT from the signer (rounded up, no maximum in the function).",
+     "Mints exactly `shares` armUSDTp to `onBehalf`.",
+     "The vault may move the USDT into its liquidity adapter. That changes the vault's holdings, not the signer's."
+    ],
+    "shown": "Mint the given armUSDTp shares for onBehalf, with a field naming USDT as the deposit asset but no USDT amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDT pulled from the signer has no amount or cap on screen; the vault computes it.",
+      "evidence": "VaultV2.sol mint(): `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` with safeTransferFrom(asset, msg.sender, ...). Case 1: 1 USDT left the signer; the screen shows only 'Deposit asset: USDT'.",
+      "fix": "No calldata value exists. A label such as 'Pays in (amount set by vault price)' would warn the signer.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint: the intent 'Mint {shares} for {onBehalf}' never says USDT leaves the signer's wallet.",
+      "evidence": "descriptor mint interpolatedIntent: 'Mint {#.shares} for {#.onBehalf}'. Code: enter() pulls USDT from msg.sender. Case 1 screen: 'Mint 1 armUSDTp for 0x...dEaD'.",
+      "fix": "Use an intent like 'Deposit USDT' and the sentence 'Deposit USDT to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The only signer effect is 1 USDT out. The asset is named but the amount is not. The shares went to 0xdead, which the screen shows correctly and the reader understood."
+     }
+    ],
+    "glance": 55,
+    "depth": 52
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.41,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 103,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the asset received (USDT) is never named, though mint and deposit name it via constants.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint {shares} for {onBehalf}' never says USDT leaves the signer's wallet.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 67,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the asset received (USDT) is never named, though mint and deposit name it via constants."
+ }
+}

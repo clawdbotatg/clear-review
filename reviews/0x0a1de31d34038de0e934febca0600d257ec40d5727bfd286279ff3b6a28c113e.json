@@ -1,0 +1,189 @@
+{
+ "hash": "0x0a1de31d34038de0e934febca0600d257ec40d5727bfd286279ff3b6a28c113e",
+ "file": "registry/morpho/calldata-rockawayx-humaUSDC-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x8ac91877b93330f52b2979a31a4879506021475c"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Pulls exactly `assets` USDC from the signer into the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "Mints vault shares (humaUSDC) to `onBehalf`. The number is previewDeposit(assets), set by the vault's share price at execution, with no minimum."
+    ],
+    "shown": "Deposit 1 USDC for <onBehalf>, with the share ticker humaUSDC and the share recipient shown as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares minted is not shown and has no on-chain minimum.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. The price comes from storage (totalAssets, totalSupply, fees). Case 0: the signer received 1e18 humaUSDC and the screen shows only the ticker. The reader wrote 'amount not shown'.",
+      "fix": "No calldata value holds it. A wallet could only estimate it with previewDeposit.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "deposit: 'Share ticker' is a standalone raw constant field and says nothing about an amount.",
+      "evidence": "descriptor deposit field {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'} renders 'humaUSDC' on its own line.",
+      "fix": "Fold it into the wording, e.g. intent 'Deposit USDC for humaUSDC shares', or label 'You receive: humaUSDC shares'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 1 USDC out is shown exactly. The humaUSDC shares in are shown by ticker and recipient, but the 1e18 amount is not shown (it is computed on-chain)."
+     }
+    ],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Burns vault shares from `onBehalf`. The number is previewWithdraw(assets), rounded up at the current share price.",
+     "If the signer is not `onBehalf`, it spends that many shares from onBehalf's allowance to the signer.",
+     "Sends exactly `assets` USDC from the vault to `receiver`, pulling liquidity from the liquidity adapter when idle funds are short."
+    ],
+    "shown": "Withdraw exactly 620000 USDC to <receiver>, with Owner <onBehalf>.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of humaUSDC shares burned from the owner is not shown and has no maximum.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)`, then exit(): `deleteShares(onBehalf, shares)`. Case 1: 619503.62 humaUSDC left the signer and the screen shows no share amount. The reader wrote 'amount not shown'.",
+      "fix": "Not in calldata. A wallet could only estimate it with previewWithdraw.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 620000 USDC in to the receiver is shown exactly. The burn of 619503.6 humaUSDC is implied by 'Owner', but no amount is shown."
+     }
+    ],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Burns exactly `shares` humaUSDC from `onBehalf`, spending the signer's allowance when the signer is not onBehalf.",
+     "Sends previewRedeem(shares) USDC to `receiver`. The amount is set by the share price at execution, with no minimum."
+    ],
+    "shown": "Redeem 5 humaUSDC to <receiver>, with Owner <onBehalf>. The asset paid out is never named.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDC amount paid out is not shown and has no minimum.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`, which ends in `SafeERC20Lib.safeTransfer(asset, receiver, assets)`. Case 2: the signer received 4.999999 USDC, a number that is not on the screen.",
+      "fix": "Not in calldata. A wallet could only estimate it with previewRedeem.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the screen never says the payout is USDC. The reader was unsure what asset arrives.",
+      "evidence": "descriptor redeem interpolatedIntent 'Redeem {#.shares} to {#.receiver}' has no field naming the underlying asset, although metadata.constants.underlyingTicker='USDC' exists. Case 2 reader: 'Whether the payout is USDC; screen only says redeem shares'.",
+      "fix": "Use interpolatedIntent 'Redeem {#.shares} for USDC to {#.receiver}', or add a field such as {label:'Receive asset', value:'$.metadata.constants.underlyingTicker'}.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 5 humaUSDC out is shown exactly. The 4.999999 USDC in is not shown, either as an asset or as an amount. The reader guessed USDC but was unsure."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.382,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 80,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says the payout is USDC. The reader was unsure what asset arrives.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 73,
+  "functions": "3B",
+  "incomplete": false,
+  "worst": null
+ }
+}

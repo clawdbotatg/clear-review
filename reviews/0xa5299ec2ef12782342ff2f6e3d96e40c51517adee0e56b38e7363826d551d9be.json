@@ -1,0 +1,182 @@
+{
+ "hash": "0xa5299ec2ef12782342ff2f6e3d96e40c51517adee0e56b38e7363826d551d9be",
+ "file": "registry/morpho/calldata-steakhouse_financial-bbqUSDC-v2-143.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 143,
+   "address": "0xbeeff443c3cba3e369da795002243beac311ab83"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:26Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends `assets` USDC (the vault asset 0x7547…b603) from their wallet to the vault, spending their USDC allowance to the vault.",
+     "The vault mints bbqUSDC shares to `onBehalf`. The share amount is previewDeposit(assets), which the vault computes from its own share price after it accrues interest and fees.",
+     "The vault may pass the deposited USDC on to its liquidity adapter. This does not change what the signer gets."
+    ],
+    "shown": "Deposit 0.01 USDC for <onBehalf>, with the share ticker bbqUSDC and 'Send shares to' <onBehalf>; the number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many bbqUSDC shares are minted, because the vault computes them on chain.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. Case 0: signer receives 10000000000000000 bbqUSDC (0.01). The screen shows only 'Share ticker: bbqUSDC' and 'Send shares to', with no amount.",
+      "fix": "None possible in the descriptor: the share amount is not in the calldata. It is enough to keep the ticker and recipient fields.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows the USDC out exactly. For the bbqUSDC shares in, it shows the ticker and the recipient but not the amount, which the code computes. The reader guessed the shares right but did not know the amount."
+     }
+    ],
+    "glance": 78,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns previewWithdraw(assets) bbqUSDC shares (rounded up) from `onBehalf`, normally the signer.",
+     "If the signer is not `onBehalf`, the call spends the signer's share allowance from `onBehalf` by the burned shares.",
+     "`receiver` gets exactly `assets` USDC from the vault."
+    ],
+    "shown": "Withdraw exactly 3 USDC to <receiver>, with Owner <onBehalf>; the number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show the bbqUSDC shares burned from the owner, because the vault computes them on chain.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(assets, shares, receiver, onBehalf);`. exit: `deleteShares(onBehalf, shares);`. Case 1: signer loses 3000000000000000000 bbqUSDC. The screen has no shares field; it shows only 'Withdraw exactly 3 USDC' and 'Owner'.",
+      "fix": "The amount cannot be shown. As an option, change the Owner label to 'Burn bbqUSDC shares of' so the signer knows that shares leave.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen shows the USDC in (3 USDC to the signer) exactly. The bbqUSDC shares burned appear only through the 'Owner' field. The reader inferred that shares worth about 3 USDC leave, but did not know the amount."
+     }
+    ],
+    "glance": 75,
+    "depth": 72
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` bbqUSDC from `onBehalf`, normally the signer.",
+     "If the signer is not `onBehalf`, the call spends the signer's share allowance from `onBehalf` by `shares`.",
+     "`receiver` gets previewRedeem(shares) USDC (rounded down) from the vault. The call has no minimum-received bound."
+    ],
+    "shown": "Redeem 0.1 bbqUSDC to <receiver>, with Owner <onBehalf>; the screen never names the asset received (USDC) or its amount.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "redeem never names USDC as the asset the receiver gets; only the shares and the recipient are shown.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);` with asset = USDC 0x7547…b603. Descriptor redeem: interpolatedIntent 'Redeem {#.shares} to {#.receiver}', and no field names the underlying token, although metadata.constants.underlyingTicker = 'USDC' exists. Case 2: the reader was unsure 'Which token is paid out'.",
+      "fix": "Change interpolatedIntent to 'Redeem {#.shares} for USDC to {#.receiver}', or add a field {\"label\":\"Receive\",\"format\":\"raw\",\"value\":\"$.metadata.constants.underlyingTicker\"}.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show the USDC amount paid out; the vault computes it and the call has no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares); exit(assets, shares, receiver, onBehalf);`. There is no slippage parameter in the calldata. Case 2: the signer receives 100000 USDC (0.1), which the screen does not show.",
+      "fix": "None in the descriptor: the amount is not in the calldata.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen shows 0.1 bbqUSDC out exactly. For the USDC in, it shows only the receiver, with no asset name and no amount. The reader guessed USDC but was unsure."
+     }
+    ],
+    "glance": 55,
+    "depth": 58
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.419,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 91,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 63,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem never names USDC as the asset the receiver gets; only the shares and the recipient are shown.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "3B",
+  "incomplete": false,
+  "worst": null
+ }
+}

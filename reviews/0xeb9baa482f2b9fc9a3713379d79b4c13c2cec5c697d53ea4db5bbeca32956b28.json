@@ -1,0 +1,257 @@
+{
+ "hash": "0xeb9baa482f2b9fc9a3713379d79b4c13c2cec5c697d53ea4db5bbeca32956b28",
+ "file": "registry/ondo-finance/calldata-USDYInstantManager.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xa42613c243b67bf6194ac327795b926b4b491f15"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:28Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "subscribe(address depositToken, uint256 depositAmount, uint256 minimumRwaReceived)",
+    "effects": [
+     "The signer's depositAmount of depositToken is pulled from the signer into the manager, then sent through the Ondo token router (_processSubscription: safeTransferFrom(_msgSender(), address(this), depositAmount)).",
+     "The signer's existing allowance to the manager for depositToken is spent by depositAmount.",
+     "USDY is minted to the signer: (depositUSD - fee) * 1e18 / USDY price, and the call reverts if this is below minimumRwaReceived (subscribe: IRWALike(rwaToken).mint(_msgSender(), rwaAmountOut)).",
+     "A subscription fee read from OndoFees cuts the USDY minted. The minimum is checked after the fee, and the rate limit for the signer's user ID is used up."
+    ],
+    "shown": "\"Subscribe with 500 USDC for at least 423.78 USDY+\", with fields Deposit Amount (in the deposit token) and Min USDY Received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "subscribe: the trailing '+' in interpolatedIntent makes the token read as 'USDY+', a name that looks like another token",
+      "evidence": "descriptor interpolatedIntent \"Subscribe with {depositAmount} for at least {minimumRwaReceived}+\"; case 0 renders \"423.7796050114516 USDY+\" and the reader was unsure \"Whether USDY and USDY+ are the same token\"",
+      "fix": "Remove the '+', e.g. \"Subscribe with {depositAmount} for at least {minimumRwaReceived}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "subscribe: the fee and the oracle price come from storage, so the screen can only show the enforced minimum",
+      "evidence": "BaseRWAManager._processSubscription: fee = ondoSubscriptionFees.getAndUpdateFee(...); rwaAmountOut = ((depositUSDValue - fee) * RWA_NORMALIZER) / _getRwaPrice(); the minimum is checked after the fee",
+      "fix": "None needed. 'Min USDY Received' is the right bound.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "500 USDC out matches Deposit Amount. 441.44 USDY minted to the signer is at least the 423.78 USDY minimum. The reader was unsure whether 'USDY+' is the same token as USDY."
+     }
+    ],
+    "glance": 82,
+    "depth": 88
+   },
+   {
+    "key": "redeem(uint256 rwaAmount, address receivingToken, uint256 minimumTokenReceived)",
+    "effects": [
+     "The signer's rwaAmount of USDY is pulled into the manager (spending the signer's allowance) and burned (redeem: transferFrom(_msgSender(), address(this), rwaAmount); burn(rwaAmount)).",
+     "receivingToken is sent to the signer: (USDY value - fee) / receivingToken price, and the call reverts if this is below minimumTokenReceived (_processRedemption: safeTransfer(_msgSender(), receiveTokenAmount)).",
+     "A redemption fee read from OndoFees cuts the payout, the minimum is checked after the fee, and the rate limit is used up."
+    ],
+    "shown": "\"Redeem 746.33 USDY for at least 811.53 USDC+\", with fields USDY Amount and Min Receive Amount (in the receiving token).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeem: the trailing '+' in interpolatedIntent makes the payout token read as 'USDC+'",
+      "evidence": "descriptor interpolatedIntent \"Redeem {rwaAmount} for at least {minimumTokenReceived}+\"; case 1 renders \"811.526186 USDC+\" and the reader noted \"screen says 'USDC+' in one line, 'USDC' in another\"",
+      "fix": "Remove the trailing '+'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the fee and the prices come from storage, so the screen can only show the enforced minimum",
+      "evidence": "BaseRWAManager._processRedemption: fee = ondoRedemptionFees.getAndUpdateFee(...); receiveTokenAmount = ((redemptionUSDValue - fee) * 10**decimals) / getAssetPrice(receivingToken); the minimum is checked after the fee",
+      "fix": "None needed.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "746.33 USDY out (the allowance-spend event is merged into this effect) matches USDY Amount. 845.34 USDC in is at least the 811.53 USDC minimum."
+     }
+    ],
+    "glance": 82,
+    "depth": 88
+   },
+   {
+    "key": "subscribeRebasingUSDY(address depositToken, uint256 depositAmount, uint256 minimumRusdyReceived)",
+    "effects": [
+     "The signer's depositAmount of depositToken is pulled into the manager and sent through the Ondo token router (_processSubscription safeTransferFrom).",
+     "USDY is minted to the manager, wrapped into rUSDY, and the rUSDY shares are sent to the signer. The call reverts if the rUSDY received is below minimumRusdyReceived (subscribeRebasingUSDY: rusdy.transferShares(_msgSender(), ...); if (rusdyAmountOut < minimumRusdyReceived) revert).",
+     "A subscription fee read from storage cuts the amount received, and the rate limit is used up."
+    ],
+    "shown": "\"Subscribe with 5000 USDC for at least 4800 rUSDY+\", with fields Deposit Amount and Min rUSDY Received.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "subscribeRebasingUSDY: the trailing '+' makes the token read as 'rUSDY+'",
+      "evidence": "descriptor interpolatedIntent \"Subscribe with {depositAmount} for at least {minimumRusdyReceived}+\"; case 2 renders \"4800 rUSDY+\" and the reader was unsure \"Whether 'rUSDY+' is exactly rUSDY\"",
+      "fix": "Remove the trailing '+'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "subscribeRebasingUSDY: the fee and the price come from storage; only the minimum rUSDY can be shown",
+      "evidence": "BaseRWAManager._processSubscription fee and _getRwaPrice(); USDY_InstantManager.subscribeRebasingUSDY checks rusdyAmountOut against minimumRusdyReceived",
+      "fix": "None needed.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "5000 USDC out matches Deposit Amount. 4999.99 rUSDY in is at least the 4800 rUSDY minimum. The intermediate USDY mint and wrap happen inside the manager (signer null)."
+     }
+    ],
+    "glance": 80,
+    "depth": 88
+   },
+   {
+    "key": "redeemRebasingUSDY(uint256 rusdyAmount, address receivingToken, uint256 minimumTokenReceived)",
+    "effects": [
+     "The signer's rusdyAmount of rUSDY is pulled into the manager (spending the signer's allowance) and unwrapped to USDY, which is burned (redeemRebasingUSDY: rusdy.transferFrom(_msgSender(), address(this), rusdyAmount); unwrap; burn).",
+     "receivingToken is sent to the signer for the USDY value minus the fee, and the call reverts if this is below minimumTokenReceived (_processRedemption safeTransfer to _msgSender()).",
+     "A redemption fee read from storage cuts the payout, and the rate limit is used up."
+    ],
+    "shown": "\"Redeem 1.13 rUSDY for at least 0.96 USDC+\", with fields rUSDY Amount and Min Receive Amount (in the receiving token).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "redeemRebasingUSDY: the trailing '+' makes the payout token read as 'USDC+'",
+      "evidence": "descriptor interpolatedIntent \"Redeem {rusdyAmount} for at least {minimumTokenReceived}+\"; case 3 renders \"0.96 USDC+\" and the reader was unsure \"Whether the token is plain USDC or something called 'USDC+'\"",
+      "fix": "Remove the trailing '+'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeemRebasingUSDY: the fee and the prices come from storage; only the minimum payout can be shown",
+      "evidence": "BaseRWAManager._processRedemption fee = ondoRedemptionFees.getAndUpdateFee(...) and getAssetPrice(receivingToken)",
+      "fix": "None needed.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "1.1287 rUSDY out (the allowance-spend event is merged into this effect) matches rUSDY Amount. 1.128665 USDC in is at least the 0.96 USDC minimum."
+     }
+    ],
+    "glance": 80,
+    "depth": 88
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.494,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 87,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "subscribe(address depositToken, uint256 depositAmount, uint256 minimumRwaReceived)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "subscribe: the trailing '+' in interpolatedIntent makes the token read as 'USDY+', a name that looks like another token",
+   "comprehension": 100
+  },
+  "redeem(uint256 rwaAmount, address receivingToken, uint256 minimumTokenReceived)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the trailing '+' in interpolatedIntent makes the payout token read as 'USDC+'",
+   "comprehension": 100
+  },
+  "subscribeRebasingUSDY(address depositToken, uint256 depositAmount, uint256 minimumRusdyReceived)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "subscribeRebasingUSDY: the trailing '+' makes the token read as 'rUSDY+'",
+   "comprehension": 100
+  },
+  "redeemRebasingUSDY(uint256 rusdyAmount, address receivingToken, uint256 minimumTokenReceived)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeemRebasingUSDY: the trailing '+' makes the payout token read as 'USDC+'",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 89,
+  "functions": "4A",
+  "incomplete": false,
+  "worst": "subscribe: the trailing '+' in interpolatedIntent makes the token read as 'USDY+', a name that looks like another token"
+ }
+}

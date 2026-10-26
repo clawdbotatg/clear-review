@@ -1,0 +1,195 @@
+{
+ "hash": "0xaab2b27b1918b7237d98a0cdd092d67f9eafe3071d4c01a426b1c44ab14980a5",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakUSDC.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xbeef010f9cb27031ad51e3333f9af9c6b1228183"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "The signer sends exactly `assets` USDC (0x8335…2913 on Base) to the vault through safeTransferFrom, which spends the signer's USDC allowance to the vault.",
+     "The vault mints steakUSDC shares to `receiver`. The share count comes from the stored share price, rounded down, and the call has no minimum.",
+     "Before the deposit, the vault mints fee shares to feeRecipient. This lowers the share price the signer gets."
+    ],
+    "shown": "The intent is \"Deposit\". The fields show the USDC amount, the constant ticker steakUSDC, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit does not show how many steakUSDC shares the receiver gets, because the share price is in storage.",
+      "evidence": "MetaMorpho.deposit: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Floor);`. The descriptor only has the field 'Share ticker' with value `$.metadata.constants.vaultTicker`, and no share amount.",
+      "fix": "No descriptor change can show the share count. Keep the receiver and ticker fields.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 80
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "The signer sends USDC to the vault. The amount comes from `shares` at the stored share price, rounded up, and the call has no maximum. It spends the signer's USDC allowance to the vault.",
+     "The vault mints exactly `shares` steakUSDC to `receiver`.",
+     "Before the mint, the vault mints fee shares to feeRecipient."
+    ],
+    "shown": "The intent is \"Mint\". The fields show 'Deposit asset: USDC' with no amount, the share amount, and the receiver of the shares.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint does not show how much USDC leaves the signer, because the share price is in storage.",
+      "evidence": "MetaMorpho.mint: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then ERC4626._deposit: `SafeERC20.safeTransferFrom(_asset, caller, address(this), assets);`. The descriptor field 'Deposit asset' shows only `$.metadata.constants.underlyingTicker`.",
+      "fix": "No descriptor change can show the USDC amount. A label such as 'Pay with (amount set by share price)' would make this clear.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint intent \"Mint\" does not say that the signer pays USDC for the shares.",
+      "evidence": "Descriptor: `\"intent\": \"Mint\"`. In ERC4626._deposit, `safeTransferFrom(_asset, caller, address(this), assets)` takes USDC from the signer.",
+      "fix": "Change the intent to \"Deposit USDC to mint steakUSDC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 35,
+    "depth": 55
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "The vault burns steakUSDC shares from `owner`. The share count comes from the stored share price, rounded up, and the call has no maximum.",
+     "When the signer is not `owner`, the call spends the signer's share allowance from `owner`.",
+     "The vault sends exactly `assets` USDC to `receiver`.",
+     "Before the withdrawal, the vault mints fee shares to feeRecipient."
+    ],
+    "shown": "The intent is \"Withdraw\". The fields show 'Withdraw exactly' with the USDC amount, the receiver, and the owner.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw does not show how many shares the vault burns from the owner, because the share price is in storage.",
+      "evidence": "MetaMorpho.withdraw: `shares = _convertToSharesWithTotals(assets, totalSupply(), newTotalAssets, Math.Rounding.Ceil);` then ERC4626._withdraw: `_burn(owner, shares);`. The descriptor has no field for shares.",
+      "fix": "No descriptor change can show the share count.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "The vault burns exactly `shares` steakUSDC from `owner`. When the signer is not `owner`, the call spends the signer's share allowance from `owner`.",
+     "The vault sends USDC to `receiver`. The amount comes from the stored share price, rounded down, and the call has no minimum.",
+     "Before the redemption, the vault mints fee shares to feeRecipient."
+    ],
+    "shown": "The intent is \"Redeem\". The fields show the share amount, the receiver, and the owner. The USDC asset and amount the receiver gets do not appear.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem does not show how much USDC the receiver gets, because the share price is in storage.",
+      "evidence": "MetaMorpho.redeem: `assets = _convertToAssetsWithTotals(shares, totalSupply(), newTotalAssets, Math.Rounding.Floor);` then ERC4626._withdraw: `SafeERC20.safeTransfer(_asset, receiver, assets);`. The descriptor has no field for the asset received.",
+      "fix": "Add a constant field such as {\"label\": \"Receive asset\", \"format\": \"raw\", \"value\": \"$.metadata.constants.underlyingTicker\"}, like in mint. Then the signer knows that USDC arrives.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem intent \"Redeem\" does not say that steakUSDC shares become USDC.",
+      "evidence": "Descriptor: `\"intent\": \"Redeem\"`. No field names USDC. ERC4626._withdraw sends `_asset` (USDC) to `receiver`.",
+      "fix": "Change the intent to \"Redeem steakUSDC for USDC\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.325,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 61,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 40,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint intent \"Mint\" does not say that the signer pays USDC for the shares.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 62,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem intent \"Redeem\" does not say that steakUSDC shares become USDC.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 54,
+  "functions": "2B 2C",
+  "incomplete": false,
+  "worst": "mint intent \"Mint\" does not say that the signer pays USDC for the shares."
+ }
+}

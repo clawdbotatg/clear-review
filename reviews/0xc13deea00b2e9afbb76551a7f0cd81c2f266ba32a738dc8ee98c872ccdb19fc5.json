@@ -1,0 +1,306 @@
+{
+ "hash": "0xc13deea00b2e9afbb76551a7f0cd81c2f266ba32a738dc8ee98c872ccdb19fc5",
+ "file": "registry/gondi/calldata-UserVault.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x823de2c44369e94cac3da789ad4b6493e27e4bfe"
+  },
+  {
+   "chainId": 999,
+   "address": "0x3f26ff30061d5a6777a01d7843b5f2b81f60a7ee"
+  },
+  {
+   "chainId": 4663,
+   "address": "0xcf0df26ae14d132084e95ee8a9426d53eb027cb7"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "mint()",
+    "effects": [
+     "Mints a new GONDI_USER_VAULT (GUV) NFT with the next id to the signer; nothing leaves the wallet."
+    ],
+    "shown": "The screen says \"Create a new NFT vault\" and has no fields.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "GUV #1170 minted to the signer. The screen does not say the signer owns the vault, but the reader assumed so correctly."
+     }
+    ],
+    "glance": 90,
+    "depth": 85
+   },
+   {
+    "key": "depositERC721s(uint256 _vaultId, address _collection, uint256[] _tokenIds)",
+    "effects": [
+     "Each listed ERC-721 of _collection moves from the signer to the UserVault contract (transferFrom) and is credited to vault _vaultId.",
+     "The NFTs are then controlled by whoever owns or is approved on vault _vaultId, not necessarily the signer, because anyone can deposit into any existing vault."
+    ],
+    "shown": "The screen says to deposit the named NFTs (collection name plus token id) into GONDI_USER_VAULT #id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "depositERC721s: the vault owner who gains control of the deposited NFTs is not shown.",
+      "evidence": "UserVault.sol _vaultExists only checks that _ownerOf[_vaultId] != 0; there is no owner check on deposit. The owner is read from storage, and the descriptor shows only 'Vault' nftName #id.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Four TEST NFTs (1469, 4089, 4265, 9700) left the signer for the vault contract. All four are listed and match."
+     }
+    ],
+    "glance": 92,
+    "depth": 90
+   },
+   {
+    "key": "depositERC1155s(uint256 _vaultId, address _collection, uint256[] _tokenIds, uint256[] _amounts)",
+    "effects": [
+     "For each i, _amounts[i] of ERC-1155 token _tokenIds[i] of _collection moves from the signer to the UserVault contract and is credited to vault _vaultId.",
+     "The deposit is controlled by the owner of vault _vaultId, whoever that is."
+    ],
+    "shown": "The screen says to deposit ERC-1155s into GONDI_USER_VAULT #id, with the collection as an address, then raw token ids and raw quantities.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "depositERC1155s: the collection renders as a bare address and token ids are raw.",
+      "evidence": "descriptor depositERC1155s: _collection uses addressName with sources ['local']. Case 2 shows Collection '0x232A68a51D6e07357ae025D2a459c16077327102' and Token ID '13'.",
+      "fix": "Show _tokenIds.[] with nftName and collectionPath '_collection' so the collection name and id render together, or widen the addressName sources.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "depositERC1155s: the token id and quantity arrays are separate lists the signer must pair by position.",
+      "evidence": "descriptor fields '_tokenIds.[]' 'Token ID' (raw) and '_amounts.[]' 'Quantity' (raw) are listed one after the other. The code pairs _tokenIds[i] with _amounts[i] in _depositERC1155.",
+      "fix": "Interleave the two arrays, or label them so the pairing is clear, for example 'Quantity (per token ID, in order)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "depositERC1155s: the interpolated intent leaves out which tokens and how many are deposited.",
+      "evidence": "interpolatedIntent \"Deposit ERC-1155s into {_vaultId}\"; the collection and quantities appear only in the fields.",
+      "fix": "Put the collection (and the quantity when there is one item) into the sentence.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "depositERC1155s: the vault owner who gains control of the deposit is not shown.",
+      "evidence": "UserVault.sol depositERC1155s calls _vaultExists only; there is no owner check. The owner comes from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1 of token id 13 from 0x232a…7102 left the signer for the vault. The screen matches, though the collection is shown only as an address."
+     }
+    ],
+    "glance": 72,
+    "depth": 65
+   },
+   {
+    "key": "depositERC20(uint256 _vaultId, address _token, uint256 _amount)",
+    "effects": [
+     "_amount of ERC-20 _token moves from the signer to the UserVault contract (safeTransferFrom) and is credited to vault _vaultId. The token must be whitelisted, and native ETH is rejected.",
+     "It spends the signer's existing allowance to the UserVault for _token.",
+     "The deposit is controlled by the owner of vault _vaultId."
+    ],
+    "shown": "The screen says \"Deposit {amount token} into GONDI_USER_VAULT #id\", with the amount formatted using _token.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "depositERC20: the vault owner who gains control of the tokens is not shown.",
+      "evidence": "UserVault.sol depositERC20 calls only _vaultExists(_vaultId), with no owner check. The owner comes from storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1000 raw USDC (0.001 USDC) left the signer. The screen shows 0.001 USDC."
+     }
+    ],
+    "glance": 92,
+    "depth": 90
+   },
+   {
+    "key": "burnAndWithdraw(uint256 _vaultId, address[] _collections, uint256[] _tokenIds, address[] _tokens, address[] _erc1155Tokens, uint256[] _erc1155TokensIds)",
+    "effects": [
+     "Burns vault NFT _vaultId, which the signer owns or is approved on, and makes the signer its withdrawal claimer.",
+     "Each listed ERC-721 (_collections[i], _tokenIds[i]) moves from the vault contract to the signer.",
+     "For each listed ERC-20 in _tokens, the vault's whole stored balance of it moves to the signer.",
+     "For each listed (_erc1155Tokens[i], _erc1155TokensIds[i]), the vault's whole stored ERC-1155 balance moves to the signer.",
+     "All ETH stored in the vault is always sent to the signer, even though no parameter names it.",
+     "Assets not listed stay in the vault and can be withdrawn by the signer later."
+    ],
+    "shown": "The screen says \"Burn GONDI_USER_VAULT #id and withdraw\", lists the NFTs by name, ERC-20 tokens as addresses, ERC-1155 collections as addresses and ERC-1155 ids raw. It shows no amounts and no recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "burnAndWithdraw: ERC-20, ERC-1155 and ETH amounts withdrawn come from vault storage and cannot be shown.",
+      "evidence": "UserVault.sol _withdrawERC20: amount = _vaultERC20s[_token][_vaultId]; _withdrawERC1155: amount = _vaultERC1155s[...]; _withdrawEth: amount = _vaultERC20s[ETH][_vaultId], always called at the end of burnAndWithdraw.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "burnAndWithdraw: the intent does not say what is withdrawn, that it goes to the signer, or that vault ETH is included.",
+      "evidence": "interpolatedIntent \"Burn {_vaultId} and withdraw\". The code sends every asset to msg.sender and always runs _withdrawEth. In case 4 the reader was unsure where the NFTs go and whether ETH or other tokens are withdrawn.",
+      "fix": "Use a sentence like \"Burn {_vaultId} and withdraw its listed assets and any ETH to your wallet\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "burnAndWithdraw: ERC-1155 collections show as addresses with raw ids in separate lists.",
+      "evidence": "descriptor fields '_erc1155Tokens.[]' addressName with sources ['local'] and '_erc1155TokensIds.[]' raw. The code pairs them by index in _withdrawERC1155(_vaultId, _erc1155Tokens[i], _erc1155TokensIds[i]).",
+      "fix": "Render _erc1155TokensIds.[] with nftName and collectionPath '_erc1155Tokens.[]', the same way the ERC-721 field is rendered.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "burnAndWithdraw: ERC-20 tokens use addressName with local sources only, so they likely render as bare addresses.",
+      "evidence": "descriptor field '_tokens.[]' 'Token' addressName types ['token'] sources ['local'].",
+      "fix": "Use a token-aware rendering or add more name sources so the token symbol shows.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "GUV #1163 was burned from the signer, and 10 Chimpers came to the signer. Both are on the screen. The reader was unsure of the destination but listed the NFTs as arriving."
+     }
+    ],
+    "glance": 62,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.484,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 88,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "mint()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "depositERC721s(uint256 _vaultId, address _collection, uint256[] _tokenIds)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "depositERC1155s(uint256 _vaultId, address _collection, uint256[] _tokenIds, uint256[] _amounts)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "depositERC1155s: the collection renders as a bare address and token ids are raw.",
+   "comprehension": 100
+  },
+  "depositERC20(uint256 _vaultId, address _token, uint256 _amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 100
+  },
+  "burnAndWithdraw(uint256 _vaultId, address[] _collections, uint256[] _tokenIds, address[] _tokens, address[] _erc1155Tokens, uint256[] _erc1155TokensIds)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "burnAndWithdraw: the intent does not say what is withdrawn, that it goes to the signer, or that vault ETH is included.",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 86,
+  "functions": "3A 2B",
+  "incomplete": false,
+  "worst": "depositERC1155s: the collection renders as a bare address and token ids are raw."
+ }
+}

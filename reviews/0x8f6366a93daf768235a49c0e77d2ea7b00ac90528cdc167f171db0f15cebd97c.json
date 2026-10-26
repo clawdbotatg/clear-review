@@ -1,0 +1,125 @@
+{
+ "hash": "0x8f6366a93daf768235a49c0e77d2ea7b00ac90528cdc167f171db0f15cebd97c",
+ "file": "registry/flare/calldata-GovernanceVotePower-Flare.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 14,
+   "address": "0x95ed14840d3a1c75b8629ae5599fe55270c51e04"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:15Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "delegate(address _to)",
+    "effects": [
+     "Sets the signer's single governance delegate to _to, replacing any earlier delegate; no tokens move.",
+     "Moves the signer's whole governance vote power (WNat balance plus P-chain stake mirror balance) from any earlier delegate to _to.",
+     "Later balance changes follow the delegation automatically, so _to keeps all of the signer's governance vote power until the signer changes it.",
+     "When _to is the zero address, the call works like undelegate: the earlier delegate loses the vote power and the signer gets it back.",
+     "Delegating to yourself reverts. No native value is taken (not payable)."
+    ],
+    "shown": "\"Delegate all vote power to {_to}\", with the delegate address shown as a named address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "delegate: zero _to means revoke, but the screen says 'Delegate all vote power to 0x000…'.",
+      "evidence": "GovernanceVotePower.sol delegate(): `if (_to != address(0)) { _addVP(...) }`, and undelegate() calls delegate(address(0)). Case 2 screen: interpolatedIntent \"Delegate all vote power to 0x0000000000000000000000000000000000000000\". A reader could think the vote power is burned, not given back to them.",
+      "fix": "Show the zero address as 'None (undelegate)', or explain in the field or intent that 0x0 removes the delegation and returns the vote power to the signer.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "delegate: intent says 'vote power' without 'governance'. Flare also has separate FTSO delegation on WNat.",
+      "evidence": "Contract is GovernanceVotePower; userdoc: \"Delegates all governance vote power of `msg.sender` to address `_to`.\" Descriptor intent: \"delegate all vote power\" / \"Delegate all vote power to {_to}\". FTSO reward delegation is a separate system that this call does not touch.",
+      "fix": "Use intent 'Delegate governance votes' and interpolatedIntent 'Delegate all governance vote power to {_to}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "delegate: the earlier delegate that loses the vote power is read from storage and not shown.",
+      "evidence": "delegate(): `address currentTo = getDelegateOfAtNow(msg.sender); if (currentTo != address(0)) { _subVP(msg.sender, currentTo, senderBalance); }`. 'All vote power' suggests a replacement, but calldata cannot name the earlier delegate.",
+      "fix": "Optionally add 'replaces your current delegate' to the intent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "undelegate()",
+    "effects": [
+     "Removes the signer's governance delegate and takes their whole governance vote power (WNat plus P-chain stake mirror balance) back from that delegate.",
+     "No tokens move and no native value is taken."
+    ],
+    "shown": "\"undelegate vote power\", with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "undelegate: the delegate that loses the vote power comes from storage and cannot be shown.",
+      "evidence": "undelegate() → delegate(address(0)) → `_subVP(msg.sender, currentTo, senderBalance)` with currentTo = getDelegateOfAtNow(msg.sender). Descriptor has no fields.",
+      "fix": "None possible from calldata. Optionally say 'governance' in the intent: 'Remove governance vote delegation'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.187,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 53,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "delegate(address _to)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "delegate: zero _to means revoke, but the screen says 'Delegate all vote power to 0x000…'.",
+   "comprehension": null
+  },
+  "undelegate()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 80,
+  "functions": "1A 1B",
+  "incomplete": false,
+  "worst": "delegate: zero _to means revoke, but the screen says 'Delegate all vote power to 0x000…'."
+ }
+}

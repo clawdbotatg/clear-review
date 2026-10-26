@@ -1,0 +1,119 @@
+{
+ "hash": "0xefb695ec942020acfe3bf9d8c7e7a9ff402a003e0e76235e8cb3a48d25844c79",
+ "file": "registry/zama/calldata-ACL.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xca2e8f1f656cd25c01f05d0b243ab1ecd4a8ffb6"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0xf0ffdc93b7e186bc2f8cb3daa75d86d1930a433d"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:13Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "delegateForUserDecryption(address delegate,address contractAddress,uint64 expirationDate)",
+    "effects": [
+     "Lets `delegate` request user decryption of the signer's confidential handles that `contractAddress` is also allowed on, until `expirationDate` (the delegation row is msg.sender → delegate → contractAddress).",
+     "When `contractAddress` is 0xFFFF…FFFF (WILDCARD_DELEGATION_ADDRESS), the delegation covers the signer's handles across every app contract. The code calls this a high-trust grant.",
+     "Sets the expiration date for this row, replacing any earlier one, so it can extend or shorten an existing delegation. It reverts if the date is in the past or unchanged.",
+     "No assets, ETH or token approvals move. The function is not payable."
+    ],
+    "shown": "\"Delegate decryption to {delegate} for {contractAddress} until {expirationDate}\", with the delegate, the contract (addressName) and the expiry date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "delegateForUserDecryption: wildcard contract 0xFFFF…FFFF shows as a plain 'For contract' address, not 'all contracts'.",
+      "evidence": "ACL.sol line 170: `WILDCARD_DELEGATION_ADDRESS = address(type(uint160).max)`, with the comment 'This is a high-trust grant: SDKs should warn users explicitly'. isHandleDelegatedForUserDecryption (line 489) accepts the wildcard row for any contractAddress. Case 1 screen: 'For contract' = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF', and the sentence reads '... for 0xFFfF…FfFF until 2030-01-01'. The value shown is the value sent, but nothing says it means every contract (not_critical #7 and #13).",
+      "fix": "Name the wildcard in the label and the intent, e.g. label 'For contract (0xFFFF…FFFF = ALL contracts)', and/or ask for an address-constant message in addressName so the wildcard renders as 'All contracts'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "delegateForUserDecryption: the expiry replaces any existing expiry for this delegate/contract; the old value is in storage.",
+      "evidence": "ACL.sol delegateForUserDecryption: `oldExpirationDate = userDecryptionDelegation.expirationDate; ... userDecryptionDelegation.expirationDate = newExpirationDate;`. The old expiry is not in the calldata, so the screen cannot show whether this extends or shortens a delegation.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 78
+   },
+   {
+    "key": "revokeDelegationForUserDecryption(address delegate,address contractAddress)",
+    "effects": [
+     "Sets the expiration date of the signer's delegation row (delegate, contractAddress) to 0, so `delegate` can no longer decrypt through that row. It reverts if no delegation exists.",
+     "When `contractAddress` is the wildcard 0xFFFF…FFFF, only the all-contracts row is revoked. Per-contract delegations to the same delegate stay active.",
+     "No assets, ETH or token approvals move. The function is not payable."
+    ],
+    "shown": "\"Revoke decryption delegation from {delegate} for {contractAddress}\", with the delegate and the contract (addressName).",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "revokeDelegationForUserDecryption: wildcard 0xFFFF…FFFF shows as a plain contract; its scope is not stated.",
+      "evidence": "ACL.sol revokeDelegationForUserDecryption only clears `userDecryptionDelegations[msg.sender][delegate][contractAddress]`. With the wildcard, per-contract rows stay active. Case 3 screen: 'For contract' = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF', with no text saying this is the all-contracts delegation, or that per-contract delegations remain.",
+      "fix": "Label the field e.g. 'For contract (0xFFFF…FFFF = all-contracts delegation only)', or ask for an address-constant message in addressName so the wildcard renders as 'All contracts (wildcard)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.362,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 68,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "delegateForUserDecryption(address delegate,address contractAddress,uint64 expirationDate)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "delegateForUserDecryption: wildcard contract 0xFFFF…FFFF shows as a plain 'For contract' address, not 'all contracts'.",
+   "comprehension": null
+  },
+  "revokeDelegationForUserDecryption(address delegate,address contractAddress)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "revokeDelegationForUserDecryption: wildcard 0xFFFF…FFFF shows as a plain contract; its scope is not stated.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 72,
+  "functions": "2B",
+  "incomplete": false,
+  "worst": "delegateForUserDecryption: wildcard contract 0xFFFF…FFFF shows as a plain 'For contract' address, not 'all contracts'."
+ }
+}

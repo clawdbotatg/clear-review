@@ -1,0 +1,131 @@
+{
+ "hash": "0x2836f893ff73aa4511349217f4235f86166ffac3afda4654f63279b7bbc7d170",
+ "file": "registry/p2p/calldata-P2pSsvProxyFactory.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5ed861aec31ccb496689fd2e0a1a3f8e8d7b8824"
+  },
+  {
+   "chainId": 560048,
+   "address": "0x2444fae9394debf503775940af2a3e9364a31e34"
+  },
+  {
+   "chainId": 560048,
+   "address": "0x91234ffd7d65aa5e4fda60a2e7b9513175df3272"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:11Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addEth(bytes32 _eth2WithdrawalCredentials, uint96 _ethAmountPerValidatorInWei, (uint96 basisPoints, address recipient) _clientConfig, (uint96 basisPoints, address recipient) _referrerConfig, bytes _extraData)",
+    "effects": [
+     "All of msg.value (native ETH) leaves the signer and is forwarded to P2pOrgUnlimitedEthDepositor (0x7c58…), which holds it until P2P makes the beacon deposits.",
+     "A deposit is recorded under the withdrawal credentials (type byte plus withdrawal address) and the ETH amount per validator, which decide where the staked ETH can be withdrawn later.",
+     "A FeeDistributor is created or reused. Its client recipient gets clientConfig.basisPoints of the rewards, its referrer recipient gets referrerConfig.basisPoints, and P2P keeps the rest.",
+     "A P2pSsvProxy clone is deployed for that FeeDistributor if none exists yet, and is recorded under the client address.",
+     "extraData is passed on to the depositor for its event listener."
+    ],
+    "shown": "\"Stake ETH with SSV\", with the withdrawal address, the credential type as raw 0x02, ETH per validator, the ETH amount deposited (msg.value), the client share in bps and the client recipient. The referrer config and extraData are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "addEth hides the referrer basis points and recipient, a party that gets part of the rewards.",
+      "evidence": "descriptor.json: #._referrerConfig.basisPoints and #._referrerConfig.recipient are visible: never. P2pSsvProxyFactory.addEth passes _referrerConfig to i_p2pOrgUnlimitedEthDepositor.addEth, and it sets up the FeeDistributor reward split. The client share is shown, so the signer's own cut is visible.",
+      "fix": "Show the referrer recipient (addressName) and the referrer share (unit), or label them so the signer can see whether a third party gets a share.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "addEth shows the credential type as raw hex 0x02, not its meaning.",
+      "evidence": "descriptor.json: field 'Credential type' uses format raw on #._eth2WithdrawalCredentials.[:1]. Case 0 shows '0x02'.",
+      "fix": "Use an enum or a clearer label that says 0x01 = standard validator and 0x02 = compounding validator (up to 2048 ETH).",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "addEth shows the client reward share as '9300bps', not as a percentage.",
+      "evidence": "descriptor.json: 'Client share (bps)' uses unit with base bps, decimals 0. Case 0 shows '9300bps'. The blind reader was unsure whether this means 93% of rewards.",
+      "fix": "Use unit with decimals 2 and base '%' so it reads 93%, and label it 'Your share of rewards'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "addEth does not name the depositor contract that takes custody of the ETH.",
+      "evidence": "P2pSsvProxyFactory.addEth: i_p2pOrgUnlimitedEthDepositor.addEth{value: msg.value}(...). In case 0, 71 ETH goes from the factory to 0x7c58c03aabf3cc131903592b40c192bb4f949f1f. That address is an immutable set in storage.",
+      "fix": "Optionally say in the intent that the ETH is held by P2P's depositor until the validators are activated.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "addEth hides extraData, which is only passed to an event listener.",
+      "evidence": "devdoc: '_extraData: any other data to pass to the event listener'. descriptor.json: #._extraData visible: never.",
+      "fix": "",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "71 ETH out is shown as 'Amount to deposit: 71 ETH'. The approval in the trace is between other parties (signer null). The reader understood the ETH outflow correctly and was only unsure what the bps and the credential type mean."
+     }
+    ],
+    "glance": 70,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": [
+   "P2pOrgUnlimitedEthDepositor at 1:0x7c58c03AABf3Cc131903592B40C192BB4F949f1F has no source in the directory. addEth forwards all of msg.value to it, and it decides how the deposit, the refund rights and the withdrawal credentials are applied.",
+   "FeeDistributorFactory 0xa36420834ddd3a45F75016a328C784B2EE77e136 and reference FeeDistributor 0x5152DdAcd66BD47524EF4003CB889Ba54747C450 have no source in the directory. They create the reward split between client, referrer and P2P."
+  ]
+ },
+ "cost": 0.315,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 123,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "addEth(bytes32 _eth2WithdrawalCredentials, uint96 _ethAmountPerValidatorInWei, (uint96 basisPoints, address recipient) _clientConfig, (uint96 basisPoints, address recipient) _referrerConfig, bytes _extraData)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 79,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "addEth hides the referrer basis points and recipient, a party that gets part of the rewards.",
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 90,
+  "clarity": 79,
+  "functions": "1B",
+  "incomplete": true,
+  "worst": "addEth hides the referrer basis points and recipient, a party that gets part of the rewards."
+ }
+}

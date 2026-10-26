@@ -1,0 +1,206 @@
+{
+ "hash": "0xd5c9c6b39fe1c29507a1fd3f1bdc8a2e5fce8c5b1c880795918824bd3cdaea8e",
+ "file": "registry/kiln/calldata-Vault-USDT-Morpho-Gauntlet-USDT-Core-multisig.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x11dbf3cd45d339ed8971623be739883debdf239a"
+  }
+ ],
+ "auditedBy": [
+  "0x3846c3a30e62075fa916216b35ef04b8f53931f6"
+ ],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:18Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address receiver)",
+    "effects": [
+     "Takes exactly `assets` USDT from the signer into the vault (safeTransferFrom caller → vault).",
+     "Mints vault shares (lmMgUSDT) to `receiver`. The number comes from the exchange rate after the deposit fee is taken out of `assets` and rounded down; there is no minimum.",
+     "A deposit fee (rate read from storage) is cut from the deposited USDT and booked to the fee dispatcher, so fewer shares are minted."
+    ],
+    "shown": "Deposit: 1.000001 USDT as 'Deposit asset', a constant 'Share ticker lmMgUSDT', and the address that receives the shares; the number of shares is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no minimum in calldata.",
+      "evidence": "Vault.sol deposit(): `(uint256 _shares, uint256 _depositFeeAmount) = _previewDeposit(assets, _newTotalAssets, totalSupply());` uses the storage rate and deposit fee. Case 0: signer 'in' 1000001 lmMgUSDT, and the screen shows only 'Share ticker: lmMgUSDT'.",
+      "fix": "Nothing in calldata carries it. A label like 'Shares at current vault rate (fee deducted)' could note it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the amount field is labelled 'Deposit asset' and there is no interpolated intent.",
+      "evidence": "descriptor deposit field `assets` label 'Deposit asset'; intent 'Deposit'; interpolatedIntent absent; the 'Share ticker' field is a raw constant.",
+      "fix": "Label it 'Amount' and add interpolatedIntent 'Deposit {assets} for lmMgUSDT shares to {receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 1.000001 USDT out is shown exactly. 1.000001 lmMgUSDT came in; the asset and recipient were shown but the amount was not, so the reader knew only the direction and the asset."
+     }
+    ],
+    "glance": 60,
+    "depth": 78
+   },
+   {
+    "key": "mint(uint256 shares, address receiver)",
+    "effects": [
+     "Mints exactly `shares` vault shares (lmMgUSDT) to `receiver`.",
+     "Takes USDT from the signer. The amount is computed from the storage exchange rate plus the deposit fee, rounded up (_previewMint), and nothing in calldata caps it.",
+     "A deposit fee taken from the USDT paid is booked to the fee dispatcher."
+    ],
+    "shown": "Mint: 'Deposit asset USDT' (a constant ticker), the share amount in vault-token units, and the address that receives the shares; the USDT paid is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the USDT the signer pays is not shown and has no maximum in calldata.",
+      "evidence": "Vault.sol mint(): `(uint256 _assets, uint256 _depositFeeAmount) = _previewMint(shares, _newTotalAssets, _newTotalSupply); _deposit(_msgSender(), receiver, _assets, shares, ...)` pulls `_assets` USDT. The descriptor shows only the 'Deposit asset' ticker 'USDT'.",
+      "fix": "No calldata value holds it. A label like 'Pay USDT at current vault rate (incl. deposit fee)' would tell the signer an amount leaves.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "mint: the intent 'Mint' does not say USDT is paid from the wallet.",
+      "evidence": "descriptor mint intent 'Mint', no interpolatedIntent; field 'Deposit asset' shows the constant 'USDT' with no amount.",
+      "fix": "Use intent 'Deposit USDT for shares' and interpolatedIntent 'Mint {shares} vault shares to {receiver}, paying USDT'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 45,
+    "depth": 62
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address owner)",
+    "effects": [
+     "Burns vault shares from `owner`. The count comes from the exchange rate, rounded up, and nothing in calldata caps it.",
+     "When the caller is not `owner`, the share allowance owner → caller is spent.",
+     "Sends USDT to `receiver`: the vault's USDT balance gain from the connector withdraw of `assets`."
+    ],
+    "shown": "Withdraw: 'Withdraw exactly' a USDT amount, the recipient 'To', and the share 'Owner'; the shares burned are not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of shares burned from the owner is not shown or capped.",
+      "evidence": "Vault.sol withdraw(): `uint256 _shares = _convertToShares(assets, Math.Rounding.Ceil, _accrueRewardFee(), totalSupply()); ... _withdraw(_msgSender(), receiver, owner, assets, _shares);` burns `_shares` from owner. The descriptor has no shares field.",
+      "fix": "Not in calldata. A label like 'Shares burned at current rate' could note it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address owner)",
+    "effects": [
+     "Burns exactly `shares` vault shares from `owner`, spending the owner → caller allowance when the caller is not the owner.",
+     "Sends USDT to `receiver`. The amount comes from the storage exchange rate, rounded down, and has no minimum."
+    ],
+    "shown": "Redeem: 'Shares to redeem' in vault-token units, the recipient 'To', and 'Owner'; the USDT received is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the USDT received is not shown and has no minimum in calldata.",
+      "evidence": "Vault.sol redeem(): `uint256 _assets = _convertToAssets(shares, Math.Rounding.Floor, _newTotalAssets, _newTotalSupply);` then `_withdraw` transfers it to receiver. The descriptor has no field for the asset received, not even the USDT ticker.",
+      "fix": "Add a constant field 'Receive asset: USDT' ($.metadata.constants.underlyingTicker), as the mint format does.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "The vault delegatecalls a connector looked up from the ConnectorRegistry in storage (`$._connectorRegistry.getOrRevert($._connectorName)`) in _deposit and _withdraw, and its source is not in the directory. In withdraw and redeem, the USDT sent to `receiver` is the vault's balance gain from that connector call, so I could not confirm that 'Withdraw exactly' equals the amount received."
+  ]
+ },
+ "cost": 0.451,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 70,
+ "rubric": "v1.1",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 assets, address receiver)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address receiver)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 49,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent 'Mint' does not say USDT is paid from the wallet.",
+   "comprehension": null
+  },
+  "withdraw(uint256 assets, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "redeem(uint256 shares, address receiver, address owner)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 62,
+  "functions": "3B 1C",
+  "incomplete": true,
+  "worst": "mint: the intent 'Mint' does not say USDT is paid from the wallet."
+ }
+}

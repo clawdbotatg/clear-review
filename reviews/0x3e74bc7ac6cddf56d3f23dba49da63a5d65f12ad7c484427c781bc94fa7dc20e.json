@@ -1,0 +1,233 @@
+{
+ "hash": "0x3e74bc7ac6cddf56d3f23dba49da63a5d65f12ad7c484427c781bc94fa7dc20e",
+ "file": "registry/morpho/calldata-sentora-senPYUSDPST-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x8381a156958711e230f325428b5eb4b6555c75d9"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:25Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "The signer sends exactly `assets` PYUSD to the vault, using their PYUSD allowance to the vault (enter: safeTransferFrom(asset, msg.sender, address(this), assets)).",
+     "The vault mints senPYUSDPST shares to onBehalf. The number is previewDeposit(assets), set by the vault's share price after fees accrue. There is no minimum."
+    ],
+    "shown": "Deposit 2 PYUSD for the onBehalf address. The share ticker senPYUSDPST and the share recipient are shown; the number of shares is not.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of shares received is not shown and has no minimum in the calldata.",
+      "evidence": "VaultV2.sol deposit: `uint256 shares = previewDeposit(assets);` uses the share price from storage and adapters. Case 0: 2e18 senPYUSDPST in to the signer, not on the screen, which shows only the 'Share ticker' senPYUSDPST.",
+      "fix": "No descriptor fix. The amount depends on the on-chain price. Labelling it 'Receive shares (amount set by vault price)' could help.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The 2 PYUSD out is shown right. The share recipient and ticker are shown, but not the 2 senPYUSDPST amount, which nothing on screen bounds. The reader knew the shares arrive but not how many."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns senPYUSDPST shares from onBehalf. The number is previewWithdraw(assets), rounded up and set by the vault's share price. There is no maximum.",
+     "If the signer is not onBehalf, the signer's share allowance from onBehalf drops by the shares burned.",
+     "Exactly `assets` PYUSD goes to receiver. The vault may first pull liquidity from its adapter."
+    ],
+    "shown": "Withdraw exactly 126000 PYUSD to the receiver, with the owner whose shares pay for it. The number of shares burned is not shown.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the senPYUSDPST shares burned from the owner are not shown and have no maximum.",
+      "evidence": "VaultV2.sol withdraw: `uint256 shares = previewWithdraw(assets); exit(...)` then deleteShares(onBehalf, shares). Case 2: 125820.005616134857097151 senPYUSDPST out from the signer; the screen shows only 'Withdraw exactly 126000 PYUSD'.",
+      "fix": "No descriptor fix: the share cost depends on the vault price at execution. The intent could still say that vault shares are burned, e.g. 'Withdraw {assets} by burning senPYUSDPST shares'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The 126000 PYUSD in to the signer is shown right. The reader knew shares or balance leave but did not see that 125820.0056 senPYUSDPST were burned."
+     }
+    ],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "The vault burns exactly `shares` senPYUSDPST from onBehalf.",
+     "If the signer is not onBehalf, the signer's share allowance from onBehalf drops by `shares`.",
+     "receiver gets PYUSD equal to previewRedeem(shares), set by the vault price. There is no minimum."
+    ],
+    "shown": "Redeem the given senPYUSDPST shares to the receiver, with the owner. Neither the PYUSD asset nor its amount is named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says PYUSD is received, though the descriptor has the underlying ticker constant.",
+      "evidence": "VaultV2.sol exit: `SafeERC20Lib.safeTransfer(asset, receiver, assets);`. The redeem fields in descriptor.json are only shares, receiver and onBehalf. Unlike mint, there is no `$.metadata.constants.underlyingTicker` field. Case 3: 189290.131067 PYUSD in to the signer; the reader wrote 'Underlying asset (likely PYUSD, not stated)'.",
+      "fix": "Add a field {label:'Receive asset', format:'raw', value:'$.metadata.constants.underlyingTicker'} and make the intent 'Redeem {#.shares} for PYUSD to {#.receiver}'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the PYUSD amount received is not shown and has no minimum.",
+      "evidence": "VaultV2.sol redeem: `uint256 assets = previewRedeem(shares);` uses the price from storage and adapters. Case 3: 189290.131067 PYUSD in, no amount on screen.",
+      "fix": "No descriptor fix: the amount depends on the vault price.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The share burn is shown right. For the PYUSD in, the reader got the receiver but guessed the asset and had no amount."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "mint(uint256 shares, address onBehalf)",
+    "effects": [
+     "The signer pays PYUSD to the vault, using their PYUSD allowance. The amount is previewMint(shares), rounded up and set by the vault price. There is no maximum.",
+     "The vault mints exactly `shares` senPYUSDPST to onBehalf."
+    ],
+    "shown": "Mint 1 senPYUSDPST for the onBehalf address, with PYUSD named as the deposit asset but no PYUSD amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mint: the PYUSD amount taken from the signer is not shown and has no maximum.",
+      "evidence": "VaultV2.sol mint: `uint256 assets = previewMint(shares); enter(assets, shares, onBehalf);` then safeTransferFrom(asset, msg.sender, ...). Case 1: 1 PYUSD out from the signer; the screen shows only 'Deposit asset: PYUSD'.",
+      "fix": "No descriptor fix: the cost depends on the vault price. The deposit-asset label could say 'amount set by vault price, limited by your PYUSD approval'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "mint: the intent says 'Mint ... for' and does not say that PYUSD leaves the signer.",
+      "evidence": "descriptor.json mint interpolatedIntent 'Mint {#.shares} for {#.onBehalf}'. Case 1 screen: 'Mint 1 senPYUSDPST for 0x...dEaD', while 1 PYUSD left the signer.",
+      "fix": "Use 'Deposit PYUSD to mint {#.shares} for {#.onBehalf}'.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 0,
+      "reader": [
+       "partial"
+      ],
+      "notes": "The PYUSD out is shown as an asset with no amount; the reader knew PYUSD leaves but not how much. The shares went to 0x...dEaD, which the screen showed and the reader understood; that is not a signer effect."
+     }
+    ],
+    "glance": 55,
+    "depth": 50
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.387,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 113,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 68,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "redeem: the screen never says PYUSD is received, though the descriptor has the underlying ticker constant.",
+   "comprehension": 75
+  },
+  "mint(uint256 shares, address onBehalf)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 46,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint: the intent says 'Mint ... for' and does not say that PYUSD leaves the signer.",
+   "comprehension": 50
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 88,
+  "clarity": 67,
+  "functions": "2B 1C 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says PYUSD is received, though the descriptor has the underlying ticker constant."
+ }
+}

@@ -1,0 +1,330 @@
+{
+ "hash": "0x79441ebf3c94761cfc284955756023cd93cf41fbbf2c81cd44573a3424a151db",
+ "file": "registry/lido/calldata-stETH-L2.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 10,
+   "address": "0x76a50b8c7349ccddb7578c6627e79b5d99d24138"
+  },
+  {
+   "chainId": 130,
+   "address": "0x81f2508aac59757ef7425ddc9717ab5c2aa0a84f"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:12Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "approve(address spender_, uint256 amount_)",
+    "effects": [
+     "Sets the signer's stETH allowance for spender_ to exactly amount_ (replaces any earlier value; type(uint256).max is never decreased when spent)."
+    ],
+    "shown": "Approve stETH: allow to spend {amount} stETH (Unlimited at or above 2^255), with the spender address as a field.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "approve: interpolatedIntent omits the spender, so the sentence does not say who may spend.",
+      "evidence": "descriptor.json approve interpolatedIntent \"Allow to spend {amount_}\"; spender_ is only a field. ERC20RebasableBridged.approve -> _approve(msg.sender, spender_, amount_). Case 0 reads \"Allow to spend 100 stETH\".",
+      "fix": "Use \"Allow {spender_} to spend {amount_}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approve: spender address types limited to contract, but the code accepts any non-zero address.",
+      "evidence": "descriptor.json approve field Spender params.types [\"contract\"]; ERC20RebasableBridged._approve only checks onlyNonZeroAccount(spender_).",
+      "fix": "Add \"eoa\" and \"wallet\" to types, or remove the types restriction.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "unwrap(uint256 tokenAmount_)",
+    "effects": [
+     "Burns stETH worth tokenAmount_ from the signer (shares = tokenAmount_ * 10^dec / oracle rate).",
+     "Sends that number of shares as wstETH from the stETH contract to the signer (amount set by the oracle rate)."
+    ],
+    "shown": "Wrap stETH: wrap {tokenAmount_} stETH, showing the stETH amount only.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "unwrap: the intent \"Wrap stETH\" does not name wstETH as the asset the signer gets.",
+      "evidence": "ERC20RebasableBridged._unwrapShares: _burnShares(account_, sharesAmount_); TOKEN_TO_WRAP_FROM.safeTransfer(account_, sharesAmount_). descriptor.json unwrap intent \"Wrap stETH\", interpolatedIntent \"Wrap {tokenAmount_}\".",
+      "fix": "Use intent \"Wrap stETH to wstETH\" and interpolatedIntent \"Wrap {tokenAmount_} to wstETH\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "unwrap: the wstETH amount received depends on the oracle rate and cannot be shown.",
+      "evidence": "ERC20RebasableBridged._unwrap: sharesAmount = _getSharesByTokens(tokenAmount_), which uses TOKEN_RATE_ORACLE.latestAnswer(). The amount is not in calldata.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "wrap(uint256 sharesAmount_)",
+    "effects": [
+     "Pulls exactly sharesAmount_ wstETH from the signer into the stETH contract, using the signer's wstETH allowance to this contract.",
+     "Mints sharesAmount_ stETH shares to the signer, worth sharesAmount_ * oracle rate stETH."
+    ],
+    "shown": "Unwrap wstETH to stETH: unwrap {sharesAmount_} wstETH, with the wstETH amount as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "wrap: the stETH amount received depends on the oracle rate and is not shown.",
+      "evidence": "ERC20RebasableBridged._wrap: _mintShares(to_, sharesAmount_); tokensAmount = _getTokensByShares(sharesAmount_), which uses the oracle rate.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "unwrapShares(uint256 sharesAmount_)",
+    "effects": [
+     "Burns sharesAmount_ stETH shares from the signer, worth sharesAmount_ * oracle rate stETH.",
+     "Sends exactly sharesAmount_ wstETH from the stETH contract to the signer."
+    ],
+    "shown": "Wrap stETH: wrap stETH for {sharesAmount_} wstETH, with the wstETH to receive as a field.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "unwrapShares: the stETH amount that leaves the signer depends on the oracle rate and is not shown.",
+      "evidence": "ERC20RebasableBridged.unwrapShares: tokenAmount = _getTokensByShares(sharesAmount_); _burnShares(account_, sharesAmount_). Only sharesAmount_ is in calldata.",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 75
+   },
+   {
+    "key": "transfer(address to_, uint256 amount_)",
+    "effects": [
+     "Moves stETH worth amount_ from the signer to to_ (converted to shares at the oracle rate, rounded down)."
+    ],
+    "shown": "Transfer stETH: send {amount_} stETH to {to_}.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "transfer: recipient types are limited to eoa/wallet, but the code also allows contract recipients.",
+      "evidence": "descriptor.json transfer Recipient params.types [\"eoa\",\"wallet\"]; ERC20RebasableBridged._transfer only checks onlyNonZeroAccount(to_) and recipient_ != address(this).",
+      "fix": "Remove the types restriction or add \"contract\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 95,
+    "depth": 92
+   },
+   {
+    "key": "transferFrom(address from_, address to_, uint256 amount_)",
+    "effects": [
+     "Spends amount_ of from_'s stETH allowance to the signer (unless it is unlimited).",
+     "Moves stETH worth amount_ from from_ to to_. The signer's own stETH moves only when from_ is the signer."
+    ],
+    "shown": "Transfer stETH: send {amount_} stETH to {to_}, with Sender, Recipient and Amount as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "transferFrom: interpolatedIntent omits the sender, so it reads as if the signer sends their own stETH.",
+      "evidence": "descriptor.json transferFrom interpolatedIntent \"Send {amount_} to {to_}\"; ERC20RebasableBridged.transferFrom: _spendAllowance(from_, msg.sender, amount_); _transfer(from_, to_, amount_).",
+      "fix": "Use \"Send {amount_} from {from_} to {to_}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 90
+   },
+   {
+    "key": "transferShares(address recipient_, uint256 sharesAmount_)",
+    "effects": [
+     "Moves sharesAmount_ stETH shares from the signer to recipient_, worth sharesAmount_ * oracle rate stETH."
+    ],
+    "shown": "Transfer stETH shares: send {sharesAmount_} shares to {recipient_}.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "transferShares: the amount appears in shares, and the stETH value depends on the oracle rate.",
+      "evidence": "ERC20RebasableBridged.transferShares: _transferShares(msg.sender, recipient_, sharesAmount_); tokensAmount = _getTokensByShares(sharesAmount_). Case 7 shows \"1.5 shares\".",
+      "fix": "None can compute stETH. A label such as \"stETH shares (wstETH units)\" would help the reader.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 75
+   },
+   {
+    "key": "transferSharesFrom(address sender_, address recipient_, uint256 sharesAmount_)",
+    "effects": [
+     "Spends sharesAmount_ * oracle rate of sender_'s stETH allowance to the signer (unless it is unlimited).",
+     "Moves sharesAmount_ stETH shares from sender_ to recipient_. The signer's own shares move only when sender_ is the signer."
+    ],
+    "shown": "Transfer stETH shares: send {sharesAmount_} shares to {recipient_}, with Sender, Recipient and Shares amount as fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "transferSharesFrom: interpolatedIntent omits the sender, so it reads as if the signer sends their own shares.",
+      "evidence": "descriptor.json transferSharesFrom interpolatedIntent \"Send {sharesAmount_} to {recipient_}\"; code: _spendAllowance(sender_, msg.sender, tokensAmount); _transferShares(sender_, recipient_, sharesAmount_).",
+      "fix": "Use \"Send {sharesAmount_} from {sender_} to {recipient_}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "transferSharesFrom: the allowance spent is in stETH at the oracle rate and is not shown.",
+      "evidence": "ERC20RebasableBridged.transferSharesFrom: tokensAmount = _getTokensByShares(sharesAmount_); _spendAllowance(sender_, msg.sender, tokensAmount).",
+      "fix": "None possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 72
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.421,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 74,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "approve(address spender_, uint256 amount_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "approve: interpolatedIntent omits the spender, so the sentence does not say who may spend.",
+   "comprehension": null
+  },
+  "unwrap(uint256 tokenAmount_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "unwrap: the intent \"Wrap stETH\" does not name wstETH as the asset the signer gets.",
+   "comprehension": null
+  },
+  "wrap(uint256 sharesAmount_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "unwrapShares(uint256 sharesAmount_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 78,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transfer(address to_, uint256 amount_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transfer: recipient types are limited to eoa/wallet, but the code also allows contract recipients.",
+   "comprehension": null
+  },
+  "transferFrom(address from_, address to_, uint256 amount_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferFrom: interpolatedIntent omits the sender, so it reads as if the signer sends their own stETH.",
+   "comprehension": null
+  },
+  "transferShares(address recipient_, uint256 sharesAmount_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": null
+  },
+  "transferSharesFrom(address sender_, address recipient_, uint256 sharesAmount_)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 61,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "transferSharesFrom: interpolatedIntent omits the sender, so it reads as if the signer sends their own shares.",
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 76,
+  "functions": "2A 6B",
+  "incomplete": false,
+  "worst": "approve: interpolatedIntent omits the spender, so the sentence does not say who may spend."
+ }
+}

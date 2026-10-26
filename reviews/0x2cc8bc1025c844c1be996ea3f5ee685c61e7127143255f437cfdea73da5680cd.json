@@ -1,0 +1,212 @@
+{
+ "hash": "0x2cc8bc1025c844c1be996ea3f5ee685c61e7127143255f437cfdea73da5680cd",
+ "file": "registry/morpho/calldata-steakhouse_financial-steakETH-v2-1.json",
+ "kind": "calldata",
+ "registry": "b70998caa5dab184243a298a0253b5530428b0f2",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xbeef0046fcab1de47e41fb75bb3dc4dfc94108e3"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-26T16:27Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 assets, address onBehalf)",
+    "effects": [
+     "Exactly `assets` WETH (the vault's immutable asset 0xC02a…6Cc2) moves from the signer to the vault through safeTransferFrom, using the signer's existing WETH allowance to the vault.",
+     "steakETH vault shares (the amount from previewDeposit, based on vault state) are minted to `onBehalf`.",
+     "The function has no minimum on the shares received. The share price comes from accrueInterest and the adapters, not from calldata.",
+     "The function is not payable, so no ETH leaves the wallet."
+    ],
+    "shown": "Deposit 0.000000002 WETH for <onBehalf>, with the WETH amount, a constant 'Share ticker: steakETH' and the share recipient as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the number of steakETH shares minted is not shown because the vault computes it from storage.",
+      "evidence": "VaultV2.sol deposit(): `uint256 shares = previewDeposit(assets); enter(assets, shares, onBehalf);`. No calldata parameter carries the share amount. Case 0: steakETH in 2000000000 to the signer, and the screen shows only 'Share ticker: steakETH'.",
+      "fix": "None possible in ERC-7730. Optionally say in the intent that the shares go to onBehalf.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: the 'Share ticker' field and the 'Deposit asset' label do not say clearly that steakETH shares are received.",
+      "evidence": "descriptor deposit fields: {label:'Deposit asset', path:'assets'} and {label:'Share ticker', format:'raw', value:'$.metadata.constants.vaultTicker'}. Case 0 reader: 'steakETH shares, amount not shown'.",
+      "fix": "Label the amount 'Deposit amount'. Fold the ticker into the recipient field, for example 'Receive steakETH shares at', or into the interpolated intent: 'Deposit {assets} for steakETH shares to {onBehalf}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states the WETH outflow exactly. For the steakETH inflow it shows the asset ticker and the recipient but not the amount, which the code derives from vault state."
+     }
+    ],
+    "glance": 85,
+    "depth": 75
+   },
+   {
+    "key": "withdraw(uint256 assets, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `assets` WETH is transferred from the vault to `receiver`.",
+     "steakETH shares (the amount from previewWithdraw, rounded up and based on vault state) are burned from `onBehalf`.",
+     "If the caller is not `onBehalf`, the caller's share allowance from `onBehalf` is reduced by the shares burned, unless that allowance is unlimited.",
+     "The function sets no maximum on the shares burned, and it is not payable."
+    ],
+    "shown": "Withdraw 20 WETH to <receiver>, with the WETH amount, the receiver and the owner (onBehalf) as fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "withdraw: the number of steakETH shares burned is not shown, and nothing caps it.",
+      "evidence": "VaultV2.sol withdraw(): `uint256 shares = previewWithdraw(assets); exit(...)`, and exit() runs `deleteShares(onBehalf, shares)`. Case 1: steakETH out 19945509897859756837 from the signer, and no field shows it.",
+      "fix": "None in the descriptor, because the amount is derived from storage. The fields could say that shares are burned from Owner.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "withdraw: the interpolated intent leaves out the Owner whose shares are burned.",
+      "evidence": "interpolatedIntent 'Withdraw {#.assets} to {#.receiver}', while the field 'Owner' (onBehalf) is shown separately. exit() burns the shares from onBehalf.",
+      "fix": "Use 'Withdraw {#.assets} from {#.onBehalf}'s steakETH to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "partial",
+       "right"
+      ],
+      "notes": "The screen states the WETH inflow exactly. The steakETH burn is implied only by the 'Owner' field, and its amount is not shown."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "redeem(uint256 shares, address receiver, address onBehalf)",
+    "effects": [
+     "Exactly `shares` steakETH is burned from `onBehalf`.",
+     "WETH (the amount from previewRedeem, rounded down and based on vault state) is transferred from the vault to `receiver`.",
+     "If the caller is not `onBehalf`, the caller's share allowance from `onBehalf` is reduced by `shares`, unless that allowance is unlimited.",
+     "The function sets no minimum on the assets received, and it is not payable."
+    ],
+    "shown": "Redeem <shares> steakETH to <receiver>, with the shares, the receiver and the owner as fields. The asset received is never named.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "redeem: the screen never says the signer receives WETH, so the reader could not tell ETH from WETH.",
+      "evidence": "VaultV2.sol exit(): `SafeERC20Lib.safeTransfer(asset, receiver, assets)` sends WETH. The descriptor redeem fields name only steakETH. Case 2: WETH in 1017435343157639 to the signer, and the reader said 'Which token I get (ETH or WETH) is not stated'.",
+      "fix": "Name the asset: intent 'Redeem steakETH for WETH', interpolatedIntent 'Redeem {#.shares} for WETH to {#.receiver}', or a constant field 'Receive: WETH'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "redeem: the amount of WETH received is computed from vault state and has no minimum.",
+      "evidence": "VaultV2.sol redeem(): `uint256 assets = previewRedeem(shares);`. Case 2: WETH in 1017435343157639, and no field shows an amount or a bound.",
+      "fix": "None in the descriptor. The amount is not in calldata.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "redeem: the interpolated intent leaves out the Owner whose shares are burned.",
+      "evidence": "interpolatedIntent 'Redeem {#.shares} to {#.receiver}', while the 'Owner' field (onBehalf) is shown separately. exit() runs deleteShares(onBehalf, shares).",
+      "fix": "Use 'Redeem {#.shares} from {#.onBehalf} for WETH to {#.receiver}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "The screen states the steakETH burn exactly. The WETH inflow is not named, and the reader guessed ETH or WETH with no amount."
+     }
+    ],
+    "glance": 70,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.413,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 90,
+ "rubric": "v1.1",
+ "result": "pass",
+ "formats": {
+  "deposit(uint256 assets, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "comprehension": 75
+  },
+  "withdraw(uint256 assets, address receiver, address onBehalf)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "withdraw: the interpolated intent leaves out the Owner whose shares are burned.",
+   "comprehension": 75
+  },
+  "redeem(uint256 shares, address receiver, address onBehalf)": {
+   "grade": "D",
+   "truth": 50,
+   "clarity": 66,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "redeem: the screen never says the signer receives WETH, so the reader could not tell ETH from WETH.",
+   "comprehension": 75
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 83,
+  "clarity": 72,
+  "functions": "2B 1D",
+  "incomplete": false,
+  "worst": "redeem: the screen never says the signer receives WETH, so the reader could not tell ETH from WETH."
+ }
+}
