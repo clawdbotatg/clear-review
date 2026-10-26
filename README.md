@@ -25,6 +25,7 @@ so any wallet can show them as **🤖 checked**. First user: the [wedgie](https:
    to Claude and to Codex, each told to prove it wrong. Both refute it: dropped. Both confirm it:
    `FINDINGS.md` (`tools/findings.py`), for the registry.
    The public page, [wedgie.dev/clear/report](https://wedgie.dev/clear/report):
+   `tools/usage.py` (mainnet use, from erc7730.sourcify.dev), then
    `tools/site.py ../wedgie-dev/public/clear/report.json`, then push wedgie-dev.
 8. **Sign** the passes (below).
 
