@@ -16,6 +16,7 @@
 #   ./review.py grade [hash ...]         recompute reviews/*.json from the saved answers (no model calls)
 #   ./review.py report                   REPORT.md
 #   ./review.py index                    index.json: chain:address:selector → grade, for wallets
+#   ./review.py status                   how far along: done, results, agents running, spend
 #
 # Each descriptor is keyed by its ERC-8176 hash (clearsig), the one auditors sign: a descriptor that changes
 # upstream is unreviewed again on its own. The models write evidence and labels; grade.py turns them into numbers
@@ -559,6 +560,18 @@ def index():
     print(f"{len(out)} functions")
 
 
+def status():
+    _, ds = load_catalog()
+    rs = {r["hash"]: r for r in recs()}
+    done = [rs[d["hash"]] for d in ds if d["hash"] in rs and rs[d["hash"]].get("prompt") == prompt_version()]
+    res = {}
+    for r in done:
+        res[r.get("result", "error")] = res.get(r.get("result", "error"), 0) + 1
+    agents = len(subprocess.run(["pgrep", "-f", "claude -p --model"], capture_output=True, text=True).stdout.split())
+    print(f"{len(done)}/{len(ds)} done  " + " ".join(f"{k} {v}" for k, v in sorted(res.items())))
+    print(f"{agents} agents running  ${sum(r.get('cost', 0) for r in done):.0f} at list price (billed to the plans, not paid)")
+
+
 if __name__ == "__main__":
     cmd, rest = (sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else ("", [])
     if cmd == "prep":
@@ -566,4 +579,4 @@ if __name__ == "__main__":
             print(prep(find(ref), force=True))
     else:
         {"sync": sync, "list": catalog, "run": lambda: run(rest), "grade": lambda: regrade(rest), "report": report,
-         "index": index}.get(cmd, lambda: print(open(__file__).read().split("\nimport ")[0]))()
+         "index": index, "status": status}.get(cmd, lambda: print(open(__file__).read().split("\nimport ")[0]))()
