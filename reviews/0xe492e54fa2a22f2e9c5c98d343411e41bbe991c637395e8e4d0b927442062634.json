@@ -391,7 +391,7 @@
   "clipperSwapTo(address recipient, address srcToken, address dstToken, uint256 amount, uint256 minReturn)"
  ],
  "seconds": 137,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)": {
@@ -403,17 +403,19 @@
    "critical": 3,
    "warnings": 3,
    "worst": "swap hides msg.value; with the extra-ETH flag the signer sends more ETH than the amount shown.",
+   "disputed": 0,
    "comprehension": null
   },
   "unoswap(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 32,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "unoswap takes ETH but never shows how much (@.value)",
+   "worst": "unoswap shows the packed last pool word as an address, with flag and numerator bits.",
+   "disputed": 0,
    "comprehension": null
   },
   "unoswapWithPermit(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools, bytes permit)": {
@@ -425,28 +427,31 @@
    "critical": 0,
    "warnings": 2,
    "worst": "unoswapWithPermit hides the permit that sets an allowance on srcToken.",
+   "disputed": 0,
    "comprehension": null
   },
   "uniswapV3Swap(uint256 amount, uint256 minReturn, uint256[] pools)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 22,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "uniswapV3Swap takes ETH but never shows how much (@.value)",
+   "worst": "uniswapV3Swap shows the last pool uint256 with direction and unwrap bits as an address.",
+   "disputed": 0,
    "comprehension": null
   },
   "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 25,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "uniswapV3SwapTo takes ETH but never shows how much (@.value)",
+   "worst": "uniswapV3SwapTo shows the last pool uint256 with flag bits as an address.",
+   "disputed": 0,
    "comprehension": null
   },
   "uniswapV3SwapToWithPermit(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools, bytes permit)": {
@@ -458,28 +463,31 @@
    "critical": 1,
    "warnings": 2,
    "worst": "uniswapV3SwapToWithPermit names the sent token from srcToken, but the pool decides which token leaves.",
+   "disputed": 0,
    "comprehension": null
   },
   "clipperSwap(address srcToken, address dstToken, uint256 amount, uint256 minReturn)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 55,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 1,
-   "worst": "clipperSwap takes ETH but never shows how much (@.value)",
+   "worst": "clipperSwap intent 'Swap' names no assets or amounts.",
+   "disputed": 0,
    "comprehension": null
   },
   "clipperSwapTo(address recipient, address srcToken, address dstToken, uint256 amount, uint256 minReturn)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 55,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 1,
-   "worst": "clipperSwapTo takes ETH but never shows how much (@.value)",
+   "worst": "clipperSwapTo intent 'Swap' does not say the output goes to another address.",
+   "disputed": 0,
    "comprehension": null
   },
   "clipperSwapToWithPermit(address recipient, address srcToken, address dstToken, uint256 amount, uint256 minReturn, bytes permit)": {
@@ -491,15 +499,142 @@
    "critical": 0,
    "warnings": 2,
    "worst": "clipperSwapToWithPermit hides the permit that sets an allowance on srcToken.",
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
   "grade": "F",
-  "truth": 37,
+  "truth": 78,
   "clarity": 37,
-  "functions": "2C 7F",
+  "functions": "7C 2F",
   "incomplete": true,
   "worst": "swap hides msg.value; with the extra-ETH flag the signer sends more ETH than the amount shown."
+ },
+ "verified": {
+  "n": 8,
+  "cost": 0.372,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)",
+    "title": "swap hides msg.value; with the extra-ETH flag the signer sends more ETH than the amount shown.",
+    "verdict": "confirmed",
+    "reason": "When the extra-ETH flag is set, msg.value can be any amount above desc.amount, or any non-zero amount for an ERC-20 source, and all of it goes to the executor. No field shows msg.value and the flag is hidden, so ETH leaves the wallet in an amount the screen never shows.",
+    "quote": "AggregationRouterV4.swap: `if (flags & _REQUIRES_EXTRA_ETH != 0) { require(msg.value > (srcETH ? desc.amount : 0), \"Invalid msg.value\"); }` and `address(caller).call{value: msg.value}(callData);` Descriptor swap format: fields are desc.amount, desc.minReturnAmount, desc.dstReceiver; `\"path\": \"desc.flags\", \"visible\": \"never\"`; no `@.value` field."
+   },
+   {
+    "format": "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)",
+    "title": "swap shows 'Minimum to Receive', but with the partial-fill flag the signer can receive less.",
+    "verdict": "confirmed",
+    "reason": "With the partial-fill flag, the code only checks a proportional rate, so the receiver can get less than the 'Minimum to Receive' value shown. The flag is hidden. The unspent source tokens come back to the signer, but the screen shows the minimum as a fixed amount, and partial fills can happen without the signer knowing.",
+    "quote": "AggregationRouterV4.swap: `if (flags & _PARTIAL_FILL != 0) { ... srcToken.uniTransfer(msg.sender, unspentAmount); } require(returnAmount.mul(desc.amount) >= desc.minReturnAmount.mul(spentAmount), ...)` Descriptor: `desc.minReturnAmount` uses `minReceiveAmount` ('Minimum to Receive'); `desc.flags` is `visible: never`."
+   },
+   {
+    "format": "uniswapV3SwapToWithPermit(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools, bytes permit)",
+    "title": "uniswapV3SwapToWithPermit names the sent token from srcToken, but the pool decides which token leaves.",
+    "verdict": "confirmed",
+    "reason": "The code uses srcToken only for the permit and never checks it against the pool. The token taken from the signer is token0 or token1 of pools[0], so the screen can name an asset that is not the one taken.",
+    "quote": "UnoswapV3Router.uniswapV3SwapToWithPermit: `_permit(address(srcToken), permit); return uniswapV3SwapTo(recipient, amount, minReturn, pools);` and uniswapV3SwapCallback: `token0.safeTransferFrom(payer, msg.sender, uint256(amount0Delta));` / `token1.safeTransferFrom(...)`. Descriptor: field `amount` with `\"tokenPath\": \"srcToken\"`."
+   },
+   {
+    "format": "unoswap(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)",
+    "title": "unoswap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "msg.value must equal amount when srcToken is the zero address, and the screen shows that amount as ETH. For every other srcToken, msg.value must be zero.",
+    "quote": "UnoswapRouter.unoswap: `case 0 { if iszero(eq(amount, callvalue())) { revertWithReason(... \"invalid msg.value\") }` / `default { if callvalue() { revertWithReason(... \"invalid msg.value\") }`. Descriptor: `amount` with `tokenPath: srcToken` and `nativeCurrencyAddress` including addressAsNull."
+   },
+   {
+    "format": "uniswapV3Swap(uint256 amount, uint256 minReturn, uint256[] pools)",
+    "title": "uniswapV3Swap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "msg.value is either zero or exactly the amount the screen shows, so the ETH sent is shown through the amount field. At worst that amount has no token label, which is a warning, not a critical.",
+    "quote": "UnoswapV3Router.uniswapV3SwapTo (called by uniswapV3Swap): `if (wrapWeth) { require(msg.value == amount, \"UNIV3R: wrong msg.value\"); ... } else { require(msg.value == 0, \"UNIV3R: msg.value should be 0\"); }`. Descriptor: `amount` field 'Amount to Send', visible always."
+   },
+   {
+    "format": "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)",
+    "title": "uniswapV3SwapTo is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The code forces msg.value to zero or to the amount shown, so no ETH beyond the amount shown can leave the wallet.",
+    "quote": "UnoswapV3Router.uniswapV3SwapTo: `require(msg.value == amount, \"UNIV3R: wrong msg.value\");` when wrapping, else `require(msg.value == 0, ...)`. Descriptor: `amount` field shown always."
+   },
+   {
+    "format": "clipperSwap(address srcToken, address dstToken, uint256 amount, uint256 minReturn)",
+    "title": "clipperSwap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "msg.value must equal the amount shown, and that amount is shown as ETH, when srcToken is the zero address. On every other path msg.value must be zero.",
+    "quote": "ClipperRouter.clipperSwapTo (called by clipperSwap): `if (srcToken == _WETH) { require(msg.value == 0, ...) } else if (srcToken == _ETH) { require(msg.value == amount, ...) } else { require(msg.value == 0, ...) }`; `_ETH = IERC20(address(0))`. Descriptor: `amount` with `tokenPath: srcToken`, `nativeCurrencyAddress` includes the zero address."
+   },
+   {
+    "format": "clipperSwapTo(address recipient, address srcToken, address dstToken, uint256 amount, uint256 minReturn)",
+    "title": "clipperSwapTo is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "msg.value is either zero or exactly the amount shown, and that amount is shown as native currency through the zero address in nativeCurrencyAddress.",
+    "quote": "ClipperRouter.clipperSwapTo: `else if (srcToken == _ETH) { require(msg.value == amount, \"CL1IN: wrong msg.value\"); }` and `require(msg.value == 0, \"CL1IN: msg.value should be 0\");` on the other branches."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 8,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)",
+    "title": "swap hides msg.value; with the extra-ETH flag the signer sends more ETH than the amount shown.",
+    "verdict": "confirmed",
+    "reason": "The extra-ETH branch accepts and forwards ETH beyond the displayed source amount. Neither the displayed fields nor the intent states this additional payment.",
+    "quote": "contracts/1-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, swap: `require(msg.value > (srcETH ? desc.amount : 0), \"Invalid msg.value\");` and `address(caller).call{value: msg.value}(callData)`. descriptor.json, swap: `\"path\": \"desc.amount\"` references `\"label\": \"Amount to Send\"`; `\"path\": \"desc.flags\", \"visible\": \"never\"`; no @.value field."
+   },
+   {
+    "format": "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)",
+    "title": "swap shows 'Minimum to Receive', but with the partial-fill flag the signer can receive less.",
+    "verdict": "confirmed",
+    "reason": "Partial fills enforce a proportional minimum, not the displayed absolute minimum. For example, spending half the source amount permits receiving half the stated minimum; this is not a payout ceiling.",
+    "quote": "contracts/1-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, swap: `spentAmount = spentAmount.sub(unspentAmount);` and `require(returnAmount.mul(desc.amount) >= desc.minReturnAmount.mul(spentAmount), \"Return amount is not enough\");`. descriptor.json, swap: `\"path\": \"desc.minReturnAmount\", \"$ref\": \"$.display.definitions.minReceiveAmount\"`, whose label is `\"Minimum to Receive\"`; `desc.flags` is `\"visible\": \"never\"`."
+   },
+   {
+    "format": "uniswapV3SwapToWithPermit(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools, bytes permit)",
+    "title": "uniswapV3SwapToWithPermit names the sent token from srcToken, but the pool decides which token leaves.",
+    "verdict": "confirmed",
+    "reason": "No check binds srcToken to the token pulled by the pool callback. An empty permit and an existing allowance for a different pool token allow that token to leave while the screen names srcToken.",
+    "quote": "contracts/1-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, uniswapV3SwapToWithPermit: `_permit(address(srcToken), permit); return uniswapV3SwapTo(recipient, amount, minReturn, pools);`; _permit: `if (permit.length > 0)`; uniswapV3SwapCallback: `token0.safeTransferFrom(payer, msg.sender, uint256(amount0Delta));` and equivalent token1 transfer. descriptor.json, uniswapV3SwapToWithPermit amount field: `\"tokenPath\": \"srcToken\"`, with label `\"Amount to Send\"`."
+   },
+   {
+    "format": "unoswap(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)",
+    "title": "unoswap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "Native swaps require msg.value to equal the displayed amount, rendered as native currency for srcToken zero. Token swaps reject all ETH.",
+    "quote": "contracts/1-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, unoswap: `case 0 { if iszero(eq(amount, callvalue())) { revertWithReason(...) }` and `default { if callvalue() { revertWithReason(...) }`. descriptor.json, unoswap: amount references sendAmount with `\"tokenPath\": \"srcToken\"`; sendAmount.nativeCurrencyAddress includes addressAsNull."
+   },
+   {
+    "format": "uniswapV3Swap(uint256 amount, uint256 minReturn, uint256[] pools)",
+    "title": "uniswapV3Swap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The delegated implementation requires ETH to equal the displayed amount when wrapping, and zero otherwise. Missing token identification does not make this displayed numerical value a hidden additional payment.",
+    "quote": "contracts/1-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, uniswapV3Swap: `return uniswapV3SwapTo(msg.sender, amount, minReturn, pools);`; uniswapV3SwapTo: `require(msg.value == amount, \"UNIV3R: wrong msg.value\");` or `require(msg.value == 0, \"UNIV3R: msg.value should be 0\");`. descriptor.json, uniswapV3Swap: `\"path\": \"amount\", \"$ref\": \"$.display.definitions.sendAmount\"`. Registry .github/scripts/ai-review/prompt.md, severity: `A value displayed raw, without its token, unit or decimals, is shown: that is a warning, never a critical.`"
+   },
+   {
+    "format": "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)",
+    "title": "uniswapV3SwapTo is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "ETH must equal the displayed amount when wrapping; all other paths require zero ETH. The amount is therefore shown elsewhere, even though token identification is incomplete.",
+    "quote": "contracts/1-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, uniswapV3SwapTo: `if (wrapWeth) { require(msg.value == amount, \"UNIV3R: wrong msg.value\"); _WETH.deposit{value: amount}(); } else { require(msg.value == 0, \"UNIV3R: msg.value should be 0\"); }`. descriptor.json, uniswapV3SwapTo: `\"path\": \"amount\", \"$ref\": \"$.display.definitions.sendAmount\"`. Registry .github/scripts/ai-review/prompt.md, severity: `A value displayed raw, without its token, unit or decimals, is shown: that is a warning, never a critical.`"
+   },
+   {
+    "format": "clipperSwap(address srcToken, address dstToken, uint256 amount, uint256 minReturn)",
+    "title": "clipperSwap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The delegated implementation accepts ETH only for native-token input and requires it to equal the displayed native amount. Every other input rejects nonzero msg.value.",
+    "quote": "contracts/1-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, clipperSwap: `return clipperSwapTo(msg.sender, srcToken, dstToken, amount, minReturn);`; clipperSwapTo: `else if (srcToken == _ETH) { require(msg.value == amount, \"CL1IN: wrong msg.value\");` while both other branches require `msg.value == 0`. descriptor.json, clipperSwap: amount uses `\"tokenPath\": \"srcToken\"` and sendAmount's nativeCurrencyAddress includes addressAsEth."
+   },
+   {
+    "format": "clipperSwapTo(address recipient, address srcToken, address dstToken, uint256 amount, uint256 minReturn)",
+    "title": "clipperSwapTo is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "Native input requires msg.value to equal the displayed native amount. WETH and other token inputs reject nonzero ETH, so there is no hidden additional ETH payment.",
+    "quote": "contracts/1-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, clipperSwapTo: `else if (srcToken == _ETH) { require(msg.value == amount, \"CL1IN: wrong msg.value\");` while the WETH and remaining-token branches each use `require(msg.value == 0, \"CL1IN: msg.value should be 0\");`. descriptor.json, clipperSwapTo: amount references sendAmount with `\"tokenPath\": \"srcToken\"`; sendAmount.nativeCurrencyAddress includes addressAsEth."
+   }
+  ]
  }
 }

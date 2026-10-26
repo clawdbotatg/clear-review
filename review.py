@@ -17,6 +17,9 @@
 #   ./review.py report                   REPORT.md
 #   ./review.py index                    index.json: chain:address:selector → grade, for wallets
 #   ./review.py status                   how far along: done, results, agents running, spend
+#   ./review.py verify [--workers N]     a second agent tries to refute every critical of every fail
+#                                        (verify/prompt.md) → "verified" in reviews/<hash>.json, VERIFIED.md
+#        --engine codex                  the same check by Codex (codex exec, read-only sandbox) → "verifiedCodex"
 #
 # Each descriptor is keyed by its ERC-8176 hash (clearsig), the one auditors sign: a descriptor that changes
 # upstream is unreviewed again on its own. The models write evidence and labels; grade.py turns them into numbers
@@ -560,6 +563,91 @@ def index():
     print(f"{len(out)} functions")
 
 
+def criticals(r):
+    """[(format key, title, evidence)] of a review: the agent's criticals and the ABI @.value check."""
+    out = [(a["key"], x["title"], x.get("evidence", "")) for a in (r.get("answer") or {}).get("formats", [])
+           for x in a["findings"] if x["severity"] == "critical"]
+    out += [(k, f"{k.split('(')[0]} is payable, and no field shows the ETH sent (@.value)", "ABI: payable")
+            for k in r.get("hiddenValue") or [] if not any(k == o[0] and "value" in o[1].lower() for o in out)]
+    return out
+
+
+def codex(prompt, system, cwd):
+    """One codex exec turn, read-only sandbox, structured output → (dict, 0, "codex")."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "out.json"
+        r = subprocess.run(["codex", "exec", "--skip-git-repo-check", "--ephemeral", "-s", "read-only", "-C", str(cwd),
+                            "--output-schema", str(ROOT / "verify/schema.codex.json"), "-o", str(out),
+                            f"{system}\n\nThe registry (spec, severity guide) is at {REG}.\n\n{prompt}"],
+                           capture_output=True, text=True, timeout=3600, stdin=subprocess.DEVNULL)
+        if not out.exists() or not out.read_text().strip():
+            raise RuntimeError(f"codex exit {r.returncode}: {(r.stderr or r.stdout)[-300:]}")
+        return json.loads(out.read_text()), 0, "codex"
+
+
+def verify_one(f, engine="claude"):
+    r = json.loads(f.read_text())
+    cs = criticals(r)
+    w = WORK / r["hash"]
+    key = "verified" if engine == "claude" else "verifiedCodex"
+    if not cs or not w.exists() or r.get(key, {}).get("n") == len(cs):
+        return r
+    listing = "\n\n".join(f"{i}. `{k}`: {t}\n   Evidence given: {e}" for i, (k, t, e) in enumerate(cs))
+    try:
+        if engine == "codex":
+            out, cost, _ = codex(f"The findings:\n\n{listing}", (ROOT / "verify/prompt.md").read_text(), w)
+        else:
+            out, cost, _ = claude(f"The findings:\n\n{listing}", (ROOT / "verify/prompt.md").read_text(),
+                                  json.loads((ROOT / "verify/schema.json").read_text()), w, MODEL, EFFORT,
+                                  ["Read", "Grep", "Glob"], add_dirs=[REG / "specs", AI])
+        v = {x["n"]: x for x in out["findings"]}
+        r[key] = {"n": len(cs), "cost": round(cost, 3), "model": MODEL if engine == "claude" else "codex",
+                         "findings": [{"format": k, "title": t, **{q: v.get(i, {}).get(q) for q in ("verdict", "reason", "quote")}}
+                                      for i, (k, t, e) in enumerate(cs)]}
+    except Exception as e:
+        r[key] = {"error": str(e)[:300]}
+    # Two agents write the same file: merge into what is on disk now, not what we read.
+    with VLOCK:
+        cur = json.loads(f.read_text())
+        cur[key] = r[key]
+        f.write_text(json.dumps(cur, indent=1, ensure_ascii=False) + "\n")
+    tally = {}
+    for x in r[key].get("findings", []):
+        tally[x["verdict"]] = tally.get(x["verdict"], 0) + 1
+    print(f"{engine} {r['file']}: {tally or r[key].get('error')}", flush=True)
+    return r
+
+
+VLOCK = threading.Lock()
+
+
+def verify(args):
+    global TOKENS
+    TOKENS = Tokens()
+    fails = [f for f in sorted(SCORES.glob("*.json")) if json.loads(f.read_text()).get("result") == "fail"]
+    n = int(args[args.index("--workers") + 1]) if "--workers" in args else WORKERS
+    print(f"verifying {len(fails)} fails, {n} at a time", flush=True)
+    engine = args[args.index("--engine") + 1] if "--engine" in args else "claude"
+    with cf.ThreadPoolExecutor(n) as ex:
+        rs = list(ex.map(lambda f: verify_one(f, engine), fails))
+    if engine != "claude":
+        return
+    lines = ["# Verified criticals", "", "A second agent tried to refute every critical of every failed descriptor.", ""]
+    tot = {}
+    for r in sorted(rs, key=lambda r: r["file"]):
+        fs = (r.get("verified") or {}).get("findings") or []
+        for x in fs:
+            tot[x["verdict"]] = tot.get(x["verdict"], 0) + 1
+        ok = [x for x in fs if x["verdict"] == "confirmed"]
+        if ok:
+            lines.append(f"## `{r['file']}`\n")
+            lines += [f"- **{x['format'].split('(')[0]}**: {x['title']}  \n  {x['reason']}" for x in ok]
+            lines.append("")
+    lines[3:3] = [" · ".join(f"{k}: {v}" for k, v in sorted(tot.items())), ""]
+    (ROOT / "VERIFIED.md").write_text("\n".join(lines) + "\n")
+    print(tot)
+
+
 def status():
     _, ds = load_catalog()
     rs = {r["hash"]: r for r in recs()}
@@ -579,4 +667,4 @@ if __name__ == "__main__":
             print(prep(find(ref), force=True))
     else:
         {"sync": sync, "list": catalog, "run": lambda: run(rest), "grade": lambda: regrade(rest), "report": report,
-         "index": index, "status": status}.get(cmd, lambda: print(open(__file__).read().split("\nimport ")[0]))()
+         "index": index, "status": status, "verify": lambda: verify(rest)}.get(cmd, lambda: print(open(__file__).read().split("\nimport ")[0]))()

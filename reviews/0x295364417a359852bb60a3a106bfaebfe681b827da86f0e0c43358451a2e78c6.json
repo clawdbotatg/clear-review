@@ -91,27 +91,56 @@
   "deposit(bytes[] pubkeys, bytes[] withdrawal_credentials, bytes[] signatures, bytes32[] deposit_data_roots, uint256[] amounts_gwei)"
  ],
  "seconds": 68,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "pass",
  "formats": {
   "deposit(bytes[] pubkeys, bytes[] withdrawal_credentials, bytes[] signatures, bytes32[] deposit_data_roots, uint256[] amounts_gwei)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "B",
+   "truth": 100,
    "clarity": 72,
    "measured": true,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 3,
-   "worst": "deposit takes ETH but never shows how much (@.value)",
+   "worst": "deposit shows withdrawal credentials as raw 32 bytes, so the signer cannot see who controls the stake.",
+   "disputed": 0,
    "comprehension": 100
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 25,
+  "grade": "B",
+  "truth": 100,
   "clarity": 72,
-  "functions": "1F",
+  "functions": "1B",
   "incomplete": false,
-  "worst": "deposit takes ETH but never shows how much (@.value)"
+  "worst": "deposit shows withdrawal credentials as raw 32 bytes, so the signer cannot see who controls the stake."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.131,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "deposit(bytes[] pubkeys, bytes[] withdrawal_credentials, bytes[] signatures, bytes32[] deposit_data_roots, uint256[] amounts_gwei)",
+    "title": "deposit is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The contract reverts unless msg.value exactly equals the sum of amounts_gwei × 1e9, and the screen shows each of those amounts (always visible, 9 decimals). So the ETH sent is the amount shown, and it all goes on to the beacon deposit contract. In the mined tx, 32 ETH came in and 32 ETH went to 0x00000000219ab540356cbb839cbe05303d7705fa, and the screen said \"32ETH\". The chain 560048 contract has the same check.",
+    "quote": "FigmentEth2DepositorV1.sol deposit(): `totalAmount += amountGwei * GWEI_TO_WEI;` … `if (msg.value != totalAmount) { revert EthAmountMismatch(msg.value, totalAmount); }` then `cachedDepositContract.deposit{value: amountWei}(...)`; descriptor.json field {\"label\": \"Amount to Deposit\", \"format\": \"unit\", \"params\": {\"base\": \"ETH\", \"decimals\": 9}, \"path\": \"#.amounts_gwei.[]\", \"visible\": \"always\"}"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "deposit(bytes[] pubkeys, bytes[] withdrawal_credentials, bytes[] signatures, bytes32[] deposit_data_roots, uint256[] amounts_gwei)",
+    "title": "deposit is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "Both deployments require msg.value to equal the sum of the displayed deposit amounts, so ETH sent is shown through another field. The mined case shows 32 ETH and spends exactly 32 ETH; not-critical item 2 applies.",
+    "quote": "contracts/1-0x8b0d88b8be3c15d746feb0b1f18c883c03b6aa62/src/contracts/FigmentEth2DepositorV1.sol and contracts/560048-0x7ac74cb69104cea773cc3154d47c930ca6462fe8/src/contracts/FigmentEth2DepositorV1.sol, deposit(): `totalAmount += amountGwei * GWEI_TO_WEI;` and `if (msg.value != totalAmount) { revert EthAmountMismatch(msg.value, totalAmount); }`. descriptor.json, deposit fields: `\"label\": \"Amount to Deposit\", \"format\": \"unit\", \"params\": { \"base\": \"ETH\", \"decimals\": 9 }, \"path\": \"#.amounts_gwei.[]\", \"visible\": \"always\"`. cases/0.json, screen: `\"label\": \"Amount to Deposit\", \"value\": \"32ETH\"`; mined.signerNet: `\"amount\": \"-32000000000000000000\"`. Registry .github/scripts/ai-review/prompt.md, not_critical item 2: `A value that is shown through another field`."
+   }
+  ]
  }
 }

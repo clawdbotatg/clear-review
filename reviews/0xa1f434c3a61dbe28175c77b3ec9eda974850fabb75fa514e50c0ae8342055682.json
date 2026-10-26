@@ -134,7 +134,7 @@
   "multicall((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)"
  ],
  "seconds": 65,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "multicall((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)": {
@@ -146,6 +146,7 @@
    "critical": 2,
    "warnings": 3,
    "worst": "multicall is payable but shows no field for msg.value, and the code does not check it against inner values.",
+   "disputed": 0,
    "comprehension": null
   },
   "reenter((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)": {
@@ -157,6 +158,7 @@
    "critical": 0,
    "warnings": 2,
    "worst": "reenter hides skipRevert, so an action shown on screen may fail silently while the rest runs.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -167,5 +169,33 @@
   "functions": "1C 1F",
   "incomplete": true,
   "worst": "multicall is payable but shows no field for msg.value, and the code does not check it against inner values."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.155,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "multicall((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)",
+    "title": "multicall is payable but shows no field for msg.value, and the code does not check it against inner values.",
+    "verdict": "confirmed",
+    "reason": "multicall is payable and nothing checks msg.value against the bundle. Each inner call forwards only `bundle[i].value`, and the contract has no refund, so any surplus stays in Bundler3, where the next caller can take it. The descriptor has no `@.value` field. The per-call `amountPath` shows what each inner call receives, not what leaves the wallet, so this is not covered by not-critical item 2. The severity guide's own example puts a payable batch with no `@.value` field and no zero-value check in critical.",
+    "quote": "Bundler3.sol multicall: `function multicall(Call[] calldata bundle) external payable { require(initiator == address(0), ...); initiator = msg.sender; _multicall(bundle); ... }`; _multicall: `to.call{value: bundle[i].value}(bundle[i].data);` (no msg.value check anywhere). descriptor.json multicall format: only field `{\"path\": \"#.bundle.[].data\", \"format\": \"calldata\", \"params\": {\"calleePath\": \"#.bundle.[].to\", \"amountPath\": \"#.bundle.[].value\"}}`, no `@.value` field."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "multicall((address to, bytes data, uint256 value, bool skipRevert, bytes32 callbackHash)[] bundle)",
+    "title": "multicall is payable but shows no field for msg.value, and the code does not check it against inner values.",
+    "verdict": "confirmed",
+    "reason": "With msg.value = 1 ETH and one successful zero-value call to an EOA with callbackHash = 0, multicall succeeds and retains the ETH without refunding it. The descriptor shows only inner-call values, so it does not disclose this additional debit.",
+    "quote": "contracts/1-0x6566194141eefa99af43bb5aa71460ca2dc90245/src/src/Bundler3.sol, multicall: `function multicall(Call[] calldata bundle) external payable { require(initiator == address(0), ErrorsLib.AlreadyInitiated()); initiator = msg.sender; _multicall(bundle); initiator = address(0); }`; _multicall: `require(bundle.length > 0, ErrorsLib.EmptyBundle());`, `if (callbackHash == bytes32(0)) reenterHash = bytes32(0);`, `(bool success, bytes memory returnData) = to.call{value: bundle[i].value}(bundle[i].data);`, `require(reenterHash == bytes32(0), ErrorsLib.MissingExpectedReenter());`. descriptor.json, multicall: `\"intent\": \"Bundler3 Multicall\"`; its sole field is `\"path\": \"#.bundle.[].data\", \"label\": \"Action\", \"format\": \"calldata\"`, with `\"amountPath\": \"#.bundle.[].value\"`; no field shows `@.value`."
+   }
+  ]
  }
 }

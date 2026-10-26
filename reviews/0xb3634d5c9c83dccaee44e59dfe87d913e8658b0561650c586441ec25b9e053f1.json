@@ -217,7 +217,7 @@
  "account": "ethereum_foundation",
  "hiddenValue": [],
  "seconds": 86,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "deposit(uint256 assets, address receiver)": {
@@ -229,6 +229,7 @@
    "critical": 1,
    "warnings": 1,
    "worst": "deposit shows the share token as CSUSDC, but the vault mints COUSDC shares",
+   "disputed": 1,
    "comprehension": 75
   },
   "mint(uint256 shares, address receiver)": {
@@ -240,6 +241,7 @@
    "critical": 0,
    "warnings": 2,
    "worst": "mint renders the minted shares as CSUSDC, but the vault token symbol is COUSDC.",
+   "disputed": 0,
    "comprehension": 50
   },
   "withdraw(uint256 assets, address receiver, address owner)": {
@@ -251,6 +253,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "The withdraw intent 'Withdraw' does not say that vault shares are burned to pay the USDC.",
+   "disputed": 0,
    "comprehension": 75
   },
   "redeem(uint256 shares, address receiver, address owner)": {
@@ -262,6 +265,7 @@
    "critical": 1,
    "warnings": 1,
    "worst": "redeem shows the burned shares as CSUSDC, but the signer's shares are COUSDC.",
+   "disputed": 1,
    "comprehension": 50
   }
  },
@@ -272,5 +276,47 @@
   "functions": "1B 1D 2F",
   "incomplete": false,
   "worst": "redeem shows the burned shares as CSUSDC, but the signer's shares are COUSDC."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.251,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "deposit(uint256 assets, address receiver)",
+    "title": "deposit shows the share token as CSUSDC, but the vault mints COUSDC shares",
+    "verdict": "refuted",
+    "reason": "The ticker string is wrong: the vault symbol is COUSDC, and \"CSUSDC\" is not it. But the signer gets the asset the screen describes, which is this vault's shares sent to the receiver shown. Only a raw label string differs, with no other asset, amount or recipient. That is a metadata/label warning under not-critical #10 and check 6, not a critical.",
+    "quote": "descriptor.json, deposit format: {\"label\": \"Share ticker\", \"format\": \"raw\", \"value\": \"$.metadata.constants.vaultTicker\"} with constants \"vaultTicker\": \"CSUSDC\"; meta.json __symbol \"COUSDC\"; case 0 mined: 51069440268006074399 COUSDC (asset 0x1d3b…4657) to the signer, the same vault contract the descriptor binds"
+   },
+   {
+    "format": "redeem(uint256 shares, address receiver, address owner)",
+    "title": "redeem shows the burned shares as CSUSDC, but the signer's shares are COUSDC.",
+    "verdict": "refuted",
+    "reason": "The descriptor binds the shares amount to the vault token itself (tokenPath \"@.to\" = 0x1d3b…4657), which is the token whose shares are burned. The amount is also correct: 9251795000000000000 at 18 decimals is 9.251795. The CSUSDC symbol comes from the wallet's token lookup, not from a wrong token in the descriptor. The asset, amount and owner shown all match the mined burn, so at most this is a ticker/metadata warning.",
+    "quote": "descriptor.json, redeem format: {\"path\": \"shares\", \"label\": \"Shares to redeem\", \"format\": \"tokenAmount\", \"params\": {\"tokenPath\": \"@.to\"}}; case 3 input to 0x1d3b1cd0…4657; mined burn asset 0x1d3b1cd0…4657 amount 9251795000000000000 (18 decimals); screen '9.251795 CSUSDC'"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "deposit(uint256 assets, address receiver)",
+    "title": "deposit shows the share token as CSUSDC, but the vault mints COUSDC shares",
+    "verdict": "confirmed",
+    "reason": "The mined deposit gives the signer COUSDC, while the screen explicitly identifies the received shares as CSUSDC. No other displayed field corrects that asset identity.",
+    "quote": "cases/0.json, deposit: screen {\"label\":\"Share ticker\",\"value\":\"CSUSDC\"}; mined signerNet {\"symbol\":\"COUSDC\",\"decimals\":18,\"amount\":\"51069440268006074399\"}. descriptor.json, deposit: {\"label\":\"Share ticker\",\"format\":\"raw\",\"value\":\"$.metadata.constants.vaultTicker\"}, with \"vaultTicker\":\"CSUSDC\"."
+   },
+   {
+    "format": "redeem(uint256 shares, address receiver, address owner)",
+    "title": "redeem shows the burned shares as CSUSDC, but the signer's shares are COUSDC.",
+    "verdict": "confirmed",
+    "reason": "The mined redemption burns COUSDC, while the supplied screen says CSUSDC. The descriptor correctly uses tokenPath @.to rather than vaultTicker, but that does not correct the supplied screen’s explicit asset mismatch.",
+    "quote": "cases/3.json, redeem: screen {\"label\":\"Shares to redeem\",\"value\":\"9.251795 CSUSDC\"}; mined effects {\"symbol\":\"COUSDC\",\"decimals\":18,\"amount\":\"9251795000000000000\",\"to\":\"0x0000000000000000000000000000000000000000\",\"signer\":\"out\"}. descriptor.json, redeem shares field: \"params\":{\"tokenPath\":\"@.to\"}."
+   }
+  ]
  }
 }

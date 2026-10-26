@@ -97,27 +97,56 @@
   "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)"
  ],
  "seconds": 137,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "pass",
  "formats": {
   "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "B",
+   "truth": 80,
    "clarity": 65,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 3,
-   "worst": "send takes ETH but never shows how much (@.value)",
+   "worst": "send: composeMsg is visible: never, but a non-empty one makes the destination call the recipient with hidden data.",
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 25,
+  "grade": "B",
+  "truth": 80,
   "clarity": 65,
-  "functions": "1F",
+  "functions": "1B",
   "incomplete": false,
-  "worst": "send takes ETH but never shows how much (@.value)"
+  "worst": "send: composeMsg is visible: never, but a non-empty one makes the destination call the recipient with hidden data."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.131,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)",
+    "title": "send is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "Every send goes through _lzSend, which calls _payNative. That function reverts unless msg.value equals _fee.nativeFee, and nothing overrides it. The screen shows _fee.nativeFee as \"Bridge fee\", so the ETH attached is always exactly the amount on screen.",
+    "quote": "OAppSenderUpgradeable.sol _payNative: `if (msg.value != _nativeFee) revert NotEnoughNative(msg.value);` (called from _lzSend via `uint256 messageValue = _payNative(_fee.nativeFee);`, reached from OFTCoreUpgradeable._send → `_lzSend(_sendParam.dstEid, message, options, _fee, _refundAddress)`); descriptor.json field `{\"path\": \"#._fee.nativeFee\", \"label\": \"Bridge fee\", \"format\": \"amount\", \"visible\": \"always\"}`"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "send((uint32 dstEid, bytes32 to, uint256 amountLD, uint256 minAmountLD, bytes extraOptions, bytes composeMsg, bytes oftCmd) _sendParam, (uint256 nativeFee, uint256 lzTokenFee) _fee, address _refundAddress)",
+    "title": "send is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The native value must equal _fee.nativeFee, which the screen always shows as “Bridge fee.” A different msg.value reverts; the example displays the full 1 FLR sent.",
+    "quote": "OAppSenderUpgradeable.sol::_lzSend: `uint256 messageValue = _payNative(_fee.nativeFee);` and `endpoint.send{ value: messageValue }(...)`. OAppSenderUpgradeable.sol::_payNative: `if (msg.value != _nativeFee) revert NotEnoughNative(msg.value);`. descriptor.json, send fields: `{\"path\":\"#._fee.nativeFee\",\"label\":\"Bridge fee\",\"format\":\"amount\",\"visible\":\"always\"}`. cases/0.json, screen: `{\"label\":\"Bridge fee\",\"value\":\"1 FLR\"}`."
+   }
+  ]
  }
 }

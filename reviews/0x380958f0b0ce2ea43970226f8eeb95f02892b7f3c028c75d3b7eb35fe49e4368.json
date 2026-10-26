@@ -155,7 +155,7 @@
   "refundNativeToken()"
  ],
  "seconds": 67,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "scheduleEmissions(uint64 startTime, uint64 endTime, uint160 rewardRate)": {
@@ -167,6 +167,7 @@
    "critical": 3,
    "warnings": 3,
    "worst": "scheduleEmissions: the STONX transfer out of the signer's wallet and its amount are not shown",
+   "disputed": 0,
    "comprehension": null
   },
   "multicall(bytes[] data)": {
@@ -178,26 +179,98 @@
    "critical": 2,
    "warnings": 1,
    "worst": "multicall is payable but @.value is not shown",
+   "disputed": 0,
    "comprehension": null
   },
   "refundNativeToken()": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "A",
+   "truth": 100,
    "clarity": 85,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 0,
-   "worst": "refundNativeToken takes ETH but never shows how much (@.value)",
+   "worst": null,
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
   "grade": "F",
-  "truth": 8,
+  "truth": 33,
   "clarity": 48,
-  "functions": "3F",
+  "functions": "1A 2F",
   "incomplete": true,
   "worst": "scheduleEmissions: the STONX transfer out of the signer's wallet and its amount are not shown"
+ },
+ "verified": {
+  "n": 4,
+  "cost": 0.44,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "scheduleEmissions(uint64 startTime, uint64 endTime, uint160 rewardRate)",
+    "title": "scheduleEmissions: the STONX transfer out of the signer's wallet and its amount are not shown",
+    "verdict": "confirmed",
+    "reason": "The signer's STONX (stakeToken 0x570c…, an ERC-20) leaves the wallet by transferFrom, in an amount the contract works out from the rate and the duration. No field shows the amount or says the signer pays, so this effect on the signer's assets is not shown. Only the raw Q32 rate is shown, and that is not the amount transferred.",
+    "quote": "Ve33Periphery.handleLockData: `(address payer, ...) = abi.decode(data, ...)` with payer = msg.sender from scheduleEmissions; `ACCOUNTANT.payFrom(payer, stakeToken, amount);` -> FlashAccountantLib.payFrom does `transferFrom(from, accountant, amount)`; IVe33 `event EmissionsScheduled(address funder, ..., uint128 amount)`. Descriptor: intent \"Schedule Ve33 emissions\", fields only Start time, End time, 'Reward rate (Q32)' raw."
+   },
+   {
+    "format": "scheduleEmissions(uint64 startTime, uint64 endTime, uint160 rewardRate)",
+    "title": "scheduleEmissions is payable but @.value is not shown, and ETH sent is left in the periphery",
+    "verdict": "confirmed",
+    "reason": "No path uses or rejects msg.value: lock forwards 0 and the ERC-20 branch is the only one used. The ETH stays in the periphery and any caller can take it with refundNativeToken, and the screen never shows the value.",
+    "quote": "Ve33Periphery.scheduleEmissions `external payable` with no msg.value check; BaseLocker.lock `call(gas(), target, 0, ...)`; stakeToken immutable = 0x570c5aa79c798e7a418412cc8399ae5bcce570c5 so `safeTransferETH(address(ACCOUNTANT), amount)` never runs; PayableMulticallable.refundNativeToken sends `address(this).balance` to any msg.sender. Descriptor scheduleEmissions fields have no @.value."
+   },
+   {
+    "format": "multicall(bytes[] data)",
+    "title": "multicall is payable but @.value is not shown",
+    "verdict": "confirmed",
+    "reason": "multicall accepts ETH and only passes the inner calls through. scheduleEmissions does not use ETH because the stake token is an ERC-20, so the ETH stays in the contract unless a refund is batched. The descriptor shows no @.value.",
+    "quote": "PayableMulticallable.multicall `function multicall(bytes[] calldata data) public payable override` with no value check; descriptor multicall fields only `data.[]` 'Action'."
+   },
+   {
+    "format": "refundNativeToken()",
+    "title": "refundNativeToken is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "Any ETH the signer sends adds to the balance, and the same call sends the whole balance back to msg.sender, the signer. The contract cannot keep it, and funds that return to the caller are not critical (not-critical item 4).",
+    "quote": "PayableMulticallable.refundNativeToken: `if (address(this).balance != 0) { SafeTransferLib.safeTransferETH(msg.sender, address(this).balance); }`"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 4,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "scheduleEmissions(uint64 startTime, uint64 endTime, uint160 rewardRate)",
+    "title": "scheduleEmissions: the STONX transfer out of the signer's wallet and its amount are not shown",
+    "verdict": "confirmed",
+    "reason": "The periphery pays the schedule’s required tokens from the signer, but the screen only states scheduling times and a rate. The hidden effect is the wallet payment, not merely the raw rate’s readability; the claimed 100 STONX calculation is not verified here.",
+    "quote": "contracts/4663-0x1d834b70c33facebdb05af3c9c78da396f5d0e26/src/src/Ve33Periphery.sol, scheduleEmissions: `lock(abi.encode(msg.sender, startTime, endTime, rewardRate))`; handleLockData: `ACCOUNTANT.payFrom(payer, stakeToken, amount);`. src/src/libraries/FlashAccountantLib.sol, payFrom: `mstore(0x60, amount)`, `mstore(0x40, accountant)`, `mstore(0x2c, shl(96, from))`, `0x23b872dd` (`transferFrom`). cases/0.json, screen: \"Schedule STONX emissions\", \"Start time\", \"End time\", \"Reward rate (Q32)\": \"4971026962962962962962962\"."
+   },
+   {
+    "format": "scheduleEmissions(uint64 startTime, uint64 endTime, uint160 rewardRate)",
+    "title": "scheduleEmissions is payable but @.value is not shown, and ETH sent is left in the periphery",
+    "verdict": "confirmed",
+    "reason": "A successful schedule call retains attached ETH while settling the ERC-20 payment separately, without checking or refunding msg.value. Neither the intent nor any displayed field states that native payment.",
+    "quote": "contracts/4663-0x1d834b70c33facebdb05af3c9c78da396f5d0e26/src/src/Ve33Periphery.sol, scheduleEmissions: `external payable`; handleLockData: `ACCOUNTANT.payFrom(payer, stakeToken, amount);`. src/src/base/BaseLocker.sol, lock: `call(gas(), target, 0, result, add(len, 4), 0, 0)`. meta.json, immutable 6351: `0x000000000000000000000000570c5aa79c798e7a418412cc8399ae5bcce570c5`. descriptor.json, scheduleEmissions: \"Schedule STONX emissions\"; fields only `startTime`, `endTime`, `rewardRate`."
+   },
+   {
+    "format": "multicall(bytes[] data)",
+    "title": "multicall is payable but @.value is not shown",
+    "verdict": "confirmed",
+    "reason": "The override bypasses the base multicall’s nonzero-value rejection. An empty batch with nonzero value succeeds and retains that ETH, while the screen shows no native amount.",
+    "quote": "contracts/4663-0x1d834b70c33facebdb05af3c9c78da396f5d0e26/src/src/base/PayableMulticallable.sol, multicall: `function multicall(bytes[] calldata data) public payable override returns (bytes[] memory) { _multicallDirectReturn(_multicall(data)); }`. src/lib/solady/src/utils/Multicallable.sol, _multicall: `if data.length {` guards execution of inner calls. descriptor.json, multicall: \"Ve33 emission batch\"; sole field `data.[]`, \"Action\", with `calleePath: \"@.to\"` and no native amount."
+   },
+   {
+    "format": "refundNativeToken()",
+    "title": "refundNativeToken is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The function returns its entire balance, including attached value, to the caller or reverts if payment fails. The screen states that refund and identifies the signer as recipient; the guide explicitly excludes funds returned to the caller.",
+    "quote": "contracts/4663-0x1d834b70c33facebdb05af3c9c78da396f5d0e26/src/src/base/PayableMulticallable.sol, refundNativeToken: `if (address(this).balance != 0) { SafeTransferLib.safeTransferETH(msg.sender, address(this).balance); }`. descriptor.json, refundNativeToken: \"Refund native token\", field `@.from` labelled \"Recipient\". Registry .github/scripts/ai-review/prompt.md, not_critical item 4: \"funds that return to the caller. Not a different recipient; not a finding, or a warning when a field would help.\""
+   }
+  ]
  }
 }

@@ -207,7 +207,7 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 122,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "repay(address asset, uint256 amount, uint256 rateMode, address onBehalfOf)": {
@@ -219,6 +219,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "repay intent 'Repay loan' names neither the asset nor the debt holder.",
+   "disputed": 0,
    "comprehension": 100
   },
   "setUserUseReserveAsCollateral(address asset, bool useAsCollateral)": {
@@ -230,6 +231,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "setUserUseReserveAsCollateral intent 'Manage collateral' does not say enable or disable.",
+   "disputed": 0,
    "comprehension": 100
   },
   "withdraw(address asset, uint256 amount, address to)": {
@@ -241,6 +243,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "withdraw intent 'Withdraw' names neither the asset nor the recipient.",
+   "disputed": 0,
    "comprehension": 75
   },
   "swapBorrowRateMode(address asset, uint256 rateMode)": {
@@ -252,6 +255,7 @@
    "critical": 1,
    "warnings": 1,
    "worst": "swapBorrowRateMode intent says 'Swap to variable', but rateMode 2 moves debt to stable on Polygon/Avalanche.",
+   "disputed": 0,
    "comprehension": null
   },
   "borrow(address asset, uint256 amount, uint256 interestRateMode, uint16 referralCode, address onBehalfOf)": {
@@ -263,6 +267,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "borrow intent 'Borrow' names neither the asset nor who carries the debt.",
+   "disputed": 0,
    "comprehension": null
   },
   "deposit(address asset, uint256 amount, address onBehalfOf, uint16 referralCode)": {
@@ -274,6 +279,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "deposit intent 'Supply' names neither the asset nor the aToken recipient.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -284,5 +290,33 @@
   "functions": "2A 3B 1F",
   "incomplete": false,
   "worst": "swapBorrowRateMode intent says 'Swap to variable', but rateMode 2 moves debt to stable on Polygon/Avalanche."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.301,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "swapBorrowRateMode(address asset, uint256 rateMode)",
+    "title": "swapBorrowRateMode intent says 'Swap to variable', but rateMode 2 moves debt to stable on Polygon/Avalanche.",
+    "verdict": "confirmed",
+    "reason": "On Polygon and Avalanche, rateMode 2 passes validation and turns the signer's variable debt into stable-rate debt, while the title says \"Swap to variable\". Only mainnet forces the stable-to-variable direction. The action shown is the opposite of the one executed, so this is critical; it does depend on reserve flags in storage (not frozen, stable rate enabled) that the code itself does not rule out.",
+    "quote": "Avalanche/Polygon LendingPool.swapBorrowRateMode: `} else { IVariableDebtToken(reserve.variableDebtTokenAddress).burn(msg.sender, variableDebt, ...); IStableDebtToken(reserve.stableDebtTokenAddress).mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate); }`; ValidationLogic.validateSwapRateMode (137/43114): `else if (currentRateMode == DataTypes.InterestRateMode.VARIABLE) { require(variableDebt > 0, ...); /* user wants to swap to stable */ require(stableRateEnabled, ...)`. Descriptor (bound to 137 and 43114): `\"intent\": \"Swap to variable\"`, field `rateMode` labelled \"Current rate mode\" with enum 2 = \"variable\". Mainnet ValidationLogic instead has `require(currentRateMode == DataTypes.InterestRateMode.STABLE, ...)`."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "swapBorrowRateMode(address asset, uint256 rateMode)",
+    "title": "swapBorrowRateMode intent says 'Swap to variable', but rateMode 2 moves debt to stable on Polygon/Avalanche.",
+    "verdict": "confirmed",
+    "reason": "Polygon and Avalanche permit variable-to-stable conversion when reserve and debt checks pass; mainnet’s STABLE-only restriction does not apply. Showing “Current rate mode: variable” does not disclose the resulting stable debt and contradicts the promised “Swap to variable” outcome.",
+    "quote": "descriptor.json, swapBorrowRateMode: \"intent\": \"Swap to variable\", \"path\": \"rateMode\", \"label\": \"Current rate mode\"; metadata.enums.interestRateMode: \"2\": \"variable\". contracts/137-0x1685d81212580dd4cda287616c2f6f4794927e18/src/src/contracts/v2PolPool/LendingPool/contracts/protocol/lendingpool/LendingPool.sol:334–345, swapBorrowRateMode: `else { IVariableDebtToken(reserve.variableDebtTokenAddress).burn(msg.sender, variableDebt, reserve.variableBorrowIndex); IStableDebtToken(reserve.stableDebtTokenAddress).mint(msg.sender, msg.sender, variableDebt, reserve.currentStableBorrowRate); }`. Identical branch: contracts/43114-0x102bf2c03c1901adba191457a8c4a4ef18b40029/src/contracts/v2AvaPool/LendingPool/contracts/protocol/lendingpool/LendingPool.sol:334–345. Both implementations’ libraries/logic/ValidationLogic.sol, validateSwapRateMode: `else if (currentRateMode == DataTypes.InterestRateMode.VARIABLE) { require(variableDebt > 0, Errors.VL_NO_VARIABLE_RATE_LOAN_IN_RESERVE);` and `require(stableRateEnabled, Errors.VL_STABLE_BORROWING_NOT_ENABLED);`."
+   }
+  ]
  }
 }

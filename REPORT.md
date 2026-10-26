@@ -1,10 +1,10 @@
 # Report
 
-709 descriptors reviewed. Rubric v1.1.
+709 descriptors reviewed. Rubric v1.2.
 
-fail: 80 · incomplete: 118 · pass: 511
+fail: 68 · incomplete: 120 · pass: 521
 
-Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
+Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 
 | Grade | Truth | Clarity | File | Worst finding |
 |---|---|---|---|---|
@@ -17,59 +17,45 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | F | 0 | 0 | `registry/rarible/eip712-rarible-exchange-v2-meta-tx.json` | MetaTransaction hides functionSignature, the call that runs in the signer's name |
 | F | 0 | 2 | `registry/rarible/eip712-rarible-exchange-v2.json` | Order: `data` is hidden (visible: never), so payout recipients and origin fees that cut or add to amounts are never shown. |
 | F | 0 | 35 | `registry/safe/calldata-BatchExecutor.json` | batchExecute: calls[].value (native currency leaving the Safe) is never its own field; empty-data transfers have no inner descriptor |
-| F | 0 | 15 | `registry/safe/eip712-Safe-1.3.0.json` | SafeTx is bound to the Safe 1.3.0 singletons, but each Safe signs with its own proxy address as domain. |
 | F | 0 | 64 | `registry/uniswap/calldata-UniswapV3Router02.json` | exactInput is payable but has no @.value field, so ETH sent with the swap is never shown. |
-| F | 2 | 24 | `registry/ekubo/calldata-MEVCaptureRouter.json` | swap (isToken1, threshold) is payable, but the screen never shows the ETH sent (@.value). |
-| F | 3 | 58 | `registry/ekubo/calldata-VeToken.json` | stake is payable but no @.value field is shown, and native value sent is left in the contract. |
-| F | 8 | 48 | `registry/ekubo/calldata-Ve33Periphery.json` | scheduleEmissions: the STONX transfer out of the signer's wallet and its amount are not shown |
-| F | 8 | 31 | `registry/morpho/calldata-VaultExitBundlesV1.json` | InKindRedemptionVaultV2 hides sharesPermit: the vault-share allowance it grants is not shown |
-| F | 9 | 58 | `registry/ekubo/calldata-Positions.json` | deposit is payable and spends msg.value in native pools, but no @.value field is shown. |
-| F | 9 | 56 | `registry/ekubo/calldata-Ve33Positions.json` | deposit is payable and spends msg.value for a native token0, but no @.value field exists |
-| F | 14 | 57 | `registry/ekubo/calldata-Orders.json` | mintAndIncreaseSellAmount is payable and the descriptor has no @.value field, so the ETH sent is hidden. |
-| F | 17 | 49 | `registry/1inch/calldata-AggregationRouterV3.json` | swap is payable and has no @.value field; the REQUIRES_EXTRA_ETH flag lets ETH above desc.amount leave unshown |
+| F | 5 | 58 | `registry/ekubo/calldata-VeToken.json` | stake is payable but no @.value field is shown, and native value sent is left in the contract. |
+| F | 7 | 24 | `registry/ekubo/calldata-MEVCaptureRouter.json` | swap (isToken1, threshold) is payable, but the screen never shows the ETH sent (@.value). |
+| F | 12 | 58 | `registry/ekubo/calldata-Positions.json` | deposit is payable and spends msg.value in native pools, but no @.value field is shown. |
+| F | 12 | 56 | `registry/ekubo/calldata-Ve33Positions.json` | deposit is payable and spends msg.value for a native token0, but no @.value field exists |
+| F | 17 | 57 | `registry/ekubo/calldata-Orders.json` | mintAndIncreaseSellAmount is payable and the descriptor has no @.value field, so the ETH sent is hidden. |
 | F | 25 | 33 | `registry/HyperDiscipline/eip712-CommitIntent.json` | CommitIntent: 'Stake amount' shows the gross deposit, but the platform fee is cut before the stake is locked. |
-| F | 25 | 71 | `registry/enso/calldata-EnsoRouter.json` | safeRouteSingle takes ETH but never shows how much (@.value) |
-| F | 25 | 72 | `registry/figment/calldata-figment-batch-deposit.json` | deposit takes ETH but never shows how much (@.value) |
-| F | 25 | 65 | `registry/flare/calldata-FXRP-OFT-Flare.json` | send takes ETH but never shows how much (@.value) |
-| F | 25 | 56 | `registry/kiln/calldata-kiln-batch-deposit-v2.json` | batchDeposit takes ETH but never shows how much (@.value) |
 | F | 25 | 36 | `registry/lido/calldata-wstETH-referral-staker.json` | stakeETH: the screen never says the signer receives wstETH. The reader expected stETH. |
 | F | 25 | 68 | `registry/ondo-finance/calldata-GMTokenManager.json` | mintWithAttestation shows depositTokenAmount, but with USDon as deposit token it takes quantity times price instead. |
 | F | 25 | 0 | `registry/opensea/eip712-opensea.json` | Order: maker relayer and protocol fees taken from the signer are hidden, so the price shown is not what the signer nets or pays. |
 | F | 25 | 17 | `registry/paraswap/eip712-Velora-DeltaV2.json` | Order: on a cross-chain order the token received is bridge.outputToken, which is never shown |
 | F | 25 | 50 | `registry/permit/eip712-permit-polygon-bridged-usdc.json` | Permit descriptor binds to domain version "2", but the contract verifies permits with version "1". |
 | F | 25 | 42 | `registry/permit/eip712-permit-polygon-usdt.json` | Permit descriptor binds to domain name "Tether USD", but the contract signs under domain name "USDT0" with a salt. |
+| F | 25 | 15 | `registry/safe/eip712-Safe-1.3.0.json` | SafeTx decodes data as a call to `to` even when operation 1 makes it a delegatecall in the Safe. |
 | F | 25 | 0 | `registry/safe/eip712-Safe-1.4.1.json` | SafeTx decodes data as a call to `to` with the Safe as sender, even for a DelegateCall |
 | F | 25 | 25 | `registry/safe/eip712-Safe-1.5.0.json` | SafeTx decodes nested data as a call to `to` and shows Value even when operation is Delegate Call. |
 | F | 25 | 22 | `registry/safe/eip712-SafeL2-1.3.0.json` | SafeTx decodes `data` as a call to `to` even when operation is a delegate call. |
 | F | 25 | 17 | `registry/safe/eip712-SafeL2-1.4.1.json` | SafeTx decodes `data` as a call to `to` with `value`, also when operation is Delegate Call. |
 | F | 25 | 20 | `registry/safe/eip712-SafeL2-1.5.0.json` | SafeTx decodes the nested data as a call to `to` with `value`, also when the operation is a delegate call. |
 | F | 25 | 0 | `registry/smartcredit/eip712-smartcredit.json` | LoanRequest is bound to the SMARTCREDIT ERC-20 token, which never verifies EIP-712 signatures or a LoanRequest type. |
-| F | 25 | 55 | `registry/tether/calldata-usdt0-OFT-Flare.json` | send takes ETH but never shows how much (@.value) |
 | F | 31 | 52 | `registry/morpho/calldata-clearstar-CSUSDC-8453.json` | redeem shows the burned shares as CSUSDC, but the signer's shares are COUSDC. |
-| F | 32 | 41 | `registry/1inch/calldata-AggregationRouterV5.json` | swap is payable and the extra-ETH flag lets msg.value exceed the shown amount; no value field exists |
-| F | 37 | 37 | `registry/1inch/calldata-AggregationRouterV4-eth.json` | swap hides msg.value; with the extra-ETH flag the signer sends more ETH than the amount shown. |
+| F | 33 | 48 | `registry/ekubo/calldata-Ve33Periphery.json` | scheduleEmissions: the STONX transfer out of the signer's wallet and its amount are not shown |
 | F | 39 | 42 | `registry/morpho/calldata-VaultBundlesV1.json` | vaultBundlesV1Deposit hides maxSharePriceE27, the only bound on how few vault shares the signer receives. |
 | F | 40 | 26 | `registry/morpho/calldata-MorphoBundlerV3.json` | multicall is payable but shows no field for msg.value, and the code does not check it against inner values. |
-| F | 41 | 22 | `registry/1inch/calldata-AggregationRouterV4.json` | swap is payable, but msg.value is never shown and a hidden flag lets it exceed the shown amount |
-| F | 42 | 17 | `registry/lens/eip712-lens-lenshub.json` | Act hides the action module and its data, which decide what the signer pays and to whom. |
-| F | 44 | 46 | `registry/gondi/calldata-PurchaseBundler-v3_2.json` | buy: an ERC20 purchase-currency amount pulled from the signer appears only inside the raw callback hex |
 | F | 45 | 48 | `registry/swissborg/calldata-NttManager.json` | Short transfer is payable but has no @.value field, so the ETH delivery fee is never shown. |
 | D | 50 | 68 | `registry/bedrock/calldata-selini-vault.json` | mint names suniBTC as the output but does not show the suniBTC amount the signer receives. |
 | F | 50 | 48 | `registry/ethena/calldata-ethena.json` | cooldownShares restarts the cooldown timer for all USDe the signer already has pending; nothing shown says so. |
-| F | 50 | 48 | `registry/feral-file/calldata-feralfile-vault-0.json` | payForSale says the signer pays, but the vault actually pays Price in ETH to the signer. |
-| F | 50 | 53 | `registry/feral-file/calldata-feralfile-vault-v2-0.json` | payForSaleV2 shows destination as 'Recipient', but the vault sends the price to the signer. |
 | D | 50 | 75 | `registry/morpho/calldata-clearstar-CSCOREETH-v2-8453.json` | deposit: the 'Share ticker' constant CSCOREETH does not match the vault token's on-chain symbol CSRETH. |
 | D | 50 | 63 | `registry/morpho/calldata-kpk-KPK_USDC_Prime_Core-v2-1.json` | mint: the shares are shown as KPK_USDC_Prime_Core but the mined share token symbol is KPK_USDC_BluechipV2 |
 | D | 50 | 67 | `registry/morpho/calldata-sentora-senPYUSDmain-v2-1.json` | mint shows the minted shares as senPYUSDmain, but the on-chain symbol is senPYUSDV2. |
 | D | 50 | 59 | `registry/morpho/calldata-waterline-infinifiUSDC.json` | mint shows minted shares as 'infinifiUSDC', but the token symbol is 'steakUSDCinfinifi'. |
 | D | 50 | 66 | `registry/swissborg/calldata-ChsbToBorgMigrator.json` | migrate: screen promises a CHSB-to-BORG migration, but the current code always reverts with MIGRATION_CLOSED. |
-| F | 58 | 75 | `registry/flyingtulip/calldata-MintAndRedeem-dev.json` | redeem says 'Minimum receive' collateral, but the collateral went to a queue address, not to the signer. |
-| F | 62 | 76 | `registry/ophis/calldata-Ophis-CoWSwapEthFlow.json` | createOrder takes ETH but never shows how much (@.value) |
+| F | 62 | 53 | `registry/feral-file/calldata-feralfile-vault-v2-0.json` | payForSaleV2 shows destination as 'Recipient', but the vault sends the price to the signer. |
 | F | 62 | 35 | `registry/safe/calldata-SafeMigration-1.4.1.json` | migrateWithFallbackHandler also replaces the Safe's fallback handler, but shows the same "Migrate Safe" intent as migrateSingleton. |
 | F | 62 | 38 | `registry/safe/calldata-SafeMigration-1.5.0.json` | migrateWithFallbackHandler replaces the Safe's fallback handler, but the screen never mentions it. |
-| F | 62 | 38 | `registry/yieldxyz/calldata-yieldxyz-usde-vault.json` | withdraw shows 'Withdraw exactly X USDe', but the receiver gets sUSDe |
-| F | 63 | 41 | `registry/1inch/calldata-AggregationRouterV6.json` | permitAndCall is payable and the inner delegatecall spends msg.value, but no field shows the native value. |
+| F | 63 | 31 | `registry/morpho/calldata-VaultExitBundlesV1.json` | ForceWithdrawVaultV2 hides minSharePriceE27, the only slippage bound on vault shares burned |
 | F | 65 | 72 | `registry/flyingtulip/calldata-PftMarketplace.json` | buy: the signer pays price plus taker fee, but the screen shows only the price and no native value. |
+| F | 66 | 41 | `registry/1inch/calldata-AggregationRouterV5.json` | swap is payable and the extra-ETH flag lets msg.value exceed the shown amount; no value field exists |
+| F | 67 | 49 | `registry/1inch/calldata-AggregationRouterV3.json` | swap is payable and has no @.value field; the REQUIRES_EXTRA_ETH flag lets ETH above desc.amount leave unshown |
 | D | 67 | 67 | `registry/morpho/calldata-clearstar-CSRWAUSDC-v2-8453.json` | deposit shows the share ticker CSRWAUSDC, but the vault token symbol on chain is CSRUSDC. |
 | D | 67 | 74 | `registry/morpho/calldata-gauntlet-uniUSDC-v2-1.json` | deposit: the constant 'Share ticker' uniUSDC differs from the vault's on-chain share symbol usdcpv. |
 | D | 67 | 75 | `registry/morpho/calldata-steakhouse_financial-bitgetUSDC-v2-42161.json` | deposit: constant share ticker 'bitgetUSDC' differs from the vault token's on-chain symbol 'bbqUSDC'. |
@@ -80,9 +66,9 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | F | 69 | 50 | `registry/safe/calldata-Safe-1.3.0.json` | execTransaction is payable, but no field shows the native value the signer sends. |
 | C | 70 | 30 | `registry/permit/eip712-permit-polygon-dai.json` | Permit: expiry=0 means the signature never expires, but the field is hidden in that case. |
 | F | 70 | 72 | `registry/quickswap/calldata-QuickSwap.json` | removeLiquidity hides `liquidity`, the LP token amount that leaves the signer's wallet and is burned. |
+| F | 71 | 41 | `registry/1inch/calldata-AggregationRouterV6.json` | permitAndCall is payable and the inner delegatecall spends msg.value, but no field shows the native value. |
 | F | 71 | 58 | `registry/gondi/calldata-MultiSourceLoan-v3_1.json` | refinanceFull never says the signer pays current lenders principal plus interest and pays protocol fees. |
 | F | 71 | 58 | `registry/safe/calldata-SafeL2-1.3.0.json` | setup decodes `data` as a normal call to `to`, but the Safe delegate-calls it. |
-| F | 73 | 66 | `registry/paraswap/calldata-AugustusSwapper-v6.2.json` | swapExactAmountInPro: the signer receives less than the 'Minimum to Receive' shown, because the partner fee is cut after the check. |
 | D | 75 | 54 | `registry/kiln/calldata-Vault-RLUSD-Euler-Yield.json` | deposit shows share ticker kEulerRLUSD, but the vault share symbol on chain is keeyRLUSD. |
 | D | 75 | 56 | `registry/kiln/calldata-Vault-USDC-Euler-Yield.json` | deposit shows share ticker "kEulerUSDC", but the vault token symbol is "keeyUSDC". |
 | D | 75 | 62 | `registry/kiln/calldata-Vault-USDT-Euler-Yield.json` | deposit: the 'Share ticker' constant says kEulerUSDT, but the vault's share token symbol is keeyUSDT. |
@@ -100,20 +86,24 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | F | 75 | 60 | `registry/safe/calldata-SafeL2-1.4.1.json` | execTransaction is payable but shows no @.value, so native currency the executor sends is never shown. |
 | F | 75 | 56 | `registry/safe/calldata-SafeL2-1.5.0.json` | execTransaction is payable, but no field shows the native value the signer sends. |
 | F | 75 | 41 | `registry/threshold/calldata-Bridge.json` | requestRedemption: Amount reads as BTC received, but treasury and Bitcoin tx fees are cut from it. |
+| D | 76 | 46 | `registry/gondi/calldata-PurchaseBundler-v3_2.json` | sell: the screen shows the loan principal, but the signer pays principal plus interest plus a protocol fee |
 | F | 77 | 66 | `registry/safe/calldata-Safe-1.4.1.json` | execTransaction is payable, but no field shows the native value the signer sends. |
+| F | 78 | 37 | `registry/1inch/calldata-AggregationRouterV4-eth.json` | swap hides msg.value; with the extra-ETH flag the signer sends more ETH than the amount shown. |
+| F | 78 | 22 | `registry/1inch/calldata-AggregationRouterV4.json` | swap is payable, but msg.value is never shown and a hidden flag lets it exceed the shown amount |
 | D | 78 | 69 | `registry/morpho/calldata-re7_labs-Re7WETH-v2-10.json` | redeem never names WETH as the asset the receiver gets; only the shares burned are shown. |
-| F | 78 | 72 | `registry/zkstables/calldata-parswappool-base-sepolia.json` | swap never shows the asset or amount the recipient receives; 'send to Bob' can read as sending zkUSD. |
-| F | 78 | 75 | `registry/zkstables/calldata-parswappool-base.json` | swap: the output token and the amount received (equal to the input, 1:1) appear nowhere on the screen. |
 | D | 79 | 34 | `registry/midas/calldata-RedemptionVault.json` | redeemInstant does not say that part of the amount is a mToken fee sent to feeReceiver. |
 | F | 79 | 50 | `registry/yieldxyz/calldata-yieldxyz-pol-validator.json` | sellVoucher_newPOL: pending POL rewards are paid to the signer, and the screen does not say so. |
 | C | 80 | 8 | `registry/1inch/eip712-1inch-limit-order.json` | Order 'Receive minimum' shows the full-fill total, but partial fills pay proportionally less. |
 | C | 80 | 22 | `registry/1inch/eip712-AggregationRouterV6.json` | Order hides the expiration in makerTraits, so the signer cannot see how long the offer stays fillable. |
+| B | 80 | 65 | `registry/flare/calldata-FXRP-OFT-Flare.json` | send: composeMsg is visible: never, but a non-empty one makes the destination call the recipient with hidden data. |
 | C | 80 | 39 | `registry/gondi/eip712-LoanOffer-v3_2.json` | LoanOffer shows 'Collection' as the collateral, but a non-zero validator decides the collateral instead. |
 | C | 80 | 51 | `registry/hyperliquid/calldata-CctpExtension.json` | The Destination DEX slice [52:53] reads only the first byte of a 4-byte DEX id in the hook. |
 | D | 80 | 80 | `registry/morpho/calldata-gauntlet-uniETH-v2-1.json` | redeem: the screen never says WETH is received, though the underlying token is a known constant. |
 | D | 80 | 80 | `registry/morpho/calldata-gauntlet-uniUSDT-v2-1.json` | redeem: neither the intent nor any field says USDT is received; the payout asset is unnamed. |
 | D | 80 | 74 | `registry/morpho/calldata-kpk-KPK_ETH_Prime-v2-1.json` | redeem: the shares show the ticker KPK_ETH_Prime, but the token's on-chain symbol is kpk_WETH_v2. |
 | C | 80 | 23 | `registry/uniswap/eip712-UniswapX-DutchOrder.json` | Dutch order 'Spend max' shows inputStartAmount, but the input decays up to the hidden inputEndAmount. |
+| F | 81 | 66 | `registry/paraswap/calldata-AugustusSwapper-v6.2.json` | swapExactAmountInPro: the signer receives less than the 'Minimum to Receive' shown, because the partner fee is cut after the check. |
+| F | 81 | 38 | `registry/yieldxyz/calldata-yieldxyz-usde-vault.json` | withdraw shows 'Withdraw exactly X USDe', but the receiver gets sUSDe |
 | D | 83 | 83 | `registry/lido/calldata-stETH.json` | submit: the screen never says the signer receives stETH in return for the ETH. |
 | D | 83 | 73 | `registry/morpho/calldata-anthias_labs-mwcbBTC-v2-8453.json` | redeem: the screen never names cbBTC as the asset the receiver gets. |
 | D | 83 | 75 | `registry/morpho/calldata-architect-archGV1USDC-v2-8453.json` | redeem: the screen never names USDC as the asset paid out to the receiver. |
@@ -149,11 +139,10 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | D | 83 | 68 | `registry/morpho/calldata-steakhouse_financial-steakUSDC-1.json` | redeem: the asset received (USDC) is named nowhere on the screen. The reader only guessed it. |
 | D | 83 | 71 | `registry/morpho/calldata-waterline-m1USDC-v2-1.json` | redeem never names USDC as the asset the receiver gets |
 | D | 83 | 71 | `registry/morpho/calldata-yearn-ymvOG-WETH.json` | redeem never names WETH as the asset the receiver gets; the reader had to guess the payout token. |
-| F | 85 | 80 | `registry/aave/calldata-WrappedTokenGatewayV3.json` | repayETH takes ETH but never shows how much (@.value) |
 | C | 85 | 38 | `registry/flare/calldata-RewardManager-Songbird.json` | claimProxy only accepts calls from the FtsoRewardManager contract, so no signer can call it directly. |
+| F | 85 | 17 | `registry/lens/eip712-lens-lenshub.json` | Act hides the action module and its data, which decide what the signer pays and to whom. |
 | D | 85 | 72 | `registry/morpho/calldata-kpk-KPK_USDC_Prime-v2-1.json` | redeem: nothing on the screen names USDC as the asset that arrives, though the sibling mint format does. |
 | F | 88 | 72 | `registry/aave/calldata-lpv2.json` | swapBorrowRateMode intent says 'Swap to variable', but rateMode 2 moves debt to stable on Polygon/Avalanche. |
-| F | 88 | 78 | `registry/feral-file/calldata-feralfile-exhibition-v4-0.json` | buyArtworks is payable with no @.value field; in the vault path the ETH sent is unchecked. |
 | D | 88 | 63 | `registry/gondi/calldata-MultiSourceLoan-v3_2.json` | repayLoan shows only the loan principal; interest and protocol fee also leave the signer. |
 | D | 88 | 53 | `registry/kiln/calldata-Vault-EURC-Morpho-Gauntlet-Core.json` | redeem never names EURC as the asset the receiver gets. Mint shows the underlying ticker. |
 | D | 88 | 57 | `registry/kiln/calldata-Vault-USDC-Aave-v3.json` | redeem never names USDC as the asset the receiver gets back. |
@@ -255,10 +244,9 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | D | 88 | 68 | `registry/morpho/calldata-yearn-yOG-USDC-V2-v2-8453.json` | redeem: the asset received (USDC) is never named, although the descriptor has it as a constant. |
 | D | 88 | 56 | `registry/morpho/calldata-yearn-ymvOG-USDC.json` | redeem: the screen never names USDC as the asset that arrives, though sibling formats show it. |
 | B | 90 | 72 | `registry/1inch/calldata-NativeOrderFactory.json` | create: order expiry in makerTraits is hidden, and resolvers may cut a reward after expiry |
-| F | 90 | 71 | `registry/feral-file/calldata-feralfile-exhibition-v4_3-0.json` | buyArtworks is payable with no @.value field; on the vault path msg.value is unchecked and lost. |
-| F | 90 | 72 | `registry/feral-file/calldata-feralfile-exhibition-v4_5-0.json` | buyArtworks: payable with no @.value field; when paying through the vault, the ETH sent is unchecked and never shown. |
 | C | 90 | 40 | `registry/flyingtulip/eip712-PftMarketplace-BuyOffer.json` | BuyOffer: the taker fee on top of the offer price is not shown or mentioned. |
 | C | 90 | 45 | `registry/hyperliquid/eip712-withdraw.json` | Withdraw: the 1 USDC withdrawal fee is not mentioned, so the recipient may get less than 'USDC amount'. |
+| C | 90 | 56 | `registry/kiln/calldata-kiln-batch-deposit-v2.json` | bigBatchDeposit: 0x00 credentials would show part of a hash as a withdrawal address. |
 | B | 90 | 78 | `registry/p2p/calldata-P2pOrgUnlimitedEthDepositor.json` | addEth hides the referrer share and recipient that the new fee distributor writes into the reward split. |
 | B | 90 | 79 | `registry/p2p/calldata-P2pSsvProxyFactory.json` | addEth hides the referrer basis points and recipient, a party that gets part of the rewards. |
 | C | 90 | 48 | `registry/paraswap/calldata-AugustusSwapper-v5.json` | simpleBuy hides data.partner and data.feePercent, which set the fee taken in the trade. |
@@ -296,12 +284,17 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | D | 92 | 48 | `registry/benqi/calldata-sAVAX.json` | submit(): the intent never says the signer receives sAVAX in return for the AVAX. |
 | C | 92 | 39 | `registry/flare/calldata-AssetManager-FXRP-Songbird.json` | executeDirectMinting: the FXRP recipient is not shown; the memo data that can encode it is hidden. |
 | C | 92 | 49 | `registry/flare/calldata-RewardManager-Flare.json` | claim: a Provider-fee proof can be partly burned, so the recipient may get less than 'Proof amount'. |
+| F | 93 | 78 | `registry/feral-file/calldata-feralfile-exhibition-v4-0.json` | buyArtworks is payable with no @.value field; in the vault path the ETH sent is unchecked. |
 | B | 93 | 75 | `registry/flyingtulip/calldata-EpochRewardsVault.json` | withdraw: the ftUSD token constant is hardcoded from mainnet and reused for the chain 146 deployment. |
 | F | 94 | 82 | `registry/feral-file/calldata-feralfile-exhibition-v4_1-0.json` | buyArtworks is payable, has no @.value field, and on the vault path nothing ties the sent ETH to Price. |
 | F | 94 | 75 | `registry/feral-file/calldata-feralfile-exhibition-v4_2-0.json` | buyBulkArtworks is payable with no @.value field; in vault mode the ETH sent is unchecked and unshown. |
+| F | 94 | 71 | `registry/feral-file/calldata-feralfile-exhibition-v4_3-0.json` | buyArtworks is payable with no @.value field; on the vault path msg.value is unchecked and lost. |
 | F | 94 | 81 | `registry/feral-file/calldata-feralfile-exhibition-v4_4-0.json` | buyArtworks has no @.value field, and in vault mode nothing ties the ETH sent to the Price shown. |
+| F | 94 | 72 | `registry/feral-file/calldata-feralfile-exhibition-v4_5-0.json` | buyArtworks: payable with no @.value field; when paying through the vault, the ETH sent is unchecked and never shown. |
 | F | 94 | 59 | `registry/lifi/calldata-LIFIDiamond.json` | Symbiosis: the calldata that decides recipient, chain and output is not on the screen at all |
+| C | 95 | 48 | `registry/feral-file/calldata-feralfile-vault-0.json` | payForSale resolves artwork names against the vault (@.to), not the FFV4 artwork contract. |
 | B | 95 | 65 | `registry/flyingtulip/calldata-MintAndRedeem-dev-avalanche.json` | redeem collateral may be queued by the yield wrapper rather than delivered now, and the screen does not say so. |
+| B | 95 | 75 | `registry/flyingtulip/calldata-MintAndRedeem-dev.json` | redeem interpolatedIntent 'Sell {ftUSDAmount}' omits the collateral asset and its minimum. |
 | C | 95 | 48 | `registry/gondi/calldata-AuctionLoanLiquidator-v3_1.json` | settleAuction: the trigger fee paid to the caller and the originator is hidden, and it is cut from the lenders' proceeds. |
 | B | 95 | 76 | `registry/gondi/calldata-AuctionLoanLiquidator-v3_2.json` | settleAuction: the settler's trigger-fee reward is paid to the signer but its rate is hidden. |
 | C | 95 | 50 | `registry/kiln/calldata-Vault-USDC-AAVE-Arbitrum.json` | mint intent 'Mint' does not say that USDC is pulled from the signer for vault shares. |
@@ -316,6 +309,7 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | C | 97 | 30 | `registry/flare/calldata-DistributionToDelegators-Flare.json` | autoClaim does not say that it deducts an executor fee per owner and pays it to the caller. |
 | B | 97 | 77 | `registry/morpho/calldata-clearstar-CSAAUSD-v2-143.json` |  |
 | B | 97 | 79 | `registry/morpho/calldata-hyperithm-hyperUSDTc-v2-988.json` | redeem never names USDT0 as the asset the receiver gets; only the burned shares appear. |
+| B | 98 | 80 | `registry/aave/calldata-WrappedTokenGatewayV3.json` | depositETH has no interpolatedIntent, so the intent line 'Supply' names neither the amount nor who gets the position. |
 | B | 98 | 79 | `registry/avvatar-labs-alia/calldata-AssetIdentityRegistry-base.json` | addCrossChainRecord resolves the cross-chain token's name on Base, though the token lives on _chainId. |
 | C | 98 | 62 | `registry/celo/calldata-locked_celo.json` | delegateGovernanceVotes: 'Fraction to Delegate' reads as an added share, but the code sets a new total for the delegatee. |
 | C | 98 | 63 | `registry/feral-file/calldata-feralfile-english-auction-0.json` | registerAuctions: the bid-increment, extension rules and isSettled flag of each auction are not shown. |
@@ -393,10 +387,12 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | A | 100 | 80 | `registry/corestake/calldata-stakehub.json` |  |
 | B | 100 | 85 | `registry/cosmix/calldata-PredictionMarket.json` |  |
 | C | 100 | 30 | `registry/degate/eip712-degate.json` | AccountUpdate shows maxFee as a raw base-unit integer with no token decimals. |
+| B | 100 | 71 | `registry/enso/calldata-EnsoRouter.json` | safeRouteSingle intent says 'Route tokens' and the sentence has no verb for receiving the output token. |
 | C | 100 | 42 | `registry/ethos/calldata-EthosVouchV2.json` | vouchWithPermit: the label 'Amount, fee added' can read as a total that already includes the fee. |
 | C | 100 | 77 | `registry/feral-file/calldata-feralfile-airdrop-v1-0.json` | safeBatchTransferFrom: ids and amounts are two separate lists the signer must pair by position. |
 | C | 100 | 40 | `registry/figment/calldata-PoolDynamic-MUSDC-sepolia.json` | deposit has no interpolatedIntent, so the sentence names neither the amount nor the token. |
 | C | 100 | 54 | `registry/figment/calldata-PoolDynamic-USDC.json` | requestRedeem intent "Redeem" suggests an immediate payout, but the call only queues a request. |
+| B | 100 | 72 | `registry/figment/calldata-figment-batch-deposit.json` | deposit shows withdrawal credentials as raw 32 bytes, so the signer cannot see who controls the stake. |
 | C | 100 | 49 | `registry/flare/calldata-AssetManager-FXRP-Flare.json` | redemptionPaymentDefault labels the unpaid XRP as FXRP and never says the payout is in agent collateral. |
 | C | 100 | 74 | `registry/flare/calldata-ClaimSetupManager-Flare.json` | revokeDelegationAt: the intent can read as stopping the delegation, but it affects only one past block's cached reads. |
 | B | 100 | 71 | `registry/flare/calldata-ClaimSetupManager-Songbird.json` |  |
@@ -557,6 +553,7 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | C | 100 | 59 | `registry/ocarina-trade/eip712-OTCRegistry.json` |  |
 | B | 100 | 72 | `registry/ondo-finance/calldata-OUSGInstantManager.json` | subscribe interpolatedIntent adds a trailing '+' that renders as 'OUSG+', which is the name of another Ondo token. |
 | A | 100 | 89 | `registry/ondo-finance/calldata-USDYInstantManager.json` | subscribe: the trailing '+' in interpolatedIntent makes the token read as 'USDY+', a name that looks like another token |
+| B | 100 | 76 | `registry/ophis/calldata-Ophis-CoWSwapEthFlow.json` | createOrder has no interpolatedIntent; the intent names neither the token bought nor the amounts. |
 | C | 100 | 52 | `registry/ophis/calldata-Ophis-GPv2Settlement.json` | setPreSignature: the static intent does not say whether this call authorizes or revokes the order. |
 | C | 100 | 58 | `registry/ophis/eip712-Ophis-GPv2Settlement.json` | Order intent "Swap order" names no tokens or amounts, and there is no interpolatedIntent. |
 | A | 100 | 96 | `registry/p2p/calldata-EigenPodManager.json` |  |
@@ -692,6 +689,7 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | A | 100 | 89 | `registry/tether/calldata-usdt-polygon.json` | transfer: recipient addressName types limited to eoa, though the code lets any non-zero, non-token address receive. |
 | A | 100 | 90 | `registry/tether/calldata-usdt.json` | transfer field 'To' limits addressName types to eoa, but the code accepts contract recipients too. |
 | B | 100 | 78 | `registry/tether/calldata-usdt0-Flare.json` | approve has one test with 100 USDT0, so the 'Unlimited' threshold path is never tested. |
+| C | 100 | 55 | `registry/tether/calldata-usdt0-OFT-Flare.json` | send: recipient shown as a 32-byte padded hex word, not as an address. |
 | A | 100 | 84 | `registry/tether/eip712-ReceiveWithAuthorization-usdt0-Flare.json` |  |
 | B | 100 | 77 | `registry/tether/eip712-TransferWithAuthorization-usdt0-Flare.json` | TransferWithAuthorization has no interpolatedIntent, so the intent line leaves out the amount and the recipient. |
 | A | 100 | 81 | `registry/tether/eip712-permit-usdt0-Flare.json` |  |
@@ -714,6 +712,8 @@ Grades: A: 50 · B: 140 · C: 273 · D: 166 · F: 80
 | B | 100 | 78 | `registry/zama/eip712-DelegatedUserDecryptRequestVerificationV1.json` |  |
 | B | 100 | 65 | `registry/zama/eip712-UserDecryptRequestVerificationV1.json` | The intent and the 'Authorized contracts' label suggest the contracts get a permission. In fact a key holder gets to read the signer's data. |
 | B | 100 | 63 | `registry/zkstables/calldata-executor.json` | exec labels the Safe's outgoing ETH only "Value", so the signer may think the ETH comes from their own wallet. |
+| C | 100 | 72 | `registry/zkstables/calldata-parswappool-base-sepolia.json` |  |
+| C | 100 | 75 | `registry/zkstables/calldata-parswappool-base.json` |  |
 | C | 100 | 77 | `registry/zkstables/calldata-zkhub.json` | initialize hides trcPk_ and totalSupplyPk_, the keys that decide who decrypts compliance and supply data. |
 | C | 100 | 28 | `registry/zkstables/eip712-ebswap.json` |  |
 | B | 100 | 73 | `registry/zkstables/eip712-zkhub.json` | ChangeControllerAuth intent does not say the signer hands over control of their ZK address. |

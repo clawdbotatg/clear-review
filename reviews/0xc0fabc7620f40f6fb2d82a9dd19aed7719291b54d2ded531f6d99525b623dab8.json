@@ -157,7 +157,7 @@
   "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient)"
  ],
  "seconds": 98,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient)": {
@@ -169,6 +169,7 @@
    "critical": 2,
    "warnings": 1,
    "worst": "Short transfer is payable but has no @.value field, so the ETH delivery fee is never shown.",
+   "disputed": 0,
    "comprehension": null
   },
   "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient, bytes32 refundAddress, bool shouldQueue, bytes transceiverInstructions)": {
@@ -180,6 +181,7 @@
    "critical": 0,
    "warnings": 4,
    "worst": "Long transfer marks the ETH relaying fee as optional, so a wallet may hide native value.",
+   "disputed": 0,
    "comprehension": 50
   }
  },
@@ -190,5 +192,33 @@
   "functions": "1C 1F",
   "incomplete": false,
   "worst": "Short transfer is payable but has no @.value field, so the ETH delivery fee is never shown."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.199,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient)",
+    "title": "Short transfer is payable but has no @.value field, so the ETH delivery fee is never shown.",
+    "verdict": "confirmed",
+    "reason": "The short transfer overload is payable, and nothing forces msg.value to zero. _prepareForTransfer keeps msg.value up to totalPriceQuote and refunds only the excess. _sendMessageToTransceivers then forwards that amount to the transceivers, so ETH leaves the signer's wallet. The descriptor's short `transfer` format shows only amount, destinationChain and encodedDestinationAddress. It has no `@.value` field, while the 6-argument sibling format has `relayingFee`. This is the calibrated 'payable function without @.value' critical, and no case on the not-critical list covers it.",
+    "quote": "NttManager.sol transfer(uint256,uint16,bytes32): `) external payable nonReentrant whenNotPaused returns (uint64) { return _transferEntryPoint(amount, recipientChain, recipient, recipient, false, new bytes(1));` ; ManagerBase._prepareForTransfer: `if (msg.value < totalPriceQuote) { revert DeliveryPaymentTooLow(...) } uint256 excessValue = msg.value - totalPriceQuote;` ; ManagerBase._sendMessageToTransceivers: `ITransceiver(transceiverAddr).sendMessage{value: priceQuotes[i]}(` ; descriptor format `transfer(uint256 amount, uint16 recipientChain, bytes32 recipient)` fields: amount, destinationChain, encodedDestinationAddress only (no `\"path\": \"@.value\"`)"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "transfer(uint256 amount, uint16 recipientChain, bytes32 recipient)",
+    "title": "Short transfer is payable but has no @.value field, so the ETH delivery fee is never shown.",
+    "verdict": "confirmed",
+    "reason": "The short transfer forwards the quoted ETH delivery fee and refunds only the excess; it does not require zero value. Its screen shows only the BORG amount, destination chain, and destination address.",
+    "quote": "NttManager.sol, transfer(uint256,uint16,bytes32): `_transferEntryPoint(amount, recipientChain, recipient, recipient, false, new bytes(1));`. ManagerBase.sol, _prepareForTransfer: `if (msg.value < totalPriceQuote) { revert DeliveryPaymentTooLow(totalPriceQuote, msg.value); }` and `uint256 excessValue = msg.value - totalPriceQuote;`. ManagerBase.sol, _sendMessageToTransceivers: `ITransceiver(transceiverAddr).sendMessage{value: priceQuotes[i]}(`. descriptor.json, short transfer format: `\"intent\": \"Bridge BORG\"`, with fields at `\"#.amount\"`, `\"#.recipientChain\"`, and `\"#.recipient\"` only. cases/1.json, screen: `\"Amount\": \"1500 BORG\"`, `\"Destination Chain\": \"Solana\"`, and `\"Destination Address\"`; no ETH value or fee field."
+   }
+  ]
  }
 }

@@ -1,4 +1,4 @@
-# Rubric v1.1
+# Rubric v1.2
 
 Two scores per function (format), 0–100, and a letter. `grade.py` computes all of it from the agent's saved
 answer, so a rubric change is `./review.py grade`, no model calls.
@@ -28,6 +28,11 @@ Severity follows the registry's own AI review scale (`.github/scripts/ai-review/
 - **Glance and depth** (40%): the agent's 0–100 for the intent line alone, and for all fields together.
 - Each clarity warning (raw hex, unreadable number, too much, too little in the intent): −5.
 - No mined case: glance and depth only, and `measured: false`.
+
+## Second check
+
+Every critical of a failed descriptor goes to two more agents (Claude, Codex) told to prove it wrong
+(`./review.py verify`, `verify/prompt.md`). Both refute it: dropped. One each way: kept, counted as disputed.
 
 ## Letter
 

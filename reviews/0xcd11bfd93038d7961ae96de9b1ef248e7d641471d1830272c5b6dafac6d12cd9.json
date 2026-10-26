@@ -146,7 +146,7 @@
  "account": "slop_buidlguidl",
  "hiddenValue": [],
  "seconds": 86,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)": {
@@ -158,6 +158,7 @@
    "critical": 1,
    "warnings": 7,
    "worst": "SafeTx decodes data as a call to `to` with the Safe as sender, even for a DelegateCall",
+   "disputed": 1,
    "comprehension": null
   }
  },
@@ -168,5 +169,33 @@
   "functions": "1F",
   "incomplete": true,
   "worst": "SafeTx decodes data as a call to `to` with the Safe as sender, even for a DelegateCall"
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.182,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx decodes data as a call to `to` with the Safe as sender, even for a DelegateCall",
+    "verdict": "confirmed",
+    "reason": "Executor.execute runs a delegatecall when operation is 1, so `to`'s code runs in the Safe's own context. The descriptor still decodes `data` as a plain call to `to` for any operation, with no condition. The screen does show 'Operation type: Delegate Call', but the nested decode does not change to match it. The severity guide lists this exact pattern as a calibrated critical, and test case 1 uses operation 1 to MultiSend.",
+    "quote": "Executor.sol execute(): `if (operation == Enum.Operation.DelegateCall) { ... success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0)`; descriptor.json SafeTx field `data`: \"format\": \"calldata\", \"params\": {\"calleePath\": \"to\", \"amountPath\": \"value\", \"spenderPath\": \"@.to\"}; cases/1.json: \"operation\": 1, screen 'Operation type: Delegate Call'"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx decodes data as a call to `to` with the Safe as sender, even for a DelegateCall",
+    "verdict": "refuted",
+    "reason": "The screen explicitly shows “Delegate Call” and displays Transaction as raw bytes, without asserting a conflicting nested-call outcome. The unconditional decoding parameters warrant scrutiny, but this evidence does not establish a hidden or incorrectly stated execution context.",
+    "quote": "descriptor.json, SafeTx: operation has \"visible\": \"always\", with enum \"1\": \"Delegate Call\". cases/1.json, screen: {\"label\":\"Operation type\",\"value\":\"Delegate Call\"}; Transaction contains raw calldata. contracts/1-0x41675c099f32341bf84bfc5382af534df5c7461a/src/contracts/base/Executor.sol, execute(): \"if (operation == Enum.Operation.DelegateCall)\" then \"success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0)\". Registry .github/scripts/ai-review/prompt.md, not_critical §2: \"A value that is shown through another field\"; §14: \"a nested descriptor that might not resolve\"."
+   }
+  ]
  }
 }

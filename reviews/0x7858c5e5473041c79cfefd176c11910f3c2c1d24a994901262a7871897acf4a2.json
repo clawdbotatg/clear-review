@@ -366,7 +366,7 @@
  "account": "ethereum_foundation",
  "hiddenValue": [],
  "seconds": 312,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)": {
@@ -378,6 +378,7 @@
    "critical": 1,
    "warnings": 6,
    "worst": "SafeTx decodes the nested data as a call to `to` with `value`, also when the operation is a delegate call.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -388,5 +389,33 @@
   "functions": "1F",
   "incomplete": false,
   "worst": "SafeTx decodes the nested data as a call to `to` with `value`, also when the operation is a delegate call."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.163,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx decodes the nested data as a call to `to` with `value`, also when the operation is a delegate call.",
+    "verdict": "confirmed",
+    "reason": "When operation is 1, the Safe runs `to`'s code in its own account with its own balances and sends no value. The nested screen still describes a normal call to `to` that carries `value`, which is not what happens. The 'Operation type' enum row does show 'Delegate Call', but prompt.md's calibrated criticals cover this exact case: 'Embedded calldata is decoded as a call to `to` while `operation` can make it a delegate call', because the nested display states an outcome that does not occur.",
+    "quote": "Executor.sol execute: `success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0)` (operation == DelegateCall), reached from Safe.sol execTransaction `success = execute(to, value, data, operation, ...)`. Nothing restricts `operation`. descriptor.json SafeTx field `data`: {\"format\":\"calldata\",\"params\":{\"calleePath\":\"to\",\"amountPath\":\"value\",\"spenderPath\":\"@.to\"}}, with no condition on `operation`."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx decodes the nested data as a call to `to` with `value`, also when the operation is a delegate call.",
+    "verdict": "confirmed",
+    "reason": "The always-visible “Delegate Call” enum discloses the operation, but does not correct the nested decoder’s unconditional use of `value` as transferred ETH. The delegatecall branch ignores that value and executes in the Safe’s context, matching the guide’s explicit critical example.",
+    "quote": "contracts/1-0xedd160febbd92e350d4d398fb636302fccd67c7e/src/contracts/base/Executor.sol, execute: `if (operation == Enum.Operation.DelegateCall) { ... success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0) }`. descriptor.json, SafeTx: `{\"path\":\"value\",\"label\":\"Value\",\"format\":\"amount\",\"visible\":\"always\"}` and `{\"path\":\"data\",\"label\":\"Transaction\",\"format\":\"calldata\",\"params\":{\"calleePath\":\"to\",\"amountPath\":\"value\",\"spenderPath\":\"@.to\"},\"visible\":\"always\"}`. Registry .github/scripts/ai-review/prompt.md, examples: “Embedded calldata is decoded as a call to `to` while `operation` can make it a delegate call that runs `to`'s code in the signer's account”."
+   }
+  ]
  }
 }

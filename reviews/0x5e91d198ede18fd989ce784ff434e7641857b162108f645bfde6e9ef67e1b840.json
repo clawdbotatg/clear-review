@@ -85,18 +85,19 @@
  "account": "clawd_buidlguidl",
  "hiddenValue": [],
  "seconds": 48,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "payForSaleV2(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256 nonce,uint256 seriesID,uint16 quantity,(address recipient,uint256 bps)[] revenueShares,bool payByVaultContract) saleData_)": {
    "grade": "F",
-   "truth": 0,
+   "truth": 25,
    "clarity": 18,
    "measured": false,
    "groundTruth": false,
-   "critical": 2,
+   "critical": 1,
    "warnings": 2,
    "worst": "payForSaleV2 shows destination as 'Recipient', but the vault sends the price to the signer.",
+   "disputed": 1,
    "comprehension": null
   },
   "withdrawFund(uint256 weiAmount)": {
@@ -108,15 +109,58 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
   "grade": "F",
-  "truth": 50,
+  "truth": 62,
   "clarity": 53,
   "functions": "1A 1F",
   "incomplete": false,
   "worst": "payForSaleV2 shows destination as 'Recipient', but the vault sends the price to the signer."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.216,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "payForSaleV2(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256 nonce,uint256 seriesID,uint16 quantity,(address recipient,uint256 bps)[] revenueShares,bool payByVaultContract) saleData_)",
+    "title": "payForSaleV2 shows destination as 'Recipient', but the vault sends the price to the signer.",
+    "verdict": "refuted",
+    "reason": "The code is as quoted: the vault sends `price` to msg.sender (the signer) and `destination` only goes into the signed hash. But `payForSaleV2` is not payable, so nothing of the signer's leaves, and the only asset movement is ETH coming to the caller. Not-critical case 4 (funds that return to the caller, a payer or recipient that is the signer) covers this. The 'Recipient' label is misleading, but nothing is taken from the signer, so it is a warning at most.",
+    "quote": "FeralfileVaultV2.sol payForSaleV2: `function payForSaleV2(...) external {` (no payable) ... `payable(msg.sender).transfer(saleData_.price);`; descriptor field `saleData_.destination` label \"Recipient\""
+   },
+   {
+    "format": "payForSaleV2(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256 nonce,uint256 seriesID,uint16 quantity,(address recipient,uint256 bps)[] revenueShares,bool payByVaultContract) saleData_)",
+    "title": "payForSaleV2 intent 'Pay for bulk artwork sale' reads as the signer paying. The signer receives ETH instead.",
+    "verdict": "refuted",
+    "reason": "The function is not payable and moves no assets out of the signer's wallet. It only moves vault ETH to the caller, after `require(saleData_.payByVaultContract)`, so 'Pay for bulk artwork sale' names the vault paying for the sale. A careful signer loses nothing and gains no allowance or position, so this falls under the wording and intent cases of the not-critical list (10, and 4 for funds that come to the caller). It is a warning at most.",
+    "quote": "FeralfileVaultV2.sol payForSaleV2: `require(saleData_.payByVaultContract, \"FeralfileVault: not pay by vault\");` ... `payable(msg.sender).transfer(saleData_.price);`; descriptor intent \"Pay for bulk artwork sale\""
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "payForSaleV2(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256 nonce,uint256 seriesID,uint16 quantity,(address recipient,uint256 bps)[] revenueShares,bool payByVaultContract) saleData_)",
+    "title": "payForSaleV2 shows destination as 'Recipient', but the vault sends the price to the signer.",
+    "verdict": "confirmed",
+    "reason": "On successful calls, the vault pays the caller, while the screen identifies saleData_.destination as Recipient. This positively states a different recipient, rather than merely omitting a recipient that defaults to the signer.",
+    "quote": "contracts/1-0xcbfaf4bde69c9b37835761e5228f9fe9e25b452f/src/contracts/FeralfileVaultV2.sol, payForSaleV2: `payable(msg.sender).transfer(saleData_.price);` Descriptor.json (descriptor.json), payForSaleV2: `\"path\": \"saleData_.destination\", \"label\": \"Recipient\"`. cases/0.json, screen: `\"label\": \"Price\", \"value\": \"0.5 ETH\"` and `\"label\": \"Recipient\", \"value\": \"Receiver\"`."
+   },
+   {
+    "format": "payForSaleV2(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256 nonce,uint256 seriesID,uint16 quantity,(address recipient,uint256 bps)[] revenueShares,bool payByVaultContract) saleData_)",
+    "title": "payForSaleV2 intent 'Pay for bulk artwork sale' reads as the signer paying. The signer receives ETH instead.",
+    "verdict": "refuted",
+    "reason": "The intent names the sale-funding goal without explicitly saying the signer pays. The guide treats a flow-level intent and funds returning to the caller as non-critical; the separate recipient misstatement is covered by finding 0.",
+    "quote": "descriptor.json, payForSaleV2: `\"intent\": \"Pay for bulk artwork sale\"`. contracts/1-0xcbfaf4bde69c9b37835761e5228f9fe9e25b452f/src/contracts/FeralfileVaultV2.sol, payForSaleV2: `payable(msg.sender).transfer(saleData_.price);`. Registry .github/scripts/ai-review/prompt.md, <not_critical> item 4: `funds that return to the caller`; item 10: `an intent that names the goal of a multi-step flow instead of this step`."
+   }
+  ]
  }
 }

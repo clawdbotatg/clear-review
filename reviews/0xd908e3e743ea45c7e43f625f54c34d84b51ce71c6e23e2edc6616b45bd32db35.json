@@ -126,7 +126,7 @@
  "account": "ethereum_foundation",
  "hiddenValue": [],
  "seconds": 61,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)": {
@@ -138,6 +138,7 @@
    "critical": 1,
    "warnings": 5,
    "worst": "SafeTx decodes `data` as a call to `to` with `value`, also when operation is Delegate Call.",
+   "disputed": 1,
    "comprehension": null
   }
  },
@@ -148,5 +149,33 @@
   "functions": "1F",
   "incomplete": false,
   "worst": "SafeTx decodes `data` as a call to `to` with `value`, also when operation is Delegate Call."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.135,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx decodes `data` as a call to `to` with `value`, also when operation is Delegate Call.",
+    "verdict": "confirmed",
+    "reason": "When operation is 1, the code of `to` runs in the Safe's own storage, using the Safe's balances, and `value` is never sent. The calldata field still shows the nested call as a call to `to` with `value`, which is an outcome that does not happen. The descriptor does show an 'Operation type' enum that reads 'Delegate Call', but the severity guide lists this exact pattern as critical, and none of the not-critical cases cover a nested rendering that states a wrong outcome.",
+    "quote": "Executor.sol execute(): `if (operation == Enum.Operation.DelegateCall) { assembly { success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0) } }` vs descriptor.json SafeTx field `data`: \"format\": \"calldata\", \"params\": {\"calleePath\": \"to\", \"amountPath\": \"value\", \"spenderPath\": \"@.to\"}, with no condition on `operation`. prompt.md <examples>: \"Embedded calldata is decoded as a call to `to` while `operation` can make it a delegate call that runs `to`'s code in the signer's account\""
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx decodes `data` as a call to `to` with `value`, also when operation is Delegate Call.",
+    "verdict": "refuted",
+    "reason": "The delegatecall behavior is real, but the descriptor explicitly shows “Operation type: Delegate Call.” The supplied case shows no misleading nested rendering; under the severity guide, the disclosed execution mode and hypothetical nested misrepresentation do not establish a critical.",
+    "quote": "descriptor.json, SafeTx: \"path\": \"operation\", \"label\": \"Operation type\", \"format\": \"enum\", \"visible\": \"always\"; metadata.enums.operation: \"1\": \"Delegate Call\". contracts/1-0x29fcb43b46531bca003ddc8fcb67ffe91900c762/src/contracts/base/Executor.sol, execute: \"success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0)\". cases/0.json: \"operation\": 0; screen: \"Transaction\", \"value\": \"0x\". Registry .github/scripts/ai-review/prompt.md, not_critical §2: \"A value that is shown through another field\"; §14: \"Possibilities\"."
+   }
+  ]
  }
 }

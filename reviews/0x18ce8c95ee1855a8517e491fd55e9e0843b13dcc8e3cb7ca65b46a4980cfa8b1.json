@@ -176,7 +176,7 @@
  "account": "clawd_buidlguidl",
  "hiddenValue": [],
  "seconds": 77,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "deposit(uint256 _underlying, address receiver)": {
@@ -188,6 +188,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "deposit intent 'Deposit' names neither the asset nor the vault share received",
+   "disputed": 0,
    "comprehension": 67
   },
   "mint(uint256 shares, address receiver)": {
@@ -199,6 +200,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "mint intent 'Mint' does not say that USDe leaves the wallet",
+   "disputed": 0,
    "comprehension": null
   },
   "withdraw(uint256 _underlying, address receiver, address owner)": {
@@ -210,26 +212,70 @@
    "critical": 1,
    "warnings": 0,
    "worst": "withdraw shows 'Withdraw exactly X USDe', but the receiver gets sUSDe",
+   "disputed": 0,
    "comprehension": null
   },
   "redeem(uint256 shares, address receiver, address owner)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 29,
    "measured": true,
    "groundTruth": true,
-   "critical": 1,
+   "critical": 0,
    "warnings": 0,
-   "worst": "redeem does not show that the signer receives sUSDe; the reader expected USDe",
+   "worst": null,
+   "disputed": 0,
    "comprehension": 25
   }
  },
  "summary": {
   "grade": "F",
-  "truth": 62,
+  "truth": 81,
   "clarity": 38,
-  "functions": "2C 2F",
+  "functions": "3C 1F",
   "incomplete": false,
   "worst": "withdraw shows 'Withdraw exactly X USDe', but the receiver gets sUSDe"
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.284,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "withdraw(uint256 _underlying, address receiver, address owner)",
+    "title": "withdraw shows 'Withdraw exactly X USDe', but the receiver gets sUSDe",
+    "verdict": "confirmed",
+    "reason": "The screen says the receiver gets exactly X USDe. With hasCooldown on, which the mined redeem shows, the receiver instead gets previewWithdraw(X) sUSDe, a different asset and a different number, and no USDe at all. The storage-value exception in the severity guide applies: the stored flag changes what the signer receives against the amount shown, so this is critical.",
+    "quote": "AllocatorVaultV3.withdraw: `uint256 assets = strategy.previewWithdraw(_underlying); ... if (config.hasCooldown) { IERC20(address(strategy)).safeTransfer(receiver, assets); }`. descriptor.json withdraw field: `\"path\": \"_underlying\", \"label\": \"Withdraw exactly\", \"format\": \"tokenAmount\", \"params\": {\"token\": \"$.metadata.constants.underlyingToken\"}` (USDe 0x4c9E…8B3). Mined case 1 (redeem, same `config.hasCooldown` branch): 1626.31 sUSDe (0x9d39…3497) sent from the vault to the signer."
+   },
+   {
+    "format": "redeem(uint256 shares, address receiver, address owner)",
+    "title": "redeem does not show that the signer receives sUSDe; the reader expected USDe",
+    "verdict": "refuted",
+    "reason": "Nothing on the screen is wrong. It shows the shares leaving and the signer as recipient, and it never claims USDe; that guess came from the reader. Which token arrives and how much is decided by storage (hasCooldown) and the share price, and no shown amount is reduced. Under not-critical item 3 (a value read from storage or derived by the contract) and item 12 (receiving the vault's asset is what redeeming means), this is info, or a warning if a label stating the output token were added.",
+    "quote": "descriptor.json redeem shows only `shares` 'Shares to redeem' (tokenAmount, tokenPath @.to), `receiver` 'To', `owner` 'Owner'. Nothing on screen names USDe or any output asset. AllocatorVaultV3.redeem picks the output from storage: `if (config.hasCooldown) { ...safeTransfer(receiver, assets); } else { strategy.redeem(assets, receiver, address(this)); }`. The vault's ERC-4626 asset() is the strategy: `__ERC4626_init(IERC20(address(_strategy)))`."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "withdraw(uint256 _underlying, address receiver, address owner)",
+    "title": "withdraw shows 'Withdraw exactly X USDe', but the receiver gets sUSDe",
+    "verdict": "confirmed",
+    "reason": "The cooldown branch sends sUSDe instead of the USDe explicitly promised by “Withdraw exactly.” Case 1 establishes this branch’s actual output asset; no withdrawal field explains the substitution.",
+    "quote": "contracts/1-0xa7249e2902b956e7127df56bf45d58cff610d832/src/src/allocator-vaults/AllocatorVaultV3.sol, withdraw: `uint256 assets = strategy.previewWithdraw(_underlying);` and `if (config.hasCooldown) { IERC20(address(strategy)).safeTransfer(receiver, assets); }`. descriptor.json, withdraw: `\"label\": \"Withdraw exactly\"`, `\"token\": \"$.metadata.constants.underlyingToken\"`; underlyingToken is USDe, `0x4c9EDD5852cd905f086C759E8383e09bff1E68B3`. cases/1.json, mined.effects: `\"symbol\": \"sUSDe\"`, `\"asset\": \"0x9d39a5de30e57443bff2a8307a4256c8797a3497\"`, transferred from the vault to the signer."
+   },
+   {
+    "format": "redeem(uint256 shares, address receiver, address owner)",
+    "title": "redeem does not show that the signer receives sUSDe; the reader expected USDe",
+    "verdict": "refuted",
+    "reason": "The screen correctly identifies the shares redeemed and makes no USDe output promise. The omitted output asset depends on stored strategy and cooldown configuration, covered by not-critical item 3; the reader’s guess does not make it a false displayed asset.",
+    "quote": "descriptor.json, redeem: `\"intent\": \"Redeem\"`, fields `\"Shares to redeem\"` with `\"tokenPath\": \"@.to\"`, `\"To\"`, and `\"Owner\"`. contracts/1-0xa7249e2902b956e7127df56bf45d58cff610d832/src/src/allocator-vaults/AllocatorVaultV3.sol: `AllocatorVaultConfig public config; IERC4626 public strategy;`; redeem: `if (config.hasCooldown) { IERC20(address(strategy)).safeTransfer(receiver, assets); } else { strategy.redeem(assets, receiver, address(this)); }`. Registry .github/scripts/ai-review/prompt.md, not_critical item 3: “A party or a value the contract reads from storage or derives itself”; “info, as spec-limitation.”"
+   }
+  ]
  }
 }

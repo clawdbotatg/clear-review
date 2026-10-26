@@ -123,7 +123,7 @@
  "account": "clawd_buidlguidl",
  "hiddenValue": [],
  "seconds": 78,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "LeveragedOrder(uint8 action,address user,address sellToken,address buyToken,uint256 sellAmount,uint256 buyAmount,uint32 validTo,uint256 feeAmount)": {
@@ -135,6 +135,7 @@
    "critical": 2,
    "warnings": 4,
    "worst": "LeveragedOrder Open action borrows sellAmount+feeAmount as new debt; nothing on screen says borrow or debt.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -145,5 +146,47 @@
   "functions": "1F",
   "incomplete": true,
   "worst": "LeveragedOrder Open action borrows sellAmount+feeAmount as new debt; nothing on screen says borrow or debt."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.389,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "LeveragedOrder(uint8 action,address user,address sellToken,address buyToken,uint256 sellAmount,uint256 buyAmount,uint32 validTo,uint256 feeAmount)",
+    "title": "LeveragedOrder Open action borrows sellAmount+feeAmount as new debt; nothing on screen says borrow or debt.",
+    "verdict": "confirmed",
+    "reason": "A signed OPEN order makes the PositionsManager borrow sellAmount+feeAmount against the user and deposit the bought token as collateral, so the signer takes on new debt. The screen calls it a spot sale and shows only the bare label \"Open\". Nothing mentions a borrow, debt or leverage, and the domain name is not displayed. No not-critical case covers this, so it is critical.",
+    "quote": "LeverageRfqEngine.sol _openLeverage: `uint256 totalBorrow = order.sellAmount + order.feeAmount; ... pm.borrowFlashAndDepositFor(user, order.sellToken, totalBorrow, order.buyToken, order.buyAmount, ...)`. Descriptor: intent \"Sign spot order\", interpolatedIntent \"Spot sell {sellAmount}\", field label \"Sell\", enum 0 → \"Open\""
+   },
+   {
+    "format": "LeveragedOrder(uint8 action,address user,address sellToken,address buyToken,uint256 sellAmount,uint256 buyAmount,uint32 validTo,uint256 feeAmount)",
+    "title": "LeveragedOrder Close action is shown as a spot sale; it withdraws position collateral and uses the bought token to repay debt.",
+    "verdict": "confirmed",
+    "reason": "A CLOSE order takes the sold tokens out of the signer's position collateral, not from the wallet. The bought tokens repay the signer's debt instead of reaching the wallet. The screen shows a spot sale with a \"Minimum buy\" as if it were received, so the positions that change are shown differently. One caveat: the PositionsManager source is not in the directory, so the repay behaviour rests on the function name and this contract's own doc comment.",
+    "quote": "LeverageRfqEngine.sol _closeLeverage: `uint256 collateralAmount = order.sellAmount + order.feeAmount; ... pm.withdrawFlashAndRepayFor(user, order.sellToken, collateralAmount, order.buyToken, 0, ...)`; doc on closeLeverageFlash: \"withdraw collateral first, then ... deliver `buyToken` to this engine so it can repay the user's debt\". Descriptor: \"Spot sell {sellAmount}\", label \"Minimum buy\", enum 1 → \"Close\""
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "LeveragedOrder(uint8 action,address user,address sellToken,address buyToken,uint256 sellAmount,uint256 buyAmount,uint32 validTo,uint256 feeAmount)",
+    "title": "LeveragedOrder Open action borrows sellAmount+feeAmount as new debt; nothing on screen says borrow or debt.",
+    "verdict": "confirmed",
+    "reason": "Open authorizes borrowing sellAmount plus feeAmount for the user. Showing those amounts as Sell and Fee, with Action Open, does not disclose debt under an explicit spot-order intent.",
+    "quote": "contracts/1-0x8263a07504d93cb95e0a74f3627bb15faaf140e2/src/contracts/engines/LeverageRfqEngine.sol, _openLeverage: `uint256 totalBorrow = order.sellAmount + order.feeAmount;` and `pm.borrowFlashAndDepositFor(user, order.sellToken, totalBorrow, order.buyToken, order.buyAmount, ...)`. descriptor.json, LeveragedOrder format: `\"intent\": \"Sign spot order\"`, `\"interpolatedIntent\": \"Spot sell {sellAmount}\"`, sellAmount label `\"Sell\"`; metadata.enums.actions: `\"0\": \"Open\"`."
+   },
+   {
+    "format": "LeveragedOrder(uint8 action,address user,address sellToken,address buyToken,uint256 sellAmount,uint256 buyAmount,uint32 validTo,uint256 feeAmount)",
+    "title": "LeveragedOrder Close action is shown as a spot sale; it withdraws position collateral and uses the bought token to repay debt.",
+    "verdict": "confirmed",
+    "reason": "Close authorizes collateral withdrawal and debt repayment, rather than a spot sale delivering purchased tokens to the wallet. The bare Close label does not disclose those position effects under the spot-order intent.",
+    "quote": "contracts/1-0x8263a07504d93cb95e0a74f3627bb15faaf140e2/src/contracts/engines/LeverageRfqEngine.sol, _closeLeverage: `uint256 collateralAmount = order.sellAmount + order.feeAmount;` and `pm.withdrawFlashAndRepayFor(user, order.sellToken, collateralAmount, order.buyToken, 0, ...)`; closeLeverage documentation: `SELL order describing the withdraw->repay settlement (must have action=CLOSE)`. descriptor.json, LeveragedOrder format: `\"intent\": \"Sign spot order\"`, `\"interpolatedIntent\": \"Spot sell {sellAmount}\"`, buyAmount label `\"Minimum buy\"`; metadata.enums.actions: `\"1\": \"Close\"`."
+   }
+  ]
  }
 }

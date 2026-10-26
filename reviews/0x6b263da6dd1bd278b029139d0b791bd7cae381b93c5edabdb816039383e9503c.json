@@ -312,7 +312,7 @@
   "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)"
  ],
  "seconds": 113,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)": {
@@ -324,6 +324,7 @@
    "critical": 0,
    "warnings": 3,
    "worst": "setup is bound to the Safe 1.4.1 singleton, where every call reverts; real Safe proxies never match.",
+   "disputed": 0,
    "comprehension": null
   },
   "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)": {
@@ -335,6 +336,7 @@
    "critical": 4,
    "warnings": 4,
    "worst": "execTransaction is payable, but no field shows the native value the signer sends.",
+   "disputed": 3,
    "comprehension": null
   },
   "addOwnerWithThreshold(address owner, uint256 _threshold)": {
@@ -346,6 +348,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "addOwnerWithThreshold binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+   "disputed": 0,
    "comprehension": null
   },
   "removeOwner(address prevOwner, address owner, uint256 _threshold)": {
@@ -357,6 +360,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "removeOwner binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+   "disputed": 0,
    "comprehension": null
   },
   "swapOwner(address prevOwner, address oldOwner, address newOwner)": {
@@ -368,6 +372,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "swapOwner binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+   "disputed": 0,
    "comprehension": null
   },
   "changeThreshold(uint256 _threshold)": {
@@ -379,6 +384,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "changeThreshold binds to the singleton; as a nested call the callee is the proxy, so it never matches.",
+   "disputed": 0,
    "comprehension": null
   },
   "approveHash(bytes32 hashToApprove)": {
@@ -390,6 +396,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "approveHash binds to the singleton; owners call it on their Safe proxy, so it never matches.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -400,5 +407,61 @@
   "functions": "4A 2C 1F",
   "incomplete": false,
   "worst": "execTransaction is payable, but no field shows the native value the signer sends."
+ },
+ "verified": {
+  "n": 3,
+  "cost": 0.28,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction is payable, but no field shows the native value the signer sends.",
+    "verdict": "confirmed",
+    "reason": "No path reverts on a non-zero msg.value, so ETH the signer sends stays in the Safe. The amount is never shown. This matches the guide's example of a payable function with no `@.value` and nothing forcing it to zero.",
+    "quote": "Safe.sol execTransaction: `) public payable virtual returns (bool success) {`. Nothing in the body reads or checks msg.value, and execute() forwards the `value` argument, not msg.value. Descriptor execTransaction fields: operation, @.to, @.from, data, baseGas, gasPrice, refundReceiver, safeTxGas, signatures. There is no `@.value`."
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction never shows the `value` ETH that the Safe sends to `to`. A plain ETH transfer shows no amount.",
+    "verdict": "confirmed",
+    "reason": "The Safe sends `value` ETH to `to`, and no field in the format shows it. For a plain ETH transfer, `data` is empty and no nested descriptor exists, so the amount never appears. Not-critical case 5 does not apply, because the amount is not shown anywhere else.",
+    "quote": "Executor.execute: `success := call(txGas, to, value, add(data, 0x20), mload(data), 0, 0)`. Descriptor: the `data` field uses format `calldata` with `\"amountPath\": \"value\"`, and no field has path `value`. The spec says the nested descriptor 'MAY reference this value using the `@.value` container path'. If no descriptor is found, the wallet 'MAY display a hash of the embedded calldata instead'."
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction decodes `data` as a call to `to`, even when `operation` makes it a delegate call.",
+    "verdict": "confirmed",
+    "reason": "When operation is 1, the nested data still renders as a normal call to `to`, but the code runs `to`'s code inside the Safe, so the outcome shown does not happen. The 'Operation type' field shows 'Delegate Call', but the guide lists this exact pattern as critical even with `operation` present.",
+    "quote": "Executor.execute: `if (operation == Enum.Operation.DelegateCall) { success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0) }`. Descriptor: `\"path\": \"data\", \"format\": \"calldata\", \"params\": {\"calleePath\": \"to\", \"amountPath\": \"value\", \"spenderPath\": \"@.to\"}`, with no condition on `operation`."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 3,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction is payable, but no field shows the native value the signer sends.",
+    "verdict": "refuted",
+    "reason": "The listed deployment is a locked singleton with no owners and threshold one, so execTransaction fails signature validation and reverts attached ETH. This conclusion concerns the listed deployment, not initialized Safe proxies.",
+    "quote": "contracts/1-0x41675c099f32341bf84bfc5382af534df5c7461a/meta.json: \"isProxy\": false. src/contracts/Safe.sol, constructor: \"threshold = 1;\"; execTransaction: \"checkSignatures(txHash, txHashData, signatures);\"; checkNSignatures: \"require(currentOwner > lastOwner && owners[currentOwner] != address(0) && currentOwner != SENTINEL_OWNERS, \\\"GS026\\\");\". src/contracts/base/OwnerManager.sol, setupOwners: \"require(threshold == 0, \\\"GS200\\\");\""
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction never shows the `value` ETH that the Safe sends to `to`. A plain ETH transfer shows no amount.",
+    "verdict": "refuted",
+    "reason": "The claim that value is never shown is false: amountPath supplies it to the nested descriptor. Missing nested rendering is a warning under the guide’s explicit exception, and no execTransaction screen demonstrates the claimed omission.",
+    "quote": "descriptor.json, execTransaction Transaction field: \"params\": {\"calleePath\": \"to\", \"amountPath\": \"value\", \"spenderPath\": \"@.to\"}. registry/specs/erc-7730.md, calldata: \"the ERC-7730 descriptor for this embedded calldata MAY reference this value using the `@.value` container path.\" registry/.github/scripts/ai-review/prompt.md, not_critical 14: \"a nested descriptor that might not resolve, a lookup that may fail\"; \"belong to warnings\"."
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction decodes `data` as a call to `to`, even when `operation` makes it a delegate call.",
+    "verdict": "refuted",
+    "reason": "The screen explicitly distinguishes Call from Delegate Call through an always-visible operation field. Decoding the target’s code does not conceal the execution mode that the signer is also shown.",
+    "quote": "descriptor.json, metadata.enums.operation: {\"0\": \"Call\", \"1\": \"Delegate Call\"}; execTransaction: {\"path\": \"operation\", \"label\": \"Operation type\", \"format\": \"enum\", \"params\": {\"$ref\": \"$.metadata.enums.operation\"}, \"visible\": \"always\"}. contracts/1-0x41675c099f32341bf84bfc5382af534df5c7461a/src/contracts/base/Executor.sol, execute: \"if (operation == Enum.Operation.DelegateCall)\" and \"success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0)\"."
+   }
+  ]
  }
 }

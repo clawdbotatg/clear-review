@@ -113,7 +113,7 @@
  "account": "slop_buidlguidl",
  "hiddenValue": [],
  "seconds": 75,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "CommitIntent(address user,address token,uint256 amount,bytes32 rulesHash,uint64 duration,uint256 fine,address recipient,uint256 nonce,uint256 deadline)": {
@@ -125,6 +125,7 @@
    "critical": 1,
    "warnings": 4,
    "worst": "CommitIntent: 'Stake amount' shows the gross deposit, but the platform fee is cut before the stake is locked.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -135,5 +136,33 @@
   "functions": "1F",
   "incomplete": false,
   "worst": "CommitIntent: 'Stake amount' shows the gross deposit, but the platform fee is cut before the stake is locked."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.283,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "CommitIntent(address user,address token,uint256 amount,bytes32 rulesHash,uint64 duration,uint256 fine,address recipient,uint256 nonce,uint256 deadline)",
+    "title": "CommitIntent: 'Stake amount' shows the gross deposit, but the platform fee is cut before the stake is locked.",
+    "verdict": "confirmed",
+    "reason": "The code keeps the fee for the treasury and locks only totalDeposit minus the fee as the stake. That net stake is what Returned and emergency withdraw pay back, but the screen shows the gross 10 USDC as 'Stake amount' and never mentions a fee. This is the guide's amount rule: a fee rate from storage cuts the amount shown, so it is critical and not the not-critical item 3 (storage values). Also, in case 0 the fine is 10 USDC, which is more than the net stake, so that signed intent would revert with InvalidFine.",
+    "quote": "CommitmentVaultV4._commit: `uint256 fee = _computeFee(token, totalDeposit); ... uint256 netStake = totalDeposit - fee; if (fine > netStake) revert InvalidFine(fine, netStake); ... _storeCommitment(..., netStake, fine, fee, ...); _credit(token, treasury, fee);` and `_computeFee`: `bpsFee = (totalDeposit * platformFeeBps) / 10_000` (platformFeeBps = 100 in the constructor), with minFeeInToken as the floor. CommitmentVaultV5.commitWithSig passes `received` (the full intent.amount) as totalDeposit. Descriptor: field `amount` labelled 'Stake amount' (tokenAmount); the intent 'Open commitment' and no other field mention a fee. Case 0 screen: 'Stake amount 10 USDC'."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "CommitIntent(address user,address token,uint256 amount,bytes32 rulesHash,uint64 duration,uint256 fine,address recipient,uint256 nonce,uint256 deadline)",
+    "title": "CommitIntent: 'Stake amount' shows the gross deposit, but the platform fee is cut before the stake is locked.",
+    "verdict": "confirmed",
+    "reason": "Successful commitments lock and refund the deposit minus the platform fee, while the screen labels the gross deposit “Stake amount” without disclosing the deduction. However, case 0 does not demonstrate a successful deduction: its fine equals the deposit, so any positive fee makes it revert.",
+    "quote": "contracts/42161-0x8bc22f59b2e734b18aede34c930a268fddbebb03/src/src/CommitmentVaultV4.sol, _commit: `uint256 fee = _computeFee(token, totalDeposit); uint256 netStake = totalDeposit - fee; if (fine > netStake) revert InvalidFine(fine, netStake); _storeCommitment(commitmentId, user, token, recipient, netStake, fine, fee, rulesHash, duration); _credit(token, treasury, fee);` _applyResolution: `toUser = c.stake;`. descriptor.json, CommitIntent: `\"path\": \"amount\", \"label\": \"Stake amount\"`; cases/0.json, screen: `\"label\": \"Stake amount\", \"value\": \"10 USDC\"`. Registry .github/scripts/ai-review/prompt.md, not_critical item 3: “when the storage value cuts the amount shown, the finding is about the amount, and that one is critical.”"
+   }
+  ]
  }
 }

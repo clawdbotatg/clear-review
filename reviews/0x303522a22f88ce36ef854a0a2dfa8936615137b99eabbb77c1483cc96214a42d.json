@@ -534,7 +534,7 @@
   "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)"
  ],
  "seconds": 343,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)": {
@@ -546,6 +546,7 @@
    "critical": 1,
    "warnings": 3,
    "worst": "setup decodes the `data` field as a normal call to `to`, but the code always delegatecalls it.",
+   "disputed": 0,
    "comprehension": null
   },
   "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)": {
@@ -557,6 +558,7 @@
    "critical": 4,
    "warnings": 4,
    "worst": "execTransaction is payable, but no field shows the native value the signer sends.",
+   "disputed": 1,
    "comprehension": null
   },
   "addOwnerWithThreshold(address owner, uint256 _threshold)": {
@@ -568,6 +570,7 @@
    "critical": 0,
    "warnings": 2,
    "worst": "addOwnerWithThreshold limits the owner address type to eoa, but the code accepts contract owners.",
+   "disputed": 0,
    "comprehension": null
   },
   "removeOwner(address prevOwner, address owner, uint256 _threshold)": {
@@ -579,6 +582,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "removeOwner intent \"Remove signer\" leaves out the threshold change.",
+   "disputed": 0,
    "comprehension": null
   },
   "swapOwner(address prevOwner, address oldOwner, address newOwner)": {
@@ -590,6 +594,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "swapOwner limits the new owner address type to eoa, but the code accepts contract owners.",
+   "disputed": 0,
    "comprehension": null
   },
   "changeThreshold(uint256 _threshold)": {
@@ -601,6 +606,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "approveHash(bytes32 hashToApprove)": {
@@ -612,6 +618,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "approveHash intent does not say the approval counts as a signature and is permanent.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -622,5 +629,75 @@
   "functions": "1A 3B 1C 2F",
   "incomplete": false,
   "worst": "execTransaction is payable, but no field shows the native value the signer sends."
+ },
+ "verified": {
+  "n": 4,
+  "cost": 0.44,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)",
+    "title": "setup decodes the `data` field as a normal call to `to`, but the code always delegatecalls it.",
+    "verdict": "confirmed",
+    "reason": "Whenever `to` is non-zero, setup always delegatecalls `to`, so `to`'s code runs in the Safe's own context. The descriptor decodes `data` as a plain call to `to`. The only label is \"Module\", and no field or intent says the call is a delegate call. The guide's examples list exactly this case as critical: nested calldata decoded as a call when it actually runs as a delegate call.",
+    "quote": "ModuleManager.setupModules (called from Safe.setup): `if (!execute(to, 0, data, Enum.Operation.DelegateCall, type(uint256).max)) revertWithError(\"GS000\");`. Descriptor, setup format: {\"path\":\"data\",\"label\":\"Module\",\"format\":\"calldata\",\"params\":{\"calleePath\":\"to\"}}"
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction is payable, but no field shows the native value the signer sends.",
+    "verdict": "confirmed",
+    "reason": "execTransaction is payable and no require forces msg.value to zero. Any ETH the signer sends goes into the Safe, and the same call can pass it on through `execute(to, value, ...)`. No field shows @.value, so this matches the guide's payable-function critical.",
+    "quote": "Safe.execTransaction: `) external payable override returns (bool success) {`, and nothing in the body checks msg.value. Later `success = execute(to, value, data, operation, ...)` spends from the Safe's balance. Descriptor execTransaction fields: operation, @.to, @.from, data, baseGas, gasPrice, refundReceiver, safeTxGas (never), signatures (never). There is no @.value field."
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction never shows the inner `to` and `value` as fields, so a plain ETH send shows nothing.",
+    "verdict": "confirmed",
+    "reason": "The inner `value` only reaches the screen if a nested descriptor chooses to show it. When `data` is empty there is no selector and no nested descriptor, so nothing shows the ETH that leaves the Safe. No outer field shows `value` either, and at best the spec's MAY fallback shows the callee. Not-critical case 2 needs a separate value field and case 5 needs the amount shown elsewhere; neither is present here.",
+    "quote": "Safe.execTransaction: `success = execute(to, value, data, operation, ...)`. Descriptor field data: {\"format\":\"calldata\",\"params\":{\"calleePath\":\"to\",\"amountPath\":\"value\",\"spenderPath\":\"@.to\"}}. Spec erc-7730.md: amountPath 'If provided, the ERC-7730 descriptor for this embedded calldata MAY reference this value using the `@.value` container path'."
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction decodes nested calldata as a call to `to`, even when the operation is a delegate call.",
+    "verdict": "confirmed",
+    "reason": "When operation is 1, the code runs `to`'s code in the Safe's own context. The nested rendering still describes a call to `to`, with the Safe as sender, so it states an outcome that does not happen. The guide's example table lists this pattern as critical, and the 'Delegate Call' enum label does not correct what the nested screen says.",
+    "quote": "Executor.execute: `if (operation == Enum.Operation.DelegateCall) { ... success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0) }`. Descriptor field data: {\"calleePath\":\"to\",\"amountPath\":\"value\",\"spenderPath\":\"@.to\"}. The same field is used for both enum values, \"0\": \"Call\" and \"1\": \"Delegate Call\"."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 4,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "setup(address[] _owners, uint256 _threshold, address to, bytes data, address fallbackHandler, address paymentToken, uint256 payment, address paymentReceiver)",
+    "title": "setup decodes the `data` field as a normal call to `to`, but the code always delegatecalls it.",
+    "verdict": "confirmed",
+    "reason": "For nonzero `to`, setup executes the supplied code in the Safe’s context. The screen labels it “Module” without stating that execution context.",
+    "quote": "contracts/1-0xedd160febbd92e350d4d398fb636302fccd67c7e/src/contracts/base/ModuleManager.sol, setupModules: `if (!execute(to, 0, data, Enum.Operation.DelegateCall, type(uint256).max)) revertWithError(\"GS000\");`. descriptor.json, setup: `\"intent\": \"Setup Safe\"`; data field: `\"label\": \"Module\", \"format\": \"calldata\", \"params\": {\"calleePath\": \"to\"}`."
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction is payable, but no field shows the native value the signer sends.",
+    "verdict": "confirmed",
+    "reason": "An authorized successful call with inner value and gasPrice both zero retains any attached ETH in the Safe. No displayed field states that outer ETH amount, and no execution-path check requires it to be zero.",
+    "quote": "contracts/1-0xedd160febbd92e350d4d398fb636302fccd67c7e/src/contracts/Safe.sol, execTransaction: `) external payable override returns (bool success)`; `success = execute(to, value, data, operation, gasPrice == 0 ? (gasleft() - 2500) : safeTxGas);`; `if (gasPrice > 0) { payment = handlePayment(gasUsed, baseGas, gasPrice, gasToken, refundReceiver); }`. descriptor.json, execTransaction: Transaction parameters are `{\"calleePath\":\"to\",\"amountPath\":\"value\",\"spenderPath\":\"@.to\"}`; its fields contain no `@.value`."
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction never shows the inner `to` and `value` as fields, so a plain ETH send shows nothing.",
+    "verdict": "refuted",
+    "reason": "The nested field supplies both the target and native amount; their absence as standalone fields does not establish that a plain transfer displays nothing. With no rendering case supplied, the claimed empty-calldata behavior falls under the guide’s exclusion for hypothetical wallet behavior.",
+    "quote": "descriptor.json, execTransaction, Transaction: `\"format\": \"calldata\", \"params\": {\"calleePath\": \"to\", \"amountPath\": \"value\", \"spenderPath\": \"@.to\"}, \"visible\": \"always\"`. Registry .github/scripts/ai-review/prompt.md, not_critical §14: `Possibilities: what a wallet might do ... a nested descriptor that might not resolve, a lookup that may fail.` FORMATS.md, execTransaction: `cases: none`."
+   },
+   {
+    "format": "execTransaction(address to, uint256 value, bytes data, uint8 operation, uint256 safeTxGas, uint256 baseGas, uint256 gasPrice, address gasToken, address refundReceiver, bytes signatures)",
+    "title": "execTransaction decodes nested calldata as a call to `to`, even when the operation is a delegate call.",
+    "verdict": "confirmed",
+    "reason": "The operation enum discloses delegatecall, but the nested decoder still identifies `to` as the called contract and supplies `value` as transferred currency. Delegatecall instead executes in the Safe’s context and does not transfer that inner value; the guide explicitly identifies this mismatch as critical.",
+    "quote": "contracts/1-0xedd160febbd92e350d4d398fb636302fccd67c7e/src/contracts/base/Executor.sol, execute: `if (operation == Enum.Operation.DelegateCall)` then `success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0)`. descriptor.json, execTransaction: `\"1\": \"Delegate Call\"`; Transaction parameters: `{\"calleePath\":\"to\",\"amountPath\":\"value\",\"spenderPath\":\"@.to\"}`. Registry .github/scripts/ai-review/prompt.md, calibrated criticals: `Embedded calldata is decoded as a call to to while operation can make it a delegate call that runs to's code in the signer's account`."
+   }
+  ]
  }
 }

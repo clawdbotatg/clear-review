@@ -103,18 +103,19 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 39,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "pass",
  "formats": {
   "payForSale(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)": {
-   "grade": "F",
-   "truth": 0,
+   "grade": "C",
+   "truth": 90,
    "clarity": 8,
    "measured": false,
    "groundTruth": false,
-   "critical": 2,
+   "critical": 0,
    "warnings": 3,
-   "worst": "payForSale says the signer pays, but the vault actually pays Price in ETH to the signer.",
+   "worst": "payForSale resolves artwork names against the vault (@.to), not the FFV4 artwork contract.",
+   "disputed": 0,
    "comprehension": null
   },
   "withdrawFund(uint256 weiAmount)": {
@@ -126,15 +127,58 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 50,
+  "grade": "C",
+  "truth": 95,
   "clarity": 48,
-  "functions": "1A 1F",
+  "functions": "1A 1C",
   "incomplete": false,
-  "worst": "payForSale says the signer pays, but the vault actually pays Price in ETH to the signer."
+  "worst": "payForSale resolves artwork names against the vault (@.to), not the FFV4 artwork contract."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.293,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "payForSale(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)",
+    "title": "payForSale says the signer pays, but the vault actually pays Price in ETH to the signer.",
+    "verdict": "refuted",
+    "reason": "The code supports the finding's facts but not the critical rating. payForSale is not payable, so nothing of the signer's leaves the wallet. The only transfer sends the vault's own ETH to the caller, and the screen shows that exact amount as 'Price 0.5 ETH'. Not-critical #4 covers funds that go to the caller ('a recipient or payer that is the signer… funds that return to the caller'). The intent 'Pay for artwork sale' describes the vault paying for the sale, which matches the natspec 'pay for buyArtwork to a FFV4 contract destination'. At worst it is a wording or multi-step-goal issue (#10), which is a warning.",
+    "quote": "FeralfileVault.sol payForSale: `function payForSale(bytes32 r_, bytes32 s_, uint8 v_, SaleData calldata saleData_) external {` … `payable(msg.sender).transfer(saleData_.price);`; descriptor intent \"Pay for artwork sale\", field saleData_.price label \"Price\" (case 0: 'Price 0.5 ETH')"
+   },
+   {
+    "format": "payForSale(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)",
+    "title": "payForSale shows destination as 'Recipient', but the ETH goes to msg.sender, not destination.",
+    "verdict": "refuted",
+    "reason": "The code is as described: the ETH goes to msg.sender, and saleData_.destination is only hashed into the signed message. But the party that actually receives the ETH is the signer, and not-critical #4 says that is 'not a different recipient'. None of the signer's assets or rights go to the displayed destination, because the function is not payable and moves only the vault's balance. So the 'Recipient' label misleads without changing what the signer ends up with. That is a labels-and-wording warning (#10), not a critical.",
+    "quote": "FeralfileVault.sol payForSale: `bytes32 message = keccak256(abi.encode(block.chainid, msg.sender, saleData_));` … `payable(msg.sender).transfer(saleData_.price);`; descriptor field saleData_.destination label \"Recipient\" (case 0: 'Recipient: Receiver')"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "payForSale(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)",
+    "title": "payForSale says the signer pays, but the vault actually pays Price in ETH to the signer.",
+    "verdict": "refuted",
+    "reason": "The vault pays the caller, but “Pay for artwork sale” does not explicitly identify the signer as payer. The guide excludes caller receipts and intents naming a broader flow from critical severity; clearer wording is warranted.",
+    "quote": "contracts/1-0x455464f0d369dac13002e81e9fab857f6ad21795/src/FeralfileVault.sol, payForSale:944: `payable(msg.sender).transfer(saleData_.price);`. descriptor.json, payForSale: `\"intent\": \"Pay for artwork sale\"`, `\"label\": \"Price\"`. Registry .github/scripts/ai-review/prompt.md, not_critical §4: “funds that return to the caller”; §10: “an intent that names the goal of a multi-step flow instead of this step”."
+   },
+   {
+    "format": "payForSale(bytes32 r_,bytes32 s_,uint8 v_,(uint256 price,uint256 cost,uint256 expiryTime,address destination,uint256[] tokenIds,(address recipient,uint256 bps)[][] revenueShares,bool payByVaultContract) saleData_)",
+    "title": "payForSale shows destination as 'Recipient', but the ETH goes to msg.sender, not destination.",
+    "verdict": "refuted",
+    "reason": "The ETH recipient is indeed the caller, while destination is part of the signed sale terms. The guide explicitly excludes signer recipients from critical findings; the ambiguous “Recipient” label warrants clarification rather than critical severity.",
+    "quote": "contracts/1-0x455464f0d369dac13002e81e9fab857f6ad21795/src/FeralfileVault.sol, payForSale:936: `abi.encode(block.chainid, msg.sender, saleData_)`; :944: `payable(msg.sender).transfer(saleData_.price);`. descriptor.json, payForSale: `\"path\": \"saleData_.destination\", \"label\": \"Recipient\"`. Registry .github/scripts/ai-review/prompt.md, not_critical §4: “A recipient or payer that is the signer” and “Not a different recipient; not a finding, or a warning when a field would help.”"
+   }
+  ]
  }
 }

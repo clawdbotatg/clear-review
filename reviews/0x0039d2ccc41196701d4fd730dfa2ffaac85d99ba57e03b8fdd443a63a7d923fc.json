@@ -357,7 +357,7 @@
   "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)"
  ],
  "seconds": 128,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)": {
@@ -369,17 +369,19 @@
    "critical": 2,
    "warnings": 4,
    "worst": "swap is payable, but msg.value is never shown and a hidden flag lets it exceed the shown amount",
+   "disputed": 0,
    "comprehension": 17
   },
   "unoswap(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 30,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "unoswap takes ETH but never shows how much (@.value)",
+   "worst": "unoswap 'Last pool' formats a packed bytes32, with reverse, WETH and numerator bits, as an address",
+   "disputed": 0,
    "comprehension": null
   },
   "unoswapWithPermit(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools, bytes permit)": {
@@ -391,28 +393,31 @@
    "critical": 0,
    "warnings": 3,
    "worst": "unoswapWithPermit runs a hidden permit that sets an allowance; its spender and value are not shown",
+   "disputed": 0,
    "comprehension": null
   },
   "uniswapV3Swap(uint256 amount, uint256 minReturn, uint256[] pools)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 18,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "uniswapV3Swap takes ETH but never shows how much (@.value)",
+   "worst": "uniswapV3Swap 'Last pool' formats a uint256 with direction, wrap and unwrap bits as an address",
+   "disputed": 0,
    "comprehension": null
   },
   "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 20,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "uniswapV3SwapTo takes ETH but never shows how much (@.value)",
+   "worst": "uniswapV3SwapTo 'Last pool' formats a uint256 with flag bits as an address",
+   "disputed": 0,
    "comprehension": null
   },
   "uniswapV3SwapToWithPermit(address recipient, address srcToken, uint256 amount, uint256 minReturn, uint256[] pools, bytes permit)": {
@@ -424,15 +429,86 @@
    "critical": 0,
    "warnings": 4,
    "worst": "uniswapV3SwapToWithPermit labels the amount with srcToken, but the token taken is the first pool's input token",
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
   "grade": "F",
-  "truth": 41,
+  "truth": 78,
   "clarity": 22,
-  "functions": "2C 4F",
+  "functions": "5C 1F",
   "incomplete": false,
   "worst": "swap is payable, but msg.value is never shown and a hidden flag lets it exceed the shown amount"
+ },
+ "verified": {
+  "n": 4,
+  "cost": 0.311,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)",
+    "title": "swap is payable, but msg.value is never shown and a hidden flag lets it exceed the shown amount",
+    "verdict": "confirmed",
+    "reason": "When the hidden flag bit 1 is set, the code requires msg.value to be more than desc.amount, or more than 0 for a token source. It then forwards all of msg.value to the executor, so native currency beyond the shown 'Amount to Send' leaves the wallet. The test transaction sent value 0, but this holds for any valid input with the flag, and nothing on screen shows msg.value or the flag.",
+    "quote": "AggregationRouterV4.sol, AggregationRouterV4.swap: `if (flags & _REQUIRES_EXTRA_ETH != 0) { require(msg.value > (srcETH ? desc.amount : 0), \"Invalid msg.value\"); }` and `address(caller).call{value: msg.value}(callData);`. Descriptor, swap format: `{\"label\": \"Desc Flags\", \"path\": \"desc.flags\", \"visible\": \"never\"}`, and the format has no `@.value` field."
+   },
+   {
+    "format": "unoswap(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)",
+    "title": "unoswap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "msg.value must be 0 for token swaps. For the native path (srcToken == 0) it must equal `amount`, which the screen shows as native currency through nativeCurrencyAddress. No ETH beyond the shown amount can leave.",
+    "quote": "AggregationRouterV4.sol, UnoswapRouter.unoswap: `case 0 { if iszero(eq(amount, callvalue())) { revertWithReason(... \"invalid msg.value\") }` and `default { if callvalue() { revertWithReason(... \"invalid msg.value\") }`. Descriptor, unoswap format: field `amount` with `tokenPath: srcToken` and nativeCurrencyAddress including addressAsNull."
+   },
+   {
+    "format": "uniswapV3Swap(uint256 amount, uint256 minReturn, uint256[] pools)",
+    "title": "uniswapV3Swap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "msg.value is forced to 0, or to exactly `amount`, which the screen shows. The amount has no token on screen, so it is at most an unreadable-value warning (not-critical item 1), not hidden ETH.",
+    "quote": "AggregationRouterV4.sol, uniswapV3Swap calls `uniswapV3SwapTo(msg.sender, amount, minReturn, pools)`, which has `if (wrapWeth) { require(msg.value == amount, \"UNIV3R: wrong msg.value\"); } else { require(msg.value == 0, \"UNIV3R: msg.value should be 0\"); }`. Descriptor, uniswapV3Swap format: field `amount` is visible always."
+   },
+   {
+    "format": "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)",
+    "title": "uniswapV3SwapTo is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "Every path makes msg.value either 0 or exactly the shown `amount`, so no native currency beyond the shown amount can leave. Showing the amount without its token is a warning at most (not-critical item 1).",
+    "quote": "AggregationRouterV4.sol, UnoswapV3Router.uniswapV3SwapTo: `if (wrapWeth) { require(msg.value == amount, \"UNIV3R: wrong msg.value\"); _WETH.deposit{value: amount}(); } else { require(msg.value == 0, \"UNIV3R: msg.value should be 0\"); }`. Descriptor, uniswapV3SwapTo format: field `amount` is visible always."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 4,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)",
+    "title": "swap is payable, but msg.value is never shown and a hidden flag lets it exceed the shown amount",
+    "verdict": "confirmed",
+    "reason": "The extra-ETH flag permits native value beyond the displayed input amount and forwards all of it to caller. Neither that value nor the flag is shown.",
+    "quote": "contracts/56-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, swap, lines 2299–2313 (same logic on chain 137): `if (flags & _REQUIRES_EXTRA_ETH != 0) { require(msg.value > (srcETH ? desc.amount : 0), \"Invalid msg.value\"); }` and `address(caller).call{value: msg.value}(callData)`. descriptor.json, swap: `{\"path\":\"desc.amount\",\"$ref\":\"$.display.definitions.sendAmount\",\"params\":{\"tokenPath\":\"desc.srcToken\"},\"visible\":\"always\"}`; `{\"label\":\"Desc Flags\",\"path\":\"desc.flags\",\"visible\":\"never\"}`. sendAmount is labeled `Amount to Send`; no @.value field exists."
+   },
+   {
+    "format": "unoswap(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)",
+    "title": "unoswap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "Native swaps require msg.value to equal the displayed amount; token swaps reject nonzero value. Native value is therefore shown through another field.",
+    "quote": "contracts/56-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, unoswap, lines 1602–1623 (same logic on chain 137): `case 0 { if iszero(eq(amount, callvalue())) { revertWithReason(0x00000011696e76616c6964206d73672e76616c75650000000000000000000000, 0x55) }` and `default { if callvalue() { revertWithReason(0x00000011696e76616c6964206d73672e76616c75650000000000000000000000, 0x55) }`. descriptor.json, unoswap: `{\"path\":\"amount\",\"$ref\":\"$.display.definitions.sendAmount\",\"params\":{\"tokenPath\":\"srcToken\"},\"visible\":\"always\"}`; sendAmount recognizes the zero address as native currency."
+   },
+   {
+    "format": "uniswapV3Swap(uint256 amount, uint256 minReturn, uint256[] pools)",
+    "title": "uniswapV3Swap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The function delegates to uniswapV3SwapTo, which requires native value to equal the displayed amount or be zero. Missing token context does not make a displayed amount hidden under the severity guide.",
+    "quote": "contracts/56-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, uniswapV3Swap, line 2033: `return uniswapV3SwapTo(msg.sender, amount, minReturn, pools);`; uniswapV3SwapTo, lines 2054–2059: `if (wrapWeth) { require(msg.value == amount, \"UNIV3R: wrong msg.value\"); _WETH.deposit{value: amount}(); } else { require(msg.value == 0, \"UNIV3R: msg.value should be 0\"); }` (same logic on chain 137). descriptor.json, uniswapV3Swap: `{\"path\":\"amount\",\"$ref\":\"$.display.definitions.sendAmount\",\"visible\":\"always\"}`. Registry .github/scripts/ai-review/prompt.md, not_critical: `A value that is shown through another field` and `a raw integer without token, unit or decimals` are not critical."
+   },
+   {
+    "format": "uniswapV3SwapTo(address recipient, uint256 amount, uint256 minReturn, uint256[] pools)",
+    "title": "uniswapV3SwapTo is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "Native value must equal the displayed amount when wrapping; all other paths reject nonzero value. The missing @.value field does not hide an additional payment.",
+    "quote": "contracts/56-0x1111111254fb6c44bac0bed2854e76f90643097d/src/AggregationRouterV4.sol, uniswapV3SwapTo, lines 2054–2059 (same logic on chain 137): `if (wrapWeth) { require(msg.value == amount, \"UNIV3R: wrong msg.value\"); _WETH.deposit{value: amount}(); } else { require(msg.value == 0, \"UNIV3R: msg.value should be 0\"); }`. descriptor.json, uniswapV3SwapTo: `{\"path\":\"amount\",\"$ref\":\"$.display.definitions.sendAmount\",\"visible\":\"always\"}`. Registry .github/scripts/ai-review/prompt.md, not_critical: `A value that is shown through another field` is not hidden."
+   }
+  ]
  }
 }

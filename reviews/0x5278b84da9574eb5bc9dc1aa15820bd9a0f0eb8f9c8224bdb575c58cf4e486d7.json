@@ -97,7 +97,7 @@
   "batchExecute((address to, uint256 value, bytes data)[] calls)"
  ],
  "seconds": 54,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "batchExecute((address to, uint256 value, bytes data)[] calls)": {
@@ -109,6 +109,7 @@
    "critical": 2,
    "warnings": 1,
    "worst": "batchExecute: calls[].value (native currency leaving the Safe) is never its own field; empty-data transfers have no inner descriptor",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -119,5 +120,33 @@
   "functions": "1F",
   "incomplete": false,
   "worst": "batchExecute: calls[].value (native currency leaving the Safe) is never its own field; empty-data transfers have no inner descriptor"
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.199,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "batchExecute((address to, uint256 value, bytes data)[] calls)",
+    "title": "batchExecute: calls[].value (native currency leaving the Safe) is never its own field; empty-data transfers have no inner descriptor",
+    "verdict": "confirmed",
+    "reason": "The contract runs in the Safe through delegatecall and sends `calls[i].value` of the Safe's native currency to `calls[i].to`. Nothing in the code limits that value. The descriptor has no field for `calls.[].value`. `amountPath` only passes the value to an inner descriptor, which under the spec 'MAY reference' `@.value`, and the spec's fallback when no inner descriptor matches shows only a calldata hash and the callee. A plain transfer with empty data has no selector, so no inner descriptor exists and nothing on screen shows the amount. This matches the guide's critical example of native currency leaving in an amount never shown, and the not-critical cases do not cover it: the amount is not shown anywhere else, and it is a fact, not a possibility.",
+    "quote": "BatchExecutor.sol batchExecute: `(bool success, bytes memory errorData) = calls[i].to.call{value: calls[i].value}(calls[i].data);` and line 53 `if (calls[i].to.code.length == 0 && calls[i].data.length > 0) revert` (this only blocks data sent to EOAs, so a call with empty data to any address goes through). descriptor.json batchExecute: the only field is `{\"path\": \"calls.[].data\", \"format\": \"calldata\", \"params\": {\"calleePath\": \"calls.[].to\", \"amountPath\": \"calls.[].value\"}}`"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "batchExecute((address to, uint256 value, bytes data)[] calls)",
+    "title": "batchExecute: calls[].value (native currency leaving the Safe) is never its own field; empty-data transfers have no inner descriptor",
+    "verdict": "confirmed",
+    "reason": "An empty-data call with nonzero value transfers the Safe’s native currency without displaying its amount. The fallback can show the recipient, so the recipient-omission claim is overstated, but the hidden amount confirms the critical finding.",
+    "quote": "contracts/1-0x2cc8475177918e8c4d840150b68815a4b6f0f5f3/src/BatchExecutor.sol, batchExecute: `if (calls[i].to.code.length == 0 && calls[i].data.length > 0)` rejects only nonempty data to non-contracts; `(bool success, bytes memory errorData) = calls[i].to.call{value: calls[i].value}(calls[i].data);` sends the value. descriptor.json, batchExecute: `\"intent\": \"Batch transactions\"`; the sole field is `\"path\": \"calls.[].data\", \"label\": \"Transaction\", \"format\": \"calldata\", \"params\": {\"calleePath\": \"calls.[].to\", \"amountPath\": \"calls.[].value\"}`. Registry specs/erc-7730.md, calldata format: the embedded descriptor `MAY reference this value using the @.value container path`; unresolved calldata `MAY display a hash ... with target calleePath resolved to a trusted name if possible`."
+   }
+  ]
  }
 }

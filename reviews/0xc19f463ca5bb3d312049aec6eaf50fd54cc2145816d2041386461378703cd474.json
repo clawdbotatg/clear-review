@@ -116,18 +116,19 @@
   "createOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)"
  ],
  "seconds": 74,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "pass",
  "formats": {
   "createOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "B",
+   "truth": 100,
    "clarity": 77,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 1,
-   "worst": "createOrder takes ETH but never shows how much (@.value)",
+   "worst": "createOrder has no interpolatedIntent; the intent names neither the token bought nor the amounts.",
+   "disputed": 0,
    "comprehension": null
   },
   "invalidateOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)": {
@@ -139,15 +140,44 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 62,
+  "grade": "B",
+  "truth": 100,
   "clarity": 76,
-  "functions": "1B 1F",
+  "functions": "2B",
   "incomplete": false,
-  "worst": "createOrder takes ETH but never shows how much (@.value)"
+  "worst": "createOrder has no interpolatedIntent; the intent names neither the token bought nor the amounts."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.067,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "createOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)",
+    "title": "createOrder is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The contract reverts unless msg.value equals sellAmount + feeAmount exactly, and both of those amounts are on screen as native-currency amounts. So the ETH sent is fully set by the displayed fields, and no unshown ETH can be kept or forwarded. (Verified source was only present for chains 10 and 130; the chain-4663 deployment is assumed to be the same contract.)",
+    "quote": "CoWSwapEthFlow.sol createOrder: `if (msg.value != order.sellAmount + order.feeAmount) { revert IncorrectEthAmount(); }`; descriptor.json createOrder shows order.sellAmount ('Deposit to sell', format amount) and order.feeAmount ('Deposit for fees', hidden only when 0), intent 'Deposit ETH for swap order'"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "createOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)",
+    "title": "createOrder is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "Both available implementations require msg.value to equal the displayed sell deposit plus fee deposit, reverting on any mismatch. The ETH amount is therefore shown through other fields; omitting @.value does not establish a critical finding.",
+    "quote": "contracts/10-0x764fe4aa1ff493cf39931c7923c8ff5837596504/src/src/CoWSwapEthFlow.sol:86–88, createOrder (also in the chain-130 implementation): `if (msg.value != order.sellAmount + order.feeAmount) { revert IncorrectEthAmount(); }`. descriptor.json, createOrder: intent \"Deposit ETH for swap order\"; order.sellAmount references \"Deposit to sell\", and order.feeAmount references \"Deposit for fees\", hidden only when zero. cases/3.json, createOrder screen: \"Deposit to sell\": \"0.5 ETH\"; \"Deposit for fees\": \"0.001 ETH\". Registry .github/scripts/ai-review/prompt.md, not_critical item 2: \"A value that is shown through another field\" is \"Not hidden\"."
+   }
+  ]
  }
 }

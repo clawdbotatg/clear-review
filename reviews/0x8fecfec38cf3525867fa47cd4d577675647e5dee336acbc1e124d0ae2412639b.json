@@ -159,27 +159,70 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 78,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)": {
    "grade": "F",
-   "truth": 0,
+   "truth": 25,
    "clarity": 15,
    "measured": false,
    "groundTruth": false,
-   "critical": 2,
+   "critical": 1,
    "warnings": 5,
-   "worst": "SafeTx is bound to the Safe 1.3.0 singletons, but each Safe signs with its own proxy address as domain.",
+   "worst": "SafeTx decodes data as a call to `to` even when operation 1 makes it a delegatecall in the Safe.",
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
   "grade": "F",
-  "truth": 0,
+  "truth": 25,
   "clarity": 15,
   "functions": "1F",
   "incomplete": false,
-  "worst": "SafeTx is bound to the Safe 1.3.0 singletons, but each Safe signs with its own proxy address as domain."
+  "worst": "SafeTx decodes data as a call to `to` even when operation 1 makes it a delegatecall in the Safe."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.294,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx is bound to the Safe 1.3.0 singletons, but each Safe signs with its own proxy address as domain.",
+    "verdict": "refuted",
+    "reason": "The binding is wrong, but it hides no effect. For the domain it lists, the singleton, the signature does nothing: the constructor leaves a Safe with no owners and threshold 1, so no signature can ever pass checkSignatures. A real Safe proxy's domain does not match any listed deployment, so the wallet never shows this descriptor for it. That is a missing-coverage / binding warning, not a screen that misstates a real effect.",
+    "quote": "GnosisSafe.sol constructor: `threshold = 1;` (comment: \"we create a Safe with 0 owners and threshold 1. This is an unusable Safe\"); domainSeparator(): `return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));`; descriptor.json context.eip712.deployments: only 0xd9Db270c…709552 and 0x69f4D178…2938"
+   },
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx decodes data as a call to `to` even when operation 1 makes it a delegatecall in the Safe.",
+    "verdict": "confirmed",
+    "reason": "For operation 1, Executor.execute runs a delegatecall: `to`'s code runs in the Safe's context with the Safe's balances, and `value` is not sent. The `data` field still decodes the nested call as a call to `to` with `value` as its amount. The enum line 'Delegate Call' does not fix the nested rendering, which states an outcome that does not happen. The severity guide lists this exact case as a critical.",
+    "quote": "Executor.sol execute(): `if (operation == Enum.Operation.DelegateCall) { success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0) }`; GnosisSafe.execTransaction: `success = execute(to, value, data, operation, ...)`; descriptor field `data`: `\"format\": \"calldata\", \"params\": {\"calleePath\": \"to\", \"amountPath\": \"value\", \"spenderPath\": \"@.to\"}`, enum `\"1\": \"Delegate Call\"`"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx is bound to the Safe 1.3.0 singletons, but each Safe signs with its own proxy address as domain.",
+    "verdict": "refuted",
+    "reason": "The singleton binding is incorrect, but it does not establish a hidden asset or rights effect. The singleton cannot satisfy owner checks, and proxy signatures use a different domain; this supports a binding/test defect, not the claimed critical.",
+    "quote": "contracts/1-0xd9db270c1b5e3bd161e8c8503c55ceabee709552/src/contracts/GnosisSafe.sol: constructor: \"threshold = 1;\" (zero owners); checkNSignatures: \"require(currentOwner > lastOwner && owners[currentOwner] != address(0) && currentOwner != SENTINEL_OWNERS, \\\"GS026\\\");\"; domainSeparator: \"return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, getChainId(), this));\". cases/0.json and cases/1.json: \"txHash\": null."
+   },
+   {
+    "format": "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)",
+    "title": "SafeTx decodes data as a call to `to` even when operation 1 makes it a delegatecall in the Safe.",
+    "verdict": "confirmed",
+    "reason": "The operation enum discloses delegatecall, but the nested decoder still attributes execution to the target contract and passes value as a call amount. Delegatecall instead executes in the Safe’s storage and balance context, a mismatch explicitly classified as critical by the guide.",
+    "quote": "contracts/1-0xd9db270c1b5e3bd161e8c8503c55ceabee709552/src/contracts/base/Executor.sol, execute: \"success := delegatecall(txGas, to, add(data, 0x20), mload(data), 0, 0)\". descriptor.json, SafeTx data field: \"format\": \"calldata\", \"params\": {\"calleePath\": \"to\", \"amountPath\": \"value\", \"spenderPath\": \"@.to\"}; operation enum: \"1\": \"Delegate Call\". Registry .github/scripts/ai-review/prompt.md, examples: \"Embedded calldata is decoded as a call to `to` while `operation` can make it a delegate call that runs `to`'s code in the signer's account\"."
+   }
+  ]
  }
 }

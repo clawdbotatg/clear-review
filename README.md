@@ -21,7 +21,10 @@ so any wallet can show them as **🤖 checked**. First user: the [wedgie](https:
    Result: **pass** (no F, nothing blocked the check), **fail** (any F), **incomplete** (code it couldn't see).
 6. **Checking the checker** (`mutate.py`). Plant a known lie in a good descriptor, re-render the screen with
    Sourcify's runner, check it's caught. First bench: 5 of 6 (`bench/REPORT.md`).
-7. **Sign** the passes (below).
+7. **Second check** (`./review.py verify`, with `--engine codex` too). Every critical of a failed descriptor goes
+   to Claude and to Codex, each told to prove it wrong. Both refute it: dropped. Both confirm it:
+   `FINDINGS.md` (`tools/findings.py`), for the registry.
+8. **Sign** the passes (below).
 
 Keyed by the ERC-8176 descriptor hash: a descriptor that changes upstream is unreviewed again on its own.
 

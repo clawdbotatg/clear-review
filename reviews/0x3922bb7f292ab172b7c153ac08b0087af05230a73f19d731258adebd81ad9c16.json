@@ -246,8 +246,8 @@
   "repayETH(address pool, uint256 amount, address onBehalfOf)"
  ],
  "seconds": 287,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "pass",
  "formats": {
   "depositETH(address pool, address onBehalfOf, uint16 referralCode)": {
    "grade": "B",
@@ -258,17 +258,19 @@
    "critical": 0,
    "warnings": 1,
    "worst": "depositETH has no interpolatedIntent, so the intent line 'Supply' names neither the amount nor who gets the position.",
+   "disputed": 0,
    "comprehension": 75
   },
   "repayETH(address pool, uint256 amount, address onBehalfOf)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "A",
+   "truth": 90,
    "clarity": 85,
    "measured": true,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "repayETH takes ETH but never shows how much (@.value)",
+   "worst": "repayETH is payable but has no @.value field, so the ETH actually sent is not shown when the amount is 'All'.",
+   "disputed": 0,
    "comprehension": 100
   },
   "withdrawETH(address pool, uint256 amount, address to)": {
@@ -280,6 +282,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": 100
   },
   "withdrawETHWithPermit(address pool, uint256 amount, address to, uint256 deadline, uint8 permitV, bytes32 permitR, bytes32 permitS)": {
@@ -291,6 +294,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "borrowETH(address pool, uint256 amount, uint16 referralCode)": {
@@ -302,15 +306,44 @@
    "critical": 0,
    "warnings": 1,
    "worst": "borrowETH does not say the borrowed ETH is sent to the signer. The reader was unsure who receives it.",
+   "disputed": 0,
    "comprehension": 75
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 85,
+  "grade": "B",
+  "truth": 98,
   "clarity": 80,
-  "functions": "1A 3B 1F",
+  "functions": "2A 3B",
   "incomplete": false,
-  "worst": "repayETH takes ETH but never shows how much (@.value)"
+  "worst": "depositETH has no interpolatedIntent, so the intent line 'Supply' names neither the amount nor who gets the position."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.152,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "repayETH(address pool, uint256 amount, address onBehalfOf)",
+    "title": "repayETH is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The gateway keeps only paybackAmount = min(amount, debt), which is at most the 'Amount to repay' shown in ETH, and sends any extra msg.value back to msg.sender, so no ETH leaves beyond what the screen shows. The mined case matches this: 85 ETH shown and 85 ETH spent. The missing @.value only means the refunded part is not shown, which counts as a warning at most, not a critical.",
+    "quote": "WrappedTokenGatewayV3.sol repayETH: `if (amount < paybackAmount) { paybackAmount = amount; }` … `require(msg.value >= paybackAmount, ...)` … `WETH.deposit{value: paybackAmount}()` … `if (msg.value > paybackAmount) _safeTransferETH(msg.sender, msg.value - paybackAmount);`. descriptor.json repayETH field `amount` 'Amount to repay' (tokenAmount, native currency, threshold message 'All'). Case 1 screen: 'Amount to repay: 85 ETH', mined signerNet -85 ETH."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "repayETH(address pool, uint256 amount, address onBehalfOf)",
+    "title": "repayETH is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The screen shows the ETH repayment through `amount`; the code caps spending at that amount and refunds excess ETH. The mined case spends exactly the displayed 85 ETH, so the missing separate `@.value` field does not establish a hidden asset effect.",
+    "quote": "contracts/1-0xd01607c3c5ecaba394d8be377a08590149325722/src/lib/aave-v3-origin/src/contracts/helpers/WrappedTokenGatewayV3.sol, repayETH: `if (amount < paybackAmount) { paybackAmount = amount; }`, `WETH.deposit{value: paybackAmount}();`, and `if (msg.value > paybackAmount) _safeTransferETH(msg.sender, msg.value - paybackAmount);`. cases/1.json, repayETH screen: `\"label\": \"Amount to repay\", \"value\": \"85 ETH\"`; mined signerNet: `\"symbol\": \"ETH\", \"amount\": \"-85000000000000000000\"`. cases/4.json screen: `\"Amount to repay\" / \"All ETH\"`. Registry .github/scripts/ai-review/prompt.md, not_critical #2: \"A value that is shown through another field\"; #4: \"funds that return to the caller\"."
+   }
+  ]
  }
 }

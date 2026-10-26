@@ -348,7 +348,7 @@
   "swapTokensForExactTokens(uint256 amountOut, uint256 amountInMax, address[] path, address to)"
  ],
  "seconds": 109,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "exactInput((bytes path, address recipient, uint256 amountIn, uint256 amountOutMinimum) params)": {
@@ -360,6 +360,7 @@
    "critical": 2,
    "warnings": 2,
    "worst": "exactInput is payable but has no @.value field, so ETH sent with the swap is never shown.",
+   "disputed": 0,
    "comprehension": 100
   },
   "exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params)": {
@@ -371,6 +372,7 @@
    "critical": 2,
    "warnings": 2,
    "worst": "exactInputSingle is payable but has no @.value field, so ETH paid for a WETH swap is hidden.",
+   "disputed": 0,
    "comprehension": 100
   },
   "exactOutput((bytes path, address recipient, uint256 amountOut, uint256 amountInMaximum) params)": {
@@ -382,6 +384,7 @@
    "critical": 2,
    "warnings": 1,
    "worst": "exactOutput is payable but has no @.value field, so ETH paid for the input is hidden.",
+   "disputed": 0,
    "comprehension": 100
   },
   "exactOutputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountOut, uint256 amountInMaximum, uint160 sqrtPriceLimitX96) params)": {
@@ -393,6 +396,7 @@
    "critical": 2,
    "warnings": 2,
    "worst": "exactOutputSingle is payable but has no @.value field, so ETH paid for the input is hidden.",
+   "disputed": 0,
    "comprehension": 100
   },
   "swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to)": {
@@ -404,6 +408,7 @@
    "critical": 2,
    "warnings": 2,
    "worst": "swapExactTokensForTokens is payable but has no @.value field, so ETH paid for WETH input is hidden.",
+   "disputed": 0,
    "comprehension": null
   },
   "swapTokensForExactTokens(uint256 amountOut, uint256 amountInMax, address[] path, address to)": {
@@ -415,6 +420,7 @@
    "critical": 2,
    "warnings": 1,
    "worst": "swapTokensForExactTokens is payable but has no @.value field, so ETH paid for WETH input is hidden.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -425,5 +431,103 @@
   "functions": "6F",
   "incomplete": false,
   "worst": "exactInput is payable but has no @.value field, so ETH sent with the swap is never shown."
+ },
+ "verified": {
+  "n": 6,
+  "cost": 0.349,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "exactInput((bytes path, address recipient, uint256 amountIn, uint256 amountOutMinimum) params)",
+    "title": "exactInput is payable but has no @.value field, so ETH sent with the swap is never shown.",
+    "verdict": "confirmed",
+    "reason": "exactInput is payable and nothing checks msg.value. When the input token is WETH9, pay() wraps the signer's ETH and the screen shows it as WETH. For any other input token the ETH stays in the router, and anyone can take it with refundETH. The format has no @.value field. The guide's examples list this as critical, and it is not on the not-critical list.",
+    "quote": "V3SwapRouter.exactInput: `function exactInput(ExactInputParams memory params) external payable override` (no msg.value check); PeripheryPayments.pay: `if (token == WETH9 && address(this).balance >= value) { IWETH9(WETH9).deposit{value: value}();`; refundETH: `TransferHelper.safeTransferETH(msg.sender, address(this).balance)`. Descriptor exactInput fields: params.amountIn, params.amountOutMinimum, params.recipient only."
+   },
+   {
+    "format": "exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params)",
+    "title": "exactInputSingle is payable but has no @.value field, so ETH paid for a WETH swap is hidden.",
+    "verdict": "confirmed",
+    "reason": "exactInputSingle is payable and no path checks or rejects msg.value. With tokenIn == WETH9, the ETH is wrapped and spent, but the screen shows only 'Send … WETH'. With another tokenIn, the ETH stays in the router and anyone can claim it. The format has no @.value field.",
+    "quote": "V3SwapRouter.exactInputSingle: `external payable override returns (uint256 amountOut)` with payer msg.sender passed to pay(); PeripheryPayments.pay wraps `address(this).balance` when `token == WETH9`. Descriptor fields: params.amountIn 'Send', params.amountOutMinimum, params.fee, params.recipient."
+   },
+   {
+    "format": "exactOutput((bytes path, address recipient, uint256 amountOut, uint256 amountInMaximum) params)",
+    "title": "exactOutput is payable but has no @.value field, so ETH paid for the input is hidden.",
+    "verdict": "confirmed",
+    "reason": "exactOutput is payable with no msg.value check. The last callback calls pay(tokenOut, data.payer, …), and this wraps the sent ETH when the input token is WETH9. Any ETH not used, including all of it for a non-WETH input, stays in the router, and anyone can call refundETH to take it. No field shows @.value.",
+    "quote": "V3SwapRouter.exactOutput: `function exactOutput(ExactOutputParams calldata params) external payable override`; uniswapV3SwapCallback: `pay(tokenOut, data.payer, msg.sender, amountToPay);`. Descriptor fields: params.amountInMaximum, params.amountOut, params.recipient."
+   },
+   {
+    "format": "exactOutputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountOut, uint256 amountInMaximum, uint160 sqrtPriceLimitX96) params)",
+    "title": "exactOutputSingle is payable but has no @.value field, so ETH paid for the input is hidden.",
+    "verdict": "confirmed",
+    "reason": "exactOutputSingle is payable with no msg.value check, and it pays through pay(). pay() wraps the router's ETH balance when the input is WETH9. Leftover ETH stays in the router, and anyone can claim it with refundETH. No field shows @.value.",
+    "quote": "V3SwapRouter.exactOutputSingle: `external payable override returns (uint256 amountIn)`, payer: msg.sender; PeripheryPayments.pay: `IWETH9(WETH9).deposit{value: value}()`. Descriptor fields: params.amountInMaximum, params.amountOut, params.fee, params.recipient."
+   },
+   {
+    "format": "swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to)",
+    "title": "swapExactTokensForTokens is payable but has no @.value field, so ETH paid for WETH input is hidden.",
+    "verdict": "confirmed",
+    "reason": "swapExactTokensForTokens is payable and calls pay(path[0], …) with no msg.value check. Sent ETH is wrapped and spent when path[0] is WETH9. Otherwise it stays in the router, where anyone can take it. The format shows only amountIn, amountOutMin and to.",
+    "quote": "V2SwapRouter.swapExactTokensForTokens: `external payable override returns (uint256 amountOut)` … `pay(path[0], hasAlreadyPaid ? address(this) : msg.sender, UniswapV2Library.pairFor(...), amountIn);`. Descriptor fields: amountIn, amountOutMin, to."
+   },
+   {
+    "format": "swapTokensForExactTokens(uint256 amountOut, uint256 amountInMax, address[] path, address to)",
+    "title": "swapTokensForExactTokens is payable but has no @.value field, so ETH paid for WETH input is hidden.",
+    "verdict": "confirmed",
+    "reason": "swapTokensForExactTokens is payable and calls pay(path[0], msg.sender, …) with no msg.value check. Sent ETH is wrapped when path[0] is WETH9, and any excess ETH stays in the router where anyone can claim it. No @.value field exists.",
+    "quote": "V2SwapRouter.swapTokensForExactTokens: `external payable override returns (uint256 amountIn)` … `pay(path[0], msg.sender, UniswapV2Library.pairFor(factoryV2, path[0], path[1]), amountIn);`. Descriptor fields: amountOut, amountInMax, to."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 6,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "exactInput((bytes path, address recipient, uint256 amountIn, uint256 amountOutMinimum) params)",
+    "title": "exactInput is payable but has no @.value field, so ETH sent with the swap is never shown.",
+    "verdict": "confirmed",
+    "reason": "The payable path accepts ETH, wraps the amount needed for WETH payment, and leaves excess ETH in the router without an automatic refund. The displayed token amount does not disclose this independent native payment; the mined case's zero value does not disprove the code path.",
+    "quote": "contracts/1-0x68b3465833fb72a70ecdf485e0e4c7bd8665fc45/src/contracts/V3SwapRouter.sol, exactInput: `function exactInput(ExactInputParams memory params) external payable override returns (uint256 amountOut)`; uniswapV3SwapCallback: `pay(tokenIn, data.payer, msg.sender, amountToPay);`. src/@uniswap/v3-periphery/contracts/base/PeripheryPayments.sol, pay: `if (token == WETH9 && address(this).balance >= value) {` / `IWETH9(WETH9).deposit{value: value}();` / `IWETH9(WETH9).transfer(recipient, value);`. descriptor.json, exactInput: fields `params.amountIn` ('Amount to Send'), `params.amountOutMinimum` ('Minimum to Receive'), `params.recipient` ('Beneficiary'); no `@.value`."
+   },
+   {
+    "format": "exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params)",
+    "title": "exactInputSingle is payable but has no @.value field, so ETH paid for a WETH swap is hidden.",
+    "verdict": "confirmed",
+    "reason": "With sufficient attached ETH and WETH input, this path spends native ETH instead of pulling the displayed WETH. Excess attached ETH remains in the router, and neither the native payment nor its total is shown.",
+    "quote": "src/contracts/V3SwapRouter.sol, exactInputSingle: `external payable override` and `amountOut = exactInputInternal(`; uniswapV3SwapCallback: `pay(tokenIn, data.payer, msg.sender, amountToPay);`. src/@uniswap/v3-periphery/contracts/base/PeripheryPayments.sol, pay: `if (token == WETH9 && address(this).balance >= value) {` / `IWETH9(WETH9).deposit{value: value}();` / `IWETH9(WETH9).transfer(recipient, value);`. descriptor.json, exactInputSingle: fields `params.amountIn` ('Send'), `params.amountOutMinimum` ('Minimum to Receive'), `params.fee` ('Uniswap fee'), `params.recipient` ('Beneficiary'); input `tokenPath` is `params.tokenIn`, with no `@.value`."
+   },
+   {
+    "format": "exactOutput((bytes path, address recipient, uint256 amountOut, uint256 amountInMaximum) params)",
+    "title": "exactOutput is payable but has no @.value field, so ETH paid for the input is hidden.",
+    "verdict": "confirmed",
+    "reason": "The exact-output callback pays WETH input using available native ETH, while the maximum-input check bounds the swap payment rather than attached ETH. Surplus ETH remains in the router and is absent from the screen.",
+    "quote": "src/contracts/V3SwapRouter.sol, exactOutput: `function exactOutput(ExactOutputParams calldata params) external payable override returns (uint256 amountIn)` / `require(amountIn <= params.amountInMaximum, 'Too much requested');`; uniswapV3SwapCallback: `pay(tokenOut, data.payer, msg.sender, amountToPay);`. src/@uniswap/v3-periphery/contracts/base/PeripheryPayments.sol, pay: `if (token == WETH9 && address(this).balance >= value) {` / `IWETH9(WETH9).deposit{value: value}();`. descriptor.json, exactOutput: fields `params.amountInMaximum` ('Maximum Amount In'), `params.amountOut` ('Amount to Receive'), `params.recipient` ('Beneficiary'); no `@.value`."
+   },
+   {
+    "format": "exactOutputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountOut, uint256 amountInMaximum, uint160 sqrtPriceLimitX96) params)",
+    "title": "exactOutputSingle is payable but has no @.value field, so ETH paid for the input is hidden.",
+    "verdict": "confirmed",
+    "reason": "This payable path funds WETH input with attached ETH when sufficient and does not automatically refund the excess. The screen's token-denominated maximum neither identifies nor bounds the total native ETH sent.",
+    "quote": "src/contracts/V3SwapRouter.sol, exactOutputSingle: `external payable override` / `SwapCallbackData({path: abi.encodePacked(params.tokenOut, params.fee, params.tokenIn), payer: msg.sender})` / `require(amountIn <= params.amountInMaximum, 'Too much requested');`; uniswapV3SwapCallback: `pay(tokenOut, data.payer, msg.sender, amountToPay);`. src/@uniswap/v3-periphery/contracts/base/PeripheryPayments.sol, pay: `IWETH9(WETH9).deposit{value: value}();`. descriptor.json, exactOutputSingle: fields `params.amountInMaximum` ('Maximum Amount In'), `params.amountOut` ('Amount to Receive'), `params.fee` ('Uniswap fee'), `params.recipient` ('Beneficiary'); no `@.value`."
+   },
+   {
+    "format": "swapExactTokensForTokens(uint256 amountIn, uint256 amountOutMin, address[] path, address to)",
+    "title": "swapExactTokensForTokens is payable but has no @.value field, so ETH paid for WETH input is hidden.",
+    "verdict": "confirmed",
+    "reason": "The function directly calls pay for the input token, allowing attached ETH to fund WETH input and retaining any surplus. Showing amountIn as WETH does not show the native ETH transferred to the router.",
+    "quote": "src/contracts/V2SwapRouter.sol, swapExactTokensForTokens: `) external payable override returns (uint256 amountOut) {` / `pay(path[0], hasAlreadyPaid ? address(this) : msg.sender, UniswapV2Library.pairFor(factoryV2, path[0], path[1]), amountIn);` (whitespace condensed). src/@uniswap/v3-periphery/contracts/base/PeripheryPayments.sol, pay: `if (token == WETH9 && address(this).balance >= value) {` / `IWETH9(WETH9).deposit{value: value}();`. descriptor.json, swapExactTokensForTokens: fields `amountIn` ('Amount to Send'), `amountOutMin` ('Minimum to Receive'), `to` ('Recipient'); cases/6.json screen: 'Amount to Send': '1 WETH'; no native-value field."
+   },
+   {
+    "format": "swapTokensForExactTokens(uint256 amountOut, uint256 amountInMax, address[] path, address to)",
+    "title": "swapTokensForExactTokens is payable but has no @.value field, so ETH paid for WETH input is hidden.",
+    "verdict": "confirmed",
+    "reason": "The function accepts ETH and uses it for WETH input through pay, with no automatic refund. Its amountInMax check limits the computed swap input, not the attached ETH total omitted from the screen.",
+    "quote": "src/contracts/V2SwapRouter.sol, swapTokensForExactTokens: `) external payable override returns (uint256 amountIn) {` / `require(amountIn <= amountInMax, 'Too much requested');` / `pay(path[0], msg.sender, UniswapV2Library.pairFor(factoryV2, path[0], path[1]), amountIn);`. src/@uniswap/v3-periphery/contracts/base/PeripheryPayments.sol, pay: `if (token == WETH9 && address(this).balance >= value) {` / `IWETH9(WETH9).deposit{value: value}();`. descriptor.json, swapTokensForExactTokens: fields `amountOut` ('Amount to Receive'), `amountInMax` ('Maximum to Send'), `to` ('Recipient'); cases/7.json screen: 'Maximum to Send': '0.45 WETH'; no native-value field."
+   }
+  ]
  }
 }

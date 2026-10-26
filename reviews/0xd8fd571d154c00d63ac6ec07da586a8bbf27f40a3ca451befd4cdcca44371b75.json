@@ -278,29 +278,31 @@
  "account": "clawd_buidlguidl",
  "hiddenValue": [],
  "seconds": 221,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "incomplete",
  "formats": {
   "buy(bytes[] executionData)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 90,
    "clarity": 45,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "buy: an ERC20 purchase-currency amount pulled from the signer appears only inside the raw callback hex",
+   "worst": "buy case 3 sends the loan principal to another contract, so it does not exercise this bundler",
+   "disputed": 0,
    "comprehension": null
   },
   "sell(bytes[] executionData, bytes[] swapData)": {
-   "grade": "F",
+   "grade": "D",
    "truth": 25,
    "clarity": 49,
    "measured": true,
    "groundTruth": true,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "sell: the sale price and buyer of the signer's NFT appear only in raw callback hex",
+   "worst": "sell: the screen shows the loan principal, but the signer pays principal plus interest plus a protocol fee",
+   "disputed": 0,
    "comprehension": 62
   },
   "executeSell(address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData)": {
@@ -312,26 +314,84 @@
    "critical": 0,
    "warnings": 4,
    "worst": "executeSell: the marketplace shows as a bare address because addressName with local source does not resolve",
+   "disputed": 0,
    "comprehension": 83
   },
   "executeSellWithLoan(((address pool, address[] assets, uint256[] amounts) borrowArgs, (address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData) executeSellArgs, bytes[] loanExecutionData, address[] swapCurrencies, uint160[] swapAmounts, bytes[] swapData, bool unwrap) args)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 90,
    "clarity": 35,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 3,
-   "worst": "executeSellWithLoan: the flash-loan repayment plus premium pulled from the signer's wallet is not shown as an outflow",
+   "worst": "executeSellWithLoan case 4 targets another bundler, so it does not exercise this deployment",
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 44,
+  "grade": "D",
+  "truth": 76,
   "clarity": 46,
-  "functions": "1C 3F",
+  "functions": "3C 1D",
   "incomplete": true,
-  "worst": "buy: an ERC20 purchase-currency amount pulled from the signer appears only inside the raw callback hex"
+  "worst": "sell: the screen shows the loan principal, but the signer pays principal plus interest plus a protocol fee"
+ },
+ "verified": {
+  "n": 3,
+  "cost": 0.675,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "buy(bytes[] executionData)",
+    "title": "buy: an ERC20 purchase-currency amount pulled from the signer appears only inside the raw callback hex",
+    "verdict": "refuted",
+    "reason": "In case 3 the purchase currency is ETH (0xeeee…), so the ERC20 pull does not run, and the signer pays in ETH, which 'Value sent' shows. With an ERC20 currency the pull would happen, but the amount still appears raw in the 'Callback data' field. The guide treats a value shown raw as shown (not-critical item 1, a warning at most).",
+    "quote": "PurchaseBundler._afterPrincipalTransfer: `if (purchaseCurrencyIsERC20) { ERC20(...purchaseCurrency).safeTransferFrom(_loan.borrower, address(this), purchaseBundlerExecutionInfo.amount); }`; case 3 'Callback data' = 0x…20…e0…01…eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee…0fda9dfe30187372…, and 'Value sent' 1.14239917054600485 ETH"
+   },
+   {
+    "format": "sell(bytes[] executionData, bytes[] swapData)",
+    "title": "sell: the sale price and buyer of the signer's NFT appear only in raw callback hex",
+    "verdict": "refuted",
+    "reason": "The intent and the 'Collateral' field show the NFT that leaves. The 0.0147 WETH the signer receives is income, not a hidden outflow. The sale price (0x347dc8c28e7000) and the Seaport module appear raw in the 'Callback data' field, which is a warning under not-critical item 1, not a critical.",
+    "quote": "PurchaseBundler._sellReleasedCollateralInMarketplace: `(success,) = executionInfo.module.call{value: executionInfo.value}(executionInfo.data);`; case 0 screen: intent 'Sell collateral and repay loan', 'Collateral' 'Decagon #22867', 'Callback data' 0x…c02aaa39…347dc8c28e7000…0000000000000068f116a894984e2db1123eb395…"
+   },
+   {
+    "format": "executeSellWithLoan(((address pool, address[] assets, uint256[] amounts) borrowArgs, (address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData) executeSellArgs, bytes[] loanExecutionData, address[] swapCurrencies, uint160[] swapAmounts, bytes[] swapData, bool unwrap) args)",
+    "title": "executeSellWithLoan: the flash-loan repayment plus premium pulled from the signer's wallet is not shown as an outflow",
+    "verdict": "refuted",
+    "reason": "The screen shows the flash loan amount, and a flash loan is repaid in the same transaction by definition. The new loan principal goes to the signer as principal receiver and covers the repayment. Only the Aave premium is missing, and Aave sets it from its own storage (not-critical item 3, info). Case 4 was never broadcast, so no mined effect shows a hidden outflow.",
+    "quote": "PurchaseBundler.executeOperation: `uint256 owed = amounts[i] + premiums[i]; ... if (balance < owed) asset.safeTransferFrom(_buyer, address(this), owed - balance);`; case 4 screen: 'Flash loan' '29.813200148729985322 WETH', 'New loan' Amount '29.999973745616401408 WETH', Principal receiver/Borrower 0x8463…33f2"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 3,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "buy(bytes[] executionData)",
+    "title": "buy: an ERC20 purchase-currency amount pulled from the signer appears only inside the raw callback hex",
+    "verdict": "refuted",
+    "reason": "The purchase-currency amount is displayed in raw callback data, which the severity guide treats as unreadable rather than hidden. Also, case 3 uses the native-currency sentinel, so it does not demonstrate the claimed ERC20 pull.",
+    "quote": "cases/3.json, buy screen: \"Callback data\": \"0x…eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee…\" and \"Value sent\": \"1.14239917054600485 ETH\". PurchaseBundler.sol, _afterPrincipalTransfer: \"if (purchaseCurrencyIsERC20)\" guards the safeTransferFrom. Registry .github/scripts/ai-review/prompt.md, <severity>: \"A value displayed raw, without its token, unit or decimals, is shown: that is a warning, never a critical.\""
+   },
+   {
+    "format": "sell(bytes[] executionData, bytes[] swapData)",
+    "title": "sell: the sale price and buyer of the signer's NFT appear only in raw callback hex",
+    "verdict": "refuted",
+    "reason": "The screen states the collateral sale and displays its order terms in callback hex. Under the supplied severity guide, unreadable terms are not a critical omission.",
+    "quote": "cases/0.json, sell screen: \"Sell collateral and repay loan\", \"Collateral\": \"Decagon #22867\", and \"Callback data\": \"0x…\". contracts/1-0x2b5e66c44b223b9d3b192e697f58795febcd6c10/src/src/lib/callbacks/PurchaseBundler.sol, _sellReleasedCollateralInMarketplace: \"(success,) = executionInfo.module.call{value: executionInfo.value}(executionInfo.data);\" Registry .github/scripts/ai-review/prompt.md, <severity>: \"A value displayed raw, without its token, unit or decimals, is shown: that is a warning, never a critical.\""
+   },
+   {
+    "format": "executeSellWithLoan(((address pool, address[] assets, uint256[] amounts) borrowArgs, (address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData) executeSellArgs, bytes[] loanExecutionData, address[] swapCurrencies, uint160[] swapAmounts, bytes[] swapData, bool unwrap) args)",
+    "title": "executeSellWithLoan: the flash-loan repayment plus premium pulled from the signer's wallet is not shown as an outflow",
+    "verdict": "refuted",
+    "reason": "The screen labels the amount “Flash loan,” not a received payout; repayment is inherent in that stated action. The code pulls only the repayment shortfall, and the pool supplies the premium, so the guide’s stated-action and derived-value exclusions apply.",
+    "quote": "cases/4.json, executeSellWithLoan screen: \"Flash loan\": \"29.813200148729985322 WETH\". contracts/1-0x2b5e66c44b223b9d3b192e697f58795febcd6c10/src/src/lib/callbacks/PurchaseBundler.sol, executeOperation: \"uint256 owed = amounts[i] + premiums[i];\" and \"if (balance < owed) { asset.safeTransferFrom(_buyer, address(this), owed - balance); }\" Registry .github/scripts/ai-review/prompt.md, <not_critical> items 12 and 3: \"A side effect that is the prerequisite or the meaning of the stated action\"; \"A party or a value the contract reads from storage or derives itself\"."
+   }
+  ]
  }
 }

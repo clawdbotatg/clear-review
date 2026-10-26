@@ -151,7 +151,7 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 127,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "Order(address exchange,address maker,address taker,uint256 makerRelayerFee,uint256 takerRelayerFee,uint256 makerProtocolFee,uint256 takerProtocolFee,address feeRecipient,uint8 feeMethod,uint8 side,uint8 saleKind,address target,uint8 howToCall,bytes calldata,bytes replacementPattern,address staticTarget,bytes staticExtradata,address paymentToken,uint256 basePrice,uint256 extra,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 nonce)": {
@@ -163,6 +163,7 @@
    "critical": 1,
    "warnings": 9,
    "worst": "Order: maker relayer and protocol fees taken from the signer are hidden, so the price shown is not what the signer nets or pays.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -173,5 +174,33 @@
   "functions": "1F",
   "incomplete": false,
   "worst": "Order: maker relayer and protocol fees taken from the signer are hidden, so the price shown is not what the signer nets or pays."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.292,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "Order(address exchange,address maker,address taker,uint256 makerRelayerFee,uint256 takerRelayerFee,uint256 makerProtocolFee,uint256 takerProtocolFee,address feeRecipient,uint8 feeMethod,uint8 side,uint8 saleKind,address target,uint8 howToCall,bytes calldata,bytes replacementPattern,address staticTarget,bytes staticExtradata,address paymentToken,uint256 basePrice,uint256 extra,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 nonce)",
+    "title": "Order: maker relayer and protocol fees taken from the signer are hidden, so the price shown is not what the signer nets or pays.",
+    "verdict": "confirmed",
+    "reason": "The maker fee rate and the fee recipient are fields of the signed order, not values from storage. On the SplitFee path, executeFundsTransfer sends price*makerRelayerFee/10000 of the payment token from the signer (the maker) to feeRecipient. In case 0 (feeMethod 1 = SplitFee, side Sell, makerRelayerFee 250, WETH) that is 0.1875 WETH, so the signer nets 7.3125 WETH, not the 7.5 WETH shown. The descriptor marks makerRelayerFee, makerProtocolFee and feeRecipient `visible: never`, and no other field or the intent mentions a fee. The guide's examples list 'amount minus a fee, full amount shown' as critical, and not-critical item 3 does not apply because the fee rate comes from the signed order, not from storage.",
+    "quote": "WyvernExchangeWithBulkCancellations.sol executeFundsTransfer: `if (sell.makerRelayerFee > 0) { uint makerRelayerFee = SafeMath.div(SafeMath.mul(sell.makerRelayerFee, price), INVERSE_BASIS_POINT); ... transferTokens(sell.paymentToken, sell.maker, sell.feeRecipient, makerRelayerFee);` and buy side `transferTokens(sell.paymentToken, buy.maker, buy.feeRecipient, makerRelayerFee)`; descriptor: `{\"path\": \"makerRelayerFee\", \"label\": \"Maker Relayer Fee\", \"visible\": \"never\"}`, `{\"path\": \"feeRecipient\", ... \"visible\": \"never\"}`; case 0 screen: `Price: 7.5 WETH`, and the message has makerRelayerFee \"250\", feeMethod 1, feeRecipient 0x5b32…0107"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "Order(address exchange,address maker,address taker,uint256 makerRelayerFee,uint256 takerRelayerFee,uint256 makerProtocolFee,uint256 takerProtocolFee,address feeRecipient,uint8 feeMethod,uint8 side,uint8 saleKind,address target,uint8 howToCall,bytes calldata,bytes replacementPattern,address staticTarget,bytes staticExtradata,address paymentToken,uint256 basePrice,uint256 extra,uint256 listingTime,uint256 expirationTime,uint256 salt,uint256 nonce)",
+    "title": "Order: maker relayer and protocol fees taken from the signer are hidden, so the price shown is not what the signer nets or pays.",
+    "verdict": "confirmed",
+    "reason": "Settlement charges maker fees that no displayed field states; valid sell orders lose fees from proceeds, and buy orders pay them additionally. Case 0 has no mined transaction and zero protocol fees, so 7.3125 WETH describes the fee calculation, not a verified receipt.",
+    "quote": "contracts/1-0x7f268357a8c2552623316e2562d90e642bb538e5/src/WyvernExchangeWithBulkCancellations.sol, executeFundsTransfer: `uint makerRelayerFee = SafeMath.div(SafeMath.mul(sell.makerRelayerFee, price), INVERSE_BASIS_POINT);` followed by `transferTokens(sell.paymentToken, sell.maker, sell.feeRecipient, makerRelayerFee);`; protocol fee: `transferTokens(sell.paymentToken, sell.maker, protocolFeeRecipient, makerProtocolFee);`; buy maker: `transferTokens(sell.paymentToken, buy.maker, buy.feeRecipient, makerRelayerFee);`. descriptor.json, Order fields: `{\"path\":\"makerRelayerFee\",\"label\":\"Maker Relayer Fee\",\"visible\":\"never\"}`, `{\"path\":\"makerProtocolFee\",\"label\":\"Maker Protocol Fee\",\"visible\":\"never\"}`, and `{\"path\":\"feeRecipient\",\"label\":\"Fee Recipient\",\"visible\":\"never\"}`. cases/0.json, screen: `{\"label\":\"Price\",\"value\":\"7.5 WETH\"}`; intent: `Sign Wyvern order`."
+   }
+  ]
  }
 }

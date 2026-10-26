@@ -222,7 +222,7 @@
   "unoswapWithPermit(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools, bytes permit)"
  ],
  "seconds": 128,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)": {
@@ -234,37 +234,96 @@
    "critical": 2,
    "warnings": 3,
    "worst": "swap is payable and has no @.value field; the REQUIRES_EXTRA_ETH flag lets ETH above desc.amount leave unshown",
+   "disputed": 0,
    "comprehension": 100
   },
   "unoswap(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 51,
    "measured": true,
    "groundTruth": true,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "unoswap takes ETH but never shows how much (@.value)",
+   "worst": "unoswap Minimum to Receive has no token and renders as a bare integer; the received AKITA is unnamed",
+   "disputed": 0,
    "comprehension": 75
   },
   "unoswapWithPermit(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools, bytes permit)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 25,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 3,
-   "worst": "unoswapWithPermit takes ETH but never shows how much (@.value)",
+   "worst": "unoswapWithPermit Minimum to Receive has no token and renders as a bare integer",
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
   "grade": "F",
-  "truth": 17,
+  "truth": 67,
   "clarity": 49,
-  "functions": "3F",
+  "functions": "2C 1F",
   "incomplete": false,
   "worst": "swap is payable and has no @.value field; the REQUIRES_EXTRA_ETH flag lets ETH above desc.amount leave unshown"
+ },
+ "verified": {
+  "n": 3,
+  "cost": 0.427,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)",
+    "title": "swap is payable and has no @.value field; the REQUIRES_EXTRA_ETH flag lets ETH above desc.amount leave unshown",
+    "verdict": "confirmed",
+    "reason": "When the _REQUIRES_EXTRA_ETH flag is set, swap() requires msg.value to be strictly greater than desc.amount (or greater than 0 for a token source), then forwards all of msg.value to the executor. The swap format has no @.value field and hides desc.flags with visible: never, so the extra ETH that leaves the wallet is never shown. Only desc.amount appears, as 'Amount to Send'.",
+    "quote": "AggregationRouterV3.sol swap(): `if (flags & _REQUIRES_EXTRA_ETH != 0) { require(msg.value > (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\"); }` and `address(caller).call{value: msg.value}(...)`; descriptor swap format: `{\"label\": \"Desc Flags\", \"path\": \"desc.flags\", \"visible\": \"never\"}` and no `@.value` field"
+   },
+   {
+    "format": "unoswap(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)",
+    "title": "unoswap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "unoswap() makes the ETH sent match a shown value or be zero. When srcToken is the zero address, callvalue must equal amount. The 'Amount to Send' field shows that amount as native currency, because nativeCurrencyAddress includes addressAsNull. For any other srcToken, a non-zero callvalue reverts.",
+    "quote": "UnoswapRouter.unoswap(): `case 0 { if iszero(eq(amount, callvalue())) { revertWithReason(... \"invalid msg.value\") } ... } default { if callvalue() { revertWithReason(... \"invalid msg.value\") } ...}`; descriptor sendAmount: `\"nativeCurrencyAddress\": [\"$.metadata.constants.addressAsEth\", \"$.metadata.constants.addressAsNull\"]`"
+   },
+   {
+    "format": "unoswapWithPermit(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools, bytes permit)",
+    "title": "unoswapWithPermit is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "unoswapWithPermit() calls _permit and then unoswap(), so the same callvalue checks apply. msg.value must equal the shown amount when srcToken is the zero address, and must be zero for any other token. No ETH leaves beyond the 'Amount to Send' field.",
+    "quote": "UnoswapRouter.unoswapWithPermit(): `_permit(srcToken, amount, permit); return unoswap(srcToken, amount, minReturn, pools);` → unoswap(): `if iszero(eq(amount, callvalue()))` / `if callvalue() { revertWithReason(...) }`"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 3,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "swap(address caller, (address srcToken, address dstToken, address srcReceiver, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes data)",
+    "title": "swap is payable and has no @.value field; the REQUIRES_EXTRA_ETH flag lets ETH above desc.amount leave unshown",
+    "verdict": "confirmed",
+    "reason": "With REQUIRES_EXTRA_ETH set, swap forwards native value beyond the displayed source amount to caller. The output minimum check does not require that extra value to be refunded.",
+    "quote": "contracts/1-0x11111112542d85b3ef69ae05771c2dccff4faa26/src/AggregationRouterV3.sol, swap(): `require(msg.value > (srcToken.isETH() ? desc.amount : 0), \"Invalid msg.value\");` and `address(caller).call{value: msg.value}(abi.encodePacked(caller.callBytes.selector, data))`. descriptor.json, swap: `\"path\": \"desc.amount\", \"$ref\": \"$.display.definitions.sendAmount\"`; definition: `\"label\": \"Amount to Send\"`; `\"path\": \"desc.flags\", \"visible\": \"never\"`. No field displays @.value or the extra native amount."
+   },
+   {
+    "format": "unoswap(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools)",
+    "title": "unoswap is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "For native input, unoswap requires msg.value to equal the displayed amount; for token input, it rejects nonzero msg.value. The native value is therefore shown through another field.",
+    "quote": "contracts/1-0x11111112542d85b3ef69ae05771c2dccff4faa26/src/AggregationRouterV3.sol, unoswap(): `case 0 { if iszero(eq(amount, callvalue())) { revertWithReason(0x00000011696e76616c6964206d73672e76616c75650000000000000000000000, 0x55) }` and `default { if callvalue() { revertWithReason(0x00000011696e76616c6964206d73672e76616c75650000000000000000000000, 0x55) }`. descriptor.json, unoswap: `\"path\": \"amount\", \"$ref\": \"$.display.definitions.sendAmount\", \"params\": { \"tokenPath\": \"srcToken\" }, \"visible\": \"always\"`. cases/1.json, screen: `\"label\": \"Amount to Send\", \"value\": \"0.00414225 ETH\"`."
+   },
+   {
+    "format": "unoswapWithPermit(address srcToken, uint256 amount, uint256 minReturn, bytes32[] pools, bytes permit)",
+    "title": "unoswapWithPermit is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "unoswapWithPermit internally calls unoswap, preserving msg.value and its checks. Nonzero native value must equal the displayed native amount; token input rejects it.",
+    "quote": "contracts/1-0x11111112542d85b3ef69ae05771c2dccff4faa26/src/AggregationRouterV3.sol, unoswapWithPermit(): `_permit(srcToken, amount, permit); return unoswap(srcToken, amount, minReturn, pools);`. unoswap(): `if iszero(eq(amount, callvalue())) { revertWithReason(0x00000011696e76616c6964206d73672e76616c75650000000000000000000000, 0x55) }`; token branch: `if callvalue() { revertWithReason(0x00000011696e76616c6964206d73672e76616c75650000000000000000000000, 0x55) }`. descriptor.json, unoswapWithPermit: `\"path\": \"amount\", \"$ref\": \"$.display.definitions.sendAmount\", \"params\": { \"tokenPath\": \"srcToken\" }, \"visible\": \"always\"`; sendAmount labels it `\"Amount to Send\"` and recognizes the zero address as native currency."
+   }
+  ]
  }
 }

@@ -483,7 +483,7 @@
  "account": "slop_buidlguidl",
  "hiddenValue": [],
  "seconds": 135,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "vaultBundlesV1Deposit(address vault, uint256 assets, uint256 maxSharePriceE27, (uint8 kind, bytes data) assetPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)": {
@@ -495,6 +495,7 @@
    "critical": 1,
    "warnings": 3,
    "worst": "vaultBundlesV1Deposit hides maxSharePriceE27, the only bound on how few vault shares the signer receives.",
+   "disputed": 0,
    "comprehension": 50
   },
   "vaultBundlesV1Withdraw(address vault, uint256 assets, uint256 shares, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)": {
@@ -506,6 +507,7 @@
    "critical": 0,
    "warnings": 3,
    "worst": "vaultBundlesV1Withdraw hides the fee recipient when it is the zero address, while a non-zero fee is shown.",
+   "disputed": 0,
    "comprehension": 50
   },
   "vaultBundlesV1Migrate(address sourceVault, address destVault, uint256 assetsWithdrawn, uint256 sharesRedeemed, uint256 destMaxSharePriceE27, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)": {
@@ -517,6 +519,7 @@
    "critical": 1,
    "warnings": 4,
    "worst": "vaultBundlesV1Migrate hides destMaxSharePriceE27, the only bound on how few destination shares the signer receives.",
+   "disputed": 0,
    "comprehension": 50
   }
  },
@@ -527,5 +530,47 @@
   "functions": "1C 2F",
   "incomplete": false,
   "worst": "vaultBundlesV1Deposit hides maxSharePriceE27, the only bound on how few vault shares the signer receives."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.32,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "vaultBundlesV1Deposit(address vault, uint256 assets, uint256 maxSharePriceE27, (uint8 kind, bytes data) assetPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)",
+    "title": "vaultBundlesV1Deposit hides maxSharePriceE27, the only bound on how few vault shares the signer receives.",
+    "verdict": "confirmed",
+    "reason": "The signer chooses maxSharePriceE27 in calldata, and it is the only check on how few shares the vault mints to them. The descriptor hides it with `visible: never`, and no field shows the shares or a minimum. This matches the guide's critical example \"how little may come back, is not shown\". It is not covered by not-critical #6 (that case is `visible: optional`) or #3 (this is a calldata bound, not a value read from storage).",
+    "quote": "VaultBundlesV1.sol, vaultBundlesV1Deposit: `uint256 shares = IERC4626(vault).deposit(toDeposit, msg.sender); require(toDeposit.mulDivUp(1e27, shares) <= maxSharePriceE27, SlippageExceeded());`. Descriptor: `{\"label\": \"Max share price\", \"path\": \"#.maxSharePriceE27\", \"visible\": \"never\"}`. Case 0 screen shows only Vault, \"Base units, with fee\" 2000000000, Referral fee 0% and Deadline, while the signer receives 1917030928050759063648 gtusdcp."
+   },
+   {
+    "format": "vaultBundlesV1Migrate(address sourceVault, address destVault, uint256 assetsWithdrawn, uint256 sharesRedeemed, uint256 destMaxSharePriceE27, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)",
+    "title": "vaultBundlesV1Migrate hides destMaxSharePriceE27, the only bound on how few destination shares the signer receives.",
+    "verdict": "confirmed",
+    "reason": "destMaxSharePriceE27 is the only calldata bound on how many destination-vault shares the signer receives, and the descriptor hides it with `visible: never`. No field shows the shares received or a minimum, so the screen does not state how little may come back. This is critical under the severity guide, and no not-critical case applies.",
+    "quote": "VaultBundlesV1.sol, vaultBundlesV1Migrate: `uint256 sharesMinted = IERC4626(destVault).deposit(toDeposit, msg.sender); require(toDeposit.mulDivUp(1e27, sharesMinted) <= destMaxSharePriceE27, SlippageExceeded());`. Descriptor: `{\"label\": \"Max share price\", \"path\": \"#.destMaxSharePriceE27\", \"visible\": \"never\"}`. Case 7 screen shows From vault, To vault, \"Shares to move\" 0.04033210861146132 gtWETHc, Referral fee and Deadline, while the signer receives 41832542822934993 gtwethb."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "vaultBundlesV1Deposit(address vault, uint256 assets, uint256 maxSharePriceE27, (uint8 kind, bytes data) assetPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)",
+    "title": "vaultBundlesV1Deposit hides maxSharePriceE27, the only bound on how few vault shares the signer receives.",
+    "verdict": "confirmed",
+    "reason": "The hidden calldata parameter sets the minimum acceptable shares for the deposited assets. No other displayed field states that bound; the exception for outputs derived by the vault does not cover this explicit input limit.",
+    "quote": "contracts/1-0x02912516d49de997db75b9d7858faae59209650b/src/lib/bundles/src/vault/VaultBundlesV1.sol, vaultBundlesV1Deposit: `uint256 shares = IERC4626(vault).deposit(toDeposit, msg.sender); require(toDeposit.mulDivUp(1e27, shares) <= maxSharePriceE27, SlippageExceeded());`. descriptor.json, vaultBundlesV1Deposit: `{\"label\":\"Max share price\",\"path\":\"#.maxSharePriceE27\",\"visible\":\"never\"}`. cases/0.json, screen: `\"intent\":\"Deposit to vault\"`; fields show only Vault, Base units with fee, Referral fee, and Deadline."
+   },
+   {
+    "format": "vaultBundlesV1Migrate(address sourceVault, address destVault, uint256 assetsWithdrawn, uint256 sharesRedeemed, uint256 destMaxSharePriceE27, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)",
+    "title": "vaultBundlesV1Migrate hides destMaxSharePriceE27, the only bound on how few destination shares the signer receives.",
+    "verdict": "confirmed",
+    "reason": "The hidden calldata parameter bounds the destination shares received. The displayed “Shares to move” shows source shares redeemed, so it does not disclose the destination output bound.",
+    "quote": "contracts/1-0x02912516d49de997db75b9d7858faae59209650b/src/lib/bundles/src/vault/VaultBundlesV1.sol, vaultBundlesV1Migrate: `uint256 sharesMinted = IERC4626(destVault).deposit(toDeposit, msg.sender); require(toDeposit.mulDivUp(1e27, sharesMinted) <= destMaxSharePriceE27, SlippageExceeded());`. descriptor.json, vaultBundlesV1Migrate: `{\"label\":\"Max share price\",\"path\":\"#.destMaxSharePriceE27\",\"visible\":\"never\"}`. cases/7.json, screen: `{\"label\":\"Shares to move\",\"value\":\"0.04033210861146132 gtWETHc\"}`; remaining fields show From vault, To vault, Referral fee, and Deadline."
+   }
+  ]
  }
 }

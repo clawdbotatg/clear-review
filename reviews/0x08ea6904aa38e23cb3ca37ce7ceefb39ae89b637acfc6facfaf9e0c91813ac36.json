@@ -85,7 +85,7 @@
  "account": "slop_buidlguidl",
  "hiddenValue": [],
  "seconds": 40,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "MetaTransaction(uint256 nonce,address from,bytes functionSignature)": {
@@ -97,6 +97,7 @@
    "critical": 2,
    "warnings": 3,
    "worst": "MetaTransaction hides functionSignature, the call that runs in the signer's name",
+   "disputed": 1,
    "comprehension": null
   }
  },
@@ -107,5 +108,47 @@
   "functions": "1F",
   "incomplete": true,
   "worst": "MetaTransaction hides functionSignature, the call that runs in the signer's name"
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.239,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "MetaTransaction(uint256 nonce,address from,bytes functionSignature)",
+    "title": "MetaTransaction hides functionSignature, the call that runs in the signer's name",
+    "verdict": "unsure",
+    "reason": "The descriptor does hide functionSignature, and the case 0 screen shows only 'User Address' and 'Meta Transaction Nonce'. But the only contract bound here is RoyaltiesRegistry, which has no executeMetaTransaction and no other code that runs functionSignature for `from`. No mined tx exists either (txHash is null). So nothing here shows that the hidden call actually runs in the signer's name.",
+    "quote": "descriptor.json MetaTransaction format: {\"label\": \"Function Signature\", \"path\": \"functionSignature\", \"visible\": \"never\"}; RoyaltiesRegistry.sol functions are only __RoyaltiesRegistry_init, setProviderByToken, getProvider, getRoyaltiesType, forceSetRoyaltiesType, clearRoyaltiesType, setRoyaltiesByToken, getRoyalties plus internal helpers; cases/0.json \"txHash\": null"
+   },
+   {
+    "format": "MetaTransaction(uint256 nonce,address from,bytes functionSignature)",
+    "title": "MetaTransaction is bound to a Polygon RoyaltiesRegistry that has no meta-transaction verification",
+    "verdict": "confirmed",
+    "reason": "The bound address is a non-proxy RoyaltiesRegistry (exact match). Its source and ABI have no meta-transaction, EIP-712 or ecrecover code, so this contract does not verify the MetaTransaction type or the 'Rarible' domain the descriptor declares. The severity guide lists 'An EIP-712 domain or type that the verifying contract does not use' as critical.",
+    "quote": "meta.json: \"fullyQualifiedName\": \"@rarible/royalties-registry/contracts/RoyaltiesRegistry.sol:RoyaltiesRegistry\", \"proxyResolution\": {\"isProxy\": false}; grep MetaTransaction|EIP712|ecrecover|domain|executeMeta in contracts/: no matches; descriptor.json context.eip712.deployments [{\"chainId\":137,\"address\":\"0x7f19564c35c681099c0c857a7141836cf7edaa53\"}], domain {\"name\":\"Rarible\"}"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "MetaTransaction(uint256 nonce,address from,bytes functionSignature)",
+    "title": "MetaTransaction hides functionSignature, the call that runs in the signer's name",
+    "verdict": "refuted",
+    "reason": "The bytes are hidden, but the bound registry has no meta-transaction executor, transfer function, or fallback to execute them. Case 0 has no mined transaction; transfer-shaped bytes alone do not establish an asset transfer.",
+    "quote": "descriptor.json, MetaTransaction format: \"path\": \"functionSignature\", \"visible\": \"never\". cases/0.json: \"txHash\": null. contracts/137-0x7f19564c35c681099c0c857a7141836cf7edaa53/src/@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol, _msgSender(): \"return msg.sender;\"; src/@rarible/royalties-registry/contracts/RoyaltiesRegistry.sol, checkOwner(): \"revert(\\\"Token owner not detected\\\");\""
+   },
+   {
+    "format": "MetaTransaction(uint256 nonce,address from,bytes functionSignature)",
+    "title": "MetaTransaction is bound to a Polygon RoyaltiesRegistry that has no meta-transaction verification",
+    "verdict": "refuted",
+    "reason": "The binding mismatch is real, but it does not establish a critical effect: this registry cannot consume the signature or execute an alternative authorized action. No mined effect or other signature consumer demonstrates a change to the signer's assets or rights.",
+    "quote": "contracts/137-0x7f19564c35c681099c0c857a7141836cf7edaa53/meta.json: \"fullyQualifiedName\": \"@rarible/royalties-registry/contracts/RoyaltiesRegistry.sol:RoyaltiesRegistry\", \"isProxy\": false. cases/0.json: \"txHash\": null. Registry .github/scripts/ai-review/prompt.md, <severity>: \"Facts, not possibilities.\"; <not_critical> item 14: \"a critical states what the transaction does.\""
+   }
+  ]
  }
 }

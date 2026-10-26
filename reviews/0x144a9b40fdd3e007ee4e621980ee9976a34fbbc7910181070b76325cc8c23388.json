@@ -407,29 +407,31 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 135,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "vaultExitBundlesV1InKindRedemptionVaultV1(address vault, (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv)[] marketParamsList, uint256 exitAssets, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 deadline)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 35,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 2,
-   "worst": "InKindRedemptionVaultV1 hides sharesPermit, which grants a share allowance and is the only bound on shares burned",
+   "worst": "InKindRedemptionVaultV1 shows exitAssets as raw base units although the loan token is in calldata",
+   "disputed": 0,
    "comprehension": null
   },
   "vaultExitBundlesV1InKindRedemptionVaultV2(address vault, address adapter, (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv)[] marketParamsList, uint256 exitAssets, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 deadline)": {
-   "grade": "F",
-   "truth": 0,
+   "grade": "C",
+   "truth": 90,
    "clarity": 22,
    "measured": true,
    "groundTruth": true,
-   "critical": 1,
+   "critical": 0,
    "warnings": 3,
-   "worst": "InKindRedemptionVaultV2 hides sharesPermit: the vault-share allowance it grants is not shown",
+   "worst": "InKindRedemptionVaultV2: idle vault assets go to the signer's wallet, but the intent says only 'into markets'",
+   "disputed": 0,
    "comprehension": 25
   },
   "vaultExitBundlesV1ForceWithdrawVaultV2(address vault, address adapter, uint256 exitAssets, uint256 minSharePriceE27, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)": {
@@ -438,18 +440,89 @@
    "clarity": 37,
    "measured": true,
    "groundTruth": true,
-   "critical": 2,
+   "critical": 1,
    "warnings": 1,
    "worst": "ForceWithdrawVaultV2 hides minSharePriceE27, the only slippage bound on vault shares burned",
+   "disputed": 1,
    "comprehension": 40
   }
  },
  "summary": {
   "grade": "F",
-  "truth": 8,
+  "truth": 63,
   "clarity": 31,
-  "functions": "3F",
+  "functions": "2C 1F",
   "incomplete": true,
-  "worst": "InKindRedemptionVaultV2 hides sharesPermit: the vault-share allowance it grants is not shown"
+  "worst": "ForceWithdrawVaultV2 hides minSharePriceE27, the only slippage bound on vault shares burned"
+ },
+ "verified": {
+  "n": 4,
+  "cost": 0.511,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "vaultExitBundlesV1InKindRedemptionVaultV1(address vault, (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv)[] marketParamsList, uint256 exitAssets, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 deadline)",
+    "title": "InKindRedemptionVaultV1 hides sharesPermit, which grants a share allowance and is the only bound on shares burned",
+    "verdict": "refuted",
+    "reason": "The permit only lets the called bundler spend the signer's vault shares, which the stated exit needs; that is a prerequisite of the named action (not_critical #12). Every share pull uses the signer as owner (`sender` = msg.sender), so leftover allowance is usable only by the signer's own calls. The shares burned are exitAssets (shown) converted at the vault's stored price, so they come from storage (not_critical #3). The permit value is a bound the signer set in a separate signature, not a hidden transfer.",
+    "quote": "VaultExitBundlesV1.vaultExitBundlesV1InKindRedemptionVaultV1: `TokenLib.submitPermit(vault, sharesPermit);` … `bytes memory data = abi.encode(vault, marketParamsList, msg.sender);` → onMorphoFlashLoan: `IMetaMorpho(vault).withdraw(exitAssets, address(this), sender);` Descriptor shows `#.exitAssets` 'Amount (base units)' and the intent 'Exit vault into markets'."
+   },
+   {
+    "format": "vaultExitBundlesV1InKindRedemptionVaultV2(address vault, address adapter, (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv)[] marketParamsList, uint256 exitAssets, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 deadline)",
+    "title": "InKindRedemptionVaultV2 hides sharesPermit: the vault-share allowance it grants is not shown",
+    "verdict": "refuted",
+    "reason": "The allowance goes to the bundler the signer calls, and the exit spends it at once: 11761074799546078162954 approved, 11761073694391343316142 burned, about 1e15 wei left. Every withdraw uses msg.sender or the callback `sender` (= msg.sender) as owner, so no third party can use the allowance. It is the prerequisite of the stated exit (not_critical #12).",
+    "quote": "VaultExitBundlesV1.vaultExitBundlesV1InKindRedemptionVaultV2: `TokenLib.submitPermit(vault, sharesPermit);` `IVaultV2(vault).withdraw(assetsToWithdrawFromIdle, address(this), msg.sender);` onMorphoSupply: `IVaultV2(vault).withdraw(assets, address(this), sender);` Case 0 signerNet: NOONECOUSDC -11761073694391343316142."
+   },
+   {
+    "format": "vaultExitBundlesV1ForceWithdrawVaultV2(address vault, address adapter, uint256 exitAssets, uint256 minSharePriceE27, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)",
+    "title": "ForceWithdrawVaultV2 hides minSharePriceE27, the only slippage bound on vault shares burned",
+    "verdict": "refuted",
+    "reason": "minSharePriceE27 only adds a revert condition (SlippageExceeded). It moves no asset. The screen shows the assets withdrawn (exitAssets) and the intent says a penalty may apply. The shares burned for those assets come from the vault's stored share price and penalty (not_critical #3). In mined case 1, the signer got 310496.9 USDC for the 310500 USDC shown, as the screen implies. A hidden revert guard is at most a warning, not a hidden effect.",
+    "quote": "VaultExitBundlesV1.vaultExitBundlesV1ForceWithdrawVaultV2: `require(totalSharesBurnt == 0 || withdrawn.mulDivDown(1e27, totalSharesBurnt) >= minSharePriceE27, SlippageExceeded());` Screen: intent 'Force withdraw, may pay a penalty', 'Amount (base units)' 310500000000."
+   },
+   {
+    "format": "vaultExitBundlesV1ForceWithdrawVaultV2(address vault, address adapter, uint256 exitAssets, uint256 minSharePriceE27, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)",
+    "title": "ForceWithdrawVaultV2 hides sharesPermit, which grants the bundler an allowance on the signer's vault shares",
+    "verdict": "refuted",
+    "reason": "The share allowance goes to the bundler that the signer calls, and it is spent in the same transaction to burn the signer's shares for the stated force withdraw. The vault-share withdraw calls use msg.sender as owner, so only the signer's own calls can use any leftover allowance. This is a prerequisite of the named action (not_critical #12).",
+    "quote": "VaultExitBundlesV1.vaultExitBundlesV1ForceWithdrawVaultV2: `TokenLib.submitPermit(vault, sharesPermit);` `IVaultV2(vault).withdraw(assetsToWithdraw, address(this), msg.sender);` `IVaultV2(vault).withdraw(assetsToDeallocate, address(this), msg.sender);` Case 1: approval 292808229086517865502840, signerNet hyperUSDCa -292629373190401992314032."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 4,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "vaultExitBundlesV1InKindRedemptionVaultV1(address vault, (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv)[] marketParamsList, uint256 exitAssets, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 deadline)",
+    "title": "InKindRedemptionVaultV1 hides sharesPermit, which grants a share allowance and is the only bound on shares burned",
+    "verdict": "refuted",
+    "reason": "The permit is a prerequisite approval for the stated exit, covered by not-critical item 12. It is not an unconditional burn limit: an empty or consumed permit is skipped, leaving the existing allowance operative.",
+    "quote": "registry/.github/scripts/ai-review/prompt.md, <not_critical> item 12: \"A side effect that is the prerequisite or the meaning of the stated action\" is info. contracts/1-0xaf85af286637a033be7d59ed8cc566afa3309b02/src/lib/bundles/src/libraries/TokenLib.sol, submitPermit: \"if (!emptyPermit && IERC20Permit(token).nonces(msg.sender) <= permit.nonce)\". VaultExitBundlesV1.sol, vaultExitBundlesV1InKindRedemptionVaultV1: \"The sender must have given enough allowance over vault shares to this bundler, beforehand or via sharesPermit.\""
+   },
+   {
+    "format": "vaultExitBundlesV1InKindRedemptionVaultV2(address vault, address adapter, (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv)[] marketParamsList, uint256 exitAssets, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 deadline)",
+    "title": "InKindRedemptionVaultV2 hides sharesPermit: the vault-share allowance it grants is not shown",
+    "verdict": "refuted",
+    "reason": "The mined approval is real, but it authorizes the bundler to perform the stated vault exit. The guide classifies such prerequisite approvals as info rather than critical.",
+    "quote": "registry/.github/scripts/ai-review/prompt.md, <not_critical> item 12: \"approving the router that is named for the swap it performs\" is a prerequisite side effect classified as info. contracts/1-0xaf85af286637a033be7d59ed8cc566afa3309b02/src/lib/bundles/src/vault-exit/VaultExitBundlesV1.sol, vaultExitBundlesV1InKindRedemptionVaultV2: \"The sender must have given enough allowance over vault shares to this bundler, beforehand or via sharesPermit.\" descriptor.json, corresponding format: \"intent\": \"Exit vault into markets, may pay a penalty\"."
+   },
+   {
+    "format": "vaultExitBundlesV1ForceWithdrawVaultV2(address vault, address adapter, uint256 exitAssets, uint256 minSharePriceE27, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)",
+    "title": "ForceWithdrawVaultV2 hides minSharePriceE27, the only slippage bound on vault shares burned",
+    "verdict": "confirmed",
+    "reason": "The calldata minimum sets an enforceable limit on withdrawn assets per burned share, but the screen hides it entirely. Showing the withdrawal amount and a possible penalty does not disclose this limit.",
+    "quote": "contracts/1-0xaf85af286637a033be7d59ed8cc566afa3309b02/src/lib/bundles/src/vault-exit/VaultExitBundlesV1.sol, vaultExitBundlesV1ForceWithdrawVaultV2: \"require( totalSharesBurnt == 0 || withdrawn.mulDivDown(1e27, totalSharesBurnt) >= minSharePriceE27, SlippageExceeded() );\" descriptor.json, corresponding format: {\"label\":\"Min share price\",\"path\":\"#.minSharePriceE27\",\"visible\":\"never\"}. cases/1.json, screen: \"Force withdraw, may pay a penalty\", with only \"Vault\", \"Amount (base units)\" and \"Deadline\" fields."
+   },
+   {
+    "format": "vaultExitBundlesV1ForceWithdrawVaultV2(address vault, address adapter, uint256 exitAssets, uint256 minSharePriceE27, (uint256 value, uint256 nonce, uint256 deadline, uint8 v, bytes32 r, bytes32 s) sharesPermit, uint256 referralFeePct, address referralFeeRecipient, uint256 deadline)",
+    "title": "ForceWithdrawVaultV2 hides sharesPermit, which grants the bundler an allowance on the signer's vault shares",
+    "verdict": "refuted",
+    "reason": "The allowance enables the bundler to execute the stated withdrawal. Although hidden, this prerequisite approval falls under the guide’s explicit not-critical exception.",
+    "quote": "registry/.github/scripts/ai-review/prompt.md, <not_critical> item 12: \"A side effect that is the prerequisite or the meaning of the stated action\" is info. contracts/1-0xaf85af286637a033be7d59ed8cc566afa3309b02/src/lib/bundles/src/vault-exit/VaultExitBundlesV1.sol, vaultExitBundlesV1ForceWithdrawVaultV2: \"The sender must have given enough allowance over vault shares to this bundler, beforehand or via sharesPermit.\" descriptor.json, corresponding format: \"intent\": \"Force withdraw, may pay a penalty\"."
+   }
+  ]
  }
 }

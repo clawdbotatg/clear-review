@@ -122,7 +122,7 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 52,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "unlink_with_sig(uint256 handle_id,uint256 profile_id,uint256 signatureDeadline)": {
@@ -134,6 +134,7 @@
    "critical": 2,
    "warnings": 2,
    "worst": "unlink_with_sig: the primary type and its members do not exist in the verifying contract.",
+   "disputed": 2,
    "comprehension": null
   },
   "unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)": {
@@ -145,6 +146,7 @@
    "critical": 2,
    "warnings": 1,
    "worst": "unlink: the EIP-712 domain name and version differ from the ones TokenHandleRegistry verifies.",
+   "disputed": 2,
    "comprehension": null
   }
  },
@@ -155,5 +157,75 @@
   "functions": "2F",
   "incomplete": false,
   "worst": "unlink_with_sig: the primary type and its members do not exist in the verifying contract."
+ },
+ "verified": {
+  "n": 4,
+  "cost": 0.253,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "unlink_with_sig(uint256 handle_id,uint256 profile_id,uint256 signatureDeadline)",
+    "title": "unlink_with_sig: the primary type and its members do not exist in the verifying contract.",
+    "verdict": "confirmed",
+    "reason": "The verifying contract hashes only the Unlink(handleId,profileId,nonce,deadline) type. The descriptor key unlink_with_sig(handle_id,profile_id,signatureDeadline) uses a different type name and different member names, and it has no nonce. The guide lists a type the verifier does not use as critical.",
+    "quote": "Typehash.sol: `bytes32 constant UNLINK = keccak256('Unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)');` used in TokenHandleRegistry._validateUnlinkSignature `abi.encode(Typehash.UNLINK, handleId, profileId, _getNonceIncrementAndEmitEvent(signature.signer), signature.deadline)`; descriptor key \"unlink_with_sig(uint256 handle_id,uint256 profile_id,uint256 signatureDeadline)\""
+   },
+   {
+    "format": "unlink_with_sig(uint256 handle_id,uint256 profile_id,uint256 signatureDeadline)",
+    "title": "unlink_with_sig: the EIP-712 domain name and version differ from the ones TokenHandleRegistry uses.",
+    "verdict": "confirmed",
+    "reason": "The proxy 0xd4f2…8844 resolves to the TokenHandleRegistry implementation. Its domain separator uses the name 'TokenHandleRegistry' and version '1', but the descriptor declares 'Lens Protocol Profiles' version '2'. The guide lists a domain the verifier does not use as critical.",
+    "quote": "TokenHandleRegistry.calculateDomainSeparator: `abi.encode(Typehash.EIP712_DOMAIN, keccak256('TokenHandleRegistry'), EIP712_DOMAIN_VERSION_HASH, block.chainid, address(this))` with `string constant EIP712_DOMAIN_VERSION = '1';`; descriptor context.eip712.domain {\"name\": \"Lens Protocol Profiles\", \"version\": \"2\"}"
+   },
+   {
+    "format": "unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)",
+    "title": "unlink: the EIP-712 domain name and version differ from the ones TokenHandleRegistry verifies.",
+    "verdict": "confirmed",
+    "reason": "The domain is shared by both formats, so the unlink format also declares a domain the contract does not use. A real Unlink message under name TokenHandleRegistry, version 1, never matches this descriptor.",
+    "quote": "TokenHandleRegistry.calculateDomainSeparator: `keccak256('TokenHandleRegistry'), EIP712_DOMAIN_VERSION_HASH` (EIP712_DOMAIN_VERSION = '1'); descriptor domain {\"name\": \"Lens Protocol Profiles\", \"version\": \"2\"}; cases/1.json domain name \"Lens Protocol Profiles\", version \"2\""
+   },
+   {
+    "format": "unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)",
+    "title": "unlink: the format key uses primary type \"unlink\", but the contract hashes type \"Unlink\".",
+    "verdict": "confirmed",
+    "reason": "The members match in order and type, but the descriptor names the primary type 'unlink' and the contract hashes 'Unlink'. encodeType is case-sensitive, so the type hash differs; cases/1.json uses primaryType \"unlink\".",
+    "quote": "Typehash.sol: `keccak256('Unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)')`; descriptor key \"unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)\""
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 4,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "unlink_with_sig(uint256 handle_id,uint256 profile_id,uint256 signatureDeadline)",
+    "title": "unlink_with_sig: the primary type and its members do not exist in the verifying contract.",
+    "verdict": "refuted",
+    "reason": "The type mismatch is real, but it does not establish a critical effect: signature validation rejects the mismatched digest before unlinking. No accepted signature with a different hidden effect is demonstrated.",
+    "quote": "contracts/137-0x52fa68d73c83df39b9a637f82361d9b70aab74f4/src/contracts/namespaces/constants/Typehash.sol: \"bytes32 constant UNLINK = keccak256('Unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)');\" TokenHandleRegistry.sol, unlinkWithSig: \"_validateUnlinkSignature(signature, handleId, profileId);\" precedes \"_unlink(handleId, profileId, signature.signer);\" _validateRecoveredAddress: \"if (recoveredAddress == address(0) || recoveredAddress != signature.signer) { revert Errors.SignatureInvalid(); }\""
+   },
+   {
+    "format": "unlink_with_sig(uint256 handle_id,uint256 profile_id,uint256 signatureDeadline)",
+    "title": "unlink_with_sig: the EIP-712 domain name and version differ from the ones TokenHandleRegistry uses.",
+    "verdict": "refuted",
+    "reason": "The domain mismatch is real, but signatures under that domain do not authorize the stated registry operation. The code validates its own domain before changing rights; no hidden accepted effect is evidenced.",
+    "quote": "descriptor.json, context.eip712.domain: \"name\": \"Lens Protocol Profiles\", \"version\": \"2\". contracts/137-0x52fa68d73c83df39b9a637f82361d9b70aab74f4/src/contracts/namespaces/TokenHandleRegistry.sol, calculateDomainSeparator: \"keccak256('TokenHandleRegistry'), EIP712_DOMAIN_VERSION_HASH\"; constant: \"string constant EIP712_DOMAIN_VERSION = '1';\" _validateRecoveredAddress: \"if (recoveredAddress == address(0) || recoveredAddress != signature.signer) { revert Errors.SignatureInvalid(); }\""
+   },
+   {
+    "format": "unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)",
+    "title": "unlink: the EIP-712 domain name and version differ from the ones TokenHandleRegistry verifies.",
+    "verdict": "refuted",
+    "reason": "The mismatched domain prevents normal signature acceptance rather than authorizing an undisclosed unlink. Real messages failing to match the descriptor is a compatibility defect, without a demonstrated critical asset or rights effect.",
+    "quote": "contracts/137-0x52fa68d73c83df39b9a637f82361d9b70aab74f4/src/contracts/namespaces/TokenHandleRegistry.sol, _calculateDigest: \"return keccak256(abi.encodePacked('\\x19\\x01', calculateDomainSeparator(), hashedMessage));\" unlinkWithSig: \"_validateUnlinkSignature(signature, handleId, profileId);\" precedes \"_unlink(handleId, profileId, signature.signer);\" _validateRecoveredAddress rejects an incorrect recovered signer with \"revert Errors.SignatureInvalid();\""
+   },
+   {
+    "format": "unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)",
+    "title": "unlink: the format key uses primary type \"unlink\", but the contract hashes type \"Unlink\".",
+    "verdict": "refuted",
+    "reason": "The case-sensitive type mismatch exists, but validation rejects a signature over the lowercase type before unlinking. Neither case supplies a mined effect demonstrating a hidden change to assets or rights.",
+    "quote": "descriptor.json, display.formats: \"unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)\". contracts/137-0x52fa68d73c83df39b9a637f82361d9b70aab74f4/src/contracts/namespaces/constants/Typehash.sol: \"bytes32 constant UNLINK = keccak256('Unlink(uint256 handleId,uint256 profileId,uint256 nonce,uint256 deadline)');\" TokenHandleRegistry.sol, _validateUnlinkSignature uses \"Typehash.UNLINK\"; _validateRecoveredAddress rejects an incorrect recovered signer with \"revert Errors.SignatureInvalid();\" cases/0.json and cases/1.json: \"txHash\": null."
+   }
+  ]
  }
 }

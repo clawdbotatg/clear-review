@@ -74,7 +74,7 @@
  "account": "ethereum_foundation",
  "hiddenValue": [],
  "seconds": 52,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)": {
@@ -86,6 +86,7 @@
    "critical": 1,
    "warnings": 2,
    "worst": "Permit descriptor binds to domain version \"2\", but the contract verifies permits with version \"1\".",
+   "disputed": 1,
    "comprehension": null
   }
  },
@@ -96,5 +97,33 @@
   "functions": "1F",
   "incomplete": false,
   "worst": "Permit descriptor binds to domain version \"2\", but the contract verifies permits with version \"1\"."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.207,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+    "title": "Permit descriptor binds to domain version \"2\", but the contract verifies permits with version \"1\".",
+    "verdict": "confirmed",
+    "reason": "The only domain this contract checks against is built with version \"1\". It also puts the chain ID in a salt field, not in a chainId field. The descriptor binds to version \"2\", so it is tied to a domain the verifying contract never uses. The severity guide lists this as critical: \"An EIP-712 domain or type that the verifying contract does not use\". Neither the screen nor anything else in the descriptor fixes it. The claim about the name (\"USD Coin\" vs \"USD Coin (PoS)\") rests on storage set at initialize and can't be checked from the source, but the version mismatch is enough on its own.",
+    "quote": "UChildAdministrableERC20.sol (implementation 0xDD91…2226 behind proxy 0x2791…4174 per meta.json), contract UChildERC20: `string public constant EIP712_VERSION = \"1\";` and `_setDomainSeparator(newName, EIP712_VERSION);` in initialize/updateMetadata; library EIP712: `// keccak256(\"EIP712Domain(string name,string version,address verifyingContract,bytes32 salt)\")` with `bytes32(chainId)` as salt; Permit._permit: `require(EIP712.recover(DOMAIN_SEPARATOR, v, r, s, data) == owner, ...)`. descriptor.json context.eip712.domain: `\"name\": \"USD Coin\", \"version\": \"2\"`."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
+    "title": "Permit descriptor binds to domain version \"2\", but the contract verifies permits with version \"1\".",
+    "verdict": "refuted",
+    "reason": "The version mismatch is real, but a signature over version \"2\" fails verification before any allowance changes; it does not authorize a hidden effect. The metadata owner label also does not establish the stored domain name.",
+    "quote": "contracts/137-0xdd9185db084f5c4fff3b4f70e7ba62123b812226/src/UChildAdministrableERC20.sol — UChildERC20: `string public constant EIP712_VERSION = \"1\";`; initialize/updateMetadata: `_setDomainSeparator(newName, EIP712_VERSION);`; _permit: `require(EIP712.recover(DOMAIN_SEPARATOR, v, r, s, data) == owner, \"Permit: invalid signature\");` precedes `_approve(owner, spender, value);`. descriptor.json — context.eip712.domain: `\"name\": \"USD Coin\", \"version\": \"2\"`. cases/0.json — screen.intent: `\"Authorize spending of tokens\"`; `\"txHash\": null`."
+   }
+  ]
  }
 }

@@ -230,8 +230,8 @@
  "account": "slop_buidlguidl",
  "hiddenValue": [],
  "seconds": 94,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "pass",
  "formats": {
   "addLiquidity(uint256 amount0, uint256 amount1, address to)": {
    "grade": "A",
@@ -242,6 +242,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "approve(address spender, uint256 value)": {
@@ -253,6 +254,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "removeLiquidity(uint256 shares, uint256 minAmount0, uint256 minAmount1, address to)": {
@@ -264,6 +266,7 @@
    "critical": 0,
    "warnings": 1,
    "worst": "removeLiquidity: the sentence 'Redeem {shares} to {to}' suggests the shares go to the recipient and leaves out the tokens received.",
+   "disputed": 0,
    "comprehension": null
   },
   "removeLiquidityExact(uint256 amount0, uint256 amount1, uint256 maxShares, address to)": {
@@ -275,6 +278,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "skim(address to)": {
@@ -286,39 +290,43 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "swap(address tokenIn, uint256 amount, address to)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 58,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 0,
-   "worst": "swap: the output token and the amount received (equal to the input, 1:1) appear nowhere on the screen.",
+   "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "swapPushed(address tokenIn, uint256 amount, address to)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 43,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 1,
-   "worst": "swapPushed: the output token and amount sent to the recipient (1:1 other pool token) are not shown.",
+   "worst": "swapPushed: the label 'Pay' implies the call takes tokens from the signer, but it uses tokens already in the pool.",
+   "disputed": 0,
    "comprehension": null
   },
   "swapWithAuthorization(address tokenIn, uint256 amount, address from, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 100,
    "clarity": 50,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 0,
-   "worst": "swapWithAuthorization: the output token and amount, and that the output goes to `from`, are not shown.",
+   "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "transfer(address to, uint256 value)": {
@@ -330,6 +338,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "transferFrom(address from, address to, uint256 value)": {
@@ -341,15 +350,72 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 78,
+  "grade": "C",
+  "truth": 100,
   "clarity": 75,
-  "functions": "5A 2B 3F",
+  "functions": "5A 2B 3C",
   "incomplete": false,
-  "worst": "swap: the output token and the amount received (equal to the input, 1:1) appear nowhere on the screen."
+  "worst": null
+ },
+ "verified": {
+  "n": 3,
+  "cost": 0.318,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "swap(address tokenIn, uint256 amount, address to)",
+    "title": "swap: the output token and the amount received (equal to the input, 1:1) appear nowhere on the screen.",
+    "verdict": "refuted",
+    "reason": "The screen shows the amount paid with its token (via tokenPath), and the recipient. The output is the same amount of the pool's other immutable token, which the contract picks from `tokenIn`. No ERC-7730 field can choose 'the other token' from `tokenIn`, so this is an output decided by the pool: info / spec-limitation under not_critical #3, at most a wording warning. No amount differs from what is shown, and no sibling format shows an output that this one leaves out.",
+    "quote": "ParSwapPool.sol _settleSwap: `if (zeroForOne) { ... token1.safeTransfer(to, amount); } else { ... token0.safeTransfer(to, amount); }`; _sideOf: `zeroForOne = tokenIn == address(token0)`. Descriptor swap: field 'Pay' {amount} tokenPath tokenIn, field 'To' {to}; case 5 screen 'Pay 21.37 zkUSD', 'To Bob'."
+   },
+   {
+    "format": "swapPushed(address tokenIn, uint256 amount, address to)",
+    "title": "swapPushed: the output token and amount sent to the recipient (1:1 other pool token) are not shown.",
+    "verdict": "refuted",
+    "reason": "This is the same situation as finding 0. The amount and the input token are shown, and so is the recipient. The output token is derived by the contract from the immutable pair, so a descriptor cannot show it: info / spec-limitation (not_critical #3). The output amount equals the amount shown, so no other amount or recipient is involved. The 'Pay' label can mislead, but that is a separate warning.",
+    "quote": "ParSwapPool.sol swapPushed: `_settleSwap(zeroForOne, amount, tokenIn, to); return amount;` with `@param amount Amount pushed in, which is also the amount out.` Descriptor swapPushed fields: 'Pay' {amount} (tokenPath tokenIn), 'To' {to}."
+   },
+   {
+    "format": "swapWithAuthorization(address tokenIn, uint256 amount, address from, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)",
+    "title": "swapWithAuthorization: the output token and amount, and that the output goes to `from`, are not shown.",
+    "verdict": "refuted",
+    "reason": "The output recipient is `from`, and `from` is shown as its own field and in the sentence. The contract always pays out to the owner who signed the authorization, which is not_critical #3/#4. A relayer who submits the call has none of their own assets moved, and if the signer is `from`, the funds return to them. The output token and amount have the same pool-derived spec-limitation as finding 0.",
+    "quote": "ParSwapPool.sol swapWithAuthorization: `IERC3009(tokenIn).receiveWithAuthorization(from, address(this), amount, ...); _settleSwap(zeroForOne, amount, tokenIn, from);` with the comment 'Output always goes to `from`: a relayer cannot redirect it.' Descriptor: field 'From' {from}, interpolatedIntent 'Swap {amount} from {from}'."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 3,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "swap(address tokenIn, uint256 amount, address to)",
+    "title": "swap: the output token and the amount received (equal to the input, 1:1) appear nowhere on the screen.",
+    "verdict": "refuted",
+    "reason": "The output token is derived from the pool pair, which the guide excludes from critical findings. The output amount equals the displayed amount without deduction; its missing output label is not a hidden value.",
+    "quote": "contracts/8453-0x0a8cdd1b39f476cdde606a7e4c330b3ddb04314e/src/src/swap/ParSwapPool.sol, _settleSwap: `token1.safeTransfer(to, amount);` / `token0.safeTransfer(to, amount);`. cases/5.json, swap screen: `Swap 21.37 zkUSD, send to Bob`. Registry .github/scripts/ai-review/prompt.md, <checks> 12: `an output token decided by a pool`; <not_critical> 2: `A value that is shown through another field`."
+   },
+   {
+    "format": "swapPushed(address tokenIn, uint256 amount, address to)",
+    "title": "swapPushed: the output token and amount sent to the recipient (1:1 other pool token) are not shown.",
+    "verdict": "refuted",
+    "reason": "The pool derives the output token, and settlement transfers exactly the displayed amount to the displayed recipient. The guide treats the derived token as info and the missing output labeling as noncritical.",
+    "quote": "contracts/8453-0x0a8cdd1b39f476cdde606a7e4c330b3ddb04314e/src/src/swap/ParSwapPool.sol, swapPushed: `_settleSwap(zeroForOne, amount, tokenIn, to);`; _settleSwap: `token1.safeTransfer(to, amount);` / `token0.safeTransfer(to, amount);`. cases/6.json: `Swap (pre-funded)`, `Swap 21.37 zkUSD, send to Bob`. Registry .github/scripts/ai-review/prompt.md, <checks> 12: `an output token decided by a pool`; <not_critical> 2: `A value that is shown through another field`."
+   },
+   {
+    "format": "swapWithAuthorization(address tokenIn, uint256 amount, address from, uint256 validAfter, uint256 validBefore, bytes32 nonce, bytes signature)",
+    "title": "swapWithAuthorization: the output token and amount, and that the output goes to `from`, are not shown.",
+    "verdict": "refuted",
+    "reason": "The output token is pool-derived, and the output amount equals the displayed amount. The recipient is the displayed owner `from`; failing to label its additional recipient role is a wording gap, not a hidden address.",
+    "quote": "contracts/8453-0x0a8cdd1b39f476cdde606a7e4c330b3ddb04314e/src/src/swap/ParSwapPool.sol, swapWithAuthorization: `.receiveWithAuthorization(from, address(this), amount, validAfter, validBefore, nonce, signature);` and `_settleSwap(zeroForOne, amount, tokenIn, from);`. descriptor.json, swapWithAuthorization: `Swap {amount} from {from}`, fields `Pay`, `From`, `Valid before`. Registry .github/scripts/ai-review/prompt.md, <not_critical> 2: `A value that is shown through another field`; <not_critical> 3: `the recipient of a withdrawal that is always the account owner`; <checks> 12: `an output token decided by a pool`."
+   }
+  ]
  }
 }

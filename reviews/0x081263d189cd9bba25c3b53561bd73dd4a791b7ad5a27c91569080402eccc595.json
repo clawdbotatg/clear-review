@@ -167,7 +167,7 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 59,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "cooldownShares(uint256 shares)": {
@@ -179,6 +179,7 @@
    "critical": 1,
    "warnings": 1,
    "worst": "cooldownShares restarts the cooldown timer for all USDe the signer already has pending; nothing shown says so.",
+   "disputed": 0,
    "comprehension": 100
   },
   "cooldownAssets(uint256 assets)": {
@@ -190,6 +191,7 @@
    "critical": 1,
    "warnings": 1,
    "worst": "cooldownAssets restarts the cooldown timer for all USDe the signer already has pending; nothing shown says so.",
+   "disputed": 0,
    "comprehension": null
   },
   "unstake(address receiver)": {
@@ -201,6 +203,7 @@
    "critical": 0,
    "warnings": 2,
    "worst": "unstake intent 'Unstake' suggests staked tokens leave; it only claims cooled-down USDe and names no asset.",
+   "disputed": 0,
    "comprehension": 50
   }
  },
@@ -211,5 +214,47 @@
   "functions": "1C 2F",
   "incomplete": false,
   "worst": "cooldownShares restarts the cooldown timer for all USDe the signer already has pending; nothing shown says so."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.265,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "cooldownShares(uint256 shares)",
+    "title": "cooldownShares restarts the cooldown timer for all USDe the signer already has pending; nothing shown says so.",
+    "verdict": "confirmed",
+    "reason": "Each account has one cooldown record. The new USDe is added to it and the single end time is reset to now plus the full duration, so USDe already pending cannot be claimed until the new end time. This is like the calibrated 'existing stake folded into new delegation' critical. The screen shows only the intent and the new amount, and nothing on the not-critical list covers the change to the existing pending position.",
+    "quote": "StakedUSDeV2.cooldownShares: `cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration; cooldowns[msg.sender].underlyingAmount += uint152(assets);` and StakedUSDeV2.unstake pays out the whole `userCooldown.underlyingAmount` only `if (block.timestamp >= userCooldown.cooldownEnd ...)`. Screen (case 0): intent 'Cooldown Shares', field 'Amount: 1515266.436573198420501508 sUSDe'."
+   },
+   {
+    "format": "cooldownAssets(uint256 assets)",
+    "title": "cooldownAssets restarts the cooldown timer for all USDe the signer already has pending; nothing shown says so.",
+    "verdict": "confirmed",
+    "reason": "This has the same code as cooldownShares. Any pending USDe joins the same record, and its end time is pushed back to now plus cooldownDuration (max 90 days). The intent and the Amount field do not say that USDe already in cooldown gets locked again.",
+    "quote": "StakedUSDeV2.cooldownAssets: `cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration; cooldowns[msg.sender].underlyingAmount += uint152(assets);` Descriptor: intent 'Cooldown Assets', only field `#.assets` 'Amount'."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "cooldownShares(uint256 shares)",
+    "title": "cooldownShares restarts the cooldown timer for all USDe the signer already has pending; nothing shown says so.",
+    "verdict": "confirmed",
+    "reason": "A successful call resets the deadline for the entire pending balance, including earlier USDe; no guard excludes existing cooldowns. This changes an existing withdrawal right, not merely an undisplayable duration, and the screen states only the new amount.",
+    "quote": "contracts/1-0x9d39a5de30e57443bff2a8307a4256c8797a3497/src/contracts/StakedUSDeV2.sol, cooldownShares, lines 114–115: `cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration; cooldowns[msg.sender].underlyingAmount += uint152(assets);` unstake, lines 82–90: `uint256 assets = userCooldown.underlyingAmount;` and `if (block.timestamp >= userCooldown.cooldownEnd || cooldownDuration == 0)` otherwise `revert InvalidCooldown();`. cases/0.json screen: `\"intent\": \"Cooldown Shares\"`, sole field `\"label\": \"Amount\", \"value\": \"1515266.436573198420501508 sUSDe\"`."
+   },
+   {
+    "format": "cooldownAssets(uint256 assets)",
+    "title": "cooldownAssets restarts the cooldown timer for all USDe the signer already has pending; nothing shown says so.",
+    "verdict": "confirmed",
+    "reason": "A successful call resets the same deadline governing all previously pending USDe, without checking whether a cooldown already exists. The descriptor shows only the new assets amount and does not disclose the effect on the earlier withdrawal position.",
+    "quote": "contracts/1-0x9d39a5de30e57443bff2a8307a4256c8797a3497/src/contracts/StakedUSDeV2.sol, cooldownAssets, lines 101–102: `cooldowns[msg.sender].cooldownEnd = uint104(block.timestamp) + cooldownDuration; cooldowns[msg.sender].underlyingAmount += uint152(assets);` unstake, lines 82–90: `uint256 assets = userCooldown.underlyingAmount;` and `if (block.timestamp >= userCooldown.cooldownEnd || cooldownDuration == 0)` otherwise `revert InvalidCooldown();`. descriptor.json, cooldownAssets(uint256 assets): `\"intent\": \"Cooldown Assets\"`, sole field `\"label\": \"Amount\", \"path\": \"#.assets\"`; no other field or definition states the reset."
+   }
+  ]
  }
 }

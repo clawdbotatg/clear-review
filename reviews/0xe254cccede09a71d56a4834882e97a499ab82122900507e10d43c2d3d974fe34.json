@@ -268,7 +268,7 @@
  "account": "slop_buidlguidl",
  "hiddenValue": [],
  "seconds": 264,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "buyVoucherPOL(uint256 _amount, uint256 _minSharesToMint)": {
@@ -280,6 +280,7 @@
    "critical": 0,
    "warnings": 2,
    "worst": "buyVoucherPOL: pending rewards are paid to the signer before staking, and the screen never says so.",
+   "disputed": 0,
    "comprehension": 50
   },
   "sellVoucher_newPOL(uint256 claimAmount, uint256 maximumSharesToBurn)": {
@@ -291,6 +292,7 @@
    "critical": 1,
    "warnings": 2,
    "worst": "sellVoucher_newPOL: pending POL rewards are paid to the signer, and the screen does not say so.",
+   "disputed": 1,
    "comprehension": 50
   },
   "unstakeClaimTokens_newPOL(uint256 unbondNonce)": {
@@ -302,6 +304,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": 50
   },
   "withdrawRewardsPOL()": {
@@ -313,6 +316,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": 50
   }
  },
@@ -323,5 +327,33 @@
   "functions": "3C 1F",
   "incomplete": true,
   "worst": "sellVoucher_newPOL: pending POL rewards are paid to the signer, and the screen does not say so."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.177,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "sellVoucher_newPOL(uint256 claimAmount, uint256 maximumSharesToBurn)",
+    "title": "sellVoucher_newPOL: pending POL rewards are paid to the signer, and the screen does not say so.",
+    "verdict": "refuted",
+    "reason": "The transfer is real: case 1 shows 66050895952657124 POL moving from StakeManager 0x5e3e… to the signer, while the screen shows only the intent 'Unstake POL', 'Claim amount' and 'Max shares'. It is still not critical. These are the signer's own accrued rewards, paid to the signer, and the amount comes from contract storage, not calldata. Nothing of the signer's leaves beyond the shares shown, and no third party gains anything. This matches not-critical #3 (a value the contract derives from storage), #4 (funds that return to the signer) and #12 (settling rewards is a built-in side effect of selling shares). At most this is a warning: the intent could say 'Unstake POL and claim rewards'. The ValidatorShare implementation source is not in the directory, so the reward path in the code could not be quoted; the mined effect is the only evidence.",
+    "quote": "cases/1.json mined.effects[0]: {\"symbol\":\"POL\",\"amount\":\"66050895952657124\",\"from\":\"0x5e3ef299fddf15eaa0432e6e66473ace8c13d908\",\"to\":\"0xe351e647…\",\"signer\":\"in\"}; descriptor.json sellVoucher_newPOL: \"intent\": \"Unstake POL\", fields 'Claim amount', 'Max shares'"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "sellVoucher_newPOL(uint256 claimAmount, uint256 maximumSharesToBurn)",
+    "title": "sellVoucher_newPOL: pending POL rewards are paid to the signer, and the screen does not say so.",
+    "verdict": "confirmed",
+    "reason": "The mined transaction pays the signer 0.066050895952657124 POL, but the screen states only the unstake amount and share limit. The storage-value and signer-recipient exceptions do not cover omitting the additional payout itself.",
+    "quote": "cases/1.json, sellVoucher_newPOL mined.effects: \"symbol\": \"POL\", \"amount\": \"66050895952657124\", \"from\": \"0x5e3ef299fddf15eaa0432e6e66473ace8c13d908\", \"to\": \"0xe351e647c06f1609dd51cc4050bdc4b1bf1a822d\", \"signer\": \"in\". Screen: \"intent\": \"Unstake POL\", fields \"Claim amount\": \"113.820189659605384342POL\" and \"Max shares\": \"113820189659605384342\". descriptor.json, sellVoucher_newPOL(uint256 claimAmount, uint256 maximumSharesToBurn), contains only those two fields and no reward-payout notice."
+   }
+  ]
  }
 }

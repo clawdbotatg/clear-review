@@ -273,7 +273,7 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 199,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "buy(bytes[] executionData)": {
@@ -285,6 +285,7 @@
    "critical": 0,
    "warnings": 3,
    "worst": "buy hides the NFT purchase price and the marketplace inside raw callback data.",
+   "disputed": 0,
    "comprehension": 83
   },
   "sell(bytes[] executionData, bytes[] swapData)": {
@@ -296,6 +297,7 @@
    "critical": 0,
    "warnings": 2,
    "worst": "sell hides the sale price and the buyer; the signer receives proceeds the screen never states.",
+   "disputed": 0,
    "comprehension": 38
   },
   "executeSell(address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData)": {
@@ -307,6 +309,7 @@
    "critical": 0,
    "warnings": 3,
    "worst": "executeSell intent says the buyer repays the loan; the seller repays it from the sale proceeds.",
+   "disputed": 0,
    "comprehension": 75
   },
   "executeSellWithLoan(((address pool, address[] assets, uint256[] amounts) borrowArgs, (address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData) executeSellArgs, bytes[] loanExecutionData, address[] swapCurrencies, uint160[] swapAmounts, bytes[] swapData, bool unwrap) args)": {
@@ -318,6 +321,7 @@
    "critical": 1,
    "warnings": 2,
    "worst": "executeSellWithLoan pulls the flash loan repayment from the signer's wallet; the screen never says so.",
+   "disputed": 0,
    "comprehension": 75
   }
  },
@@ -328,5 +332,33 @@
   "functions": "2C 1D 1F",
   "incomplete": true,
   "worst": "executeSellWithLoan pulls the flash loan repayment from the signer's wallet; the screen never says so."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.393,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "executeSellWithLoan(((address pool, address[] assets, uint256[] amounts) borrowArgs, (address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData) executeSellArgs, bytes[] loanExecutionData, address[] swapCurrencies, uint160[] swapAmounts, bytes[] swapData, bool unwrap) args)",
+    "title": "executeSellWithLoan pulls the flash loan repayment from the signer's wallet; the screen never says so.",
+    "verdict": "confirmed",
+    "reason": "I could not refute this. In executeOperation, any shortfall between the flash-loan debt and the bundler's balance is pulled from the signer's wallet by transferFrom. In case 3 this pulled 29.828106748804350315 WETH, which is the 29.8132 WETH flash loan plus its premium. Nothing on the screen says this. The screen shows only the flash-loan amount from the pool, without the premium, and says the signer receives the new loan (\"Principal receiver: 0x8463…33f2\"). It does not say that WETH then leaves the signer's wallet. No item on the not-critical list covers this. The amount is not unreadable or shown through another field, the payer is not the contract, and the amount pulled is not capped by the new loan's principal.",
+    "quote": "PurchaseBundler.sol executeOperation: `uint256 owed = amounts[i] + premiums[i]; ... if (balance < owed) { asset.safeTransferFrom(_buyer, address(this), owed - balance); }`. Mined effect in case 3: WETH transfer of 29828106748804350315 from 0x8463…33f2 (the signer) to 0xf46a…6feb, marked signer \"out\". Screen in case 3: only `Flash loan: 29.813200148729985322 WETH`, `Flash loan pool: 0x8787…A4E2` and `Value sent: 3.836799851270014678 ETH`. No field shows a WETH pull from the signer."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "executeSellWithLoan(((address pool, address[] assets, uint256[] amounts) borrowArgs, (address[] currencies, uint256[] currencyAmounts, address[] collections, uint256[] tokenIds, address marketPlace, bytes[] executionData, bytes[] swapData) executeSellArgs, bytes[] loanExecutionData, address[] swapCurrencies, uint160[] swapAmounts, bytes[] swapData, bool unwrap) args)",
+    "title": "executeSellWithLoan pulls the flash loan repayment from the signer's wallet; the screen never says so.",
+    "verdict": "confirmed",
+    "reason": "Case 3 proves the bundler pulls 29.828106748804350315 WETH from the signer after the new loan pays them. The displayed flash-loan principal does not disclose this wallet debit; “You pay” covers separate swap inputs and is absent from this case’s screen.",
+    "quote": "contracts/1-0xf46a58cada29ff34cf62f72357d2b37815506feb/src/src/lib/callbacks/PurchaseBundler.sol, executeOperation: `uint256 owed = amounts[i] + premiums[i];` and `if (balance < owed) { asset.safeTransferFrom(_buyer, address(this), owed - balance); }`. cases/3.json, mined.effects: WETH transfer with `amount: \"29828106748804350315\"`, `signer: \"out\"`, to the bundler. The executeSellWithLoan screen shows `Flash loan: 29.813200148729985322 WETH` and `Value sent: 3.836799851270014678 ETH`, with no flash-loan repayment debit from the wallet."
+   }
+  ]
  }
 }

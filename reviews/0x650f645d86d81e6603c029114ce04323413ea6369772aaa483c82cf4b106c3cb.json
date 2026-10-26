@@ -109,7 +109,7 @@
  "account": "clawd_buidlguidl",
  "hiddenValue": [],
  "seconds": 146,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "Order(address maker,Asset makeAsset,address taker,Asset takeAsset,uint256 salt,uint256 start,uint256 end,bytes4 dataType,bytes data)Asset(AssetType assetType,uint256 value)AssetType(bytes4 assetClass,bytes data)": {
@@ -121,6 +121,7 @@
    "critical": 2,
    "warnings": 5,
    "worst": "Order: `data` is hidden (visible: never), so payout recipients and origin fees that cut or add to amounts are never shown.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -131,5 +132,47 @@
   "functions": "1F",
   "incomplete": true,
   "worst": "Order: `data` is hidden (visible: never), so payout recipients and origin fees that cut or add to amounts are never shown."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.322,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "Order(address maker,Asset makeAsset,address taker,Asset takeAsset,uint256 salt,uint256 start,uint256 end,bytes4 dataType,bytes data)Asset(AssetType assetType,uint256 value)AssetType(bytes4 assetClass,bytes data)",
+    "title": "Order: `data` is hidden (visible: never), so payout recipients and origin fees that cut or add to amounts are never shown.",
+    "verdict": "confirmed",
+    "reason": "`data` is hidden, and LibOrderData.parse decodes the payouts and origin fees from it. The seller's origin fees come out of the seller's proceeds. In case 0, the data holds originFees [(0x1cf0df2a…e18a, 0x1db = 475 bp)] with empty payouts, so 4.75% of the 0.075 ETH goes to a third party. Nothing on screen states this fee. Not-critical item 5 does not apply, because these hidden bytes move the signer's assets.",
+    "quote": "descriptor.json: {\"label\": \"Data\", \"path\": \"data\", \"visible\": \"never\"}; LibOrderData.parse: `dataOrder.originFees = data.originFees;`; RaribleTransferManager.doTransfersWithFees: `(rest,) = transferFees(paymentSide.asset.assetType, rest, paymentSide.asset.value, nftSide.originFees, paymentSide.from, paymentSide.proxy); transferPayouts(paymentSide.asset.assetType, rest, paymentSide.from, nftSide.payouts, paymentSide.proxy);`"
+   },
+   {
+    "format": "Order(address maker,Asset makeAsset,address taker,Asset takeAsset,uint256 salt,uint256 start,uint256 end,bytes4 dataType,bytes data)Asset(AssetType assetType,uint256 value)AssetType(bytes4 assetClass,bytes data)",
+    "title": "Order: 'Take asset amount' reads as what the seller gets, but royalties and fees are deducted first.",
+    "verdict": "confirmed",
+    "reason": "For a sell order, the ETH take side is the fee side. Before the seller's payout, doTransfersWithFees takes out the protocol fee (only the buyer's share for these V2 orders), the royalties from the registry, and the seller's origin fees. The screen shows only the full 'Take asset amount' (75000000000000000 and 4100000000000000000) and says nothing about these deductions. The guide's amount rule makes this critical: royalties are read from storage, but they cut the amount shown. In case 0, the 4.75% origin fee makes the cut a fact.",
+    "quote": "RaribleTransferManager.doTransfersWithFees: `rest = transferRoyalties(paymentSide.asset.assetType, nftSide.asset.assetType, nftSide.payouts, rest, paymentSide.asset.value, paymentSide.from, paymentSide.proxy);` … `transferPayouts(paymentSide.asset.assetType, rest, ...)`; getRoyaltiesByAssetType: `return royaltiesRegistry.getRoyalties(token, tokenId);`; screen case 0: {\"label\": \"Take asset amount\", \"value\": \"75000000000000000\"}"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "Order(address maker,Asset makeAsset,address taker,Asset takeAsset,uint256 salt,uint256 start,uint256 end,bytes4 dataType,bytes data)Asset(AssetType assetType,uint256 value)AssetType(bytes4 assetClass,bytes data)",
+    "title": "Order: `data` is hidden (visible: never), so payout recipients and origin fees that cut or add to amounts are never shown.",
+    "verdict": "confirmed",
+    "reason": "The hidden order data controls payout recipients and origin fees, which the transfer code actually pays. Case 0 specifies a 475-basis-point third-party fee; neither that fee nor its recipient appears on screen.",
+    "quote": "descriptor.json, Order fields: {\"label\":\"Data\",\"path\":\"data\",\"visible\":\"never\"}; cases/0.json, screen: {\"label\":\"Take asset amount\",\"value\":\"75000000000000000\"}. contracts/1-0xa669f302574b7e6b1dd065956ac1d0a9275d3782/src/@rarible/exchange-v2/contracts/libraries/LibOrderData.sol, parse: \"dataOrder.payouts = data.payouts;\" and \"dataOrder.originFees = data.originFees;\". Same implementation's src/@rarible/transfer-manager/contracts/RaribleTransferManager.sol, doTransfersWithFees: \"(rest,) = transferFees(paymentSide.asset.assetType, rest, paymentSide.asset.value, nftSide.originFees, paymentSide.from, paymentSide.proxy);\"; transferFees: \"transfer(LibAsset.Asset(assetType, feeValue), from, fees[i].account, proxy);\"; transferPayouts: \"transfer(LibAsset.Asset(assetType, rest), from, lastPayout.account, proxy);\"."
+   },
+   {
+    "format": "Order(address maker,Asset makeAsset,address taker,Asset takeAsset,uint256 salt,uint256 start,uint256 end,bytes4 dataType,bytes data)Asset(AssetType assetType,uint256 value)AssetType(bytes4 assetClass,bytes data)",
+    "title": "Order: 'Take asset amount' reads as what the seller gets, but royalties and fees are deducted first.",
+    "verdict": "confirmed",
+    "reason": "The screen shows the gross take amount without disclosing deductions, while settlement pays the seller only the remainder. Case 0 establishes a nonzero third-party deduction; the guide explicitly treats deductions from displayed amounts as critical, including storage-derived fees.",
+    "quote": "cases/0.json, screen: \"intent\":\"Exchange order\", {\"label\":\"Take asset amount\",\"value\":\"75000000000000000\"}; cases/2.json shows \"Take asset amount\":\"4100000000000000000\" with no deduction notice. contracts/1-0xa669f302574b7e6b1dd065956ac1d0a9275d3782/src/@rarible/transfer-manager/contracts/RaribleTransferManager.sol, doTransfersWithFees: \"uint rest = transferProtocolFee(totalAmount, paymentSide.asset.value, paymentSide.from, buyerProtocolFee + sellerProtocolFee, _protocolFee.receiver, paymentSide.asset.assetType, paymentSide.proxy);\"; \"rest = transferRoyalties(paymentSide.asset.assetType, nftSide.asset.assetType, nftSide.payouts, rest, paymentSide.asset.value, paymentSide.from, paymentSide.proxy);\"; \"transferPayouts(paymentSide.asset.assetType, rest, paymentSide.from, nftSide.payouts, paymentSide.proxy);\". Registry .github/scripts/ai-review/prompt.md, not_critical item 3: \"when the storage value cuts the amount shown, the finding is about the amount, and that one is critical.\""
+   }
+  ]
  }
 }

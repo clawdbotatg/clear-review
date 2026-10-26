@@ -261,60 +261,134 @@
   "bigBatchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)"
  ],
  "seconds": 90,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "pass",
  "formats": {
   "batchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "B",
+   "truth": 90,
    "clarity": 76,
    "measured": true,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 3,
-   "worst": "batchDeposit takes ETH but never shows how much (@.value)",
+   "worst": "batchDeposit: for 0x00 (BLS) credentials, bytes 12-32 are a key hash, yet they render as an address.",
+   "disputed": 0,
    "comprehension": 100
   },
   "batchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "B",
+   "truth": 90,
    "clarity": 68,
    "measured": true,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 4,
-   "worst": "batchDepositCustom takes ETH but never shows how much (@.value)",
+   "worst": "batchDepositCustom: a 0x00 credential's hash bytes would render as a withdrawal address.",
+   "disputed": 0,
    "comprehension": 100
   },
   "bigBatchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 90,
    "clarity": 43,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 4,
-   "worst": "bigBatchDeposit takes ETH but never shows how much (@.value)",
+   "worst": "bigBatchDeposit: 0x00 credentials would show part of a hash as a withdrawal address.",
+   "disputed": 0,
    "comprehension": null
   },
   "bigBatchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "C",
+   "truth": 90,
    "clarity": 37,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 4,
-   "worst": "bigBatchDepositCustom takes ETH but never shows how much (@.value)",
+   "worst": "bigBatchDepositCustom: only the first credential is decoded, and a 0x00 type would render a hash as an address.",
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 25,
+  "grade": "C",
+  "truth": 90,
   "clarity": 56,
-  "functions": "4F",
+  "functions": "2B 2C",
   "incomplete": false,
-  "worst": "batchDeposit takes ETH but never shows how much (@.value)"
+  "worst": "bigBatchDeposit: 0x00 credentials would show part of a hash as a withdrawal address."
+ },
+ "verified": {
+  "n": 4,
+  "cost": 0.249,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "batchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)",
+    "title": "batchDeposit is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The code reverts unless msg.value is exactly 32 ETH times the number of validators, and it forwards all of it to the deposit contract. The intent states 32 ETH per validator and the Validators and Data Roots fields list the validators, so the value is fixed by what is shown. A total-ETH field would only make it easier to read, which is a warning at most.",
+    "quote": "BatchDepositContract.vy batchDeposit: `if as_wei_value(32, \"ether\") * len(dataRoots) != msg.value: raise \"Incorrect amount sent\"` then `raw_call(depositAddress, ..., value=as_wei_value(32, \"ether\"))`; descriptor intent \"Stake 32ETH per validators\", field `#.publicKeys` 'Validators'"
+   },
+   {
+    "format": "batchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)",
+    "title": "batchDepositCustom is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "msg.value must equal amountPerValidator times the validator count or the call reverts, and the contract forwards each amount to the deposit contract. 'Amount Per Validator' is shown as an always-visible amount field (case 2: \"32 ETH\") and the validators are listed. The mined tx sent 32 ETH for one validator, which matches the screen.",
+    "quote": "BatchDepositContract.vy batchDepositCustom: `if amountPerValidator * len(dataRoots) != msg.value: raise \"Incorrect amount sent\"`, `value=amountPerValidator`; descriptor field `#.amountPerValidator` 'Amount Per Validator' (amount, visible always)"
+   },
+   {
+    "format": "bigBatchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)",
+    "title": "bigBatchDeposit is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The code is the same as batchDeposit with a higher limit. Value must be exactly 32 ETH per validator or the call reverts, and all of it goes to the deposit contract. The intent and the Validators field fix the amount, so nothing is hidden. A total field would be a readability warning only.",
+    "quote": "BatchDepositContract.vy bigBatchDeposit: `if as_wei_value(32, \"ether\") * len(dataRoots) != msg.value: raise \"Incorrect amount sent\"`; descriptor intent \"Stake 32ETH per validators\""
+   },
+   {
+    "format": "bigBatchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)",
+    "title": "bigBatchDepositCustom is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The code is the same as batchDepositCustom: value must be exactly amountPerValidator times the validator count, and it is forwarded in full to the deposit contract. 'Amount Per Validator' is shown always and the validators are listed, so the ETH sent follows from the screen.",
+    "quote": "BatchDepositContract.vy bigBatchDepositCustom: `if amountPerValidator * len(dataRoots) != msg.value: raise \"Incorrect amount sent\"`, `value=amountPerValidator`; descriptor field `#.amountPerValidator` 'Amount Per Validator' (amount, visible always)"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 4,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "batchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)",
+    "title": "batchDeposit is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The intent states 32 ETH per validator, and the displayed validators and data roots determine the count. The contract rejects any other total; missing a separate total is a readability issue, not a hidden payment.",
+    "quote": "contracts/1-0x576834cb068e677db4aff6ca245c7bde16c3867e/src/BatchDepositContract.vy, batchDeposit: `if as_wei_value(32, \"ether\") * len(dataRoots) != msg.value: raise \"Incorrect amount sent\"`. descriptor.json, batchDeposit: `\"intent\": \"Stake 32ETH per validators\"`, fields `\"path\": \"#.publicKeys\"` and `\"path\": \"#.dataRoots.[]\"`. Severity guide, <not_critical> item 2: \"A value that is shown through another field\"."
+   },
+   {
+    "format": "batchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)",
+    "title": "batchDepositCustom is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The screen shows the amount per validator and all validators and data roots. The contract requires exactly their product in ETH, so it cannot accept an additional undisclosed payment.",
+    "quote": "contracts/1-0x576834cb068e677db4aff6ca245c7bde16c3867e/src/BatchDepositContract.vy, batchDepositCustom: `if amountPerValidator * len(dataRoots) != msg.value: raise \"Incorrect amount sent\"`. descriptor.json, batchDepositCustom: `\"label\": \"Amount Per Validator\", \"format\": \"amount\", \"path\": \"#.amountPerValidator\"`; also `\"path\": \"#.dataRoots.[]\"`. cases/2.json, screen: `\"label\": \"Amount Per Validator\", \"value\": \"32 ETH\"`; mined signerNet: `\"amount\": \"-32000000000000000000\"`."
+   },
+   {
+    "format": "bigBatchDeposit(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots)",
+    "title": "bigBatchDeposit is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The intent states 32 ETH per validator, and all validators and data roots are displayed. The code enforces that exact total; calculating it from displayed entries is a readability issue.",
+    "quote": "contracts/1-0x576834cb068e677db4aff6ca245c7bde16c3867e/src/BatchDepositContract.vy, bigBatchDeposit: `if as_wei_value(32, \"ether\") * len(dataRoots) != msg.value: raise \"Incorrect amount sent\"`. descriptor.json, bigBatchDeposit: `\"intent\": \"Stake 32ETH per validators\"`, fields `\"path\": \"#.publicKeys\"` and `\"path\": \"#.dataRoots.[]\"`. Severity guide, <not_critical> item 2: \"A value that is shown through another field\"."
+   },
+   {
+    "format": "bigBatchDepositCustom(bytes publicKeys, bytes withdrawalCreds, bytes signatures, bytes32[] dataRoots, uint256 amountPerValidator)",
+    "title": "bigBatchDepositCustom is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The displayed amount per validator and complete data-root list determine the ETH total, which the contract strictly enforces. A separate total would improve clarity, but its absence does not hide another asset effect.",
+    "quote": "contracts/1-0x576834cb068e677db4aff6ca245c7bde16c3867e/src/BatchDepositContract.vy, bigBatchDepositCustom: `if amountPerValidator * len(dataRoots) != msg.value: raise \"Incorrect amount sent\"`. descriptor.json, bigBatchDepositCustom: `\"label\": \"Amount Per Validator\", \"format\": \"amount\", \"path\": \"#.amountPerValidator\"`; also `\"path\": \"#.dataRoots.[]\"`. cases/4.json, screen: `\"label\": \"Amount Per Validator\", \"value\": \"64 ETH\"` and two `\"Data Roots\"` entries."
+   }
+  ]
  }
 }

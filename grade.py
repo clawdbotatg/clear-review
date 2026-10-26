@@ -1,6 +1,6 @@
 # Evidence → numbers. The agent writes findings and per-case judgments; this file alone decides the scores, so the
 # rubric can change and `./review.py grade` recomputes every score with no model call. Rules: RUBRIC.md.
-RUBRIC = "v1.1"
+RUBRIC = "v1.2"
 
 CRIT_TRUTH = 25        # a critical truth/completeness finding caps truth here, and each further one takes this off
 WARN_TRUTH = 10        # each truth/completeness warning
@@ -21,9 +21,27 @@ def letter(truth, clarity, critical):
     return "D"
 
 
-def format_score(f, cases, hidden=()):
-    fs = list(f.get("findings") or [])
-    if f["key"] in hidden:      # the ABI check: payable, and the screen never shows the ETH sent
+def checked(rec):
+    """Two second agents (Claude, Codex) tried to refute each critical. → (dropped, disputed): sets of
+    (format key, title). Dropped = both refuted it. Disputed = one confirmed, one refuted."""
+    a = (rec.get("verified") or {}).get("findings") or []
+    b = (rec.get("verifiedCodex") or {}).get("findings") or []
+    drop, split = set(), set()
+    for x, y in zip(a, b):
+        v = {x["verdict"], y["verdict"]}
+        if v == {"refuted"}:
+            drop.add((x["format"], x["title"]))
+        elif v == {"confirmed", "refuted"}:
+            split.add((x["format"], x["title"]))
+    return drop, split
+
+
+def format_score(f, cases, hidden=(), drop=frozenset(), split=frozenset()):
+    key = f["key"]
+    fs = [x for x in f.get("findings") or [] if (key, x["title"]) not in drop]
+    abi_title = f"{key.split('(')[0]} is payable, and no field shows the ETH sent (@.value)"      # review.criticals()
+    value_dropped = (key, abi_title) in drop or any(k == key and "value" in t.lower() for k, t in drop)
+    if key in hidden and not value_dropped:      # the ABI check: payable, and the screen never shows the ETH sent
         fs.append({"severity": "critical", "axis": "completeness", "kind": "hidden-value", "groundTruth": False,
                    "title": f"{f['key'].split('(')[0]} takes ETH but never shows how much (@.value)", "evidence": "ABI: payable"})
     crit = [x for x in fs if x["severity"] == "critical" and x["axis"] in ("truth", "completeness")]
@@ -49,6 +67,7 @@ def format_score(f, cases, hidden=()):
     return {"grade": letter(truth, clarity, bool(crit)), "truth": truth, "clarity": clarity,
             "measured": comprehension is not None, "groundTruth": any(x.get("groundTruth") for x in fs),
             "critical": len(crit), "warnings": len(warn) + len(cwarn), "worst": worst,
+            "disputed": sum(1 for x in crit if (key, x["title"]) in split),
             "comprehension": None if comprehension is None else round(100 * comprehension)}
 
 
@@ -59,7 +78,8 @@ def grade(rec):
     if not ans:
         rec.pop("formats", None), rec.pop("summary", None)
         return rec
-    fmts = {f["key"]: format_score(f, rec.get("cases") or [], rec.get("hiddenValue") or []) for f in ans["formats"]}
+    drop, split = checked(rec)
+    fmts = {f["key"]: format_score(f, rec.get("cases") or [], rec.get("hiddenValue") or [], drop, split) for f in ans["formats"]}
     if not fmts:
         rec["summary"] = {"grade": "?", "worst": "no formats"}
         return rec

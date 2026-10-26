@@ -180,7 +180,7 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 142,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "mintWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address depositToken, uint256 depositTokenAmount)": {
@@ -192,6 +192,7 @@
    "critical": 1,
    "warnings": 3,
    "worst": "mintWithAttestation shows depositTokenAmount, but with USDon as deposit token it takes quantity times price instead.",
+   "disputed": 0,
    "comprehension": 64
   },
   "redeemWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address receiveToken, uint256 minimumReceiveAmount)": {
@@ -203,6 +204,7 @@
    "critical": 1,
    "warnings": 3,
    "worst": "redeemWithAttestation shows a minimum received that the code does not check when receiveToken is USDon.",
+   "disputed": 0,
    "comprehension": 80
   }
  },
@@ -213,5 +215,47 @@
   "functions": "2F",
   "incomplete": true,
   "worst": "mintWithAttestation shows depositTokenAmount, but with USDon as deposit token it takes quantity times price instead."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.297,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "mintWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address depositToken, uint256 depositTokenAmount)",
+    "title": "mintWithAttestation shows depositTokenAmount, but with USDon as deposit token it takes quantity times price instead.",
+    "verdict": "confirmed",
+    "reason": "When the deposit token is USDon, the contract ignores depositTokenAmount and takes quantity*price USDon from the signer. Both values come from calldata, and the price is hidden. So the screen states the amount that leaves the wallet as a different value from the one the code moves. This is not in the not-critical list: the price is a calldata value, not a storage value, and the shown amount is not an unused zero alternative.",
+    "quote": "GMTokenManager.sol mintWithAttestation: `uint256 mintUSDonValue = (quote.quantity * quote.price) / GM_NORMALIZER;` ... `if (depositToken == address(usdon)) { IERC20(usdon).safeTransferFrom(_msgSender(), address(this), mintUSDonValue); }`. depositTokenAmount is only used in the else branch. Descriptor: field `depositTokenAmount` 'Deposit Amount' (tokenAmount, tokenPath depositToken); `quote.price` has `visible: never`; interpolatedIntent 'Mint {quote.quantity} using {depositTokenAmount}'."
+   },
+   {
+    "format": "redeemWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address receiveToken, uint256 minimumReceiveAmount)",
+    "title": "redeemWithAttestation shows a minimum received that the code does not check when receiveToken is USDon.",
+    "verdict": "confirmed",
+    "reason": "On the USDon path, the code never checks minimumReceiveAmount. The signer receives quantity*price, which comes from the hidden quote.price, and this can be less than the minimum the screen promises. The screen states a minimum received that the code does not enforce, and the real amount is not shown anywhere. That means how little may come back is shown wrong.",
+    "quote": "GMTokenManager.sol redeemWithAttestation: `if (receiveToken == address(usdon)) { IERC20(usdon).safeTransfer(_msgSender(), redemptionUSDonValue); } else { ... usdonManager.redeem(redemptionUSDonValue, receiveToken, minimumReceiveAmount); ... }`. NatSpec: 'ONLY applicable if the user requests a non-USDon token'. Descriptor: 'Min Receive Amount' (minimumReceiveAmount) and 'Redeem {quote.quantity} for {minimumReceiveAmount}+'; `quote.price` has `visible: never`."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "mintWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address depositToken, uint256 depositTokenAmount)",
+    "title": "mintWithAttestation shows depositTokenAmount, but with USDon as deposit token it takes quantity times price instead.",
+    "verdict": "confirmed",
+    "reason": "The USDon branch ignores depositTokenAmount and charges quantity × price / GM_NORMALIZER, without checking equality to the displayed deposit. The descriptor hides price and supplies no other field showing the actual USDon payment.",
+    "quote": "GMTokenManager.sol, mintWithAttestation, lines 193–209: `uint256 mintUSDonValue = (quote.quantity * quote.price) / GM_NORMALIZER;` and `if (depositToken == address(usdon)) { IERC20(usdon).safeTransferFrom(_msgSender(), address(this), mintUSDonValue); }`. descriptor.json, mintWithAttestation: `\"interpolatedIntent\": \"Mint {quote.quantity} using {depositTokenAmount}\"`; depositTokenAmount is labeled `\"Deposit Amount\"`; quote.price has `\"visible\": \"never\"`."
+   },
+   {
+    "format": "redeemWithAttestation((uint256 chainId, uint256 attestationId, bytes32 userId, address asset, uint256 price, uint256 quantity, uint256 expiration, uint8 side, bytes32 additionalData) quote, bytes signature, address receiveToken, uint256 minimumReceiveAmount)",
+    "title": "redeemWithAttestation shows a minimum received that the code does not check when receiveToken is USDon.",
+    "verdict": "confirmed",
+    "reason": "The USDon branch burns the GM tokens and pays the quote-derived amount without enforcing minimumReceiveAmount. A minimum above that payment remains unchecked, contradicting the displayed minimum; this is not a capped withdrawal or merely unreadable information.",
+    "quote": "GMTokenManager.sol, redeemWithAttestation, lines 283–309: `IRWALike(quote.asset).burn(quote.quantity);`, `uint256 redemptionUSDonValue = (quote.quantity * quote.price) / GM_NORMALIZER;`, and `if (receiveToken == address(usdon)) { IERC20(usdon).safeTransfer(_msgSender(), redemptionUSDonValue); }`; only the else branch passes minimumReceiveAmount to usdonManager.redeem. descriptor.json, redeemWithAttestation: `\"interpolatedIntent\": \"Redeem {quote.quantity} for {minimumReceiveAmount}+\"`; minimumReceiveAmount is labeled `\"Min Receive Amount\"`; quote.price has `\"visible\": \"never\"`."
+   }
+  ]
  }
 }

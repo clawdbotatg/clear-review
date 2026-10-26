@@ -118,38 +118,82 @@
   "safeRouteMulti((uint8 tokenType,bytes data)[] tokensIn,(uint8 tokenType,bytes data)[] tokensOut,address receiver,bytes data)"
  ],
  "seconds": 66,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "pass",
  "formats": {
   "safeRouteSingle((uint8 tokenType,bytes data) tokenIn,(uint8 tokenType,bytes data) tokenOut,address receiver,bytes data)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "B",
+   "truth": 100,
    "clarity": 72,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 1,
-   "worst": "safeRouteSingle takes ETH but never shows how much (@.value)",
+   "worst": "safeRouteSingle intent says 'Route tokens' and the sentence has no verb for receiving the output token.",
+   "disputed": 0,
    "comprehension": null
   },
   "safeRouteMulti((uint8 tokenType,bytes data)[] tokensIn,(uint8 tokenType,bytes data)[] tokensOut,address receiver,bytes data)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "B",
+   "truth": 100,
    "clarity": 70,
    "measured": false,
    "groundTruth": false,
-   "critical": 1,
+   "critical": 0,
    "warnings": 1,
-   "worst": "safeRouteMulti takes ETH but never shows how much (@.value)",
+   "worst": "safeRouteMulti intent says 'Route tokens' and the sentence has no verb for receiving the output tokens.",
+   "disputed": 0,
    "comprehension": null
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 25,
+  "grade": "B",
+  "truth": 100,
   "clarity": 71,
-  "functions": "2F",
+  "functions": "2B",
   "incomplete": false,
-  "worst": "safeRouteSingle takes ETH but never shows how much (@.value)"
+  "worst": "safeRouteSingle intent says 'Route tokens' and the sentence has no verb for receiving the output token."
+ },
+ "verified": {
+  "n": 2,
+  "cost": 0.312,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "safeRouteSingle((uint8 tokenType,bytes data) tokenIn,(uint8 tokenType,bytes data) tokenOut,address receiver,bytes data)",
+    "title": "safeRouteSingle is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The descriptor only signs ERC20 inputs: #.tokenIn.tokenType has mustMatch [1], and the wallet raises an error on any other value. With a non-Native input, routeSingle reverts on any non-zero msg.value, so this function can never keep or forward ETH on a screen the descriptor shows.",
+    "quote": "EnsoRouter.routeSingle (called by safeRouteSingle): `bool isNativeAsset = _transfer(tokenIn); if (!isNativeAsset && msg.value != 0) revert WrongMsgValue(msg.value, 0);` — descriptor.json safeRouteSingle: {\"path\": \"#.tokenIn.tokenType\", \"visible\": {\"mustMatch\": [1]}}"
+   },
+   {
+    "format": "safeRouteMulti((uint8 tokenType,bytes data)[] tokensIn,(uint8 tokenType,bytes data)[] tokensOut,address receiver,bytes data)",
+    "title": "safeRouteMulti is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The descriptor only signs ERC20 inputs: every #.tokensIn.[].tokenType must match 1, so no Native (0) entry can appear. That leaves isNativeAsset false, and routeMulti reverts on any non-zero msg.value, even when the list is empty, so no ETH can be kept or forwarded.",
+    "quote": "EnsoRouter.routeMulti (called by safeRouteMulti): `if (!isNativeAsset && msg.value != 0) revert WrongMsgValue(msg.value, 0);` — descriptor.json safeRouteMulti: {\"path\": \"#.tokensIn.[].tokenType\", \"visible\": {\"mustMatch\": [1]}}"
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 2,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "safeRouteSingle((uint8 tokenType,bytes data) tokenIn,(uint8 tokenType,bytes data) tokenOut,address receiver,bytes data)",
+    "title": "safeRouteSingle is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The descriptor restricts tokenIn to ERC20 through mustMatch: [1]. For that path, safeRouteSingle calls routeSingle, which reverts on any nonzero native value.",
+    "quote": "descriptor.json, safeRouteSingle: \"path\": \"#.tokenIn.tokenType\", \"visible\": { \"mustMatch\": [1] }. contracts/137-0xf75584ef6673ad213a685a1b58cc0330b8ea22cf/src/src/router/EnsoRouter.sol, safeRouteSingle: `response = routeSingle(tokenIn, data);`; routeSingle: `if (!isNativeAsset && msg.value != 0) revert WrongMsgValue(msg.value, 0);`. registry/specs/erc7730-v2.schema.json, mustMatch: \"Always skip display, but value MUST match one of these values.\""
+   },
+   {
+    "format": "safeRouteMulti((uint8 tokenType,bytes data)[] tokensIn,(uint8 tokenType,bytes data)[] tokensOut,address receiver,bytes data)",
+    "title": "safeRouteMulti is payable, and no field shows the ETH sent (@.value)",
+    "verdict": "refuted",
+    "reason": "The descriptor restricts every input token to ERC20 through mustMatch: [1]. Consequently, routeMulti never sets isNativeAsset and rejects any nonzero native value, including with an empty input array.",
+    "quote": "descriptor.json, safeRouteMulti: \"path\": \"#.tokensIn.[].tokenType\", \"visible\": { \"mustMatch\": [1] }. contracts/137-0xf75584ef6673ad213a685a1b58cc0330b8ea22cf/src/src/router/EnsoRouter.sol, safeRouteMulti: `response = routeMulti(tokensIn, data);`; routeMulti: `if (!isNativeAsset && msg.value != 0) revert WrongMsgValue(msg.value, 0);`; _transfer sets `isNativeAsset = true;` only in the `TokenType.Native` branch. registry/specs/erc7730-v2.schema.json, mustMatch: \"Always skip display, but value MUST match one of these values.\""
+   }
+  ]
  }
 }

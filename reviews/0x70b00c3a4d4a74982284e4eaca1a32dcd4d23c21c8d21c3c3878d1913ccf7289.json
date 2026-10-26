@@ -132,8 +132,8 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 102,
- "rubric": "v1.1",
- "result": "fail",
+ "rubric": "v1.2",
+ "result": "incomplete",
  "formats": {
   "mint(address collateralToken, uint256 collateralAmount, uint256 txDeadline, uint256 minFtUSDOut)": {
    "grade": "A",
@@ -144,26 +144,56 @@
    "critical": 0,
    "warnings": 3,
    "worst": "mint: the rate-limited payout router can delay ftUSD delivery, and nothing on screen says so.",
+   "disputed": 0,
    "comprehension": 100
   },
   "redeem(address collateralToken, uint256 ftUSDAmount, uint256 txDeadline, uint256 minCollateralOut)": {
-   "grade": "F",
-   "truth": 25,
+   "grade": "B",
+   "truth": 100,
    "clarity": 70,
    "measured": true,
-   "groundTruth": true,
-   "critical": 1,
+   "groundTruth": false,
+   "critical": 0,
    "warnings": 2,
-   "worst": "redeem says 'Minimum receive' collateral, but the collateral went to a queue address, not to the signer.",
+   "worst": "redeem interpolatedIntent 'Sell {ftUSDAmount}' omits the collateral asset and its minimum.",
+   "disputed": 0,
    "comprehension": 100
   }
  },
  "summary": {
-  "grade": "F",
-  "truth": 58,
+  "grade": "B",
+  "truth": 95,
   "clarity": 75,
-  "functions": "1A 1F",
+  "functions": "1A 1B",
   "incomplete": true,
-  "worst": "redeem says 'Minimum receive' collateral, but the collateral went to a queue address, not to the signer."
+  "worst": "redeem interpolatedIntent 'Sell {ftUSDAmount}' omits the collateral asset and its minimum."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.197,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "redeem(address collateralToken, uint256 ftUSDAmount, uint256 txDeadline, uint256 minCollateralOut)",
+    "title": "redeem says 'Minimum receive' collateral, but the collateral went to a queue address, not to the signer.",
+    "verdict": "refuted",
+    "reason": "The code sets the signer (msg.sender) as the recipient and enforces the minimum before the withdrawal. The 'Minimum receive' amount and token (USDC through tokenPath) are therefore exactly what the signer is owed. The extra hop to 0x5f19315b comes from the yield wrapper's rate limiting, a delay the wrapper decides from its own state; the guide says a delay is not a finding (not_critical #3, #4). The wrapper source is not in the directory, so nothing here shows the collateral being owed to anyone but the signer.",
+    "quote": "MintAndRedeem.sol redeem: `return redeemTo(collateralToken, msg.sender, ftUSDAmount, bytes32(0), txDeadline, minCollateralOut);` → redeemTo: `if (collateralAmount < minCollateralOut) revert SlippageExceeded(...)` → _executeRedeemWithRelayerFee: `queueIdTo = wrapper.withdraw(collateralToRecipient, p.recipient);` with p.recipient = msg.sender and relayerFeeCollateralAmount = 0 (`assert(feeQueueId == 0)`). Screen: 'Minimum receive 8.398031 USDC'."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "redeem(address collateralToken, uint256 ftUSDAmount, uint256 txDeadline, uint256 minCollateralOut)",
+    "title": "redeem says 'Minimum receive' collateral, but the collateral went to a queue address, not to the signer.",
+    "verdict": "refuted",
+    "reason": "The code designates the signer as the withdrawal recipient and enforces the displayed minimum. The claim that “Minimum receive” promises immediate delivery falls under the guide’s warning for describing a multi-step flow’s goal; the intermediate transfer alone does not prove a different beneficiary.",
+    "quote": "contracts/146-0xbe111549a597c672412d3f967dcbebd458feffaf/src/contracts/MintAndRedeem.sol, redeem: `return redeemTo(collateralToken, msg.sender, ftUSDAmount, bytes32(0), txDeadline, minCollateralOut);`; redeemTo: `if (collateralAmount < minCollateralOut) { revert SlippageExceeded(collateralAmount, minCollateralOut); }`; _executeRedeemWithRelayerFee: `queueIdTo = wrapper.withdraw(collateralToRecipient, p.recipient);`. cases/1.json, redeem screen: `\"label\": \"Minimum receive\", \"value\": \"8.398031 USDC\"`. Registry .github/scripts/ai-review/prompt.md, <severity> warning: “an intent that names the goal of a multi-step flow instead of this step when that could make the signer skip a step or expect funds that this call does not deliver”."
+   }
+  ]
  }
 }

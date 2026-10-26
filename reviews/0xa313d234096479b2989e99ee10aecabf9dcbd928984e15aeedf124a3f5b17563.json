@@ -161,7 +161,7 @@
  "account": "austingriffith",
  "hiddenValue": [],
  "seconds": 101,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "revealDeposit((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal)": {
@@ -173,6 +173,7 @@
    "critical": 0,
    "warnings": 0,
    "worst": null,
+   "disputed": 0,
    "comprehension": null
   },
   "revealDepositWithExtraData((bytes4 version, bytes inputVector, bytes outputVector, bytes4 locktime) fundingTx, (uint32 fundingOutputIndex, bytes8 blindingFactor, bytes20 walletPubKeyHash, bytes20 refundPubKeyHash, bytes4 refundLocktime, address vault) reveal, bytes32 extraData)": {
@@ -184,6 +185,7 @@
    "critical": 0,
    "warnings": 2,
    "worst": "revealDepositWithExtraData: 'cross-chain' intent and 'Deposit owner data' label suggest extraData decides the owner; Bridge credits msg.sender.",
+   "disputed": 0,
    "comprehension": null
   },
   "requestRedemption(bytes20 walletPubKeyHash, (bytes32 txHash, uint32 txOutputIndex, uint64 txOutputValue) mainUtxo, bytes redeemerOutputScript, uint64 amount)": {
@@ -195,6 +197,7 @@
    "critical": 1,
    "warnings": 1,
    "worst": "requestRedemption: Amount reads as BTC received, but treasury and Bitcoin tx fees are cut from it.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -205,5 +208,33 @@
   "functions": "2C 1F",
   "incomplete": true,
   "worst": "requestRedemption: Amount reads as BTC received, but treasury and Bitcoin tx fees are cut from it."
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.23,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "requestRedemption(bytes20 walletPubKeyHash, (bytes32 txHash, uint32 txOutputIndex, uint64 txOutputValue) mainUtxo, bytes redeemerOutputScript, uint64 amount)",
+    "title": "requestRedemption: Amount reads as BTC received, but treasury and Bitcoin tx fees are cut from it.",
+    "verdict": "confirmed",
+    "reason": "The deployed Bridge.sol natspec says `amount` is the Bank balance taken from the signer, and that the BTC paid to the redeemer script is always lower: the treasury fee and the Bitcoin tx fee come out of it. The screen shows only \"Amount 0.5BTC\" under the intent \"Request tBTC redemption\". No field, label or intent mentions the fee cut. The prompt's amount rule covers this case: a storage fee rate that cuts what the signer receives from the amount shown is critical, not the info case for storage values. One limit: the Redemption library that computes the fees is not in the directory, and case 2 was not mined (\"tx not found\"). So this rests on the natspec of the deployed contract, not on the fee code or on a mined effect.",
+    "quote": "Bridge.sol requestRedemption natspec: \"@param amount Requested amount in satoshi. This is also the Bank balance that is taken from the `balanceOwner` upon request. Once the request is handled, the actual amount of BTC locked on the redeemer output script will be always lower than this value since the treasury and Bitcoin transaction fees must be incurred ... `amount - (amount / redemptionTreasuryFeeDivisor) - redemptionTxMaxFee`\" (defaults in BridgeState: redemptionTreasuryFeeDivisor = 2000, redemptionTxMaxFee = 100000). Descriptor requestRedemption: {\"path\": \"amount\", \"label\": \"Amount\", \"format\": \"unit\", \"params\": {\"base\": \"BTC\", \"decimals\": 8}}, intent \"Request tBTC redemption\"; case 2 screen: \"Amount\": \"0.5BTC\"."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "requestRedemption(bytes20 walletPubKeyHash, (bytes32 txHash, uint32 txOutputIndex, uint64 txOutputValue) mainUtxo, bytes redeemerOutputScript, uint64 amount)",
+    "title": "requestRedemption: Amount reads as BTC received, but treasury and Bitcoin tx fees are cut from it.",
+    "verdict": "unsure",
+    "reason": "The NatSpec supports the fee deduction, and the screen contains no fee disclosure. However, the executing Redemption.sol library is missing and case 2 has no mined effects, so the deduction cannot be verified from executable code.",
+    "quote": "Bridge.sol:29,69 imports \"./Redemption.sol\" and declares \"using Redemption for BridgeState.Storage;\"; Bridge.sol:574–580, requestRedemption: \"self.requestRedemption(walletPubKeyHash, mainUtxo, msg.sender, redeemerOutputScript, amount);\". Its NatSpec at lines 550–554 says \"the actual amount of BTC locked on the redeemer output script will be always lower\" and gives \"amount - (amount / redemptionTreasuryFeeDivisor) - redemptionTxMaxFee\". cases/2.json screen: \"intent\": \"Request tBTC redemption\", \"label\": \"Amount\", \"value\": \"0.5BTC\"; mined result: \"minedError\": \"tx not found\"."
+   }
+  ]
  }
 }

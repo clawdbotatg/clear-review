@@ -172,7 +172,7 @@
   "swap((address callTarget, address approveTarget, bytes targetData, (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes clientData) execution)"
  ],
  "seconds": 117,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "swap((address callTarget, address approveTarget, bytes targetData, (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes clientData) execution)": {
@@ -184,6 +184,7 @@
    "critical": 2,
    "warnings": 4,
    "worst": "swap is payable but shows no @.value; hidden flags let msg.value exceed the amount or skip the check",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -194,5 +195,33 @@
   "functions": "1F",
   "incomplete": false,
   "worst": "swap is payable but shows no @.value; hidden flags let msg.value exceed the amount or skip the check"
+ },
+ "verified": {
+  "n": 1,
+  "cost": 0.305,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "swap((address callTarget, address approveTarget, bytes targetData, (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes clientData) execution)",
+    "title": "swap is payable but shows no @.value; hidden flags let msg.value exceed the amount or skip the check",
+    "verdict": "confirmed",
+    "reason": "swap is payable, and no path forces msg.value to equal the amount shown. With _SIMPLE_SWAP set, swap returns through swapSimpleMode before _collectExtraETHIfNeeded runs. swapSimpleMode only requires a non-ETH srcToken and never checks msg.value or refunds it, so any ETH sent stays in the router. With _REQUIRES_EXTRA_ETH set, the check is only msg.value > amount. For an ETH srcToken, _takeFee then starts from msg.value, so the whole msg.value goes to the fee receivers and callTarget, which is more than the amount shown. The descriptor has no @.value field and keeps flags at visible: never, so the screen never shows how much ETH leaves the wallet.",
+    "quote": "MetaAggregationRouterV2.sol swap: `function swap(SwapExecutionParams calldata execution) external payable` … `if (_flagsChecked(desc.flags, _SIMPLE_SWAP)) { return swapSimpleMode(...); }` then `_collectExtraETHIfNeeded(desc);` → `if (_flagsChecked(desc.flags, _REQUIRES_EXTRA_ETH)) { require(msg.value > (srcETH ? desc.amount : 0), 'Invalid msg.value'); }`; swapSimpleMode: `require(!_isETH(desc.srcToken), ...)` and no msg.value check; swap: `desc.amount = _takeFee(..., _isETH(desc.srcToken) ? msg.value : desc.amount, feeInBps)`. Descriptor swap format: fields only on desc.amount, minReturnAmount, dstReceiver; `{\"label\": \"Flags\", \"path\": \"execution.desc.flags\", \"visible\": \"never\"}`; no @.value field."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 1,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "swap((address callTarget, address approveTarget, bytes targetData, (address srcToken, address dstToken, address[] srcReceivers, uint256[] srcAmounts, address[] feeReceivers, uint256[] feeAmounts, address dstReceiver, uint256 amount, uint256 minReturnAmount, uint256 flags, bytes permit) desc, bytes clientData) execution)",
+    "title": "swap is payable but shows no @.value; hidden flags let msg.value exceed the amount or skip the check",
+    "verdict": "confirmed",
+    "reason": "The extra-ETH flag permits native value above the displayed amount, and the native-input swap forwards that value to the executor. The descriptor shows only the source-token amount, minimum received, and beneficiary; it never shows transaction value.",
+    "quote": "contracts/1-0x6131b5fae19ea4f9d964eac0408e4408b66337b5/src/contracts/MetaAggregationRouterV2.sol, _collectExtraETHIfNeeded: `require(msg.value > (srcETH ? desc.amount : 0), 'Invalid msg.value');`. In swap's fee-on-destination branch, _executeSwap receives `_isETH(desc.srcToken) ? msg.value : 0`; _executeSwap forwards it with `(bool success, ) = callTarget.call{value: value}(targetData);`. descriptor.json, swap: `\"interpolatedIntent\": \"Swap {execution.desc.amount} for at least {execution.desc.minReturnAmount} to recipient {execution.desc.dstReceiver}\"`; `\"path\": \"execution.desc.flags\", \"visible\": \"never\"`. Its Amount to Send field uses `execution.desc.amount`; no field uses `@.value`."
+   }
+  ]
  }
 }

@@ -181,7 +181,7 @@
   "submitQuoteV15((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, address[] coveredAddresses, uint256 integratorId, address mintTo, uint8 v, bytes32 r, bytes32 s)"
  ],
  "seconds": 72,
- "rubric": "v1.1",
+ "rubric": "v1.2",
  "result": "fail",
  "formats": {
   "submitQuote((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, uint8 v, bytes32 r, bytes32 s)": {
@@ -193,6 +193,7 @@
    "critical": 2,
    "warnings": 1,
    "worst": "submitQuote is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+   "disputed": 0,
    "comprehension": null
   },
   "submitQuoteV15((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, address[] coveredAddresses, uint256 integratorId, address mintTo, uint8 v, bytes32 r, bytes32 s)": {
@@ -204,6 +205,7 @@
    "critical": 3,
    "warnings": 2,
    "worst": "submitQuoteV15 is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+   "disputed": 0,
    "comprehension": null
   }
  },
@@ -214,5 +216,61 @@
   "functions": "2F",
   "incomplete": false,
   "worst": "submitQuote is payable but shows no @.value, and nothing forces it to zero for ERC20 payments."
+ },
+ "verified": {
+  "n": 3,
+  "cost": 0.304,
+  "model": "claude-opus-5-5",
+  "findings": [
+   {
+    "format": "submitQuote((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, uint8 v, bytes32 r, bytes32 s)",
+    "title": "submitQuote is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+    "verdict": "confirmed",
+    "reason": "On the ERC20 payment path msg.value is never checked, so any ETH sent stays in the contract. It is not added to pendingAmounts, so the operator's collect() can send it to the collector. The screen never shows the native value, which matches the guide's example of a payable function with no @.value.",
+    "quote": "QuoteV15.sol _submitQuote: `if (_isNativeCoin(paymentAssetAddress)) { if (msg.value != totalPayment) revert InvalidPaymentAmount(); } else { IERC20Upgradeable(paymentAssetAddress).safeTransferFrom(_msgSender(), address(this), totalPayment); }` then `pendingAmounts[paymentAssetAddress] += totalPayment;`. QuoteV1.collect: `maxCollectable = contractBalance - pendingAmounts[assetAddress]` → `collector.call{value: amount}`. Descriptor submitQuote has no `@.value` field."
+   },
+   {
+    "format": "submitQuoteV15((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, address[] coveredAddresses, uint256 integratorId, address mintTo, uint8 v, bytes32 r, bytes32 s)",
+    "title": "submitQuoteV15 is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+    "verdict": "confirmed",
+    "reason": "This is the same code path as submitQuote. With an ERC20 payment asset, nothing stops a non-zero msg.value, and that ETH can be swept by collect(). The screen never shows the native value.",
+    "quote": "QuoteV15.submitQuoteV15 (external payable) → `return _submitQuote(quote, coveredAddresses, integratorId, mintTo);`. The same _submitQuote checks msg.value only in the `_isNativeCoin` branch. The descriptor's submitQuoteV15 fields contain no `@.value`."
+   },
+   {
+    "format": "submitQuoteV15((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, address[] coveredAddresses, uint256 integratorId, address mintTo, uint8 v, bytes32 r, bytes32 s)",
+    "title": "submitQuoteV15 hides coveredAddresses, the wallets the purchased cover actually protects.",
+    "verdict": "unsure",
+    "reason": "On-chain the array is only stored, and it moves none of the signer's assets. The cover position (the NFT) goes to mintTo, which is shown. The quoted text \"may be different from the sender address\" comes from interface source that is omitted here, and the claim logic that decides what coveredAddresses means for payouts is off-chain. So I cannot tell whether this hides a right or is only the scope of a grant whose holder is shown (not_critical #13).",
+    "quote": "QuoteV15._submitQuote: `_quoteCoveredAddresses[quoteId] = coveredAddresses;` (only checks non-zero entries). Descriptor: `{\"label\": \"Covered Addresses\", \"path\": \"#.coveredAddresses\", \"visible\": \"never\"}`, while `#.mintTo` 'Recipient' (the cover NFT holder) is shown."
+   }
+  ]
+ },
+ "verifiedCodex": {
+  "n": 3,
+  "cost": 0,
+  "model": "codex",
+  "findings": [
+   {
+    "format": "submitQuote((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, uint8 v, bytes32 r, bytes32 s)",
+    "title": "submitQuote is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+    "verdict": "confirmed",
+    "reason": "A successful ERC20 submission retains any attached ETH without checking or refunding it. The displayed premium and fee describe the ERC20 payment, not this additional ETH.",
+    "quote": "contracts/1-0xf5548a8a5a44b8ceb5b415276a44e83c939f1d91/src/contracts/QuoteV15.sol, submitQuote: `return _submitQuote(quote, coveredAddresses, 0, _msgSender());`; _submitQuote: `if (_isNativeCoin(paymentAssetAddress)) { if (msg.value != totalPayment) revert InvalidPaymentAmount(); } else { IERC20Upgradeable(paymentAssetAddress).safeTransferFrom(_msgSender(), address(this), totalPayment); }` and `pendingAmounts[paymentAssetAddress] += totalPayment;`. QuoteV1.sol, collect: `uint256 maxCollectable = contractBalance - pendingAmounts[assetAddress];` and `collector.call{value: amount}(\"\")`. descriptor.json, submitQuote: `\"intent\": \"Buy cover\"`, fields `\"label\": \"Payment asset\"`, `\"label\": \"Premium amount\"`, `\"label\": \"Fee amount\"`; no field displays `@.value`."
+   },
+   {
+    "format": "submitQuoteV15((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, address[] coveredAddresses, uint256 integratorId, address mintTo, uint8 v, bytes32 r, bytes32 s)",
+    "title": "submitQuoteV15 is payable but shows no @.value, and nothing forces it to zero for ERC20 payments.",
+    "verdict": "confirmed",
+    "reason": "submitQuoteV15 uses the same payment path, which retains attached ETH on successful ERC20 payments. No displayed field accounts for that additional native payment.",
+    "quote": "contracts/1-0xf5548a8a5a44b8ceb5b415276a44e83c939f1d91/src/contracts/QuoteV15.sol, submitQuoteV15: `return _submitQuote(quote, coveredAddresses, integratorId, mintTo);`; _submitQuote: `if (_isNativeCoin(paymentAssetAddress)) { if (msg.value != totalPayment) revert InvalidPaymentAmount(); } else { IERC20Upgradeable(paymentAssetAddress).safeTransferFrom(_msgSender(), address(this), totalPayment); }` and `pendingAmounts[paymentAssetAddress] += totalPayment;`. descriptor.json, submitQuoteV15: `\"intent\": \"Buy cover\"`, fields `\"label\": \"Payment asset\"`, `\"label\": \"Premium amount\"`, `\"label\": \"Fee amount\"`; no field displays `@.value`."
+   },
+   {
+    "format": "submitQuoteV15((uint32 providerId, uint32 productId, uint32 coverAssetId, uint256 coverAmount, uint32 paymentAssetId, uint256 premiumAmount, uint256 feeAmount, uint16 coverExpiry, uint256 validUntil) quote, address[] coveredAddresses, uint256 integratorId, address mintTo, uint8 v, bytes32 r, bytes32 s)",
+    "title": "submitQuoteV15 hides coveredAddresses, the wallets the purchased cover actually protects.",
+    "verdict": "confirmed",
+    "reason": "The submitted cover records independently specified covered wallets, which the descriptor explicitly hides. The displayed Recipient identifies the proof NFT recipient and does not establish which wallets are covered.",
+    "quote": "contracts/1-0xf5548a8a5a44b8ceb5b415276a44e83c939f1d91/src/contracts/QuoteV15.sol, storage declaration: `/// @dev Maps a quote ID to a list of covered addresses which may be different from the sender address.`; _submitQuote: `_quoteCoveredAddresses[quoteId] = coveredAddresses;` and `_safeMint(mintTo, quoteId);`. descriptor.json, submitQuoteV15: `{\"label\": \"Covered Addresses\", \"path\": \"#.coveredAddresses\", \"visible\": \"never\"}`; the separate displayed recipient is `\"path\": \"#.mintTo\", \"label\": \"Recipient\"`, and the intent is `\"Buy cover in {quote.coverAssetId}\"`."
+   }
+  ]
  }
 }
