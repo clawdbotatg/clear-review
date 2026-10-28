@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run -q -p 3.13 --script
 # /// script
-# dependencies = ["cryptography", "clearsig", "eth-hash[pycryptodome]"]
+# dependencies = ["cryptography", "clearsig", "eth-hash[pycryptodome]", "eth-account", "pycryptodome"]
 # ///
 # Tests with no network and no model: the signed round (a throwaway Secure Enclave key, no Touch ID), and
 # review.py's checks and grade.py's rubric. ./test.py
@@ -29,7 +29,9 @@ def test_round():
         cat["descriptors"].append({"file": f"f{i}.json", "hash": h, "deployments":
                                    [{"chainId": 1 + j, "address": "0x%040x" % (i * 10 + j)} for j in range(i + 1)]})
         (tmp / "reviews" / f"{h}.json").write_text(json.dumps({"result": result}))
-    r = sign.build(cat, tmp / "reviews", 3)
+    # each deployment: one function, its structure hash the descriptor's (sign.structures reads the real wire bytes)
+    S = {d["file"]: [(x["chainId"], x["address"], "0x12345678", d["hash"]) for x in d["deployments"]] for d in cat["descriptors"]}
+    r = sign.build(cat, tmp / "reviews", 3, structs=S)
     assert r["passed"] == 1 + 2 + 5, r["passed"]
     key = tmp / "t.key"
     pub = subprocess.run([str(ROOT / "se/clear-review-signer"), "create", str(key), "--no-touch"], check=True, capture_output=True, text=True).stdout.strip()
@@ -43,7 +45,7 @@ def test_round():
     assert sign.verify(bad, pub).startswith("bad proof")
     other = subprocess.run([str(ROOT / "se/clear-review-signer"), "create", str(tmp / "o.key"), "--no-touch"], check=True, capture_output=True, text=True).stdout.strip()
     assert sign.verify(r, other) == "bad signature"
-    add = sign.build(sign.pick(cat, tmp / "reviews", ["f4.json"]), tmp / "reviews", 3, sign.ADD)
+    add = sign.build(sign.pick(cat, tmp / "reviews", ["f4.json"]), tmp / "reviews", 3, sign.ADD, S)
     add["add"] = 1
     assert add["passed"] == 5
     add["signature"] = subprocess.run([str(ROOT / "se/clear-review-signer"), "sign", str(key), add["message"]], check=True, capture_output=True, text=True).stdout.strip()
@@ -57,8 +59,10 @@ def test_round():
             sign.pick(cat, tmp / "reviews", [w]); assert False, w
         except SystemExit:
             pass
-    one = sign.build({**cat, "descriptors": cat["descriptors"][:1]}, tmp / "reviews", 1)
-    assert one["leaves"][0]["proof"] == [] and one["root"] == sign.leaf(1, "0x" + "00" * 20, "0x%064x" % 1).hex()
+    one = sign.build({**cat, "descriptors": cat["descriptors"][:1]}, tmp / "reviews", 1, structs=S)
+    assert one["leaves"][0]["proof"] == [] and one["root"] == sign.leaf(1, "0x" + "00" * 20, "0x12345678", "0x%064x" % 1).hex()
+    bad = copy.deepcopy(r); bad["leaves"][0]["selector"] = "0x87654321"
+    assert sign.verify(bad, pub).startswith("bad proof")
 
 
 def test_grade():

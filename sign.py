@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run -q -p 3.13 --script
 # /// script
-# dependencies = ["cryptography"]
+# dependencies = ["cryptography", "clearsig", "eth-account", "pycryptodome"]
 # ///
 # One signed Merkle root per round over every descriptor deployment the robot review passed.
 #
@@ -11,7 +11,11 @@
 #                                        write adds/<round>-<k>.json. The next round includes them.
 #   ./sign.py verify [<json>]            check the signature against clear-review.pub and every proof (default: latest round)
 #
-# Leaf    = SHA-256(0x00 || chainId, 8 bytes big-endian || address, 20 bytes || descriptor hash, 32 bytes)
+# Leaf    = SHA-256(0x00 || chainId, 8 bytes big-endian || address, 20 bytes || selector, 4 bytes || structure hash, 32 bytes)
+#           One per function of each passed descriptor's deployments. Structure hash = SHA-256 of the descriptor's wire
+#           structure for that function up to its signature envelope (wedgie-dev wire/release.py makes the same bytes
+#           from the registry, and a wallet hashes what it got): a wallet never sees the JSON, so a hash of the JSON
+#           is nothing it can check. Env WEDGIE_DEV: a wedgie-dev checkout (wire/), default the harness's.
 # Node    = SHA-256(0x01 || the smaller hash || the bigger); an odd one out goes up as is (as wedgie-dev release.py)
 # Message = "clear-review/v1\0" || round, 4 bytes big-endian || registry commit, 20 bytes || root, 32 bytes
 # Add     = "clear-review/add/v1\0" || round || registry commit || root of the added leaves, same sizes.
@@ -29,8 +33,25 @@ MAGIC = b"clear-review/v1\x00"
 ADD = b"clear-review/add/v1\x00"
 
 
-def leaf(chain, address, dhash):
-    return hashlib.sha256(b"\x00" + chain.to_bytes(8, "big") + bytes.fromhex(address[2:]) + bytes.fromhex(dhash[2:])).digest()
+def leaf(chain, address, selector, shash):
+    return hashlib.sha256(b"\x00" + chain.to_bytes(8, "big") + bytes.fromhex(address[2:]) + bytes.fromhex(selector[2:])
+                          + bytes.fromhex(shash[2:])).digest()
+
+
+def structures(registry):
+    """{file: [(chain, address, selector, structure hash)]} for every calldata descriptor, from wedgie-dev's wire
+    encoder: the bytes before the envelope, as a wallet hashes them (wire.signed_message cuts there too)."""
+    wd = Path(os.environ.get("WEDGIE_DEV", Path.home() / "clawd/clawd-harness/projects/wedgie-dev"))
+    sys.path.insert(0, str(wd / "wire"))
+    import release, wire
+    descs, _ = release.descriptors(str(registry))
+    out = {}
+    for c, a, sel, body, _by, fn in descs:
+        b = bytes(wire.dumps(body + [[5, 0, 0, b"", []]]))
+        msg, env = wire.signed_message(b)
+        pre = b[:len(msg) - len(bytes(wire.dumps(env[:3])))]
+        out.setdefault(fn, []).append((c, "0x" + bytes(a).hex(), "0x" + bytes(sel).hex(), "0x" + hashlib.sha256(pre).hexdigest()))
+    return out
 
 
 def node(a, b):
@@ -64,25 +85,29 @@ def message(rnd, commit, root, magic=MAGIC):
     return magic + rnd.to_bytes(4, "big") + bytes.fromhex(commit) + root
 
 
-def passed(catalog, reviews):
-    """[(chain, address, hash, file)] for every deployment of every descriptor that passed, sorted by leaf."""
+def passed(catalog, reviews, structs):
+    """[(chain, address, selector, structure hash, file)] for every function of every deployment of every descriptor
+    that passed, sorted by leaf. structs: structures(registry)."""
     out = []
     for d in catalog["descriptors"]:
         f = reviews / f"{d['hash']}.json"
         if f.exists() and json.loads(f.read_text())["result"] == "pass":
-            out += [(x["chainId"], x["address"], d["hash"], d["file"]) for x in d["deployments"]]
-    return sorted(set(out), key=lambda x: leaf(*x[:3]))
+            deps = {(x["chainId"], x["address"].lower()) for x in d["deployments"]}
+            out += [(c, a, sel, h, d["file"]) for c, a, sel, h in structs.get(d["file"], []) if (c, a.lower()) in deps]
+    return sorted(set(out), key=lambda x: leaf(*x[:4]))
 
 
-def build(catalog, reviews, rnd, magic=MAGIC):
-    items = passed(catalog, reviews)
+def build(catalog, reviews, rnd, magic=MAGIC, structs=None):
+    if structs is None:
+        structs = structures(ROOT / "registry")
+    items = passed(catalog, reviews, structs)
     if not items:
         sys.exit("nothing passed: nothing to sign")
-    root, proof = tree([leaf(*x[:3]) for x in items])
+    root, proof = tree([leaf(*x[:4]) for x in items])
     return {"round": rnd, "registry": catalog["registry"], "root": root.hex(),
             "message": message(rnd, catalog["registry"], root, magic).hex(), "passed": len(items),
-            "leaves": [{"chainId": c, "address": a, "hash": h, "file": f, "proof": [p.hex() for p in proof(i)]}
-                       for i, (c, a, h, f) in enumerate(items)]}
+            "leaves": [{"chainId": c, "address": a, "selector": sel, "hash": h, "file": f, "proof": [p.hex() for p in proof(i)]}
+                       for i, (c, a, sel, h, f) in enumerate(items)]}
 
 
 def latest():
@@ -106,7 +131,7 @@ def verify(r, pub_hex):
     except InvalidSignature:
         return "bad signature"
     for x in r["leaves"]:
-        if fold(leaf(x["chainId"], x["address"], x["hash"]), [bytes.fromhex(p) for p in x["proof"]]) != root:
+        if fold(leaf(x["chainId"], x["address"], x["selector"], x["hash"]), [bytes.fromhex(p) for p in x["proof"]]) != root:
             return f"bad proof for {x['chainId']}:{x['address']}"
     return None
 
@@ -147,7 +172,7 @@ def main():
         r = sign(build(json.loads((ROOT / "work/catalog.json").read_text()), ROOT / "reviews", rnd))
         ROUNDS.mkdir(exist_ok=True)
         (ROUNDS / f"{rnd}.json").write_text(json.dumps(r, indent=1) + "\n")
-        print(f"round {rnd}: {r['passed']} deployments, root {r['root'][:16]}…, registry {r['registry'][:7]}")
+        print(f"round {rnd}: {r['passed']} functions, root {r['root'][:16]}…, registry {r['registry'][:7]}")
     elif cmd == "add":
         last = latest()
         if not last or len(sys.argv) < 3:
@@ -158,7 +183,7 @@ def main():
         r = sign({"add": k, **build(cat, ROOT / "reviews", rnd, ADD)})
         ADDS.mkdir(exist_ok=True)
         (ADDS / f"{rnd}-{k}.json").write_text(json.dumps(r, indent=1) + "\n")
-        print(f"add {rnd}-{k}: {r['passed']} deployments, root {r['root'][:16]}…")
+        print(f"add {rnd}-{k}: {r['passed']} functions, root {r['root'][:16]}…")
     elif cmd == "verify":
         f = Path(sys.argv[2]) if len(sys.argv) > 2 else latest()
         r = json.loads(f.read_text())

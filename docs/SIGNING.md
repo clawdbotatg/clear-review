@@ -48,23 +48,26 @@ We copy Trezor (one root, refuse old ones) and add Ledger's one-at-a-time adds f
 All hashes are SHA-256. Numbers are big-endian.
 
 ```
-leaf    = SHA-256(0x00 || chainId (8) || address (20) || descriptor hash (32))
+leaf    = SHA-256(0x00 || chainId (8) || address (20) || selector (4) || structure hash (32))
 node    = SHA-256(0x01 || smaller || bigger)          the odd one out goes up a level as is
 round   = "clear-review/v1\0"     || round (4) || registry commit (20) || root (32)
 add     = "clear-review/add/v1\0" || round (4) || registry commit (20) || root (32)
 sig     = ECDSA P-256 over SHA-256(message), r || s, 64 bytes
 ```
 
-- The descriptor hash is ERC-8176's (`clearsig` `descriptor_hash`: JCS + keccak over the descriptor with its
-  `includes` merged). If a descriptor changes upstream, its hash changes and it drops out on its own.
-- One leaf per deployment (chain + address), not per descriptor. A descriptor is only trusted where it was reviewed.
+- The structure hash is SHA-256 of the descriptor's wire-format structure for that one function, up to its
+  signature envelope: the bytes a wallet gets (wedgie-dev `wire/release.py` makes them from the registry; `sign.py`
+  runs the same code). A wallet never sees the JSON, so a hash of the JSON (ERC-8176's) is nothing it can check.
+  If a descriptor changes upstream, or the wire encoding changes, the hash changes and it drops out until re-signed.
+- One leaf per function per deployment (chain + address + selector). A descriptor is only trusted where it was reviewed.
+- Only the wedgie's chains and calldata descriptors get leaves (EIP-712 ones have no wire structure yet).
 - Nodes sort the pair, so a proof is just a list of hashes, with no left/right bits. This is the same as wedgie-dev
   `wire/release.py`, so the wallet reuses its proof code.
 - The two messages start differently, so an add can't be passed off as a round, or a round as an add (tested).
 
 Files:
-- `rounds/<n>.json`: `round, registry, root, key, message, signature, passed, leaves[]`.
-  Every leaf has `chainId, address, hash, file, proof`.
+- `rounds/<n>.json`: `round, registry, root, message, signature, passed, leaves[]`. No key: a wallet uses its own.
+  Every leaf has `chainId, address, selector, hash, file, proof`.
 - `adds/<round>-<k>.json`: the same fields, plus `add: k`.
 
 ## Rules for a wallet
@@ -75,8 +78,8 @@ Files:
 3. **Add:** take it only if its round equals the saved round. Check it the same way. Save its root next to the round's.
 4. A newer round drops every saved add. The next round has every add that still passes. One that doesn't is
    revoked this way.
-5. **Per transaction:** work out the descriptor hash, compute the leaf, fold the proof, and check the result equals a
-   saved root. Hashes only. The descriptor hash must come from data the wallet trusts (on the wedgie, from
+5. **Per transaction:** hash the structure it got (up to the envelope), compute the leaf, fold the proof, and check the result equals a
+   saved root. Hashes only. The structure must be what the wallet shows (on the wedgie, from
    inside the signed bundle).
 6. Show it as **🤖 checked**, sitting between "audited" and "not checked". Never call it audited. Warn, don't block.
 

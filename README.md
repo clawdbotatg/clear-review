@@ -67,7 +67,7 @@ The round number only goes up, so a wallet can refuse an old round.
 Full detail (key, round, add, wallet rules, why P-256, how Ledger and Trezor compare): [`docs/SIGNING.md`](docs/SIGNING.md).
 
 
-- Leaf: `SHA-256(0x00 || chainId (8 bytes BE) || address (20) || descriptor hash (32))`
+- Leaf: `SHA-256(0x00 || chainId (8 bytes BE) || address (20) || selector (4) || structure hash (32))`, one per function
 - Node: `SHA-256(0x01 || smaller || bigger)`, odd one out goes up as is (same as wedgie-dev `release.py`).
 - Message: `"clear-review/v1\0" || round (4 bytes BE) || registry commit (20) || root (32)`.
 - Add: `"clear-review/add/v1\0" || round || registry commit || root of the added leaves`, same leaves and nodes.
@@ -87,8 +87,7 @@ Full detail (key, round, add, wallet rules, why P-256, how Ledger and Trezor com
 - Get `rounds/<latest>.json`, check its signature once, keep the root.
 - Adds: take one only if its round is the one you hold; check it once, keep its root. A newer round drops them.
 - For each descriptor: check its proof against the root → show "🤖 checked".
-  The leaf has the descriptor hash, so the wallet must know the hash of what it shows (ERC-8176; the wedgie's
-  build has to carry it inside its signed data).
+  The structure hash is of the wire-format bytes the wallet gets (up to the envelope), so it checks what it shows.
 - Never show 🤖 checked as "audited".
 
 ## Steps
