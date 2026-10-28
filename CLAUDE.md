@@ -1,7 +1,7 @@
 # clear-review
 
 Robot review of ERC-7730 descriptors (truth + clarity per function), and signing the passes for wallets.
-Overview `README.md`, rubric `RUBRIC.md`, signing `docs/SIGNING.md`. Skills: `review-run`, `review-calibrate`, `review-one`.
+Overview `README.md`, rubric `RUBRIC.md`, signing `docs/SIGNING.md`, fixing registry descriptors (PRs) `docs/FIXING.md`. Skills: `review-run`, `review-calibrate`, `review-one`.
 
 - We check the screen, never the contract's safety. A rug that says "rug" passes.
 - Models label, code scores (`grade.py`). Change the rubric in code, then `./review.py grade`.
