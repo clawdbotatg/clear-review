@@ -127,12 +127,11 @@ def pick(catalog, reviews, wanted):
 
 
 def sign(r):
-    r["key"] = PUB.read_text().strip()
     r["signature"] = subprocess.run([str(ROOT / "se/clear-review-signer"), "sign", str(KEY), r["message"]], check=True, capture_output=True, text=True).stdout.strip()
-    err = verify(r, r["key"])
+    err = verify(r, PUB.read_text().strip())     # a wallet uses the key built into it, never one from the file
     if err:
         sys.exit("not written: " + err)
-    return {k: r[k] for k in ("add", "round", "registry", "root", "key", "message", "signature", "passed", "leaves") if k in r}
+    return {k: r[k] for k in ("add", "round", "registry", "root", "message", "signature", "passed", "leaves") if k in r}
 
 
 def main():
