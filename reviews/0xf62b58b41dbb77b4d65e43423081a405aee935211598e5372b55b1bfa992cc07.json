@@ -1,0 +1,183 @@
+{
+ "hash": "0xf62b58b41dbb77b4d65e43423081a405aee935211598e5372b55b1bfa992cc07",
+ "file": "registry/blast/calldata-L1CrossDomainMessenger.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5d4472f31bd9385709ec61305afc749f0fa8e9d0"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:42Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "sendMessage(address _target,bytes _message,uint32 _minGasLimit)",
+    "effects": [
+     "The signer's msg.value in ETH leaves the wallet to the messenger, which forwards it to the Blast portal and locks it on L1 (case 1 trace: signer -> 0x5d44... -> 0x0ec68c5b... -> 0x98078db...).",
+     "On Blast, the L2 messenger (0x4200...0007) calls _target with msg.value ETH and _message.",
+     "On Blast, the signer is recorded as the cross-domain sender (xDomainMessageSender), so _target treats the call as made by the signer.",
+     "_minGasLimit sets the L2 gas, which the signer pays for as extra L1 gas burned. No ETH value moves for it.",
+     "If the L2 call fails, the ETH stays in the L2 messenger and the message can be replayed."
+    ],
+    "shown": "Send X ETH and a message to <target> on Blast, with the ETH amount, the Blast target and the L2 call decoded against the target on chain 81457 when a descriptor for it exists.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "sendMessage: the nested L2 call shows as raw hex when the Blast target has no descriptor.",
+      "evidence": "Case 0: field 'L2 Call' renders 0x418cd589000...705ba829... as raw bytes. The blind reader was unsure 'What the call actually does' and 'Whether tokens will be sent to me or taken from me'. Descriptor: _message format calldata, chainId 81457, calleePath _target.",
+      "fix": "Add a descriptor for the Blast target contract so the nested call can be decoded. Nothing in this file can change it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "sendMessage: the screen doesn't say the L2 call runs with the signer as authenticated cross-domain sender.",
+      "evidence": "Upstream CrossDomainMessenger._sendMessage encodes relayMessage(nonce, msg.sender, _target, msg.value, _minGasLimit, _message), so L2 xDomainMessageSender = signer. The intent 'Send message to Blast' does not say this. The implementation behind ResolvedDelegateProxy is not in the directory.",
+      "fix": "Optionally reword the intent to 'Send message to Blast as you'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "sendMessage: _minGasLimit is hidden. It costs the signer only L1 gas and moves no assets.",
+      "evidence": "descriptor: {\"path\": \"_minGasLimit\", \"visible\": \"never\"}",
+      "fix": "None needed.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No signer asset movement on L1 (value 0). The effect on Blast depends on the undecoded L2 call."
+     },
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.0003 ETH out, shown as 'ETH to Send' and in the sentence. Target is the signer with an empty message, and the reader correctly read it as a bridge to self."
+     }
+    ],
+    "glance": 80,
+    "depth": 72
+   },
+   {
+    "key": "relayMessage(uint256 _nonce,address _sender,address _target,uint256 _value,uint256 _minGasLimit,bytes _message)",
+    "effects": [
+     "When an EOA signs, the call is a replay of a failed message. The code requires msg.value == 0 and failedMessages[hash] (upstream Optimism CrossDomainMessenger), so no ETH leaves the signer and only gas is spent.",
+     "The messenger calls _target with _value ETH from its own balance and _message, with xDomainMessageSender = _sender. The funds go to whoever the message names, not to the signer.",
+     "Only when the caller is the portal must msg.value equal _value exactly.",
+     "_minGasLimit sets the gas check. With too little gas the message is marked failed again and the signer loses only gas."
+    ],
+    "shown": "Relay up to <_value> from <_sender> on Blast to <_target>, with the target, the sender, the decoded L1 call, and the signer's attached ETH labelled 'Max ETH Attached'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "relayMessage: the label 'Max ETH Attached' is wrong. msg.value is exact: zero for users, exactly _value for the portal.",
+      "evidence": "descriptor: {\"path\": \"@.value\", \"label\": \"Max ETH Attached\"}. Upstream CrossDomainMessenger.relayMessage: require(msg.value == 0, 'value must be zero unless message is from a system address') for callers other than the portal, assert(msg.value == _value) for the portal.",
+      "fix": "Relabel to 'ETH You Attach (must be 0)', or simply 'ETH Attached'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "relayMessage: the screen doesn't say _value is paid from the messenger's balance, not the signer's.",
+      "evidence": "interpolatedIntent 'Relay up to {_value} from {_sender} on Blast to {_target}' and label 'Maximum Amount'. Cases 2 and 3 show 0.001 ETH twice ('Maximum Amount' and 'Max ETH Attached'), which reads as if the signer pays it.",
+      "fix": "Reword the sentence to 'Relay a Blast message: {_target} receives {_value} from the bridge', and label _value 'Paid to Target by Bridge'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "relayMessage: _nonce and _minGasLimit are hidden. They decide replay validity and gas, not the signer's assets.",
+      "evidence": "descriptor: _nonce and _minGasLimit with \"visible\": \"never\"",
+      "fix": "None needed.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "relayMessage: the ETH-carrying tests sign from the portal address, a path a wallet user can't take.",
+      "evidence": "Cases 2 and 3: from 0x0Ec68c5B10F21EFFb74f2A5C61DFe6b08C0Db6Cb (the portal, per case 1 trace) with value 1000000000000000 / 1050000000000000. Case 4, the only mined case, reverted (status 0).",
+      "fix": "Add a successful replay case from an EOA with value 0.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined tx reverted, so there are no signer effects. The reader correctly concluded that no funds leave the signer and that the DAI claim is for another address."
+     }
+    ],
+    "glance": 65,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "The L1CrossDomainMessenger implementation isn't in the directory. The deployment is a ResolvedDelegateProxy that resolves 'OVM_L1CrossDomainMessenger' through AddressManager 0xE064B565Cf2A312a3e66Fe4118890583727380C0, and proxyResolution found no implementation. I judged sendMessage and relayMessage behaviour (the msg.value rules, the replay path, the forwarding to the portal) from the upstream Optimism code and the case 1 trace, not from verified source."
+  ]
+ },
+ "cost": 0.357,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 118,
+ "rubric": "v1.2",
+ "result": "incomplete",
+ "formats": {
+  "sendMessage(address _target,bytes _message,uint32 _minGasLimit)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "relayMessage(uint256 _nonce,address _sender,address _target,uint256 _value,uint256 _minGasLimit,bytes _message)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "relayMessage: the label 'Max ETH Attached' is wrong. msg.value is exact: zero for users, exactly _value for the portal.",
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 72,
+  "functions": "1A 1C",
+  "incomplete": true,
+  "worst": "relayMessage: the label 'Max ETH Attached' is wrong. msg.value is exact: zero for users, exactly _value for the portal."
+ }
+}

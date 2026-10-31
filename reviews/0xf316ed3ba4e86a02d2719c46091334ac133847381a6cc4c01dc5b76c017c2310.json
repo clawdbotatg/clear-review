@@ -1,0 +1,784 @@
+{
+ "hash": "0xf316ed3ba4e86a02d2719c46091334ac133847381a6cc4c01dc5b76c017c2310",
+ "file": "registry/uniswap/calldata-UniswapV3NonfungiblePositionManager.json",
+ "kind": "calldata",
+ "registry": "21c3ac61559479b54fdccdd1a64ef91341aa7e50",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xc36442b4a4522e871399cd717abdd847ab11fe88"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-29T23:24Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "approve(address to,uint256 tokenId)",
+    "effects": [
+     "Sets `to` as the approved operator of position NFT `tokenId`. The operator can then transfer the NFT, decrease its liquidity and collect its tokens to any address.",
+     "Approving the zero address removes the current operator."
+    ],
+    "shown": "Allow {to} to withdraw and transfer position NFT {tokenId}, with Operator and Position fields.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "approve shows a revoke to the zero address as 'Allow 0x000… to withdraw and transfer'.",
+      "evidence": "NonfungiblePositionManager._approve: `_positions[tokenId].operator = to;`. approve(0, id) clears the operator. The descriptor says \"Allow {to} to withdraw and transfer position NFT {tokenId}\" and has no special case for address(0).",
+      "fix": "Add a message or a label for the zero address on `to`, for example \"None (revokes operator)\", or say in the intent that the zero address removes the operator.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The operator approval for NFT #1390670 is shown with the right operator and position."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "burn(uint256 tokenId)",
+    "effects": [
+     "Destroys position NFT `tokenId`. The call reverts unless liquidity and the tokens owed are zero, and it clears the operator approval.",
+     "Any ETH sent stays in the contract, where any caller can take it with refundETH. The screen shows ETH only when the value is not zero."
+    ],
+    "shown": "Burn empty position NFT {tokenId}. ETH Sent appears only when the value is not zero.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The NFT burn and the approval reset that comes with it count as one effect. The reader understood the burn."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "collect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max) params)",
+    "effects": [
+     "Sends the fees and tokens owed to position `tokenId`, up to amount0Max of token0 and amount1Max of token1, from the pool to `recipient`.",
+     "A zero recipient keeps the tokens in the position manager, where any caller can sweep them.",
+     "Lowers the amounts owed to the position by the collected amounts.",
+     "Any ETH sent stays in the contract. The screen shows it only when the value is not zero."
+    ],
+    "shown": "Collect up to raw amounts of token0 and token1 owed to the position, sent to the recipient, plus a note about the zero address.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "collect never names the two tokens received, because they come from position storage.",
+      "evidence": "Case 2: the signer received 564070 WBTC (0.0056 WBTC) and 470556602 USDC (470.56 USDC). The screen says only \"token0\" and \"token1 (raw units)\". In collect, `poolKey = _poolIdToPoolKey[position.poolId]` comes from storage.",
+      "fix": "No fix is possible in the descriptor. ERC-7730 cannot read the position's tokens from storage.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "collect puts the uint128 maximum, a 39-digit number, into the intent sentence twice.",
+      "evidence": "Case 2 interpolatedIntent: \"Collect up to 340282366920938463463374607431768211455 token0 and up to 340282366920938463463374607431768211455 token1 (raw units)...\". The code caps at tokensOwed: `params.amount0Max > tokensOwed0 ? tokensOwed0 : params.amount0Max`.",
+      "fix": "Take the raw maximums out of interpolatedIntent, for example \"Collect tokens owed to position {params.tokenId}, sent to {params.recipient}\". Keep them as fields only.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "collect always shows the zero-address warning, even when the recipient is a normal address.",
+      "evidence": "Descriptor interpolatedIntent ends with \"The zero address keeps them in this contract, where any caller can sweep them\". Code: `params.recipient == address(0) ? address(this) : params.recipient`.",
+      "fix": "Show the zero-address meaning on the Recipient field, with a label or a message, and take it out of the always-shown sentence.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 0,
+      "reader": [
+       "partial",
+       "partial"
+      ],
+      "notes": "The direction, the bound and the recipient are right. The assets WBTC and USDC are never named."
+     }
+    ],
+    "glance": 55,
+    "depth": 55
+   },
+   {
+    "key": "createAndInitializePoolIfNecessary(address token0,address token1,uint24 fee,uint160 sqrtPriceX96)",
+    "effects": [
+     "Creates the pool for token0, token1 and fee if it does not exist, and initializes it at sqrtPriceX96. It also initializes an existing pool that has no price yet.",
+     "Moves no assets of the signer. Any ETH sent stays in the contract."
+    ],
+    "shown": "Create the token0/token1 pool with the fee if it does not exist, at the raw sqrt price.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "createAndInitializePoolIfNecessary shows the starting price only as a raw Q64.96 square root.",
+      "evidence": "Case 3 shows \"starting at sqrt price 1344919684864506912172695223877090 (Q64.96)\". No ERC-7730 format turns sqrtPriceX96 into a price.",
+      "fix": "No fix is possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The receipt has no token movements."
+     }
+    ],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "decreaseLiquidity((uint256 tokenId,uint128 liquidity,uint256 amount0Min,uint256 amount1Min,uint256 deadline) params)",
+    "effects": [
+     "Burns `liquidity` from position `tokenId` in the pool and adds the freed tokens and the earned fees to the amounts owed to the position.",
+     "Reverts unless the freed amounts are at least amount0Min and amount1Min.",
+     "Transfers no tokens. A later collect is needed."
+    ],
+    "shown": "Remove the raw liquidity from the position, with raw minimums owed and the note that nothing transfers until collect.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "decreaseLiquidity shows the liquidity and the minimums raw, without tokens, because the tokens are in storage.",
+      "evidence": "Case 4: \"Remove 751410676468519570282 liquidity ... at least 0 token0 and 0 token1 (raw units)\". In decreaseLiquidity, `poolKey = _poolIdToPoolKey[position.poolId]` comes from storage.",
+      "fix": "No fix is possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No tokens move. The reader understood that the tokens become owed and are not sent."
+     }
+    ],
+    "glance": 70,
+    "depth": 60
+   },
+   {
+    "key": "increaseLiquidity((uint256 tokenId,uint256 amount0Desired,uint256 amount1Desired,uint256 amount0Min,uint256 amount1Min,uint256 deadline) params)",
+    "effects": [
+     "Takes up to amount0Desired of token0 and up to amount1Desired of token1 from the signer (at least the minimums) and sends them to the pool.",
+     "Adds the new liquidity to position `tokenId`, which can belong to any owner. No owner check exists.",
+     "For a WETH pair, ETH sent can pay the WETH part. Leftover ETH stays in the contract unless refundETH follows."
+    ],
+    "shown": "Add up to raw token0 and token1 amounts to the position, with raw minimums, a deadline, and ETH Sent when the value is not zero.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "increaseLiquidity never names the tokens taken, because the pool tokens are in position storage.",
+      "evidence": "Case 5: the signer sent 0.2263 stkAAVE and 0.4654 AAVE. The screen shows \"Add up to 226270246449117879 token0 and up to 465376757948285913 token1 (raw units)\". In increaseLiquidity, `poolKey = _poolIdToPoolKey[position.poolId]` comes from storage.",
+      "fix": "No fix is possible in the descriptor.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "increaseLiquidity adds funds to any position, and the screen does not show who owns it.",
+      "evidence": "increaseLiquidity has no isAuthorizedForToken modifier. decreaseLiquidity and collect have it. The screen shows only \"position Uniswap V3 Positions NFT-V1 #1390892\".",
+      "fix": "No fix is possible: the owner is in storage.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 2,
+      "shownRight": 0,
+      "reader": [
+       "partial",
+       "partial"
+      ],
+      "notes": "The amounts match the shown maximums exactly. The assets stkAAVE and AAVE are never named."
+     }
+    ],
+    "glance": 60,
+    "depth": 55
+   },
+   {
+    "key": "mint((address token0,address token1,uint24 fee,int24 tickLower,int24 tickUpper,uint256 amount0Desired,uint256 amount1Desired,uint256 amount0Min,uint256 amount1Min,address recipient,uint256 deadline) params)",
+    "effects": [
+     "Takes up to amount0Desired of token0 and amount1Desired of token1 from the signer (at least the minimums) and sends them to the pool.",
+     "Mints a new position NFT to `recipient`.",
+     "When token0 or token1 is WETH, the contract's ETH balance (msg.value) pays that part instead of the signer's WETH. Leftover ETH stays in the contract, where any caller can take it with refundETH."
+    ],
+    "shown": "Add up to X token0 and Y token1 to a new position for the recipient. Fields show the maximums, minimums, fee, ticks, deadline, and ETH Sent when the value is not zero.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "mint does not say that ETH sent pays the WETH side or that leftover ETH stays claimable.",
+      "evidence": "PeripheryPayments.pay: `if (token == WETH9 && address(this).balance >= value) { IWETH9(WETH9).deposit{value: value}(); ...}`. refundETH sends the whole balance to any msg.sender. The descriptor shows \"Maximum to Add … WETH\" and a separate \"ETH Sent\".",
+      "fix": "Change the ETH Sent label to \"ETH Sent (pays WETH side; refund in same batch)\", and add a test with a WETH pair and a non-zero value.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "mint shows the price range only as raw ticks.",
+      "evidence": "Case 6 shows \"Lower Tick -288400\" and \"Upper Tick -286600\". No ERC-7730 format turns a tick into a price.",
+      "fix": "No fix is possible in the descriptor.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 3,
+      "shownRight": 3,
+      "reader": [
+       "right",
+       "right",
+       "right"
+      ],
+      "notes": "DOS and USDT out are within the shown maximums. The NFT goes to the shown recipient."
+     }
+    ],
+    "glance": 90,
+    "depth": 85
+   },
+   {
+    "key": "multicall(bytes[] data)",
+    "effects": [
+     "Delegatecalls each inner call on the position manager, in order, with the signer as msg.sender and the same msg.value for every call.",
+     "Sends the ETH value once. Each inner call has the effects of its own function.",
+     "Reverts everything if one inner call fails."
+    ],
+    "shown": "Send {@.value} and run every action below, with ETH Sent and each inner call decoded as an Action.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "multicall is tested only with an empty batch, so no nested rendering is checked.",
+      "evidence": "Case 19: \"multicall, empty batch (encoded)\", data length 0. The usual batches, such as decreaseLiquidity+collect+sweepToken or mint+refundETH with ETH, have no test.",
+      "fix": "Add multicall test cases with real batches, including one with a non-zero value.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "multicall passes the full outer ETH value to every inner action, so ETH Sent can repeat.",
+      "evidence": "The descriptor has `\"amountPath\": \"@.value\"` on `data.[]`. Each inner payable format shows \"ETH Sent\" when the value is not zero. Multicall.multicall: `address(this).delegatecall(data[i])` keeps msg.value.",
+      "fix": "No change is needed. The repeated value matches the delegatecall behaviour, but it may make the signer think ETH is sent more than once.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 75
+   },
+   {
+    "key": "permit(address spender,uint256 tokenId,uint256 deadline,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "Sets `spender` as the operator of NFT `tokenId` when the owner's signature (EOA or ERC-1271) is valid. Any caller can submit it.",
+     "Increments the position's permit nonce."
+    ],
+    "shown": "Allow {spender} to withdraw and transfer position NFT {tokenId}, as authorized by the owner's signature.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The signer is a relayer. The approval belongs to owner 0x46ff…, so the signer has no effects."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "refundETH()",
+    "effects": [
+     "Sends the contract's whole ETH balance to msg.sender (the signer)."
+    ],
+    "shown": "Send the ETH held by this contract to you.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 8,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The contract balance was zero, so nothing moved."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "safeTransferFrom(address from,address to,uint256 tokenId,bytes _data)",
+    "effects": [
+     "Transfers position NFT `tokenId` from `from` to `to` and clears its operator.",
+     "Calls onERC721Received on `to` with `_data`. A contract recipient acts on that payload while it owns the position."
+    ],
+    "shown": "Transfer position NFT {tokenId} from {from} to {to}. _data is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "safeTransferFrom with data hides _data, and the recipient used it to change and return the position.",
+      "evidence": "Case 10: the recipient 0xb4ac… withdrew LINK/USDC from the position, swapped, added liquidity back, and returned NFT #1197161 to the signer with 16881 LINK wei and 14826 USDC wei. The screen shows only \"Transfer position NFT … to 0xb4ac…\". The descriptor has `\"path\": \"_data\", \"visible\": \"never\"`.",
+      "fix": "Show `_data` (label \"Data for recipient\"), or change interpolatedIntent to \"Transfer position NFT {tokenId} from {from} to {to} with instructions for the recipient\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 10,
+      "signerEffects": 4,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "missed",
+       "missed",
+       "missed"
+      ],
+      "notes": "The NFT out is shown right. The NFT returned with a changed position, and the dust LINK and USDC refunds, are not on the screen."
+     }
+    ],
+    "glance": 75,
+    "depth": 60
+   },
+   {
+    "key": "safeTransferFrom(address from,address to,uint256 tokenId)",
+    "effects": [
+     "Transfers position NFT `tokenId` from `from` to `to`, clears its operator, and calls onERC721Received when `to` is a contract."
+    ],
+    "shown": "Transfer position NFT {tokenId} from {from} to {to}.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 9,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The NFT out is right. The approval reset is part of the transfer."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "selfPermit(address token,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "Calls the token's ERC-2612 permit, which sets the signer's allowance for the position manager to `value`."
+    ],
+    "shown": "Allow this contract to spend {value} {token} using your permit signature.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "selfPermitAllowed(address token,uint256 nonce,uint256 expiry,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "Calls the DAI-style permit with allowed=true, which sets an unlimited allowance for the position manager on the signer's `token`."
+    ],
+    "shown": "Allow this contract to spend unlimited {token} using your permit signature.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "selfPermitAllowedIfNecessary(address token,uint256 nonce,uint256 expiry,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "When the allowance is below the maximum, sets an unlimited allowance for the position manager on the signer's `token` through the DAI-style permit."
+    ],
+    "shown": "Allow this contract to spend unlimited {token} using your permit signature, unless its allowance is already unlimited.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "selfPermitIfNecessary(address token,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "When the current allowance is below `value`, sets the signer's allowance for the position manager to `value` through ERC-2612 permit."
+    ],
+    "shown": "Allow this contract to spend {value} {token} using your permit signature, unless its allowance is already that high.",
+    "findings": [],
+    "cases": [],
+    "glance": 88,
+    "depth": 88
+   },
+   {
+    "key": "setApprovalForAll(address operator,bool approved)",
+    "effects": [
+     "Grants or revokes `operator` control over all of the signer's position NFTs, now and in the future."
+    ],
+    "shown": "Grant/Revoke {operator} access to withdraw and transfer all your position NFTs.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 15,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The revoke is shown right."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "sweepToken(address token,uint256 amountMinimum,address recipient)",
+    "effects": [
+     "Sends the contract's whole balance of `token` to `recipient`. Reverts if the balance is below amountMinimum."
+    ],
+    "shown": "Send the whole token balance held by this contract, at least {amountMinimum} {token}, to {recipient}.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 16,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The contract balance was zero, so nothing moved."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "transferFrom(address from,address to,uint256 tokenId)",
+    "effects": [
+     "Transfers position NFT `tokenId` from `from` to `to` and clears its operator. No receiver check runs."
+    ],
+    "shown": "Transfer position NFT {tokenId} from {from} to {to}.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 17,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The NFT out is right."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "unwrapWETH9(uint256 amountMinimum,address recipient)",
+    "effects": [
+     "Unwraps the contract's whole WETH balance and sends the ETH to `recipient`. Reverts if the balance is below amountMinimum."
+    ],
+    "shown": "Unwrap the WETH held by this contract, at least {amountMinimum} WETH, and send the ETH to {recipient}.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 18,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The contract balance was zero, so nothing moved."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 1.318,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 259,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "approve(address to,uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "approve shows a revoke to the zero address as 'Allow 0x000… to withdraw and transfer'.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "burn(uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "collect((uint256 tokenId,address recipient,uint128 amount0Max,uint128 amount1Max) params)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 42,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "collect puts the uint128 maximum, a 39-digit number, into the intent sentence twice.",
+   "disputed": 0,
+   "comprehension": 50
+  },
+  "createAndInitializePoolIfNecessary(address token0,address token1,uint24 fee,uint160 sqrtPriceX96)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "decreaseLiquidity((uint256 tokenId,uint128 liquidity,uint256 amount0Min,uint256 amount1Min,uint256 deadline) params)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "increaseLiquidity((uint256 tokenId,uint256 amount0Desired,uint256 amount1Desired,uint256 amount0Min,uint256 amount1Min,uint256 deadline) params)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 50
+  },
+  "mint((address token0,address token1,uint24 fee,int24 tickLower,int24 tickUpper,uint256 amount0Desired,uint256 amount1Desired,uint256 amount0Min,uint256 amount1Min,address recipient,uint256 deadline) params)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "mint does not say that ETH sent pays the WETH side or that leftover ETH stays claimable.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "multicall(bytes[] data)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "multicall is tested only with an empty batch, so no nested rendering is checked.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "permit(address spender,uint256 tokenId,uint256 deadline,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "refundETH()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "safeTransferFrom(address from,address to,uint256 tokenId,bytes _data)": {
+   "grade": "D",
+   "truth": 25,
+   "clarity": 42,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "safeTransferFrom with data hides _data, and the recipient used it to change and return the position.",
+   "disputed": 0,
+   "comprehension": 25
+  },
+  "safeTransferFrom(address from,address to,uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "selfPermit(address token,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "selfPermitAllowed(address token,uint256 nonce,uint256 expiry,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "selfPermitAllowedIfNecessary(address token,uint256 nonce,uint256 expiry,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "selfPermitIfNecessary(address token,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "setApprovalForAll(address operator,bool approved)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "sweepToken(address token,uint256 amountMinimum,address recipient)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "transferFrom(address from,address to,uint256 tokenId)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "unwrapWETH9(uint256 amountMinimum,address recipient)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "D",
+  "truth": 96,
+  "clarity": 79,
+  "functions": "14A 3B 2C 1D",
+  "incomplete": false,
+  "worst": "safeTransferFrom with data hides _data, and the recipient used it to change and return the position."
+ }
+}

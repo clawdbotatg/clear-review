@@ -1,0 +1,224 @@
+{
+ "hash": "0xe6c7fd53cd31da9ba2472296479f5e08fa5cdcb76b78cab6ccd7273470237248",
+ "file": "registry/opensea/calldata-SeaDrop.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x00005ea00ac477b1030ce78506496e8c2de24bf5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:45Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "mintAllowedTokenHolder(address nftContract,address feeRecipient,address minterIfNotPayer,(address allowedNftToken,uint256[] allowedNftTokenIds) mintParams)",
+    "effects": [
+     "The signer pays msg.value in ETH. It must equal the number of token IDs times the drop stage mint price from storage, or the call reverts (_checkCorrectPayment).",
+     "The payment goes to the creator payout address from storage, minus a feeBps cut (from storage) sent to feeRecipient from calldata (_splitPayout).",
+     "One NFT of nftContract is minted to minterIfNotPayer (or to the signer when it is zero) for each token ID listed (_mintAndPay -> mintSeaDrop).",
+     "Each listed token ID of allowedNftToken, which the minter must own, is marked as redeemed for this drop and cannot be used again. The held NFT is not moved."
+    ],
+    "shown": "\"Mint as NFT holder\" / \"Mint to {recipient} for {ETH value}\", with the collection, total price, recipient, the gating collection and each token ID being redeemed.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mintAllowedTokenHolder: fee recipient that gets part of the ETH payment is hidden.",
+      "evidence": "SeaDrop.sol _splitPayout: SafeTransferLib.safeTransferETH(feeRecipient, feeAmount); descriptor field feeRecipient 'The fee recipient' visible: never. The fee rate is in storage (dropStage.feeBps). The signer pays the shown total either way, and what the signer receives does not change.",
+      "fix": "Optionally show feeRecipient as an addressName 'Marketplace fee to' field.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "mintAllowedTokenHolder: the intent sentence does not state how many NFTs are minted.",
+      "evidence": "mintQuantity = mintParams.allowedNftTokenIds.length; interpolatedIntent 'Mint to {minterIfNotPayer} for {@.value}'. The count is the array length, which no path can interpolate. Each token ID is listed as 'Redeems Token ID'.",
+      "fix": "None possible today. The token ID list already implies one mint per ID.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 3,
+      "shownRight": 3,
+      "reader": [],
+      "notes": "Synthetic case, nothing was mined. From the code: 0 ETH is paid, 2 NFTs of 0x5e09… go to the signer, and BAYC IDs 1234 and 5678 are marked redeemed. All three are shown."
+     }
+    ],
+    "glance": 78,
+    "depth": 88
+   },
+   {
+    "key": "mintAllowList(address nftContract,address feeRecipient,address minterIfNotPayer,uint256 quantity,(uint256 mintPrice,uint256 maxTotalMintableByWallet,uint256 startTime,uint256 endTime,uint256 dropStageIndex,uint256 maxTokenSupplyForStage,uint256 feeBps,bool restrictFeeRecipients) mintParams,bytes32[] proof)",
+    "effects": [
+     "The signer pays msg.value in ETH. It must equal quantity times mintParams.mintPrice, or the call reverts.",
+     "The payment goes to the creator payout address from storage, minus a feeBps cut sent to feeRecipient.",
+     "quantity NFTs of nftContract are minted to minterIfNotPayer (or to the signer when it is zero)."
+    ],
+    "shown": "\"Mint NFTs\" / \"Mint {quantity} to {recipient} for {ETH value}\", with the quantity, collection, total price and recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mintAllowList: fee recipient that gets part of the ETH payment is hidden.",
+      "evidence": "SeaDrop.sol _splitPayout sends (msg.value*feeBps)/10000 to feeRecipient. Descriptor has feeRecipient and mintParams.feeBps visible: never. Case 1: all 0.0036 ETH went to 0xa23a…f438 (signer null). The signer paid exactly the shown total.",
+      "fix": "Optionally show feeRecipient as an addressName field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "The signer paid 0.0036 ETH (shown as Total Price) and received PHNX token IDs 1-9 from 0xf0be… (Quantity 9, Collection, Recipient Sender). The reader got both right."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "mintPublic(address nftContract,address feeRecipient,address minterIfNotPayer,uint256 quantity)",
+    "effects": [
+     "The signer pays msg.value in ETH. It must equal quantity times the public drop mint price from storage, or the call reverts.",
+     "The payment goes to the creator payout address from storage, minus a feeBps cut (from storage) sent to feeRecipient.",
+     "quantity NFTs of nftContract are minted to minterIfNotPayer (or to the signer when it is zero)."
+    ],
+    "shown": "\"Mint NFTs\" / \"Mint {quantity} to {recipient} for {ETH value}\", with the quantity, collection, total price and recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mintPublic: fee recipient that gets part of the ETH payment is hidden.",
+      "evidence": "SeaDrop.sol mintPublic -> _mintAndPay -> _splitPayout(nftContract, feeRecipient, publicDrop.feeBps). Descriptor has feeRecipient visible: never. The fee rate is in storage, and what the signer pays and receives does not change.",
+      "fix": "Optionally show feeRecipient as an addressName field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "Synthetic case, nothing was mined. From the code: 0 ETH is paid and 5 NFTs of 0x4258… go to the signer's own address, which is shown explicitly."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "mintSigned(address nftContract,address feeRecipient,address minterIfNotPayer,uint256 quantity,(uint256 mintPrice,uint256 maxTotalMintableByWallet,uint256 startTime,uint256 endTime,uint256 dropStageIndex,uint256 maxTokenSupplyForStage,uint256 feeBps,bool restrictFeeRecipients) mintParams,uint256 salt,bytes signature)",
+    "effects": [
+     "The signer pays msg.value in ETH. It must equal quantity times mintParams.mintPrice, or the call reverts.",
+     "The payment goes to the creator payout address from storage, minus a feeBps cut sent to feeRecipient, which must be on the allowed list.",
+     "quantity NFTs of nftContract are minted to minterIfNotPayer (or to the signer when it is zero).",
+     "The server signature digest is marked as used, so this signed mint cannot be replayed."
+    ],
+    "shown": "\"Mint NFTs\" / \"Mint {quantity} to {recipient} for {ETH value}\", with the quantity, collection, total price and recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "mintSigned: fee recipient that gets part of the ETH payment is hidden.",
+      "evidence": "SeaDrop.sol mintSigned -> _mintAndPay -> _splitPayout sends the feeBps cut to feeRecipient. Descriptor has feeRecipient and mintParams.feeBps visible: never. Signed mints must restrict fee recipients (_validateSignerAndParams), and the signer pays exactly the shown total.",
+      "fix": "Optionally show feeRecipient as an addressName field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [],
+      "notes": "Synthetic case, nothing was mined. From the code: 0.000034 ETH is paid (1 × mintPrice 0x1eec3dec2000) and 1 NFT of 0x5e09… goes to the signer. Both are shown."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.427,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 96,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "mintAllowedTokenHolder(address nftContract,address feeRecipient,address minterIfNotPayer,(address allowedNftToken,uint256[] allowedNftTokenIds) mintParams)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 83,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "mintAllowList(address nftContract,address feeRecipient,address minterIfNotPayer,uint256 quantity,(uint256 mintPrice,uint256 maxTotalMintableByWallet,uint256 startTime,uint256 endTime,uint256 dropStageIndex,uint256 maxTokenSupplyForStage,uint256 feeBps,bool restrictFeeRecipients) mintParams,bytes32[] proof)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "mintPublic(address nftContract,address feeRecipient,address minterIfNotPayer,uint256 quantity)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "mintSigned(address nftContract,address feeRecipient,address minterIfNotPayer,uint256 quantity,(uint256 mintPrice,uint256 maxTotalMintableByWallet,uint256 startTime,uint256 endTime,uint256 dropStageIndex,uint256 maxTokenSupplyForStage,uint256 feeBps,bool restrictFeeRecipients) mintParams,uint256 salt,bytes signature)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 88,
+  "functions": "4A",
+  "incomplete": false,
+  "worst": null
+ }
+}

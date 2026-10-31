@@ -1,0 +1,250 @@
+{
+ "hash": "0x665f4ce0e9ba3d19625cd972d79da24dabaa689a86e4e6285edc463992235d1e",
+ "file": "registry/cow-protocol/calldata-CoWSwapEthFlow.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xba3cb449bd2b4adddbc894d8697f5170800eadec"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:44Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "createOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)",
+    "effects": [
+     "The signer sends msg.value native ETH to the EthFlow contract, and the code requires msg.value == sellAmount + feeAmount.",
+     "An order owned by the signer is recorded with expiry validTo. It sells sellAmount (as WETH) for at least buyAmount of buyToken, paid to receiver if it fills.",
+     "feeAmount ETH goes to CoW Protocol when the order fills. Any part not used is refundable to the owner through invalidateOrder.",
+     "Later, the signer can cancel the order and get back the ETH that was not filled."
+    ],
+    "shown": "The intent is 'Create ETH sell order'. Fields show the amount to sell, the minimum to receive with the buy token's symbol, the recipient, the expiry, the fee and the total ETH sent. Partial fills are hidden and must be false.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "createOrder has no interpolatedIntent, so the intent line names neither the amount sold nor the token bought.",
+      "evidence": "descriptor.json createOrder: \"intent\": \"Create ETH sell order\" and no interpolatedIntent, while order.sellAmount and order.buyAmount (with tokenPath order.buyToken) are formatted fields.",
+      "fix": "Add \"interpolatedIntent\": \"Sell {order.sellAmount} for at least {order.buyAmount} to {order.receiver}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "createOrder hides appData, a bytes32 hash of off-chain order metadata the descriptor cannot decode.",
+      "evidence": "descriptor.json: order.appData \"visible\": \"never\". EthFlowOrder.sol toCoWSwapOrder copies order.appData into the CoW order. The settlement still enforces buyAmount as the minimum.",
+      "fix": "None possible: it is a hash. The minimum received is already shown.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "createOrder's mustMatch [false] on partiallyFillable makes wallets reject valid partial-fill orders.",
+      "evidence": "descriptor.json: order.partiallyFillable \"visible\": {\"mustMatch\": [false]}. The spec says a wallet should raise an error when the value is not in the list, but EthFlowOrder.toCoWSwapOrder accepts either value.",
+      "fix": "Use \"visible\": {\"ifNotIn\": [false]} with a label like 'Partial fills allowed', so true is shown instead of rejected.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.00034388 ETH out, matching 'Total ETH Sent' and 'Amount to Sell' with a fee of 0."
+     },
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.15 ETH out, matching 'Total ETH Sent'."
+     },
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1.320578994222941061 ETH out, matching 'Total ETH Sent'."
+     }
+    ],
+    "glance": 60,
+    "depth": 90
+   },
+   {
+    "key": "invalidateOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)",
+    "effects": [
+     "Marks the matching EthFlow order as invalidated, so it can no longer be settled.",
+     "Sends the unfilled ETH, sellAmount - filledAmount plus the unused part of the fee, to the order owner stored on chain. The owner is not necessarily the caller.",
+     "Only the owner can cancel an order that is still tradable. Anyone can trigger the refund once it has expired, and the money still goes to the owner."
+    ],
+    "shown": "The intent is 'Cancel ETH order, refund owner'. Fields show the order's sell amount, minimum to receive with its token, recipient and fee.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "invalidateOrder's refund is reduced by the filled amount in storage, but the screen shows only the full order sell amount.",
+      "evidence": "CoWSwapEthFlow.sol _invalidateOrder: refundAmount = sellAmount - filledAmount + feeRefundAmount, where filledAmount = cowSwapSettlement.filledAmount(orderUid). Case 4 shows 'Order Sell Amount 50 ETH' and the mined tx moved no ETH, because the order was already filled.",
+      "fix": "The amount cannot be computed. A label such as 'Refund up to (order sell amount)' would make the ceiling clear.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "invalidateOrder pays the refund to the stored owner, an address the screen cannot show.",
+      "evidence": "CoWSwapEthFlow.sol _invalidateOrder: payable(orderData.owner).call{value: refundAmount}(\"\"), where orderData comes from orders[orderHash]. The descriptor shows only order.receiver, as 'Order Recipient'.",
+      "fix": "None possible: the owner is in storage. The intent already says 'refund owner'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.2 ETH refunded to the signer (the owner), matching 'Order Sell Amount 0.2 ETH' plus a fee of 0 and the intent 'refund owner'."
+     },
+     {
+      "index": 4,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No ETH moved because the order was fully filled. The reader expected 'up to 50 ETH' and said a partial fill could reduce it."
+     }
+    ],
+    "glance": 75,
+    "depth": 75
+   },
+   {
+    "key": "unwrap(uint256 amount)",
+    "effects": [
+     "Turns `amount` of the EthFlow contract's own WETH into ETH held by the contract. No asset of the signer moves."
+    ],
+    "shown": "Unwrap 0.25 WETH in EthFlow, with the WETH amount as a field.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "wrap(uint256 amount)",
+    "effects": [
+     "Turns `amount` of the EthFlow contract's own ETH into WETH held by the contract. No asset of the signer moves. If the call fails, nothing happens and the transaction does not revert."
+    ],
+    "shown": "Wrap {amount} ETH in EthFlow, with the ETH amount as a field.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "wrapAll()",
+    "effects": [
+     "Turns the EthFlow contract's whole ETH balance into WETH held by the contract. No asset of the signer moves."
+    ],
+    "shown": "Wrap all ETH held by EthFlow, with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.423,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 95,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "createOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "createOrder has no interpolatedIntent, so the intent line names neither the amount sold nor the token bought.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "invalidateOrder((address buyToken,address receiver,uint256 sellAmount,uint256 buyAmount,bytes32 appData,uint256 feeAmount,uint32 validTo,bool partiallyFillable,int64 quoteId) order)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "unwrap(uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "wrap(uint256 amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "wrapAll()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 88,
+  "functions": "5A",
+  "incomplete": false,
+  "worst": "createOrder has no interpolatedIntent, so the intent line names neither the amount sold nor the token bought."
+ }
+}

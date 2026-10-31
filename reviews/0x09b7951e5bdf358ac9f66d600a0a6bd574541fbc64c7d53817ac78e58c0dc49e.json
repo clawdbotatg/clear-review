@@ -1,0 +1,254 @@
+{
+ "hash": "0x09b7951e5bdf358ac9f66d600a0a6bd574541fbc64c7d53817ac78e58c0dc49e",
+ "file": "registry/blast/calldata-OptimismPortal.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x0ec68c5b10f21effb74f2a5c61dfe6b08c0db6cb"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:44Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "depositTransaction(address _to,uint256 _value,uint64 _gasLimit,bool _isCreation,bytes _data)",
+    "effects": [
+     "The ETH attached to the call (msg.value) leaves the signer and the portal forwards it to the ETHYieldManager.",
+     "The same amount is minted on Blast to the signer's L2 address, or to its aliased address when the caller is a contract.",
+     "_value ETH moves on Blast from that L2 address to _to. Any part above msg.value comes from the signer's existing Blast balance.",
+     "_data runs on Blast as a call from that L2 address to _to, using _gasLimit gas paid for by burning L1 gas.",
+     "The call reverts when _to is the L2 Blast bridge and the caller is not the L1 Blast bridge. The wallet refuses _isCreation = true."
+    ],
+    "shown": "Deposit {msg.value} to Blast and send {_value} on L2 to {_to}, with the gas limit, the decoded L2 call and a note about aliased addresses for contract wallets.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "depositTransaction: the screen does not say that _value above msg.value comes from the signer's Blast balance.",
+      "evidence": "OptimismPortal.sol depositTransaction: opaqueData = abi.encodePacked(msg.value, _value, ...): mint and L2 value are separate. Descriptor interpolatedIntent 'Deposit {@.value} to Blast and send {_value} on L2 to {_to}'. Case 1 shows 'Deposit 0 ETH ... send 0.000006133436085086 ETH on L2', and the blind reader believed 'Up to 0.000006133436085086 ETH to the Blast bridge (L1 contract)' would leave the L1 wallet.",
+      "fix": "Say where the L2 amount comes from, e.g. 'Deposit {@.value} to Blast and send {_value} from your Blast balance to {_to}', or relabel _value as 'ETH Sent on L2 (from your Blast balance)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "depositTransaction: the intent 'Deposit ETH to Blast' is also shown for zero-value forced L2 calls, such as withdrawals.",
+      "evidence": "Case 10: intent 'Deposit ETH to Blast' with Deposit Amount 0 ETH. The nested L2 call is 'Start ETH withdrawal to Ethereum'. Descriptor intent 'Deposit ETH to Blast'.",
+      "fix": "Use a neutral intent such as 'Send transaction to Blast'. The interpolated sentence already carries the amounts.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "depositTransaction: the nested L2 call uses the L1 sender as @.from, but contract wallets act from an aliased address.",
+      "evidence": "OptimismPortal.sol depositTransaction: 'if (msg.sender != tx.origin) from = AddressAliasHelper.applyL1ToL2Alias(msg.sender)'. Descriptor _data params 'spenderPath': '@.from'. The static Note field explains the aliasing.",
+      "fix": "ERC-7730 cannot compute the alias. Keep the Note.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No L1 movement (value 0). The L2 transfer of _value comes from the signer's Blast balance. The reader wrongly thought it would leave L1."
+     },
+     {
+      "index": 10,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No L1 movement. The nested L2 call starts a withdrawal, and the reader understood it."
+     }
+    ],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "finalizeWithdrawalTransaction(uint256 hintId,(uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx)",
+    "effects": [
+     "Marks the proven withdrawal _tx as finalized so it cannot be replayed.",
+     "Claims the ETH for the withdrawal from the ETHYieldManager (request from proving, hintId) and sends the amount actually received, which can be below _tx.value, to _tx.target.",
+     "Calls _tx.target with _tx.data and at least _tx.gasLimit gas, with l2Sender set to _tx.sender. Through the messenger and bridge this can pay ETH or tokens to the final recipient.",
+     "If the call to the target fails, the withdrawal still counts as finalized and is not retried."
+    ],
+    "shown": "Finalize withdrawal of up to {_tx.value} from {_tx.sender} to {_tx.target}, with the decoded L1 call, which shows the final payee and amount.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "finalizeWithdrawalTransaction: for bridge withdrawals the sentence names the messengers, and the real payee is two calls deep.",
+      "evidence": "Cases 4, 7, 8: interpolatedIntent '... from L2CrossDomainMessenger to L1CrossDomainMessenger'. The payee and amount ('Pay up to 1.088 ETH ... to 0x9578...') are only in the nested L1 Call.",
+      "fix": "Nothing at this level can name the inner payee. The nested descriptors show it.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "finalizeWithdrawalTransaction: a failed target call still finalizes the withdrawal, and the screen does not mention it.",
+      "evidence": "OptimismPortal.sol finalizeWithdrawalTransaction: 'finalizedWithdrawals[withdrawalHash] = true;' before 'SafeCall.callWithMinGas(...)'. It only reverts on failure when tx.origin == ESTIMATION_ADDRESS.",
+      "fix": "Optionally add a note that a withdrawal whose L1 call fails cannot be replayed through the portal.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "A relayer finalized the withdrawal. 0.0000349 ETH went to 0x01eD..., which matches the screen."
+     },
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.00105 ETH arrived at the signer, matching the nested 'Pay up to 0.00105 ETH ... to 0x6F67...'."
+     },
+     {
+      "index": 5,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No movement. A DAI claim was queued, as shown nested."
+     },
+     {
+      "index": 7,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1.088 ETH arrived at the signer, as shown."
+     },
+     {
+      "index": 8,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "110000 BLAST was minted to the signer, matching the nested 'Pay 110000 BLAST ... to 0x6B69...'."
+     }
+    ],
+    "glance": 75,
+    "depth": 88
+   },
+   {
+    "key": "proveWithdrawalTransaction((uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx,uint256 _l2OutputIndex,(bytes32 version,bytes32 stateRoot,bytes32 messagePasserStorageRoot,bytes32 latestBlockhash) _outputRootProof,bytes[] _withdrawalProof)",
+    "effects": [
+     "Checks the withdrawal against the L2 output root and records it as proven at the current time. This starts the finalization wait.",
+     "On the first proof of a withdrawal with value, it asks the ETHYieldManager for a withdrawal of _tx.value. The payout to _tx.target happens later, at finalization.",
+     "No assets of the signer move. The signer pays only gas."
+    ],
+    "shown": "Prove withdrawal of {_tx.value} from {_tx.sender} to {_tx.target}, with the decoded call that will run at finalization. The proof data is hidden.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "proveWithdrawalTransaction: the sentence states an exact amount, but the later payout can be lower.",
+      "evidence": "OptimismPortal.sol finalizeWithdrawalTransaction: 'txValueWithDiscount = address(this).balance - etherBalance'. Descriptor interpolatedIntent 'Prove withdrawal of {_tx.value} ...'. The field label 'Requested Amount' and the finalize sentence 'up to' already hint at this.",
+      "fix": "Optionally write 'Prove withdrawal of up to {_tx.value} ...'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No movement. A relayer proved someone else's withdrawal, as shown."
+     },
+     {
+      "index": 6,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No movement."
+     },
+     {
+      "index": 9,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No movement."
+     }
+    ],
+    "glance": 82,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": [
+   "ETHYieldManager (portal.yieldManager()) is not in the directory. Its claimWithdrawal sets how much ETH finalizeWithdrawalTransaction sends to _tx.target, and its requestWithdrawal is called by proveWithdrawalTransaction. Without its source, the bound shown as 'up to _tx.value' cannot be confirmed from code. The mined cases paid the full amount."
+  ]
+ },
+ "cost": 0.687,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 136,
+ "rubric": "v1.2",
+ "result": "incomplete",
+ "formats": {
+  "depositTransaction(address _to,uint256 _value,uint64 _gasLimit,bool _isCreation,bytes _data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "depositTransaction: the screen does not say that _value above msg.value comes from the signer's Blast balance.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "finalizeWithdrawalTransaction(uint256 hintId,(uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "proveWithdrawalTransaction((uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx,uint256 _l2OutputIndex,(bytes32 version,bytes32 stateRoot,bytes32 messagePasserStorageRoot,bytes32 latestBlockhash) _outputRootProof,bytes[] _withdrawalProof)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 81,
+  "functions": "2A 1B",
+  "incomplete": true,
+  "worst": "depositTransaction: the screen does not say that _value above msg.value comes from the signer's Blast balance."
+ }
+}

@@ -1,0 +1,166 @@
+{
+ "hash": "0x67f862c752040388cbbc3e7fc003a7a9c7254a425b22f426cac4d7b99ff6c4aa",
+ "file": "registry/thorchain/calldata-THORChainRouter.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xd37bbe5744d730a1d98d8dc97c42f0ca46ad7146"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:47Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(address vault,address asset,uint256 amount,string memo)",
+    "effects": [
+     "If asset is the zero address, the signer's whole msg.value in ETH is sent to the vault address, and the amount parameter is ignored.",
+     "If asset is an ERC-20 other than RUNE, the router pulls `amount` of that token from the signer using the signer's existing allowance, keeps it, and credits it to the vault's internal allowance. msg.value must be 0.",
+     "If asset is RUNE, `amount` RUNE is pulled through RUNE.transferTo and then burned.",
+     "The memo string tells THORChain off-chain what to do with the deposit (swap, add liquidity, trade account), including the destination address and the minimum output. Nothing arrives to the signer in this transaction."
+    ],
+    "shown": "\"Deposit to THORChain\" with the ETH sent, the token amount (with its token from `asset`), the vault address and the raw memo string.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: for ETH deposits, 'Amount (if token)' shows the unused amount parameter as an ETH amount.",
+      "evidence": "THORChain_Router.sol deposit(): `if(asset == address(0)){ safeAmount = msg.value; vault.send(safeAmount);` so `amount` is ignored. descriptor: field `amount` 'Amount (if token)' tokenAmount with nativeCurrencyAddress 0x0 renders as ETH (see case 1: two ETH lines). If amount differs from msg.value, the screen shows two different ETH amounts.",
+      "fix": "Rename the label to say it is ignored for ETH, e.g. 'Token amount (ignored for ETH; see ETH Sent)', or drop nativeCurrencyAddress so it does not render as ETH.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "deposit: the generic intent and raw memo hide the swap target, the recipient and the minimum output.",
+      "evidence": "descriptor intent 'Deposit to THORChain' with `memo` format raw. The memo (e.g. case 0 '=:BTC.BTC:bc1q...:590000') holds the output asset, the destination and the limit in 1e8 units. No ERC-7730 format can parse it.",
+      "fix": "Optionally reword the intent to 'Deposit to THORChain (action set by memo)', and label the memo as the instruction that sets the destination and the minimum.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: the RUNE branch burns the tokens and fee-on-transfer tokens credit less; neither is stated.",
+      "evidence": "deposit(): `if(asset == RUNE) { iRUNE(RUNE).transferTo(address(this), amount); iERC20(RUNE).burn(amount); }`. In the other branch, safeAmount = balance delta from safeTransferFrom.",
+      "fix": "None needed; the asset still leaves the signer in the amount shown.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "depositWithExpiry(address vault,address asset,uint256 amount,string memo,uint256 expiration)",
+    "effects": [
+     "Reverts unless block.timestamp < expiration.",
+     "If asset is the zero address, the signer's whole msg.value in ETH is sent to the vault, and the amount parameter is ignored.",
+     "If asset is an ERC-20 other than RUNE, `amount` of that token is pulled from the signer through the existing allowance, held by the router and credited to the vault.",
+     "If asset is RUNE, `amount` RUNE is pulled and burned.",
+     "The memo decides off-chain what THORChain does (swap destination, minimum output, trade account credit). Nothing comes back to the signer in this transaction."
+    ],
+    "shown": "\"Deposit to THORChain\" with the ETH sent, the token amount, the vault, the raw memo and the expiry date.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "depositWithExpiry: for ETH deposits, 'Amount (if token)' shows the ignored amount parameter as ETH.",
+      "evidence": "THORChain_Router.sol deposit(): `safeAmount = msg.value` when asset == 0, so `amount` is ignored. Cases 1 and 3 show the ETH value twice ('ETH Sent' and 'Amount (if token)' both '5.937486308952525 ETH'). A mismatched `amount` would show a second ETH figure that never moves.",
+      "fix": "Relabel to 'Token amount (ignored for ETH)', or stop rendering it as native currency.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "depositWithExpiry: the raw memo carries the destination and minimum output in 1e8 units, and the reader misread them.",
+      "evidence": "Case 1 memo '=:ETH.USDC:0x4ADB.../0x4ADB...:411547700/0/0:-_/t1:0/70'. The reader took the limit 411547700 to be about 411.5 USDC. THORChain limits use 1e8 units (about 4.1 USDC). The descriptor shows `memo` as raw, and no format can parse it.",
+      "fix": "Optionally make the intent 'Deposit to THORChain (swap set by memo)'. A full fix waits on spec support for string parsing.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.001934937702846063 ETH out to the router, then forwarded to the vault. Shown in ETH Sent. The reader's off-chain USDC estimate was wrong, but that is not an on-chain effect. The expiry confusion comes from the test date, not the screen."
+     },
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "11062 USDC out to the router. Shown in 'Amount (if token)' with its token."
+     },
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "5.937486308952525 ETH out, forwarded to the vault. Shown in ETH Sent."
+     }
+    ],
+    "glance": 55,
+    "depth": 68
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.311,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 102,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "deposit(address vault,address asset,uint256 amount,string memo)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 55,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "deposit: for ETH deposits, 'Amount (if token)' shows the unused amount parameter as an ETH amount.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "depositWithExpiry(address vault,address asset,uint256 amount,string memo,uint256 expiration)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "depositWithExpiry: for ETH deposits, 'Amount (if token)' shows the ignored amount parameter as ETH.",
+   "disputed": 0,
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 68,
+  "functions": "1A 1C",
+  "incomplete": false,
+  "worst": "deposit: for ETH deposits, 'Amount (if token)' shows the unused amount parameter as an ETH amount."
+ }
+}

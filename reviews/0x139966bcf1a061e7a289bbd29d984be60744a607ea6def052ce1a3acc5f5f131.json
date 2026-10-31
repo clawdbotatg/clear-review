@@ -1,0 +1,305 @@
+{
+ "hash": "0x139966bcf1a061e7a289bbd29d984be60744a607ea6def052ce1a3acc5f5f131",
+ "file": "registry/opensea/calldata-Seaport-1.6.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x0000000000000068f116a894984e2db1123eb395"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:45Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "cancel((address offerer,address zone,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)[] offer,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 counter)[] orders)",
+    "effects": [
+     "Marks each listed order as cancelled and not validated, so nobody can fill it again (OrderValidator._cancel sets isCancelled = true).",
+     "The signer must be the offerer or the zone of every order; otherwise the whole call reverts.",
+     "No tokens or ETH move and no approval changes."
+    ],
+    "shown": "\"Cancel the listed Seaport orders\", with one 'Order owner' line per order and nothing about the items in each order.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "cancel shows only the owner of each order, not the items, so the signer cannot tell which listings end",
+      "evidence": "Descriptor cancel: fields 'orders.[].offer.[]' and 'orders.[].consideration.[]' are visible: never; only 'orders.[].offerer' shows. Case 9 shows four identical 'Order owner' lines. The blind reader says: 'Which items or listings the orders are for, since the screen doesn't say.' OrderValidator._cancel cancels each order hash built from all of these components.",
+      "fix": "Showing the offer items needs a nested array (orders.[].offer.[]), and the runners cannot iterate one yet. Until they can, add a top-level field such as orders.[].endTime (date) so each order can be told apart.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 55
+   },
+   {
+    "key": "fulfillAdvancedOrder(((address offerer,address zone,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)[] offer,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 totalOriginalConsiderationItems) parameters,uint120 numerator,uint120 denominator,bytes signature,bytes extraData) arg0,(uint256 orderIndex,uint8 side,uint256 index,uint256 identifier,bytes32[] criteriaProof)[] arg1,bytes32 fulfillerConduitKey,address recipient)",
+    "effects": [
+     "The signer pays every consideration item (ETH or an ERC-20) to its recipient: the seller, plus marketplace and creator fees. The amount moves between startAmount and endAmount over time.",
+     "ETH comes from msg.value. Any ETH left over goes back to the signer.",
+     "ERC-20 payments are pulled from the signer through the conduit that fulfillerConduitKey selects, using an approval the signer already gave.",
+     "The offer items (ERC-721 or ERC-1155) go from the offerer to `recipient`. A zero recipient means the signer.",
+     "The descriptor forces orderType to 0 or 2, so the order fills in full: numerator < denominator reverts in _doesNotSupportPartialFills.",
+     "For a restricted order the zone gets a validateOrder callback with extraData. It cannot move the signer's assets."
+    ],
+    "shown": "\"Buy NFT from <seller>, sent to <recipient>\". The fields list each NFT, each payment (start and end amount, token, payee), the seller, the NFT recipient and the max ETH sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fulfillAdvancedOrder hides fulfillerConduitKey, which picks the approval used to pull ERC-20 payments",
+      "evidence": "Descriptor: { \"path\": \"fulfillerConduitKey\", \"label\": \"Buyer conduit\", \"visible\": \"never\" }. Consideration.fulfillAdvancedOrder passes fulfillerConduitKey to _validateAndFulfillAdvancedOrder, and Executor._transfer spends the signer's approval to that conduit. The amount and the payee are shown in 'You pay'.",
+      "fix": "No change needed for the outcome. A label could note that payment uses your existing Seaport/conduit approval.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "fulfillAdvancedOrder tests cover only one ETH-paid ERC-721; no ERC-20 payment, Dutch auction or ERC-1155 quantity",
+      "evidence": "Cases 0, 1 and 2 all have offer itemType 2, ETH consideration and startAmount == endAmount. The 'Quantity' field (ifNotIn [1]) and an ERC-20 'Payment' token never render in a test.",
+      "fix": "Add a case with an ERC-1155 offer of quantity > 1 paid in WETH, with startAmount != endAmount.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "0.1325 ETH out matches 'Max ETH paid' and the sum of the three payments. Yay! Prime Pass #141 arrives at the recipient shown."
+     },
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "0.00735242 ETH out matches the screen. Credits #119025 goes to the signer, as shown."
+     }
+    ],
+    "glance": 70,
+    "depth": 88
+   },
+   {
+    "key": "fulfillBasicOrder_efficient_6GL6yc((address considerationToken,uint256 considerationIdentifier,uint256 considerationAmount,address offerer,address zone,address offerToken,uint256 offerIdentifier,uint256 offerAmount,uint8 basicOrderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 offererConduitKey,bytes32 fulfillerConduitKey,uint256 totalOriginalAdditionalRecipients,(uint256 amount,address recipient)[] additionalRecipients,bytes signature) arg0)",
+    "effects": [
+     "The signer pays considerationAmount to the offerer and each additionalRecipients amount to its recipient. Payment is in ETH for routes 0-1 and in the considerationToken ERC-20 for routes 2-3.",
+     "In the ETH routes the contract reverts unless considerationToken and considerationIdentifier are zero. Excess msg.value goes back to the signer (_transferNativeTokensAndFinalize).",
+     "In the ERC-20 routes msg.value must be zero. Tokens are pulled from the signer through the conduit that fulfillerConduitKey selects.",
+     "The signer (msg.sender) receives offerAmount of offerToken #offerIdentifier from the offerer.",
+     "The descriptor limits basicOrderType to 0-15, which are the buy routes."
+    ],
+    "shown": "\"Buy <NFT name #id> for <price> plus fees\". The fields show the NFT, the quantity when it is not 1, the price to the seller, each fee and its recipient, the seller and the max ETH sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fulfillBasicOrder_efficient hides fulfillerConduitKey, which picks the approval used for ERC-20 payments",
+      "evidence": "Descriptor: 'arg0.fulfillerConduitKey' is visible: never. BasicOrderFulfiller._transferERC20AndFinalize reads conduitKey from BasicOrder_fulfillerConduit_cdPtr when fromOfferer is false and pulls the token from caller(). The amounts and recipients are shown.",
+      "fix": "No change needed for the outcome.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "0.01994999989 ETH out equals the price to seller plus the fee. Woodie #8134 arrives at the signer."
+     },
+     {
+      "index": 4,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "0.00398 ETH out matches the screen. Woodie #1933 arrives at the signer."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "fulfillBasicOrder((address considerationToken,uint256 considerationIdentifier,uint256 considerationAmount,address offerer,address zone,address offerToken,uint256 offerIdentifier,uint256 offerAmount,uint8 basicOrderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 offererConduitKey,bytes32 fulfillerConduitKey,uint256 totalOriginalAdditionalRecipients,(uint256 amount,address recipient)[] additionalRecipients,bytes signature) arg0)",
+    "effects": [
+     "The signer pays considerationAmount to the offerer and each additionalRecipients amount to its recipient, in ETH (routes 0-1) or in the considerationToken ERC-20 (routes 2-3).",
+     "Excess ETH goes back to the signer. ERC-20 routes revert when msg.value is not zero.",
+     "The signer receives offerAmount of offerToken #offerIdentifier from the offerer.",
+     "The descriptor limits basicOrderType to 0-15, which are the buy routes."
+    ],
+    "shown": "\"Buy <NFT name #id> for <price> plus fees\", with the price to seller, the fees and their recipients, the seller and the max ETH sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fulfillBasicOrder hides fulfillerConduitKey, which picks the approval used for ERC-20 payments",
+      "evidence": "Descriptor: 'arg0.fulfillerConduitKey' is visible: never. BasicOrderFulfiller._transferERC20AndFinalize uses the fulfiller conduit to pull considerationToken from caller().",
+      "fix": "No change needed for the outcome.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "0.002943 ETH out equals the price plus the fee. The Heart Project #7822 arrives at the signer."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "fulfillOrder(((address offerer,address zone,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)[] offer,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 totalOriginalConsiderationItems) parameters,bytes signature) arg0,bytes32 fulfillerConduitKey)",
+    "effects": [
+     "The signer pays every consideration item (ETH or an ERC-20) to its recipient. The amount moves between startAmount and endAmount over time. Excess ETH goes back to the signer.",
+     "The offer NFTs go from the offerer to msg.sender (Consideration.fulfillOrder passes msg.sender as the recipient).",
+     "ERC-20 payments are pulled through the conduit that fulfillerConduitKey selects."
+    ],
+    "shown": "\"Buy NFT from <seller>\", with each NFT, each payment and its payee, the seller and the max ETH sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "fulfillOrder hides fulfillerConduitKey, which picks the approval used for ERC-20 payments",
+      "evidence": "Descriptor: { \"path\": \"fulfillerConduitKey\", \"visible\": \"never\" }. Consideration.fulfillOrder forwards fulfillerConduitKey to _validateAndFulfillAdvancedOrder.",
+      "fix": "No change needed for the outcome.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 88
+   },
+   {
+    "key": "incrementCounter()",
+    "effects": [
+     "Raises the signer's Seaport counter by a large quasi-random number. This makes every order the signer signed with the old counter unfillable.",
+     "No tokens or ETH move."
+    ],
+    "shown": "\"Cancel every Seaport order you signed\", with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 1.271,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 271,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "cancel((address offerer,address zone,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)[] offer,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 counter)[] orders)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "fulfillAdvancedOrder(((address offerer,address zone,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)[] offer,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 totalOriginalConsiderationItems) parameters,uint120 numerator,uint120 denominator,bytes signature,bytes extraData) arg0,(uint256 orderIndex,uint8 side,uint256 index,uint256 identifier,bytes32[] criteriaProof)[] arg1,bytes32 fulfillerConduitKey,address recipient)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "fulfillBasicOrder_efficient_6GL6yc((address considerationToken,uint256 considerationIdentifier,uint256 considerationAmount,address offerer,address zone,address offerToken,uint256 offerIdentifier,uint256 offerAmount,uint8 basicOrderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 offererConduitKey,bytes32 fulfillerConduitKey,uint256 totalOriginalAdditionalRecipients,(uint256 amount,address recipient)[] additionalRecipients,bytes signature) arg0)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "fulfillBasicOrder((address considerationToken,uint256 considerationIdentifier,uint256 considerationAmount,address offerer,address zone,address offerToken,uint256 offerIdentifier,uint256 offerAmount,uint8 basicOrderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 offererConduitKey,bytes32 fulfillerConduitKey,uint256 totalOriginalAdditionalRecipients,(uint256 amount,address recipient)[] additionalRecipients,bytes signature) arg0)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "fulfillOrder(((address offerer,address zone,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount)[] offer,(uint8 itemType,address token,uint256 identifierOrCriteria,uint256 startAmount,uint256 endAmount,address recipient)[] consideration,uint8 orderType,uint256 startTime,uint256 endTime,bytes32 zoneHash,uint256 salt,bytes32 conduitKey,uint256 totalOriginalConsiderationItems) parameters,bytes signature) arg0,bytes32 fulfillerConduitKey)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 76,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "incrementCounter()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 87,
+  "functions": "4A 2B",
+  "incomplete": false,
+  "worst": null
+ }
+}

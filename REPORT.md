@@ -1,10 +1,10 @@
 # Report
 
-709 descriptors reviewed. Rubric v1.2.
+740 descriptors reviewed. Rubric v1.2.
 
-fail: 68 · incomplete: 120 · pass: 521
+fail: 69 · incomplete: 129 · pass: 542
 
-Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
+Grades: A: 60 · B: 156 · C: 287 · D: 168 · F: 69
 
 | Grade | Truth | Clarity | File | Worst finding |
 |---|---|---|---|---|
@@ -18,6 +18,7 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | F | 0 | 2 | `registry/rarible/eip712-rarible-exchange-v2.json` | Order: `data` is hidden (visible: never), so payout recipients and origin fees that cut or add to amounts are never shown. |
 | F | 0 | 35 | `registry/safe/calldata-BatchExecutor.json` | batchExecute: calls[].value (native currency leaving the Safe) is never its own field; empty-data transfers have no inner descriptor |
 | F | 0 | 64 | `registry/uniswap/calldata-UniswapV3Router02.json` | exactInput is payable but has no @.value field, so ETH sent with the swap is never shown. |
+| F | 0 | 60 | `registry/uniswap/calldata-UniswapV3Router02.json` | exactInputSingle is payable but no field shows the native ETH sent with the call. |
 | F | 5 | 58 | `registry/ekubo/calldata-VeToken.json` | stake is payable but no @.value field is shown, and native value sent is left in the contract. |
 | F | 7 | 24 | `registry/ekubo/calldata-MEVCaptureRouter.json` | swap (isToken1, threshold) is payable, but the screen never shows the ETH sent (@.value). |
 | F | 12 | 58 | `registry/ekubo/calldata-Positions.json` | deposit is payable and spends msg.value in native pools, but no @.value field is shown. |
@@ -244,7 +245,9 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | D | 88 | 68 | `registry/morpho/calldata-yearn-yOG-USDC-V2-v2-8453.json` | redeem: the asset received (USDC) is never named, although the descriptor has it as a constant. |
 | D | 88 | 56 | `registry/morpho/calldata-yearn-ymvOG-USDC.json` | redeem: the screen never names USDC as the asset that arrives, though sibling formats show it. |
 | B | 90 | 72 | `registry/1inch/calldata-NativeOrderFactory.json` | create: order expiry in makerTraits is hidden, and resolvers may cut a reward after expiry |
+| B | 90 | 69 | `registry/blast/calldata-Airdrop.json` | claim: intent hardcodes a 1M BLAST threshold and says the whole excess vests; both are storage values. |
 | C | 90 | 40 | `registry/flyingtulip/eip712-PftMarketplace-BuyOffer.json` | BuyOffer: the taker fee on top of the offer price is not shown or mentioned. |
+| A | 90 | 86 | `registry/harbor/calldata-HarborRouterV5.json` | depositWithExpiry shows the `amount` parameter as ETH on native deposits, but the code ignores it and sends msg.value. |
 | C | 90 | 45 | `registry/hyperliquid/eip712-withdraw.json` | Withdraw: the 1 USDC withdrawal fee is not mentioned, so the recipient may get less than 'USDC amount'. |
 | C | 90 | 56 | `registry/kiln/calldata-kiln-batch-deposit-v2.json` | bigBatchDeposit: 0x00 credentials would show part of a hash as a withdrawal address. |
 | B | 90 | 78 | `registry/p2p/calldata-P2pOrgUnlimitedEthDepositor.json` | addEth hides the referrer share and recipient that the new fee distributor writes into the reward split. |
@@ -292,6 +295,8 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | F | 94 | 81 | `registry/feral-file/calldata-feralfile-exhibition-v4_4-0.json` | buyArtworks has no @.value field, and in vault mode nothing ties the ETH sent to the Price shown. |
 | F | 94 | 72 | `registry/feral-file/calldata-feralfile-exhibition-v4_5-0.json` | buyArtworks: payable with no @.value field; when paying through the vault, the ETH sent is unchecked and never shown. |
 | F | 94 | 59 | `registry/lifi/calldata-LIFIDiamond.json` | Symbiosis: the calldata that decides recipient, chain and output is not on the screen at all |
+| C | 95 | 68 | `registry/base/calldata-L1CrossDomainMessenger.json` | relayMessage screen promises the nested token release, but a failed replay moves nothing and still succeeds |
+| B | 95 | 82 | `registry/blast/calldata-L2ToL1MessagePasser.json` | initiateWithdrawal nested L1 call is shown as if it came from L2BlastBridge, but on L1 the sender is the signer |
 | C | 95 | 48 | `registry/feral-file/calldata-feralfile-vault-0.json` | payForSale resolves artwork names against the vault (@.to), not the FFV4 artwork contract. |
 | B | 95 | 65 | `registry/flyingtulip/calldata-MintAndRedeem-dev-avalanche.json` | redeem collateral may be queued by the yield wrapper rather than delivered now, and the screen does not say so. |
 | B | 95 | 75 | `registry/flyingtulip/calldata-MintAndRedeem-dev.json` | redeem interpolatedIntent 'Sell {ftUSDAmount}' omits the collateral asset and its minimum. |
@@ -302,6 +307,7 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | C | 95 | 50 | `registry/morpho/calldata-MidnightBundlesV2.json` | CancelAndMake interpolated intent says 'Authorize ratifier' even when newRoot is zero and nothing is authorized. |
 | C | 95 | 53 | `registry/threshold/calldata-L2WormholeGateway.json` | sendTbtc chain enum lacks testnet and Solana Wormhole chain ids used by listed deployments |
 | B | 96 | 76 | `registry/avvatar-labs-alia/calldata-AgentIdentityRegistry-base.json` | recordDecision intent leaves out the reputation change and the possible automatic suspension of the agent. |
+| D | 96 | 79 | `registry/uniswap/calldata-UniswapV3NonfungiblePositionManager.json` | safeTransferFrom with data hides _data, and the recipient used it to change and return the position. |
 | C | 97 | 76 | `registry/aave/calldata-lpv3.json` | repayWithPermit: the permit's allowance to the Pool is never stated, and with "All" it stays effectively unlimited. |
 | B | 97 | 79 | `registry/corestake/calldata-coreagent.json` | undelegateCoin's label says 0 unstakes everything, but a direct call with 0 reverts. |
 | C | 97 | 67 | `registry/corestake/calldata-corestake.json` | redeem: the intent "Request Redeem" does not say stCORE is burned and CORE comes only after a lock |
@@ -311,6 +317,7 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | B | 97 | 79 | `registry/morpho/calldata-hyperithm-hyperUSDTc-v2-988.json` | redeem never names USDT0 as the asset the receiver gets; only the burned shares appear. |
 | B | 98 | 80 | `registry/aave/calldata-WrappedTokenGatewayV3.json` | depositETH has no interpolatedIntent, so the intent line 'Supply' names neither the amount nor who gets the position. |
 | B | 98 | 79 | `registry/avvatar-labs-alia/calldata-AssetIdentityRegistry-base.json` | addCrossChainRecord resolves the cross-chain token's name on Base, though the token lives on _chainId. |
+| B | 98 | 78 | `registry/blast/calldata-L1BlastBridge.json` | finalizeBridgeERC20 intent is fixed to 'Queue DAI claim for Blast USDB' for every token. |
 | C | 98 | 62 | `registry/celo/calldata-locked_celo.json` | delegateGovernanceVotes: 'Fraction to Delegate' reads as an added share, but the code sets a new total for the delegatee. |
 | C | 98 | 63 | `registry/feral-file/calldata-feralfile-english-auction-0.json` | registerAuctions: the bid-increment, extension rules and isSettled flag of each auction are not shown. |
 | C | 98 | 75 | `registry/feral-file/calldata-feralfile-exhibition-v3-0.json` | setApprovalForAll: the raw boolean makes the sentence read 'true all tokens for X', so grant or revoke is unclear. |
@@ -363,19 +370,30 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | C | 98 | 65 | `registry/zkstables/calldata-zkemt.json` | encryptedToPublicTransferWithAuth hides the pending-balance flags it applies to the sender EPK. |
 | C | 98 | 60 | `registry/zkstables/eip712-zkemt.json` | AutoEncryptAuth intent hides that future incoming tokens go to the ZK address, and that this address can never be changed. |
 | C | 99 | 61 | `registry/cofund/eip712-cofund-treasury.json` | TransferPolicyActivation with no recipients shows nothing, though an empty list allows any recipient. |
+| B | 99 | 82 | `registry/ens/calldata-ETHRegistrarController.json` | register hides `data`, which writes resolver records (such as the ETH address) for the new name. |
 | C | 99 | 82 | `registry/feral-file/calldata-feralfile-exhibition-v2-0.json` | setApprovalForAll tests only grant (true); the revoke path (false) is not tested. |
 | C | 99 | 69 | `registry/lombard/calldata-lbtc-mainnet.json` | mint shows the minted amount and recipient only inside raw payload hex, not as readable fields. |
 | C | 99 | 62 | `registry/lombard/calldata-lbtc-sepolia.json` | redeem shows only the LBTC that leaves; it never says what the signer gets back or that a fee applies. |
 | B | 99 | 75 | `registry/symbiotic/calldata-UniversalDelegator-USDC.json` | addAdapter also grants the Allocate and Deallocate roles to the adapter, and the screen does not say so. |
 | C | 100 | 62 | `registry/10102/calldata-ShieldVault.json` | open shows vetoIndex raw, so 'no recovery' renders as a 78-digit number |
 | C | 100 | 74 | `registry/10102/calldata-TransferEOALegacyRouter.json` |  |
+| B | 100 | 73 | `registry/across/calldata-Ethereum_SpokePool.json` | depositNow: with native value sent, the sentence says WETH is bridged while ETH is paid. |
 | B | 100 | 85 | `registry/avvatar-labs-alia/calldata-ScoreEngineV2-base.json` | refreshScoreBatch: the asset list uses address types eoa/wallet, but the entries are collateral token contracts. |
+| C | 100 | 85 | `registry/base/calldata-L1StandardBridge.json` | depositERC20To shows the Base token only by ticker; a wrong or fake remote token looks the same. |
+| A | 100 | 86 | `registry/base/calldata-L2ToL1MessagePasser.json` |  |
+| B | 100 | 87 | `registry/base/calldata-OptimismPortal2.json` | proveWithdrawalTransaction top line shows '0 ETH to L1CrossDomainMessenger' for token withdrawals. |
 | C | 100 | 46 | `registry/bedrock/calldata-selini-airdrop.json` | claim: interpolatedIntent 'Claim 225' reads as 225 whole tokens, but it is 225 base units |
 | C | 100 | 73 | `registry/bedrock/calldata-selini-delayRedeemRouter.json` |  |
 | A | 100 | 98 | `registry/bedrock/calldata-uniBTC.json` |  |
 | A | 100 | 85 | `registry/bedrock/calldata-vault.json` |  |
 | B | 100 | 78 | `registry/bedrock/calldata-vaultWithoutNative.json` |  |
+| A | 100 | 87 | `registry/blast/calldata-AirdropVesting.json` |  |
+| C | 100 | 72 | `registry/blast/calldata-L1CrossDomainMessenger.json` | relayMessage: the label 'Max ETH Attached' is wrong. msg.value is exact: zero for users, exactly _value for the portal. |
+| C | 100 | 78 | `registry/blast/calldata-L1StandardBridge.json` | bridgeERC20To shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted. |
+| B | 100 | 81 | `registry/blast/calldata-OptimismPortal.json` | depositTransaction: the screen does not say that _value above msg.value comes from the signer's Blast balance. |
 | A | 100 | 92 | `registry/bureaucrawl/calldata-BureaucrawlRuns.json` |  |
+| B | 100 | 84 | `registry/candide/calldata-SocialRecovery-7d.json` | invalidateNonce says it voids every helper vote, but a recovery that already started still completes. |
+| A | 100 | 83 | `registry/candide/eip712-SocialRecovery-7d.json` | ExecuteRecovery interpolatedIntent says 'the new owners' but does not name them or the threshold. |
 | C | 100 | 55 | `registry/celo/calldata-celo_accounts.json` | authorizeAttestationSigner intent 'Authorize Signer' does not say the role is attestation. |
 | C | 100 | 42 | `registry/celo/calldata-celo_election.json` | activate intent "Activate" does not say that pending votes for the group become active. |
 | C | 100 | 71 | `registry/celo/calldata-celo_governance.json` | executeHotfix: 'CELO to Send' implies the signer pays; the Governance contract sends this CELO. |
@@ -386,7 +404,9 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | A | 100 | 92 | `registry/consensus-specs/calldata-DepositContract.json` |  |
 | A | 100 | 80 | `registry/corestake/calldata-stakehub.json` |  |
 | B | 100 | 85 | `registry/cosmix/calldata-PredictionMarket.json` |  |
+| A | 100 | 88 | `registry/cow-protocol/calldata-CoWSwapEthFlow.json` | createOrder has no interpolatedIntent, so the intent line names neither the amount sold nor the token bought. |
 | C | 100 | 30 | `registry/degate/eip712-degate.json` | AccountUpdate shows maxFee as a raw base-unit integer with no token decimals. |
+| A | 100 | 93 | `registry/disperse/calldata-Disperse.json` |  |
 | B | 100 | 71 | `registry/enso/calldata-EnsoRouter.json` | safeRouteSingle intent says 'Route tokens' and the sentence has no verb for receiving the output token. |
 | C | 100 | 42 | `registry/ethos/calldata-EthosVouchV2.json` | vouchWithPermit: the label 'Amount, fee added' can read as a total that already includes the fee. |
 | C | 100 | 77 | `registry/feral-file/calldata-feralfile-airdrop-v1-0.json` | safeBatchTransferFrom: ids and amounts are two separate lists the signer must pair by position. |
@@ -553,12 +573,15 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | C | 100 | 59 | `registry/ocarina-trade/eip712-OTCRegistry.json` |  |
 | B | 100 | 72 | `registry/ondo-finance/calldata-OUSGInstantManager.json` | subscribe interpolatedIntent adds a trailing '+' that renders as 'OUSG+', which is the name of another Ondo token. |
 | A | 100 | 89 | `registry/ondo-finance/calldata-USDYInstantManager.json` | subscribe: the trailing '+' in interpolatedIntent makes the token read as 'USDY+', a name that looks like another token |
+| A | 100 | 88 | `registry/opensea/calldata-SeaDrop.json` |  |
+| B | 100 | 87 | `registry/opensea/calldata-Seaport-1.6.json` |  |
 | B | 100 | 76 | `registry/ophis/calldata-Ophis-CoWSwapEthFlow.json` | createOrder has no interpolatedIntent; the intent names neither the token bought nor the amounts. |
 | C | 100 | 52 | `registry/ophis/calldata-Ophis-GPv2Settlement.json` | setPreSignature: the static intent does not say whether this call authorizes or revokes the order. |
 | C | 100 | 58 | `registry/ophis/eip712-Ophis-GPv2Settlement.json` | Order intent "Swap order" names no tokens or amounts, and there is no interpolatedIntent. |
 | A | 100 | 96 | `registry/p2p/calldata-EigenPodManager.json` |  |
 | C | 100 | 63 | `registry/p2p/calldata-NativeTokenVault.json` | claimExitedAssets intent does not name ETH or say the claim can be partial. |
 | B | 100 | 70 | `registry/p2p/calldata-P2pMessageSender.json` | send: the intent and label assume a withdraw action, but the text is free-form and unchecked. |
+| C | 100 | 73 | `registry/pendle/calldata-PendleRouterV4.json` |  |
 | B | 100 | 76 | `registry/permit/eip712-permit-arbitrum-arb.json` |  |
 | B | 100 | 74 | `registry/permit/eip712-permit-arbitrum-link.json` |  |
 | B | 100 | 74 | `registry/permit/eip712-permit-arbitrum-usds.json` |  |
@@ -591,6 +614,7 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | A | 100 | 84 | `registry/permit/eip712-permit-polygon-usdc.json` |  |
 | C | 100 | 75 | `registry/puddleswap/calldata-StakingRewards.json` | exit(): the screen names neither the LP token withdrawn nor the reward token claimed. |
 | C | 100 | 45 | `registry/rarible/eip712-rarible-erc-1155.json` | Mint1155 has no interpolatedIntent, so the sentence never gives the supply or the royalty terms being fixed. |
+| C | 100 | 89 | `registry/relay/calldata-RelayDepository.json` |  |
 | A | 100 | 84 | `registry/safe/calldata-SafeProxyFactory-1.3.0.json` |  |
 | A | 100 | 81 | `registry/safe/calldata-SafeProxyFactory-1.4.1.json` |  |
 | C | 100 | 48 | `registry/safe/calldata-SafeToL2Setup-1.4.1.json` | setupToL2 labels the new Safe singleton (implementation) as "Module", which is a different kind of right. |
@@ -598,7 +622,11 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | C | 100 | 59 | `registry/safe/eip712-Safe-Multisig.json` | DeleteRequest says "Reject transaction" but only deletes the proposal from the off-chain queue. |
 | C | 100 | 64 | `registry/sky/calldata-sUSDS.json` | mint: the intent says only 'Mint' and does not say the signer pays USDS to get sUSDS. |
 | B | 100 | 76 | `registry/starkgate/calldata-StarkGate-STRK.json` | deposit shows the Starknet recipient as a long decimal integer labelled only "Recipient". |
+| C | 100 | 52 | `registry/surge/calldata-AuctionHouse.json` |  |
+| C | 100 | 71 | `registry/surge/calldata-LiquidityPoolV3.json` | setExposure: 'exposure' does not tell the signer they are allowing their funds to be locked in fixed-market loans. |
+| A | 100 | 80 | `registry/sushi/calldata-RedSnwapper.json` | snwap: the executor that receives the signer's input tokens is hidden. |
 | C | 100 | 75 | `registry/swell/calldata-swell.json` | depositViaDepositManager shows the minimum rswETH minted as a raw integer. |
+| A | 100 | 93 | `registry/swft/calldata-SwftSwap.json` |  |
 | C | 100 | 25 | `registry/swissborg/calldata-WormholeTransceiver.json` | receiveMessage: the incoming BORG amount is visible only inside the raw VAA hex, never as an amount. |
 | A | 100 | 80 | `registry/symbiotic/calldata-DefaultStakerRewards.json` |  |
 | A | 100 | 94 | `registry/symbiotic/calldata-Reactor.json` |  |
@@ -693,6 +721,7 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | A | 100 | 84 | `registry/tether/eip712-ReceiveWithAuthorization-usdt0-Flare.json` |  |
 | B | 100 | 77 | `registry/tether/eip712-TransferWithAuthorization-usdt0-Flare.json` | TransferWithAuthorization has no interpolatedIntent, so the intent line leaves out the amount and the recipient. |
 | A | 100 | 81 | `registry/tether/eip712-permit-usdt0-Flare.json` |  |
+| C | 100 | 68 | `registry/thorchain/calldata-THORChainRouter.json` | deposit: for ETH deposits, 'Amount (if token)' shows the unused amount parameter as an ETH amount. |
 | C | 100 | 52 | `registry/threshold/calldata-L1BitcoinDepositor-address.json` | initializeDeposit: the intent does not name who receives the minted tBTC; no interpolatedIntent. |
 | C | 100 | 33 | `registry/threshold/calldata-L1BitcoinDepositor-bytes32.json` | initializeDeposit shows the tBTC recipient (destinationChainDepositOwner) only as a raw 32-byte hex value. |
 | C | 100 | 38 | `registry/threshold/calldata-L1BitcoinRedeemer.json` | requestRedemption: 'Main UTXO value' in BTC can be read as the amount being redeemed. |
@@ -701,9 +730,11 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | C | 100 | 15 | `registry/threshold/calldata-TBTC.json` | approveAndCall shows the redemption data as raw hex, so the BTC destination and redeemer are unreadable |
 | B | 100 | 76 | `registry/threshold/calldata-TBTCVault.json` |  |
 | B | 100 | 88 | `registry/uniswap/calldata-UniswapV2Router02.json` |  |
+| B | 100 | 83 | `registry/uniswap/calldata-UniswapV3SwapRouter.json` | unwrapWETH9 intent does not say it unwraps router-held WETH, not the signer's. |
 | C | 100 | 47 | `registry/uniswap/eip712-uniswap-permit2.json` | PermitSingle shows the spender as a raw hex address, not as a named contract. |
 | C | 100 | 61 | `registry/walletconnect/calldata-stakeweight.json` | depositFor intent "Lock tokens" hides that the tokens go to another address's lock for good. |
 | C | 100 | 49 | `registry/walletconnect/calldata-wct.json` | transfer: the screen shows the amount as a raw 18-decimal integer without the WCT ticker |
+| A | 100 | 86 | `registry/weth/calldata-weth.json` | deposit(): bare intent "Wrap" names neither ETH nor WETH, and there is no interpolatedIntent. |
 | A | 100 | 96 | `registry/weth/calldata-weth.json` |  |
 | C | 100 | 74 | `registry/wormhole/calldata-CircleIntegration.json` |  |
 | C | 100 | 60 | `registry/wormhole/calldata-TokenBridge.json` | transferTokensWithPayload: the wormholeChain enum lists only 8 chains, so other destinations have no name. |
@@ -718,4 +749,4 @@ Grades: A: 50 · B: 146 · C: 278 · D: 167 · F: 68
 | C | 100 | 28 | `registry/zkstables/eip712-ebswap.json` |  |
 | B | 100 | 73 | `registry/zkstables/eip712-zkhub.json` | ChangeControllerAuth intent does not say the signer hands over control of their ZK address. |
 
-Model cost (list price, from the CLI): $294.18.
+Model cost (list price, from the CLI): $314.01.

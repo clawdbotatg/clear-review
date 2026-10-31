@@ -1,0 +1,254 @@
+{
+ "hash": "0x3b8fdbed69f055f14e8caa6dae1ff1d3d762c3c03e16a58538fdb18ff8a340f4",
+ "file": "registry/swft/calldata-SwftSwap.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xc1d13492285eb664951e201bf7c80c7c6318a1b5"
+  },
+  {
+   "chainId": 10,
+   "address": "0xc1d13492285eb664951e201bf7c80c7c6318a1b5"
+  },
+  {
+   "chainId": 56,
+   "address": "0xc1d13492285eb664951e201bf7c80c7c6318a1b5"
+  },
+  {
+   "chainId": 137,
+   "address": "0xc1d13492285eb664951e201bf7c80c7c6318a1b5"
+  },
+  {
+   "chainId": 42161,
+   "address": "0xc1d13492285eb664951e201bf7c80c7c6318a1b5"
+  },
+  {
+   "chainId": 43114,
+   "address": "0xc1d13492285eb664951e201bf7c80c7c6318a1b5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:39Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "swap(address fromToken,string toToken,string destination,uint256 fromAmount,uint256 minReturnAmount)",
+    "effects": [
+     "The contract pulls exactly fromAmount of fromToken from the signer into the SWFT contract with transferFrom, using up that much of the signer's allowance to the contract.",
+     "Nothing else happens on-chain: the contract only emits a Swap event with toToken, destination and minReturnAmount. The payout in another asset, often on another chain, is made later and off-chain by SWFT, and the code enforces no minimum."
+    ],
+    "shown": "Send <fromAmount fromToken> to SWFT to swap for <order string>, paid to <payout address>, with a requested minimum in raw units, plus a note that payout is off-chain and the minimum is not enforced.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "swap: the requested minimum is a raw integer because the target token is only an off-chain string.",
+      "evidence": "SwftSwap.sol swap(): minReturnAmount is only emitted in the Swap event. descriptor: {\"path\":\"minReturnAmount\",\"label\":\"Requested Min (raw)\",\"format\":\"raw\"}. Case 0 shows '163481336' and the reader was unsure of the USDT decimals.",
+      "fix": "No token address exists in calldata to format it. The '(raw)' label and the not-enforced note are the best available.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "swap: toToken is a pipe-delimited SWFT order string that goes into the sentence unparsed.",
+      "evidence": "descriptor interpolatedIntent 'swap for {toToken}' renders 'swap for BNB(BSC)|zvcm92|0.02|bridgers|0' (case 1). The blind reader in case 1 read the 0.02 as the expected BNB amount. In cases 3 to 5 readers could not tell what 'zvcm92' and '0.015' mean.",
+      "fix": "ERC-7730 cannot split a string. A label such as 'Target token / SWFT order (token|channel|fee|route)' would help a little.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "swap: the Optimism deployment is verified as BridgersSwap, while metadata names the contract SwftSwap.",
+      "evidence": "contracts/10-0xc1d1.../src/BridgersSwap.sol: contract BridgersSwap, name = \"Bridgers Swap1.1\". descriptor metadata.contractName \"SwftSwap\". The logic of swap() is identical.",
+      "fix": "Optional: note that the Bridgers brand is the same SWFT service.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1000 ARB out to the SWFT contract, shown exactly. The ARB allowance consumed to 0 is the spend of the shown transfer, merged into it."
+     },
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "15 USDt out, shown exactly. The reader misread the 0.02 in the order string as the payout amount, but that concerns the off-chain payout, not an on-chain effect."
+     },
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "2236.540972 OP out, shown exactly. The allowance spend is merged."
+     },
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "2905 USDT0 (Polygon USDT) out, shown exactly. The reader briefly mixed up the Tron payout address with a deposit address, but correctly understood the asset, amount and SWFT as recipient."
+     },
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "110 USDC out, shown exactly."
+     },
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "771.4 BSC-USDT out, shown exactly."
+     }
+    ],
+    "glance": 82,
+    "depth": 82
+   },
+   {
+    "key": "swapEth(string toToken,string destination,uint256 minReturnAmount)",
+    "effects": [
+     "The signer sends msg.value of the chain's native currency to the SWFT contract, which keeps it.",
+     "Nothing else happens on-chain: the contract only emits a SwapEth event. The payout in the target asset to destination is made off-chain by SWFT, and the code enforces no minimum."
+    ],
+    "shown": "Send <native value> to SWFT to swap for <order string>, paid to <payout address>, with a requested minimum in raw units, plus a note that payout is off-chain and the minimum is not enforced.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "swapEth: the requested minimum is a raw integer because the target token is only an off-chain string.",
+      "evidence": "SwftSwap.sol swapEth(): minReturnAmount is only emitted. descriptor: {\"path\":\"minReturnAmount\",\"label\":\"Requested Min (raw)\",\"format\":\"raw\"}. Case 8 shows '23102636' and the reader had to guess the TRX decimals.",
+      "fix": "No token address exists in calldata. Keep the '(raw)' label and the note.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "unreadable",
+      "title": "swapEth: the order string hides the destination chain, so 'swap ETH for ETH' looks odd to readers.",
+      "evidence": "Case 7 renders 'swap for ETH|6nu8wra5|0.020000000|bridgers|0' and the reader asked 'Why swap ETH for ETH... doesn't say which chains'. Case 6 shows 'ETH|zvcm92|0.02|bridgers|0'.",
+      "fix": "Strings cannot be parsed in ERC-7730. A clearer label for toToken (target token / SWFT order) is the only help available.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "wrong-metadata",
+      "title": "swapEth: the Optimism deployment is verified as BridgersSwap, while metadata names the contract SwftSwap.",
+      "evidence": "contracts/10-0xc1d1.../src/BridgersSwap.sol: contract BridgersSwap. descriptor metadata.contractName \"SwftSwap\". The logic of swapEth() is identical.",
+      "fix": "Optional: mention the Bridgers brand.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "221.5744625248992 AVAX out, shown via @.value."
+     },
+     {
+      "index": 7,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1.1871347 ETH out on Optimism, shown exactly."
+     },
+     {
+      "index": 8,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "88 POL out, shown exactly."
+     },
+     {
+      "index": 9,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.04 ETH out, shown exactly."
+     }
+    ],
+    "glance": 82,
+    "depth": 82
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.525,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 116,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "swap(address fromToken,string toToken,string destination,uint256 fromAmount,uint256 minReturnAmount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "swapEth(string toToken,string destination,uint256 minReturnAmount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 93,
+  "functions": "2A",
+  "incomplete": false,
+  "worst": null
+ }
+}

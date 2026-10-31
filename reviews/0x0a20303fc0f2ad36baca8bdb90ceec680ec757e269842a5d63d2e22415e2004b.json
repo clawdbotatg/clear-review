@@ -1,0 +1,507 @@
+{
+ "hash": "0x0a20303fc0f2ad36baca8bdb90ceec680ec757e269842a5d63d2e22415e2004b",
+ "file": "registry/blast/calldata-L1StandardBridge.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x697402166fbf2f22e970df8a6486ef171dbfc524"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:42Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "bridgeERC20(address _localToken,address _remoteToken,uint256 _amount,uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Takes _amount of _localToken from the signer: it is burned if the token is a mintable bridged token, otherwise pulled with transferFrom and locked in the bridge. This spends the signer's allowance to the bridge.",
+     "Sends a message that credits _amount of _remoteToken to the signer's own address on Blast (onlyEOA, so _to = msg.sender)."
+    ],
+    "shown": "Bridge the amount of the local token, shown by ticker, as the named Blast token to your own address on Blast.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "bridgeERC20 shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted.",
+      "evidence": "descriptor.json bridgeERC20: {\"path\":\"_remoteToken\",\"label\":\"Token on Blast\",\"format\":\"tokenTicker\",\"params\":{\"chainId\":81457}}. Case 0 shows only 'BLAST'. If the token pair is wrong, the L2 credit fails and the locked tokens are stuck.",
+      "fix": "Also show _remoteToken as an address (addressName, types [\"token\"]), or put the address in the label, so the signer can check the exact Blast token.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "11,730,445 BLAST burned from the signer (L1 BLAST is the bridged version). The screen says 11730445 BLAST to your address on Blast. That matches."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "bridgeERC20To(address _localToken,address _remoteToken,address _to,uint256 _amount,uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Takes _amount of _localToken from the signer (burned, or transferFrom and locked in the bridge). This spends the signer's allowance to the bridge.",
+     "Sends a message that credits _amount of _remoteToken to _to on Blast."
+    ],
+    "shown": "Bridge the amount of the local token as the named Blast token to the Blast recipient address shown.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "bridgeERC20To shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted.",
+      "evidence": "descriptor.json bridgeERC20To: _remoteToken 'Token on Blast' format tokenTicker chainId 81457. Case 1 shows only 'OLE'.",
+      "fix": "Also show the _remoteToken address (addressName, types [\"token\"]).",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "bridgeERC20To spends the signer's existing allowance to the bridge; the screen does not say so.",
+      "evidence": "cases/1.json mined: approval OLE owner 0x41dd… spender 0x6974… amount 99999999999999272308600000000000000000 (signer 'grant'), which is the allowance left after the 0.4 OLE transferFrom. The screen shows only 'Amount 0.4 OLE'.",
+      "fix": "None needed. Spending the allowance is a prerequisite of the bridge transfer that the screen names (not_critical 12).",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 1,
+      "reader": [
+       "right",
+       "missed"
+      ],
+      "notes": "0.4 OLE out to the bridge is shown correctly. The Approval event is the allowance going down after transferFrom, not a new grant. The reader was unsure about approvals."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "bridgeETH(uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Sends msg.value ETH from the signer to the bridge. The bridge forwards it through the messenger and portal to the ETH yield manager.",
+     "Credits the same amount of ETH to the signer's own address on Blast (onlyEOA)."
+    ],
+    "shown": "Bridge the attached ETH amount to your own address on Blast.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.072 ETH out, which matches @.value on screen."
+     }
+    ],
+    "glance": 92,
+    "depth": 90
+   },
+   {
+    "key": "bridgeETHTo(address _to,uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Sends msg.value ETH from the signer to the bridge, forwarded through the messenger and portal to the yield manager.",
+     "Credits the same ETH amount to _to on Blast."
+    ],
+    "shown": "Bridge the attached ETH amount to the shown Blast recipient.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.0002 ETH out. The recipient is the signer, and the screen shows it."
+     }
+    ],
+    "glance": 92,
+    "depth": 90
+   },
+   {
+    "key": "depositERC20(address _l1Token,address _l2Token,uint256 _amount,uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Takes _amount of _l1Token from the signer (transferFrom into the bridge, or burned if it is a mintable token). This spends the signer's allowance to the bridge.",
+     "Credits _amount of _l2Token to the signer's own address on Blast (onlyEOA)."
+    ],
+    "shown": "Bridge the amount of the L1 token as the named Blast token to your own address on Blast.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "depositERC20 shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted.",
+      "evidence": "descriptor.json depositERC20: _l2Token 'Token on Blast' format tokenTicker chainId 81457. Case 4 shows only 'BAG'.",
+      "fix": "Also show the _l2Token address (addressName, types [\"token\"]).",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "602436.974593990921211262 BAG locked in the bridge, which matches the screen."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "depositERC20To(address _l1Token,address _l2Token,address _to,uint256 _amount,uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Takes _amount of _l1Token from the signer (transferFrom into the bridge, or burned). This spends the signer's allowance to the bridge.",
+     "Credits _amount of _l2Token to _to on Blast."
+    ],
+    "shown": "Bridge the amount of the L1 token as the named Blast token to the shown Blast recipient.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "depositERC20To shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted.",
+      "evidence": "descriptor.json depositERC20To: _l2Token 'Token on Blast' format tokenTicker chainId 81457. Case 5 shows only 'OLE'.",
+      "fix": "Also show the _l2Token address (addressName, types [\"token\"]).",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "877938.40716771264326923 OLE locked in the bridge, recipient the signer. Matches the screen."
+     }
+    ],
+    "glance": 85,
+    "depth": 80
+   },
+   {
+    "key": "depositETH(uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Sends msg.value ETH from the signer into the bridge, forwarded through the messenger and portal to the yield manager.",
+     "Credits that ETH to the signer's own address on Blast (onlyEOA)."
+    ],
+    "shown": "Bridge the attached ETH amount to your own address on Blast.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.0001493210234 ETH out, which matches."
+     }
+    ],
+    "glance": 92,
+    "depth": 90
+   },
+   {
+    "key": "depositETHTo(address _to,uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Sends msg.value ETH from the signer into the bridge, forwarded through the messenger and portal to the yield manager.",
+     "Credits that ETH to _to on Blast."
+    ],
+    "shown": "Bridge the attached ETH amount to the shown Blast recipient.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.043904297240701003 ETH out to the bridge. The recipient is the signer. Matches."
+     }
+    ],
+    "glance": 92,
+    "depth": 90
+   },
+   {
+    "key": "finalizeBridgeERC20(address _localToken,address _remoteToken,address _from,address _to,uint256 _amount,bytes _extraData)",
+    "effects": [
+     "Only the L1 messenger can call this, relaying from the L2 bridge. Called by anyone else, it reverts.",
+     "Pays _amount of _localToken to _to from the bridge's locked deposits, or mints it. Nothing of the caller's moves."
+    ],
+    "shown": "Pay out a withdrawal of the token amount, made by _from, to _to.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "finalizeBridgeERC20 is a messenger-only relay call; a user signing it would see a payout that reverts.",
+      "evidence": "cases/8.json from 0x5D4472f31Bd9385709ec61305AFc749F0fA8e9d0 (the messenger, per the case 2 trace). Intent 'Pay out Blast token withdrawal'. The implementation source that would show the onlyOtherBridge check is not in the directory.",
+      "fix": "Optionally say in the intent that only the bridge messenger can call this.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "finalizeBridgeETH(address _from,address _to,uint256 _amount,bytes _extraData)",
+    "effects": [
+     "Only the L1 messenger can call this. Called by anyone else, it reverts.",
+     "The caller attaches msg.value ETH, which is paid on to _to as the withdrawal payout."
+    ],
+    "shown": "Pay up to _amount of ETH withdrawn by _from to _to, with the attached ETH shown as 'Max ETH Attached'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "finalizeBridgeETH labels msg.value 'Max ETH Attached', but the whole attached value always leaves the caller.",
+      "evidence": "descriptor.json finalizeBridgeETH: {\"path\":\"@.value\",\"label\":\"Max ETH Attached\",\"format\":\"amount\"}. Case 9 has value 1088000000000000000, which is sent in full.",
+      "fix": "Label it 'ETH Sent' and keep 'up to' only on _amount if the code really caps the payout.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "finalizeBridgeETH is a messenger-only relay call; 'up to' semantics could not be checked against code.",
+      "evidence": "cases/9.json from the messenger 0x5D4472…e9d0. interpolatedIntent 'Pay up to {_amount} …'. The implementation source is missing, so the msg.value vs _amount rule is unverified.",
+      "fix": "",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   },
+   {
+    "key": "finalizeERC20Withdrawal(address _l1Token,address _l2Token,address _from,address _to,uint256 _amount,bytes _extraData)",
+    "effects": [
+     "Legacy alias of finalizeBridgeERC20. Only the messenger can call it.",
+     "Pays _amount of _l1Token to _to from the bridge's locked deposits. Nothing of the caller's moves."
+    ],
+    "shown": "Pay out a withdrawal of the token amount, made by _from, to _to.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "finalizeERC20Withdrawal is a messenger-only relay call; a user signing it would see a payout that reverts.",
+      "evidence": "cases/10.json from the messenger 0x5D4472…e9d0. Intent 'Pay out Blast token withdrawal'. The implementation source is not in the directory.",
+      "fix": "Optionally say in the intent that only the bridge messenger can call this.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 60,
+    "depth": 70
+   },
+   {
+    "key": "finalizeETHWithdrawal(address _from,address _to,uint256 _amount,bytes _extraData)",
+    "effects": [
+     "Legacy alias of finalizeBridgeETH. Only the messenger can call it.",
+     "The caller attaches msg.value ETH, which is paid on to _to."
+    ],
+    "shown": "Pay up to _amount of ETH withdrawn by _from to _to, with the attached ETH shown as 'Max ETH Attached'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "finalizeETHWithdrawal labels msg.value 'Max ETH Attached', but the whole attached value always leaves the caller.",
+      "evidence": "descriptor.json finalizeETHWithdrawal: {\"path\":\"@.value\",\"label\":\"Max ETH Attached\"}. Case 11 has value 1.088 ETH, sent in full.",
+      "fix": "Label it 'ETH Sent'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 60
+   }
+  ],
+  "couldNotCheck": [
+   "The L1StandardBridge implementation behind L1ChugSplashProxy 0x697402166fbf2f22e970df8a6486ef171dbfc524 is not in the directory. meta.json proxyResolution has isProxy false and no implementations, and _doProxyCall delegatecalls to an address read from the PROXY_IMPLEMENTATION_ADDRESS slot. So none of the bridge logic (burn vs lock, token pair checks, fees, onlyOtherBridge, the finalizeBridgeETH msg.value/_amount rule) could be read from code. The effects for the eight deposit formats rest on the mined receipts."
+  ]
+ },
+ "cost": 0.604,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 151,
+ "rubric": "v1.2",
+ "result": "incomplete",
+ "formats": {
+  "bridgeERC20(address _localToken,address _remoteToken,uint256 _amount,uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "bridgeERC20 shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "bridgeERC20To(address _localToken,address _remoteToken,address _to,uint256 _amount,uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 58,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "bridgeERC20To shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted.",
+   "disputed": 0,
+   "comprehension": 50
+  },
+  "bridgeETH(uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "bridgeETHTo(address _to,uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "depositERC20(address _l1Token,address _l2Token,uint256 _amount,uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "depositERC20 shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "depositERC20To(address _l1Token,address _l2Token,address _to,uint256 _amount,uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "depositERC20To shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "depositETH(uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "depositETHTo(address _to,uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "finalizeBridgeERC20(address _localToken,address _remoteToken,address _from,address _to,uint256 _amount,bytes _extraData)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "finalizeBridgeETH(address _from,address _to,uint256 _amount,bytes _extraData)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "finalizeBridgeETH labels msg.value 'Max ETH Attached', but the whole attached value always leaves the caller.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "finalizeERC20Withdrawal(address _l1Token,address _l2Token,address _from,address _to,uint256 _amount,bytes _extraData)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "finalizeETHWithdrawal(address _from,address _to,uint256 _amount,bytes _extraData)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "finalizeETHWithdrawal labels msg.value 'Max ETH Attached', but the whole attached value always leaves the caller.",
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 78,
+  "functions": "7A 2B 3C",
+  "incomplete": true,
+  "worst": "bridgeERC20To shows the Blast-side token only as a ticker, so a lookalike token cannot be spotted."
+ }
+}

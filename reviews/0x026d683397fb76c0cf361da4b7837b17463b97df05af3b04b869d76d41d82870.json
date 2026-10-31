@@ -1,0 +1,172 @@
+{
+ "hash": "0x026d683397fb76c0cf361da4b7837b17463b97df05af3b04b869d76d41d82870",
+ "file": "registry/base/calldata-L1CrossDomainMessenger.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x866e82a600a1414e583f7f13623f1ac5d58b0afa"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:39Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "relayMessage(uint256 _nonce,address _sender,address _target,uint256 _value,uint256 _minGasLimit,bytes _message)",
+    "effects": [
+     "The signer can only call this to retry a message from Base that failed before: it requires msg.value == 0 and failedMessages[hash] == true, otherwise it reverts.",
+     "The messenger calls _target with _value ETH taken from the messenger's own balance (not from the signer) and _message as calldata. The call comes from the messenger, and _sender is set as the cross-domain sender.",
+     "If _target or the nested call pays the signer (for example L1StandardBridge.finalizeBridgeERC20 to the signer), the signer receives that ETH or those tokens.",
+     "If the inner call fails, relayMessage does not revert: it marks the message failed again and emits FailedRelayedMessage. The signer pays gas and nothing moves.",
+     "The signer pays only gas; no ETH or tokens leave the signer."
+    ],
+    "shown": "\"Relay message from Base: Pay {_value} sent by {_sender} on Base to {_target}\", with the ETH amount, the L1 target, the L2 sender, the decoded L1 call (for example 'Release token from Base bridge' with amount and recipient) and 'ETH from Caller'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "relayMessage screen promises the nested token release, but a failed replay moves nothing and still succeeds",
+      "evidence": "Case 2: the screen's nested L1 Call says 'Pay 31633.463482606327981273 AXGT withdrawn by 0x6ee6...f341 on Base to 0x6ee6...f341'. The mined tx 0x69f7...3609 has status 1, but effects [] and signerNet []. The reader expected 31633 AXGT to arrive. CrossDomainMessenger.relayMessage catches a failed call (failedMessages[hash]=true, emit FailedRelayedMessage) and does not revert.",
+      "fix": "Say in the intent that this retries a failed message and may fail again without reverting, e.g. 'Retry a failed Base message (may fail again without moving funds)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "relayMessage intent 'Pay {_value}' hides that this is a retry and that the real payout is in the nested call",
+      "evidence": "descriptor interpolatedIntent 'Pay {_value} sent by {_sender} on Base to {_target}'. Case 2 shows 'Pay 0 ETH sent by L2StandardBridge on Base to Base L1StandardBridge', while the real action is a token release. _value is paid from the messenger's own balance, not by the signer.",
+      "fix": "Use an intent like 'Retry Base message: {_value} and call to {_target}', and let the nested call carry the payout.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "relayMessage shows 'ETH from Caller', which must always be 0 for a signer replay",
+      "evidence": "descriptor field '@.value' labelled 'ETH from Caller'. relayMessage requires msg.value == 0 unless the caller is the OptimismPortal. Cases 0 and 2 show '0 ETH'.",
+      "fix": "Hide @.value, or rely on the wallet's native value display.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [],
+      "notes": "Not mined. From the code: a replay that pays 0.0001 ETH from the messenger to the signer, which the screen states. The screen does not warn that the replay may fail silently."
+     },
+     {
+      "index": 2,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined, with no signer effects: the replayed finalizeBridgeERC20 failed inside without reverting. The screen and the reader expected 31633 AXGT to arrive; nothing did."
+     }
+    ],
+    "glance": 50,
+    "depth": 65
+   },
+   {
+    "key": "sendMessage(address _target,bytes _message,uint32 _minGasLimit)",
+    "effects": [
+     "The signer sends msg.value ETH to the messenger, which forwards it to the OptimismPortal through depositTransaction.",
+     "On Base, the L2CrossDomainMessenger calls _target with msg.value ETH and _message, with the signer recorded as the cross-domain sender.",
+     "If _minGasLimit is too low, the L2 call fails and the ETH stays in the L2 messenger until someone replays the message."
+    ],
+    "shown": "\"Send {@.value} and a call to {_target} on Base\", with the ETH to bridge, the L2 target, and the L2 call decoded when a descriptor exists for the target.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "sendMessage shows the L2 call as raw hex when no descriptor exists for the target",
+      "evidence": "Case 1 field 'L2 Call' = '0x6126fdea000...663133473ba8d9887c8337bc6bb7b2dc59adfaf1'. The reader was unsure what function 0x6126fdea does and who 0x6631...faf1 is.",
+      "fix": "Add a descriptor for common L2 targets (like 0xE2fd97cd...) or accept that unknown targets show raw data.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "hidden-value",
+      "title": "sendMessage hides _minGasLimit, which decides whether the L2 call and its ETH go through",
+      "evidence": "descriptor field '_minGasLimit' 'Min L2 Gas Limit' visible: never. If the gas is too low, the L2 relay fails and the ETH stays in the L2 messenger until someone replays it.",
+      "fix": "Show _minGasLimit as an advanced field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.1222 ETH left the signer to the messenger and then the portal. The screen shows 0.1222 ETH and the L2 target. The L2 call is raw hex."
+     },
+     {
+      "index": 3,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Not mined. 0 ETH, and the L2 call to L2ToL1MessagePasser.burn is decoded."
+     }
+    ],
+    "glance": 75,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "The implementation behind ResolvedDelegateProxy 0x866e82a6... is resolved at runtime via AddressManager 0x8EfB6B5c4767B09Dc9AA6Af4eAA89F749522BaE2 ('OVM_L1CrossDomainMessenger') and is not in the directory. The relayMessage and sendMessage logic (replay rules, value forwarding to OptimismPortal) was judged from the known Optimism Bedrock CrossDomainMessenger code, not from verified source here.",
+   "The OptimismPortal (0x49048044d57e1c92a77f79988d21fa8faf74e97e), which sendMessage forwards ETH to through depositTransaction, has no source in the directory."
+  ]
+ },
+ "cost": 0.255,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 93,
+ "rubric": "v1.2",
+ "result": "incomplete",
+ "formats": {
+  "relayMessage(uint256 _nonce,address _sender,address _target,uint256 _value,uint256 _minGasLimit,bytes _message)": {
+   "grade": "C",
+   "truth": 90,
+   "clarity": 53,
+   "measured": false,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "relayMessage screen promises the nested token release, but a failed replay moves nothing and still succeeds",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "sendMessage(address _target,bytes _message,uint32 _minGasLimit)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "sendMessage shows the L2 call as raw hex when no descriptor exists for the target",
+   "disputed": 0,
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 95,
+  "clarity": 68,
+  "functions": "1A 1C",
+  "incomplete": true,
+  "worst": "relayMessage screen promises the nested token release, but a failed replay moves nothing and still succeeds"
+ }
+}

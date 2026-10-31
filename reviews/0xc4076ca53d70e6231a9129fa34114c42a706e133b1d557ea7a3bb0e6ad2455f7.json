@@ -1,0 +1,141 @@
+{
+ "hash": "0xc4076ca53d70e6231a9129fa34114c42a706e133b1d557ea7a3bb0e6ad2455f7",
+ "file": "registry/blast/calldata-Airdrop.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 81457,
+   "address": "0x78709467b6799092ce5eecdfb8bc52af74b45699"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:39Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "claim(uint256 amount,bytes32[] proof)",
+    "effects": [
+     "Marks the signer's (msg.sender, which must be an EOA) allocation as claimed, so it can be claimed only once.",
+     "Checks the Merkle proof for (signer, amount) and reverts if it is not valid.",
+     "If amount <= vestingThreshold: sends the full amount of BLAST (0xb1a5…E2ad) from the contract to the signer.",
+     "If amount > vestingThreshold: sends amount - ((amount - vestingThreshold) * vestingRate / 10000) BLAST to the signer now, and deposits the rest into AirdropVesting as a vesting position for the signer.",
+     "vestingThreshold and vestingRate are owner-set storage values, not constants. No native value is taken (not payable)."
+    ],
+    "shown": "Claim <amount> BLAST airdrop to your address, with a note that the part above 1M BLAST vests; the Allocation field shows the amount in BLAST.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "claim: intent hardcodes a 1M BLAST threshold and says the whole excess vests; both are storage values.",
+      "evidence": "Airdrop.sol _claim: `vestedPortion = ((amount - vestingThreshold) * vestingRate) / BASIS_POINTS; distributedPortion = amount - vestedPortion;`, where vestingThreshold and vestingRate are set by setVestingParameters (onlyOwner). Descriptor interpolatedIntent: \"the part above 1M BLAST vests\". Only vestingRate% of the excess vests and the rest is paid now. The 1M figure is not in the code.",
+      "fix": "Write something like \"part of any amount above the vesting threshold is locked in vesting\", or check the on-chain values and state them exactly (threshold, and the rate that applies to the excess).",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "claim: the BLAST paid out now cannot be computed on screen when the allocation is above the threshold.",
+      "evidence": "Airdrop.sol _claim: `BLAST_TOKEN.transfer(delegatedRecipient, distributedPortion)` and `airdropVesting.deposit(initialRecipient, delegatedRecipient, vestedPortion)`. The split depends on storage values, so the screen can show only the total Allocation.",
+      "fix": "None in ERC-7730. Keep the vesting note accurate.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 70
+   },
+   {
+    "key": "delegateAndClaim(address delegatedRecipient,uint256 amount,bytes32[] proof)",
+    "effects": [
+     "Only the Blast L2CrossDomainMessenger (0x4200…0007) can call it. The real claimant is MESSENGER.xDomainMessageSender(), the L1 sender, and its allocation is marked as claimed.",
+     "Checks the Merkle proof for (L1 sender, amount).",
+     "If amount <= vestingThreshold: sends the full amount of BLAST to delegatedRecipient.",
+     "If amount > vestingThreshold: sends amount - ((amount - vestingThreshold) * vestingRate / 10000) BLAST to delegatedRecipient, and deposits the vested portion into AirdropVesting with initialRecipient = L1 sender and delegatedRecipient as the controller of the vesting.",
+     "The L1 sender's whole allocation, both the paid and the vested part, goes to delegatedRecipient. Not payable."
+    ],
+    "shown": "Claim <amount> BLAST airdrop to <Recipient>, with a note that the part above 1M BLAST vests; the fields show the Allocation and the Recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "delegateAndClaim: only the L2 messenger can call it, so no wallet user signs this calldata directly.",
+      "evidence": "Airdrop.sol delegateAndClaim: `if (msg.sender != address(MESSENGER)) revert Unauthorized();`. MESSENGER = 0x4200000000000000000000000000000000000007 (meta.json). Cases 1 and 2 use from = 0x4200…0007. A user would sign an L1 sendMessage that wraps this calldata, so this screen only helps a wallet that decodes nested cross-domain messages.",
+      "fix": "Add a descriptor for the L1 messenger or bridge call that wraps this calldata, or a nested calldata field there.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "delegateAndClaim: intent hardcodes a 1M BLAST threshold and says the whole excess vests; both are storage values.",
+      "evidence": "Airdrop.sol _claim: `vestedPortion = ((amount - vestingThreshold) * vestingRate) / BASIS_POINTS`. vestingThreshold and vestingRate are owner-set. Descriptor: \"the part above 1M BLAST vests\". In case 1 (97,473,308 BLAST) the reader would think all ~96.5M above 1M is locked, which holds only if vestingRate is 100%.",
+      "fix": "Say \"part of any amount above the vesting threshold vests\", or state the exact on-chain parameters.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "delegateAndClaim: screen does not say the Recipient also controls the vesting position.",
+      "evidence": "Airdrop.sol _claim: `airdropVesting.deposit(initialRecipient, delegatedRecipient, vestedPortion)`. The natspec says delegatedRecipient is the \"Address to recieve control of the airdrop.\" The descriptor's \"Claim {amount} airdrop to {delegatedRecipient}\" covers the immediate transfer but not that the vested tokens also go to the Recipient's control.",
+      "fix": "Use an intent like \"Delegate your BLAST airdrop and its vesting position to {delegatedRecipient} and claim {amount}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "AirdropVesting.deposit(initialRecipient, delegatedRecipient, vestedPortion), called from Airdrop._claim at the address stored in airdropVesting: its source is not in the directory (omittedSources), so I could not check how the vested position is recorded or who controls it."
+  ]
+ },
+ "cost": 0.241,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 57,
+ "rubric": "v1.2",
+ "result": "incomplete",
+ "formats": {
+  "claim(uint256 amount,bytes32[] proof)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "claim: intent hardcodes a 1M BLAST threshold and says the whole excess vests; both are storage values.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "delegateAndClaim(address delegatedRecipient,uint256 amount,bytes32[] proof)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 63,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "delegateAndClaim: intent hardcodes a 1M BLAST threshold and says the whole excess vests; both are storage values.",
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 90,
+  "clarity": 69,
+  "functions": "2B",
+  "incomplete": true,
+  "worst": "claim: intent hardcodes a 1M BLAST threshold and says the whole excess vests; both are storage values."
+ }
+}

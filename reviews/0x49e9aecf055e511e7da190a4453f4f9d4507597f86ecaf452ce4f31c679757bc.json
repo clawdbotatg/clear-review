@@ -1,0 +1,165 @@
+{
+ "hash": "0x49e9aecf055e511e7da190a4453f4f9d4507597f86ecaf452ce4f31c679757bc",
+ "file": "registry/base/calldata-L2ToL1MessagePasser.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0x4200000000000000000000000000000000000016"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:39Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "burn()",
+    "effects": [
+     "No asset of the signer moves: burn() reads address(this).balance of the message passer and destroys it via Burn.eth (self-destructing helper contract); anyone can call it and the signer only pays gas."
+    ],
+    "shown": "Intent 'Burn withdrawn ETH' / 'Burn ETH left by withdrawals' with no fields.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "burn(): screen does not say the burned ETH is the contract's balance, not the signer's",
+      "evidence": "L2ToL1MessagePasser.sol burn(): `uint256 balance = address(this).balance; Burn.eth(balance);`. Descriptor interpolatedIntent 'Burn ETH left by withdrawals'. Case 0 reader.unsure: 'Whose ETH is burned... Whether any of my own ETH or tokens are sent.' Mined case 0: 404086 ETH moved only between the contract and the burn helper, signer null.",
+      "fix": "Intent e.g. 'Burn ETH held by the withdrawal contract (none of yours)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined: ETH moves from 0x4200..16 to the burn helper, which self-destructs. signer null, signerNet empty. Screen is accurate. The reader was unsure whose ETH is burned but did not believe their own ETH leaves."
+     }
+    ],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "initiateWithdrawal(address _target,uint256 _gasLimit,bytes _data)",
+    "effects": [
+     "The signer sends msg.value ETH to the L2ToL1MessagePasser on Base; it stays there until burn() is called.",
+     "Records a withdrawal message (sentMessages[hash]=true) with sender = signer, target = _target, value = msg.value, gasLimit = _gasLimit, data = _data. After prove and finalize on L1, the OptimismPortal can deliver msg.value ETH to _target on Ethereum and call it with _data. The call comes from the portal, not from the signer's account.",
+     "Increments the global message nonce; no approvals or other signer rights change."
+    ],
+    "shown": "Intent 'Start withdrawal of {value} to {_target} on Ethereum', with fields for the ETH sent, the L1 recipient, the min L1 gas and the L1 call, decoded as nested calldata on chain 1 with the portal as sender.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "initiateWithdrawal: intent says 'ETH withdrawal' but omits the L1 call and that the portal sends it",
+      "evidence": "Descriptor intent 'Start ETH withdrawal to Ethereum', interpolatedIntent 'Start withdrawal of {@.value} to {_target} on Ethereum'; the call in _data is only in the 'L1 Call' field. Code: initiateWithdrawal hashes data:_data into the message. Case 2 (0 ETH, DAI transfer call) reader.unsure: 'The screen doesn't say who the call is sent from'. Case 4 (0 ETH, message to the L1 messenger) reader: 'Why a 0 ETH withdrawal goes to the L1 messenger'.",
+      "fix": "Use an intent like 'Send {@.value} and a message to {_target} on Ethereum', and relabel the field 'L1 Call (sent by Base portal)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "initiateWithdrawal: L1 call shows as raw hex when no nested descriptor resolves",
+      "evidence": "Case 1 'L1 Call' = '0x24eb6264...' and case 2 'L1 Call' = '0xa9059cbb...' are shown raw. Case 1 reader: 'I can't read it'. The call runs from OptimismPortal 0x4904...E97e (the descriptor's spender), so it cannot move the signer's assets directly.",
+      "fix": "Nothing to change in this descriptor. It needs registry descriptors for the L1 callee contracts.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "initiateWithdrawal: Min L1 Gas renders as '600000gas' without a space or thousands separator",
+      "evidence": "Case 1 field 'Min L1 Gas' = '600000gas'; descriptor format 'unit' with base 'gas'.",
+      "fix": "Rendering detail; the runner could add a space. Optionally use the label 'Min L1 Gas Limit'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.00002 ETH out to the message passer is shown as 'ETH to Withdraw 0.00002 ETH'. The reader got it right. The L1 call is raw hex."
+     },
+     {
+      "index": 2,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "0 ETH sent; the L1 call is a DAI transfer that would run from the portal. No signer effects."
+     },
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.0094 ETH out to the signer's own L1 address. Shown correctly; the reader got it right."
+     },
+     {
+      "index": 4,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "0 ETH. The nested call decodes as an L1CrossDomainMessenger message to address(0) on Base. No signer effects."
+     }
+    ],
+    "glance": 80,
+    "depth": 82
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.448,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 94,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "burn()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "initiateWithdrawal(address _target,uint256 _gasLimit,bytes _data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 87,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "initiateWithdrawal: intent says 'ETH withdrawal' but omits the L1 call and that the portal sends it",
+   "disputed": 0,
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 86,
+  "functions": "2A",
+  "incomplete": false,
+  "worst": null
+ }
+}

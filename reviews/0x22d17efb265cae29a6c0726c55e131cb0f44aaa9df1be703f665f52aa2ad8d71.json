@@ -1,0 +1,317 @@
+{
+ "hash": "0x22d17efb265cae29a6c0726c55e131cb0f44aaa9df1be703f665f52aa2ad8d71",
+ "file": "registry/base/calldata-OptimismPortal2.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x49048044d57e1c92a77f79988d21fa8faf74e97e"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:42Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "depositTransaction(address _to,uint256 _value,uint64 _gasLimit,bool _isCreation,bytes _data)",
+    "effects": [
+     "The signer sends msg.value ETH to the portal on Ethereum, where it stays locked.",
+     "msg.value is minted on Base to the signer's address, or to its aliased address when the signer is a contract.",
+     "From that L2 address, _value ETH goes to _to on Base, with _data as the call (or contract creation when _isCreation is true).",
+     "ETH not sent to _to stays at the signer's L2 address (or its alias); if _value is above msg.value, the extra comes from that address's existing Base balance.",
+     "The L2 gas limit is bought by burning L1 gas, which is part of the network fee only."
+    ],
+    "shown": "Bridge the attached ETH to Base and send _value to the L2 recipient, with the gas limit, the decoded L2 call and a note about contract-wallet aliasing.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "depositTransaction does not say that ETH not sent to the recipient stays at the signer's own Base address.",
+      "evidence": "OptimismPortal2.depositTransaction: `address from = msg.sender; ... abi.encodePacked(msg.value, _value, ...)` mints msg.value to `from`. Descriptor interpolatedIntent \"Bridge {@.value} to Base, send {_value} to {_to}\"; the Note covers only contract wallets. Case 0 reader lists as unsure: \"Exact destination of the remaining ETH is not explicitly stated on screen\".",
+      "fix": "Change the Note to: \"ETH not sent to the L2 Recipient stays at your address on Base (its aliased address for a contract wallet). The L2 Call runs from that address.\"",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "test-gap",
+      "title": "depositTransaction has no test with _isCreation true or with _value above the ETH bridged.",
+      "evidence": "Descriptor field `_isCreation` uses `visible: {mustMatch:[false]}`; cases 0, 1 and 13 all have _isCreation false and _value <= @.value. In the code, `_value` above `msg.value` spends the signer's existing Base balance.",
+      "fix": "Add a test case with _isCreation true and one with _value greater than the value attached.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.00017 ETH out to the portal is shown as 'ETH to Bridge'. The reader also correctly expected the remaining 0.00013 ETH at its own Base address."
+     },
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.001971 ETH out is shown; the L2 recipient is the signer."
+     }
+    ],
+    "glance": 85,
+    "depth": 88
+   },
+   {
+    "key": "donateETH()",
+    "effects": [
+     "The signer sends msg.value ETH to the portal. Nothing is bridged and nothing comes back."
+    ],
+    "shown": "Donate the attached ETH to the Base portal; it is not bridged.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.02 ETH out to the portal is shown as the donation."
+     }
+    ],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "finalizeWithdrawalTransaction((uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx)",
+    "effects": [
+     "The portal sends _tx.value ETH to _tx.target with _tx.data, setting l2Sender to _tx.sender during the call.",
+     "The signer receives assets only when it is the target, or the final recipient of a call relayed through the messenger and bridge.",
+     "The function checks the proof that msg.sender submitted and marks the withdrawal finalized. When the target call fails (and the target is not a delegated EOA), the withdrawal is still consumed."
+    ],
+    "shown": "Finalize a Base withdrawal of _tx.value ETH to _tx.target, with the L2 sender and the decoded L1 call, which nests the messenger and bridge calls.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "finalizeWithdrawalTransaction top line shows '0 ETH to L1CrossDomainMessenger' while the signer receives tokens.",
+      "evidence": "Case 7: interpolatedIntent \"Finalize Base withdrawal of 0 ETH to Base L1CrossDomainMessenger\". The mined effect is 119655.79 XCN in to the signer, shown only two levels deep in the 'L1 Call' field. The descriptor interpolatedIntent is \"Finalize Base withdrawal of {_tx.value} to {_tx.target}\".",
+      "fix": "Change the interpolatedIntent to \"Finalize Base withdrawal sent by {_tx.sender} to {_tx.target}\", and keep the ETH amount and the final payout in the fields.",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "finalizeWithdrawalTransaction marks the withdrawal finalized even when the target call fails.",
+      "evidence": "OptimismPortal2.finalizeWithdrawalTransactionExternalProof: `finalizedWithdrawals[withdrawalHash] = true; ... bool success = SafeCall.callWithMinGas(...); if (!success && EOA.isDelegated(_tx.target)) revert`. A failed call to a non-delegated target ends the withdrawal and the ETH is not paid.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.0094 ETH in to the signer is shown as ETH Amount and L1 Recipient."
+     },
+     {
+      "index": 6,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The ETH goes to a third party; the signer is only the caller. The nested call shows the right recipient."
+     },
+     {
+      "index": 7,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The XCN payout to the signer appears only in the nested 'Release token' call. The top line says 0 ETH to the messenger."
+     }
+    ],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "finalizeWithdrawalTransactionExternalProof((uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx,address _proofSubmitter)",
+    "effects": [
+     "The portal sends _tx.value ETH to _tx.target with _tx.data, setting l2Sender to _tx.sender during the call.",
+     "The signer receives assets only when it is the target or the final recipient of a relayed bridge call.",
+     "The function uses the proof stored for _proofSubmitter and marks the withdrawal finalized, even when a call to a non-delegated target fails."
+    ],
+    "shown": "Finalize a Base withdrawal of _tx.value ETH to _tx.target, with the L2 sender and the decoded L1 call; the proof submitter is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "finalizeWithdrawalTransactionExternalProof top line shows '0 ETH to L1CrossDomainMessenger' while the signer receives TEL.",
+      "evidence": "Case 9: interpolatedIntent \"Finalize Base withdrawal of 0 ETH to Base L1CrossDomainMessenger\". The mined effect is 92688.16 TEL in to the signer, shown only in the nested 'Release token from Base bridge' call.",
+      "fix": "Change the interpolatedIntent to \"Finalize Base withdrawal sent by {_tx.sender} to {_tx.target}\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "finalizeWithdrawalTransactionExternalProof nested 'ETH from Caller' line made the reader think the signer pays 4000 ETH.",
+      "evidence": "Case 8: the nested messenger and bridge fields show \"ETH from Caller: 4000 ETH\". The reader is unsure: \"Whether my wallet must supply 4000 ETH\". The label comes from the nested L1CrossDomainMessenger and L1StandardBridge descriptors, not from this one.",
+      "fix": "Rename 'ETH from Caller' in the nested messenger and bridge descriptors to 'ETH Released by Portal'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "finalizeWithdrawalTransactionExternalProof consumes the withdrawal even when the target call fails.",
+      "evidence": "OptimismPortal2.finalizeWithdrawalTransactionExternalProof: `finalizedWithdrawals[withdrawalHash] = true;` comes before `SafeCall.callWithMinGas`. It reverts on failure only when `EOA.isDelegated(_tx.target)`.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.009 ETH in to the signer is shown."
+     },
+     {
+      "index": 8,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The 4000 ETH goes to a third party. The reader was confused by the nested 'ETH from Caller' label."
+     },
+     {
+      "index": 9,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "The TEL payout appears only in the nested call. The top line says 0 ETH to the messenger."
+     }
+    ],
+    "glance": 65,
+    "depth": 85
+   },
+   {
+    "key": "proveWithdrawalTransaction((uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx,uint256 _disputeGameIndex,(bytes32 version,bytes32 stateRoot,bytes32 messagePasserStorageRoot,bytes32 latestBlockhash) _outputRootProof,bytes[] _withdrawalProof)",
+    "effects": [
+     "No asset moves. The portal records a proof of the withdrawal under msg.sender with the current time, which starts or resets that submitter's maturity delay.",
+     "The signer is added to the proof submitters of the withdrawal hash."
+    ],
+    "shown": "Prove a Base withdrawal of _tx.value ETH to _tx.target, with the L2 sender and the L1 call that runs at finalization; the proof data is hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "proveWithdrawalTransaction top line shows '0 ETH to L1CrossDomainMessenger' for token withdrawals.",
+      "evidence": "Case 11: interpolatedIntent \"Prove Base withdrawal of 0 ETH to Base L1CrossDomainMessenger\". The PEPE payout to the real recipient appears only in the nested 'L1 Call at Finalization'. The descriptor interpolatedIntent is \"Prove Base withdrawal of {_tx.value} to {_tx.target}\".",
+      "fix": "Change the interpolatedIntent to \"Prove Base withdrawal sent by {_tx.sender} to {_tx.target}\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.773,
+ "account": "clawd_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 128,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "depositTransaction(address _to,uint256 _value,uint64 _gasLimit,bool _isCreation,bytes _data)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "depositTransaction does not say that ETH not sent to the recipient stays at the signer's own Base address.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "donateETH()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 98,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "finalizeWithdrawalTransaction((uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "finalizeWithdrawalTransaction top line shows '0 ETH to L1CrossDomainMessenger' while the signer receives tokens.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "finalizeWithdrawalTransactionExternalProof((uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx,address _proofSubmitter)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "finalizeWithdrawalTransactionExternalProof top line shows '0 ETH to L1CrossDomainMessenger' while the signer receives TEL.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "proveWithdrawalTransaction((uint256 nonce,address sender,address target,uint256 value,uint256 gasLimit,bytes data) _tx,uint256 _disputeGameIndex,(bytes32 version,bytes32 stateRoot,bytes32 messagePasserStorageRoot,bytes32 latestBlockhash) _outputRootProof,bytes[] _withdrawalProof)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "proveWithdrawalTransaction top line shows '0 ETH to L1CrossDomainMessenger' for token withdrawals.",
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 87,
+  "functions": "4A 1B",
+  "incomplete": false,
+  "worst": "proveWithdrawalTransaction top line shows '0 ETH to L1CrossDomainMessenger' for token withdrawals."
+ }
+}

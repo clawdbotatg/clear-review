@@ -1,0 +1,261 @@
+{
+ "hash": "0x86c7d314a79762bcaf6d21b3294347b31e2005bff5fd31707f57e0612e8986cb",
+ "file": "registry/surge/calldata-LiquidityPoolV3.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 8453,
+   "address": "0xee755f1bbcbf6e3260469d0f473522d71d3bddda"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:46Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(uint256 amount_)",
+    "effects": [
+     "Pulls amount_ of market 0's token (USDC) from the signer into the pool with safeTransferFrom.",
+     "Mints market-0 supply shares to the signer at the current exchange rate and adds amount_ to the signer's market-0 allocation.",
+     "Adds the signer to the depositor queue, so the funds can later be lent into fixed markets up to the exposure the signer sets."
+    ],
+    "shown": "Supply 25000 USDC to Surge, with an Amount field in USDC.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "deposit: the token is a USDC constant, but the contract pulls markets[0].token, which lives in storage.",
+      "evidence": "LiquidityPoolV3.sol deposit: IERC20(market.token).safeTransferFrom(msg.sender, address(this), amount_) with market = markets[0]; descriptor params.token = $.metadata.constants.usdc (0x8335…2913, Base USDC). This matches if market 0 was created with USDC, which the source cannot confirm.",
+      "fix": "None needed if market 0 is USDC. Recheck the constant if market 0's token ever changes.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 90,
+    "depth": 88
+   },
+   {
+    "key": "withdraw(uint256 amount_)",
+    "effects": [
+     "Burns market-0 supply shares from the signer (rounded up) worth amount_.",
+     "Sends amount_ of market 0's token (USDC) to the signer, which is msg.sender.",
+     "Only touches the signer's liquid market-0 position. It reverts if amount_ is more than the signer's claim or the free liquidity, and it never touches funds locked in fixed markets."
+    ],
+    "shown": "Withdraw 1000 USDC from Surge, with an Amount field in USDC.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "spec-limitation",
+      "title": "withdraw: the USDC token is a constant, while the code pays out markets[0].token from storage.",
+      "evidence": "LiquidityPoolV3.sol withdraw: IERC20(market.token).safeTransfer(msg.sender, amount_) with market = markets[0]; descriptor token = $.metadata.constants.usdc.",
+      "fix": "None needed if market 0 is USDC.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 88
+   },
+   {
+    "key": "withdrawFromMarket(uint256 marketId_,uint256 amount_)",
+    "effects": [
+     "Moves no funds now. It queues a withdraw request for the signer in fixed market marketId_ and records the pending amount.",
+     "If amount_ is at least the signer's current claim, the request becomes a full exit. It is capped to the claim now, and at processing time the whole grown position, interest included, is swept out.",
+     "Later an admin calls processWithdrawQueue, which swaps the signer's fixed-market shares onto replacement LPs and pays the signer in market 0's token (USDC).",
+     "While the request is pending, the signer cannot queue another request for the same market."
+    ],
+    "shown": "Request 20 USDC withdrawal from market 11, with the amount in USDC and the fixed market id as a raw number.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "withdrawFromMarket: an amount at or above the claim becomes a full exit, which the screen does not say.",
+      "evidence": "LiquidityPoolV3.sol withdrawFromMarket: bool fullExit = amount_ >= claimable; queuedAmount = fullExit ? claimable : amount_; processWithdrawQueue: if (isFullExit) swapAmount = shareValue (value at processing time). The screen shows only 'Amount 20 USDC'.",
+      "fix": "Could label the field 'Amount (capped at your position; full exit if equal or more)'. The funds go back to the signer either way.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "withdrawFromMarket: the market id is shown raw and does not reveal the market's terms.",
+      "evidence": "descriptor field marketId_ 'Fixed market' format raw; case 3 shows '11'.",
+      "fix": "None possible in ERC-7730 without a map of market ids.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 80
+   },
+   {
+    "key": "setExposure(uint256 marketId_,uint256 exposureBps_)",
+    "effects": [
+     "Sets userExposureBps[signer][marketId_] to exposureBps_. This allows borrows in fixed market marketId_ to lock up to that share of the signer's pool funds, where they are illiquid until repaid or swapped out.",
+     "If exposureBps_ is 0 and the signer holds a position in that market, it puts the signer in the market's exit queue. The signer's locked funds then return to market 0 at the next deallocation, not right away.",
+     "If exposureBps_ is not 0 and the signer was in the exit queue, it removes the signer from the queue (PoolLogicLib.dequeueExit)."
+    ],
+    "shown": "Set market 11 exposure to 60%, with the market id raw and the exposure as a percent labelled '(0 = exit)'.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setExposure: 'exposure' does not tell the signer they are allowing their funds to be locked in fixed-market loans.",
+      "evidence": "LiquidityPoolV3.sol setExposure: userExposureBps[msg.sender][marketId_] = exposureBps_; borrow() then calls PoolLogicLib.allocateFundsToMarket(... userExposureBps ...), which moves LP funds into the fixed market, where they can only leave through withdrawFromMarket and an admin swap. Intent 'Set market exposure' / 'Set market {marketId_} exposure to {exposureBps_}'.",
+      "fix": "Reword the intent, e.g. 'Allow up to {exposureBps_} of your deposit to be lent in fixed market {marketId_}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setExposure: the '0 = exit' label suggests an immediate exit, but 0 only queues the funds to return later.",
+      "evidence": "LiquidityPoolV3.sol _maybeEnqueueExit: on exposureBps_ == 0 with a position, it only pushes to marketExitQueue ('the next deallocation returns their funds to market 0 first'). No funds move in this tx. Descriptor label 'Exposure (0 = exit)'.",
+      "fix": "Label it 'Exposure (0 = stop new lending, queue return of locked funds)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "setExposure: the market id is shown raw and does not reveal the market's terms.",
+      "evidence": "descriptor field marketId_ 'Fixed market' format raw.",
+      "fix": "None possible without a constants map.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "setExposures(uint256[] marketIds_,uint256[] exposures_)",
+    "effects": [
+     "For each pair, sets userExposureBps[signer][marketId] to that exposure. This allows borrows in that fixed market to lock up to that share of the signer's funds.",
+     "For each pair with exposure 0 where the signer holds a position, it puts the signer in that market's exit queue. With a non-zero exposure, it removes the signer from the queue if they were in it.",
+     "It reverts if the two arrays differ in length, so every pair is shown."
+    ],
+    "shown": "Set markets 11 and 12 to 60% and 40%, with each market id and its exposure shown as bundled pairs.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "over-simplified",
+      "title": "setExposures: 'Set markets … to …%' does not say these are limits on lending the signer's funds into fixed markets.",
+      "evidence": "LiquidityPoolV3.sol setExposures: userExposureBps[msg.sender][marketId] = exposure, which allocateFundsToMarket uses to lock LP funds. interpolatedIntent 'Set markets {marketIds_.[]} to {exposures_.[]}' reads 'Set markets 11 and 12 to 60% and 40%'.",
+      "fix": "Use something like 'Allow lending of your deposit in fixed markets {marketIds_.[]} up to {exposures_.[]}'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "setExposures: the '0 = exit' label suggests an immediate exit, but 0 only queues the funds to return later.",
+      "evidence": "LiquidityPoolV3.sol _maybeEnqueueExit only enqueues the signer; descriptor label 'Exposure (0 = exit)'.",
+      "fix": "Relabel as for setExposure.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "setExposures: the market ids are shown raw and do not reveal the markets' terms.",
+      "evidence": "descriptor bundled field marketIds_.[] format raw.",
+      "fix": "None possible without a constants map.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 50,
+    "depth": 65
+   }
+  ],
+  "couldNotCheck": [
+   "PoolLogicLib (src/libraries/PoolLogicLib.sol) is missing: meta.json shows omittedSources 7. setExposure and setExposures call PoolLogicLib.dequeueExit, and the meaning of exposureBps (how much of the signer's funds it lets borrows lock) is applied in PoolLogicLib.lpAllocatableCapacity and allocateFundsToMarket, so the percent unit shown cannot be checked."
+  ]
+ },
+ "cost": 0.754,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 123,
+ "rubric": "v1.2",
+ "result": "incomplete",
+ "formats": {
+  "deposit(uint256 amount_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "withdraw(uint256 amount_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "withdrawFromMarket(uint256 marketId_,uint256 amount_)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "setExposure(uint256 marketId_,uint256 exposureBps_)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 50,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "setExposure: 'exposure' does not tell the signer they are allowing their funds to be locked in fixed-market loans.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "setExposures(uint256[] marketIds_,uint256[] exposures_)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 48,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "setExposures: 'Set markets … to …%' does not say these are limits on lending the signer's funds into fixed markets.",
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 71,
+  "functions": "3A 2C",
+  "incomplete": true,
+  "worst": "setExposure: 'exposure' does not tell the signer they are allowing their funds to be locked in fixed-market loans."
+ }
+}

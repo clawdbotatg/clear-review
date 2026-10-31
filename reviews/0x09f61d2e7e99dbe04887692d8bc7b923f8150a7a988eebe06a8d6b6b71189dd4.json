@@ -1,0 +1,144 @@
+{
+ "hash": "0x09f61d2e7e99dbe04887692d8bc7b923f8150a7a988eebe06a8d6b6b71189dd4",
+ "file": "registry/sushi/calldata-RedSnwapper.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xac4c6e212a361c968f1725b4d055b47e63f80b75"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:47Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "snwap(address tokenIn,uint256 amountIn,address recipient,address tokenOut,uint256 amountOutMin,address executor,bytes executorData)",
+    "effects": [
+     "When tokenIn is an ERC-20 and amountIn > 0, amountIn of tokenIn is pulled from the signer (safeTransferFrom) to the executor address, using the signer's allowance to RedSnwapper.",
+     "When amountIn == 0, the router's own tokenIn balance minus 1 is sent to the executor; nothing leaves the signer's wallet.",
+     "When tokenIn is the native address, no token is pulled; msg.value is forwarded through SafeExecutor to the executor.",
+     "msg.value (native ETH) is forwarded to the executor via SafeExecutor.execute.",
+     "executorData runs on the executor (from SafeExecutor, which holds no approvals, not in the signer's context).",
+     "The recipient's tokenOut balance (or native ETH balance when tokenOut is 0xEeee…) must grow by at least amountOutMin, or the call reverts."
+    ],
+    "shown": "\"Swap {amountIn tokenIn} for at least {amountOutMin tokenOut/ETH} to {recipient}\", with the same three fields; msg.value is forced to 0 and the executor and its data are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "hidden-value",
+      "title": "snwap: the executor that receives the signer's input tokens is hidden.",
+      "evidence": "RedSnwapper.sol snwap: `tokenIn.safeTransferFrom(msg.sender, executor, amountIn);` while descriptor has `{\"path\": \"executor\", \"visible\": \"never\"}`. In all cases the input went to 0xb365…9091, not to the router shown. The amountOutMin check on the recipient's balance bounds the outcome, so the result matches the screen.",
+      "fix": "Show executor as an addressName field (e.g. 'Swap via'), or at least visible: optional.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "snwap: amountIn of 0 means 'swap the router's leftover balance', but the screen shows 'Swap 0 TOKEN'.",
+      "evidence": "RedSnwapper.sol snwap: `else tokenIn.safeTransfer(executor, tokenIn.balanceOf(address(this)) - 1);` descriptor amountIn tokenAmount has no threshold or message for 0.",
+      "fix": "Add a label or a message for amountIn == 0 (e.g. 'Router balance, not from your wallet').",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "snwap: native-ETH-input swaps cannot be clear-signed, and amountIn has no native currency mapping.",
+      "evidence": "descriptor `@.value` has `visible: {mustMatch: [0]}`, so the wallet errors on any ETH-in swap. The amountIn field uses `tokenPath: tokenIn` without `nativeCurrencyAddress`, so tokenIn = 0xEeee… would not resolve as ETH.",
+      "fix": "Show @.value as 'ETH Sent' (always visible when non-zero) and add nativeCurrencyAddress 0xEeee… to amountIn.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "snwap: executor fees cut from the input are decided in executorData; only the minimum output bounds them.",
+      "evidence": "Cases 0 and 3: the executor 0xb365… sent 14818272062260977 EIGEN and 17526821 USDT to 0xcd6b98…9799 before swapping. The signer still received more than amountOutMin (cases 0 and 3), which the code enforces.",
+      "fix": "None needed beyond the minimum received; the descriptor cannot decode executorData.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "5.927308824904391 EIGEN out matches. 0.000498988679 native ETH in is at least 0.000474039 ETH. The EIGEN Approval event (to 0) is the allowance being spent by transferFrom, not a new grant."
+     },
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "2000 SYN out matches. 0.164126725 ETH in is at least 0.163303 ETH. The SYN Approval event is the remaining allowance after transferFrom; the function sets no approval."
+     },
+     {
+      "index": 2,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "2197.651855 USDC out matches. 2200.684479 USDT in is at least 2189.711775."
+     },
+     {
+      "index": 3,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "7010.728568 USDT out matches. 3.0254 native ETH in is at least 2.996257 ETH."
+     }
+    ],
+    "glance": 90,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.386,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 122,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "snwap(address tokenIn,uint256 amountIn,address recipient,address tokenOut,uint256 amountOutMin,address executor,bytes executorData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "snwap: the executor that receives the signer's input tokens is hidden.",
+   "disputed": 0,
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 100,
+  "clarity": 80,
+  "functions": "1A",
+  "incomplete": false,
+  "worst": "snwap: the executor that receives the signer's input tokens is hidden."
+ }
+}

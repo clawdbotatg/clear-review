@@ -1,0 +1,318 @@
+{
+ "hash": "0x9b44ffa6ecbc45e04cc218f46340215907e30706c9d44f376fba4265d2b57401",
+ "file": "registry/ens/calldata-ETHRegistrarController.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x59e16fccd424cc24e280be16e11bcd56fb0ce547"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:44Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "commit(bytes32 commitment)",
+    "effects": [
+     "Stores the current block time for the commitment hash in `commitments`; no asset moves and no right changes for the signer."
+    ],
+    "shown": "\"Commit to register a name\" with the raw commitment hash.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "commit shows only a hash; the name, owner and terms it commits to cannot be decoded.",
+      "evidence": "ETHRegistrarController.commit stores `commitments[commitment] = block.timestamp`; the commitment is `keccak256(abi.encode(registration))` in makeCommitment. Descriptor: field `commitment` format `raw`. Case 0 reader: 'Which name this commitment is for; the screen shows only a hash'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Mined tx has no token or ETH movement. The reader correctly expected no asset effects."
+     }
+    ],
+    "glance": 85,
+    "depth": 60
+   },
+   {
+    "key": "recoverFunds(address _token,address _to,uint256 _amount)",
+    "effects": [
+     "Only the owner can call it. The contract sends `_amount` of ERC-20 `_token` from its own balance to `_to`."
+    ],
+    "shown": "\"Recover {amount with token} to {_to}\" with the To and Amount fields. The token is resolved via tokenPath.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "register((string label,address owner,uint256 duration,bytes32 secret,address resolver,bytes[] data,uint8 reverseRecord,bytes32 referrer) registration)",
+    "effects": [
+     "The signer sends msg.value in ETH. The contract keeps base+premium from the price oracle and refunds the excess to the signer.",
+     "The .eth name NFT for `label` is minted to `owner` (through the controller when a resolver is set) for `duration` seconds.",
+     "ENS registry record set: owner = `owner`, resolver = `resolver`.",
+     "If `data` is non-empty, the controller runs `data` as a multicall on `resolver`, which writes records (for example the address record) for the new name.",
+     "If reverseRecord bit 1 is set, the signer's addr.reverse primary name becomes label.eth. If bit 2 is set, the default.reverse primary name for all chains becomes label.eth.",
+     "`referrer` is only emitted in an event."
+    ],
+    "shown": "\"Register {label}.eth for {owner}\" with the name, owner, duration in h:mm:ss, the maximum ETH payment, the resolver and a primary-name enum. secret, data and referrer are hidden.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "completeness",
+      "kind": "hidden-effect",
+      "title": "register hides `data`, which writes resolver records (such as the ETH address) for the new name.",
+      "evidence": "ETHRegistrarController.register: `if (registration.data.length > 0) Resolver(registration.resolver).multicallWithNodeCheck(namehash, registration.data);`. Descriptor: `{\"path\": \"registration.data.[]\", \"label\": \"Data\", \"visible\": \"never\"}`. In case 3, data holds setAddr(node, 60, 0xb814…6709), and nothing on the screen says the address record is set.",
+      "fix": "Show that resolver records are set. Add a visible field such as {\"path\":\"registration.data.[]\",\"label\":\"Resolver records set\",\"format\":\"raw\"}, or decode the calls with the calldata format and the resolver as callee.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "register's primary-name enum labels 'Not set' and 'Ethereum' do not say what changes.",
+      "evidence": "metadata.enums.primaryName: {\"0\":\"Not set\",\"1\":\"Ethereum\",\"2\":\"Default (all chains)\",\"3\":\"Ethereum + default\"}. Code: value 0 leaves the existing reverse record as it is, and bits 1/2 call `reverseRegistrar.setNameForAddr(msg.sender, …, label.eth)` and `defaultReverseRegistrar.setNameForAddr(msg.sender, …)`. 'Not set' can read as clearing the current primary name.",
+      "fix": "Change the enum labels to: 0 \"Unchanged\", 1 \"Set to this name on Ethereum\", 2 \"Set to this name on all chains (default)\", 3 \"Set to this name on Ethereum and default\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "register's interpolated intent leaves out the ETH payment, the main asset leaving the signer.",
+      "evidence": "Descriptor: \"interpolatedIntent\": \"Register {registration.label}.eth for {registration.owner}\". Case 3: the signer sends 0.001500928505439064 ETH (signer out). The payment is only in the field 'Maximum Payment'.",
+      "fix": "Change interpolatedIntent to \"Register {registration.label}.eth for {registration.owner}, pay up to {@.value}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "register shows a multi-month registration duration as hours, for example '5951:00:00'.",
+      "evidence": "Descriptor: field `registration.duration` format `duration`, label 'Duration (h:mm:ss)'. Case 3 renders '5951:00:00'. The spec duration format is HH:MM:ss only, with no days.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "register's 'Maximum Payment' does not say that the excess ETH is refunded.",
+      "evidence": "ETHRegistrarController.register: `if (msg.value > totalPrice) payable(msg.sender).transfer(msg.value - totalPrice);`. Case 3: a refund of 29429970694883 wei goes to the signer, and the reader listed 'whether any excess is refunded' as unsure.",
+      "fix": "Rename the label to \"Maximum payment (excess refunded)\".",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 3,
+      "shownRight": 3,
+      "reader": [
+       "right",
+       "partial",
+       "right"
+      ],
+      "notes": "ETH out is shown as Maximum Payment. The refund is only implied by 'Maximum', and the reader was unsure about it. The name NFT for the signer as owner is shown. data set the ETH address record to the signer; this is hidden but is not a token movement."
+     }
+    ],
+    "glance": 80,
+    "depth": 72
+   },
+   {
+    "key": "renew(string label,uint256 duration,bytes32 referrer)",
+    "effects": [
+     "The signer sends msg.value in ETH. The contract keeps price.base and refunds the excess to the signer.",
+     "The expiry of label.eth is extended by `duration`, whoever owns the name.",
+     "`referrer` is only emitted in an event."
+    ],
+    "shown": "\"Renew {label}.eth\" with the name, 'Extend By' in h:mm:ss and the maximum ETH payment.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "renew's interpolated intent leaves out the ETH payment and the extension length.",
+      "evidence": "Descriptor: \"interpolatedIntent\": \"Renew {label}.eth\". Case 4: the signer sends 0.002216210668006671 ETH (signer out).",
+      "fix": "Change interpolatedIntent to \"Renew {label}.eth by {duration}, pay up to {@.value}\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "renew's 'Maximum Payment' does not say that the excess ETH is refunded.",
+      "evidence": "ETHRegistrarController.renew: `if (msg.value > price.base) payable(msg.sender).transfer(msg.value - price.base);`. Case 4: a refund of 43455111137385 wei goes to the signer, and the reader was unsure whether unused ETH is refunded.",
+      "fix": "Rename the label to \"Maximum payment (excess refunded)\".",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "renew shows a one-year extension as '8784:00:00' hours.",
+      "evidence": "Descriptor: field `duration` format `duration`. Case 4 renders '8784:00:00'. The spec has no day unit for durations.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "partial"
+      ],
+      "notes": "ETH out is shown as the maximum. The refund is only implied, and the reader was unsure about it."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "renounceOwnership()",
+    "effects": [
+     "Only the owner can call it. The owner becomes address(0), so the signer permanently loses the owner rights (recoverFunds) and stops being the receiver of withdraw()."
+    ],
+    "shown": "\"Renounce ownership\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "transferOwnership(address newOwner)",
+    "effects": [
+     "Only the owner can call it. Ownership moves to `newOwner`, and the signer loses the owner rights."
+    ],
+    "shown": "\"Make {newOwner} the owner\" with the New Owner field.",
+    "findings": [],
+    "cases": [],
+    "glance": 95,
+    "depth": 95
+   },
+   {
+    "key": "withdraw()",
+    "effects": [
+     "Anyone can call it. The contract's whole ETH balance goes to owner(); the signer's assets do not change unless the signer is the owner."
+    ],
+    "shown": "\"Send fees to ENS owner\" with no fields.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.505,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 122,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "commit(bytes32 commitment)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 72,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "recoverFunds(address _token,address _to,uint256 _amount)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "register((string label,address owner,uint256 duration,bytes32 secret,address resolver,bytes[] data,uint8 reverseRecord,bytes32 referrer) registration)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 70,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "register hides `data`, which writes resolver records (such as the ETH address) for the new name.",
+   "disputed": 0,
+   "comprehension": 83
+  },
+  "renew(string label,uint256 duration,bytes32 referrer)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 73,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "renew's interpolated intent leaves out the ETH payment and the extension length.",
+   "disputed": 0,
+   "comprehension": 75
+  },
+  "renounceOwnership()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "transferOwnership(address newOwner)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "withdraw()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 99,
+  "clarity": 82,
+  "functions": "4A 3B",
+  "incomplete": false,
+  "worst": "register hides `data`, which writes resolver records (such as the ETH address) for the new name."
+ }
+}

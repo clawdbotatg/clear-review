@@ -1,0 +1,576 @@
+{
+ "hash": "0x2b2e4218f39267bda2ae9b2c33eabdea41e987f84e3f1fbdc25b5e2a27928691",
+ "file": "registry/across/calldata-Ethereum_SpokePool.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x5c7bcd6e7de5423a257d81b442095a1a6ced35c5"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:42Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "deposit(bytes32 depositor,bytes32 recipient,bytes32 inputToken,bytes32 outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,bytes32 exclusiveRelayer,uint32 quoteTimestamp,uint32 fillDeadline,uint32 exclusivityParameter,bytes message)",
+    "effects": [
+     "Pulls inputAmount of inputToken from the signer (msg.sender) into the SpokePool via safeTransferFrom, spending the signer's allowance.",
+     "If inputToken is WETH and msg.value > 0, takes msg.value native ETH (must equal inputAmount) and wraps it instead of pulling WETH.",
+     "Creates a deposit: a relayer is to send outputAmount of outputToken to recipient on destinationChainId before fillDeadline.",
+     "The depositor (which may differ from the signer) is credited: gets the refund if unfilled and can speed up (change output amount, recipient, message).",
+     "An exclusive relayer may be given exclusive fill rights until the exclusivity deadline."
+    ],
+    "shown": "Bridge inputAmount of the input token to a raw bytes32 recipient on a named destination chain, with the relayer's output amount and token, native value, depositor (refund rights) and fill deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "deposit: native ETH deposits show 'Bridge X WETH' while the signer pays ETH, not WETH.",
+      "evidence": "SpokePool._depositV3: `if (params.inputToken == address(wrappedNativeToken).toBytes32() && msg.value > 0) { ... wrappedNativeToken.deposit{ value: msg.value }(); }`. Case 1: mined effect is 0.007203865762570825 native ETH out; screen shows 'Amount to Bridge 0.007203865762570825 WETH' and 'Native Value Sent 0.007203865762570825 ETH'; the sentence says 'Bridge 0.0072... WETH'.",
+      "fix": "Add {@.value} to the interpolatedIntent (e.g. '...; paid with {@.value} native') or label the amount 'Amount to Bridge (paid from Native Value if set)', so the two lines do not look like two payments.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "deposit: chain IDs in neither ifNotIn list show two 'Destination Chain' fields, one unresolved enum.",
+      "evidence": "descriptor: chainId field hidden only for the 14 enum ids; enum field hidden only for [1,10,56,137,324,8453,42161,43114,59144]. A destination such as 534352 (Scroll) or 7777777 (Zora) matches neither, so both fields show and the enum has no entry.",
+      "fix": "Add every other supported Across chain to the enum field's ifNotIn list (or to the enum), so exactly one field shows per chain.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "deposit: bytes32 recipient shows as 32-byte padded hex with no name resolution.",
+      "evidence": "descriptor field `recipient` format raw; case 13 screen 'Recipient 0x00000000000000000000000000e96139cd1ef3f86919f00306fda9e1fc37f127'; reader: 'looks like yours but the format is unusual'. A [12:32] slice would be wrong for Solana recipients.",
+      "fix": "None reliable today: the destination may be non-EVM. Optionally note in the label that it is a padded address.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "deposit: exclusive relayer and exclusivity window are hidden; they only affect who can fill and when.",
+      "evidence": "descriptor: exclusiveRelayer and exclusivityParameter `visible: never`; SpokePool._depositV3 sets exclusivityDeadline from exclusivityParameter. No signer asset moves differently.",
+      "fix": "Optional: show exclusiveRelayer with addressName when non-zero.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.003242593 WETH out to SpokePool shown as Amount to Bridge."
+     },
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Native ETH out shown in Native Value Sent; Amount to Bridge says WETH, the reader still understood ETH was paid."
+     },
+     {
+      "index": 13,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "5527.457409 USDC out shown."
+     }
+    ],
+    "glance": 72,
+    "depth": 85
+   },
+   {
+    "key": "depositNow(bytes32 depositor,bytes32 recipient,bytes32 inputToken,bytes32 outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,bytes32 exclusiveRelayer,uint32 fillDeadlineOffset,uint32 exclusivityParameter,bytes message)",
+    "effects": [
+     "Pulls inputAmount of inputToken from the signer into the SpokePool, or takes equal native ETH and wraps it when inputToken is WETH and value is sent.",
+     "Creates a deposit with quoteTimestamp = now and fillDeadline = now + fillDeadlineOffset: a relayer is to send outputAmount of outputToken to recipient on destinationChainId.",
+     "The depositor gets the refund if unfilled and can speed up the deposit."
+    ],
+    "shown": "Bridge inputAmount to a raw bytes32 recipient on a named chain, with the relayer's output amount and token, native value, depositor and a fill window duration.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "depositNow: with native value sent, the sentence says WETH is bridged while ETH is paid.",
+      "evidence": "SpokePool._depositV3 wraps msg.value when inputToken is WETH; descriptor shows 'Amount to Bridge' via tokenPath inputToken.[12:32] (WETH) next to a separate '@.value' field.",
+      "fix": "Add {@.value} to the interpolatedIntent or relabel the amount to say it is paid from native value when set.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "depositNow: chain IDs in neither ifNotIn list show both destination fields, one unresolved enum.",
+      "evidence": "descriptor: the two destinationChainId fields' ifNotIn lists cover only 23 ids; any other id (e.g. 534352) shows both.",
+      "fix": "Extend the enum field's ifNotIn list to every chain the chainId format resolves.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "depositNow: bytes32 recipient, and output token and amount for non-EVM chains, show raw.",
+      "evidence": "case 10 (Solana): 'Recipient 0x0000...07fa03...', 'Relayer Must Send 249800000', 'Output Token (dest.) 0xc6fa7af3...'. descriptor recipient format raw.",
+      "fix": "None today for non-EVM destinations.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "depositNow: exclusive relayer and exclusivity parameter are hidden.",
+      "evidence": "descriptor: exclusiveRelayer, exclusivityParameter `visible: never`; they only gate who fills first.",
+      "fix": "Optional: show exclusiveRelayer when non-zero.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 84
+   },
+   {
+    "key": "depositV3(address depositor,address recipient,address inputToken,address outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,address exclusiveRelayer,uint32 quoteTimestamp,uint32 fillDeadline,uint32 exclusivityParameter,bytes message)",
+    "effects": [
+     "Pulls inputAmount of inputToken from the signer into the SpokePool, or takes equal native ETH and wraps it when inputToken is WETH and value is sent.",
+     "Creates a deposit: a relayer is to send outputAmount of outputToken to recipient on destinationChainId before fillDeadline.",
+     "The depositor gets the refund if unfilled and can speed up the deposit.",
+     "An exclusive relayer may be given exclusive fill rights."
+    ],
+    "shown": "Bridge inputAmount of the input token to the named recipient on a named destination chain, with the relayer's output amount and token, native value, depositor and fill deadline.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "depositV3: native ETH deposits show 'Bridge X WETH' while the signer pays ETH.",
+      "evidence": "SpokePool._depositV3 wraps msg.value. Case 4: mined effect 0.015976 native ETH out; screen 'Amount to Bridge 0.015976 WETH' plus 'Native Value Sent 0.015976 ETH'; the sentence says WETH. Case 12 is the same with 0.05.",
+      "fix": "Add {@.value} to the interpolatedIntent or relabel the amount 'Amount to Bridge (paid from Native Value if set)'.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "depositV3: chain IDs in neither ifNotIn list show both destination fields, one unresolved enum.",
+      "evidence": "descriptor destinationChainId chainId/enum fields with complementary but incomplete ifNotIn lists.",
+      "fix": "Extend the enum field's ifNotIn list to all chains that chainId resolves.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "depositV3: exclusive relayer and exclusivity parameter are hidden.",
+      "evidence": "case 3 calldata sets exclusiveRelayer 0x6cd1b8cf... with exclusivityParameter; descriptor `visible: never`. No signer asset changes.",
+      "fix": "Optional: show exclusiveRelayer with addressName.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "177.892664 USDC out shown."
+     },
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Native ETH out shown in Native Value Sent; amount labelled WETH."
+     },
+     {
+      "index": 11,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.00614375 WBTC out shown."
+     },
+     {
+      "index": 12,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.05 ETH out shown in Native Value Sent; amount labelled WETH."
+     }
+    ],
+    "glance": 78,
+    "depth": 88
+   },
+   {
+    "key": "depositV3Now(address depositor,address recipient,address inputToken,address outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,address exclusiveRelayer,uint32 fillDeadlineOffset,uint32 exclusivityParameter,bytes message)",
+    "effects": [
+     "Pulls inputAmount of inputToken from the signer, or takes equal native ETH and wraps it when inputToken is WETH and value is sent.",
+     "Creates a deposit with quoteTimestamp = now and fillDeadline = now + offset: a relayer is to send outputAmount of outputToken to recipient on destinationChainId.",
+     "The depositor gets the refund if unfilled and can speed up the deposit."
+    ],
+    "shown": "Bridge inputAmount to the named recipient on a named chain, with the relayer's output amount and token, native value, depositor and fill window.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "depositV3Now: native ETH deposit shown as 'Bridge 0.0035 WETH' while the signer pays ETH.",
+      "evidence": "Case 5: mined 0.0035 native ETH out, wrapped by the SpokePool (SpokePool._depositV3); screen 'Amount to Bridge 0.0035 WETH' and 'Native Value Sent 0.0035 ETH'.",
+      "fix": "Add {@.value} to the interpolatedIntent or relabel the amount to say native value pays it.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "depositV3Now: chain IDs in neither ifNotIn list show both destination fields.",
+      "evidence": "descriptor destinationChainId chainId/enum fields with incomplete complementary ifNotIn lists.",
+      "fix": "Extend the enum field's ifNotIn list.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "depositV3Now: exclusive relayer and exclusivity parameter are hidden.",
+      "evidence": "descriptor `visible: never` for exclusiveRelayer and exclusivityParameter; no signer asset is affected.",
+      "fix": "Optional: show exclusiveRelayer.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.0035 ETH out shown as native value; the reader understood the wrap."
+     }
+    ],
+    "glance": 78,
+    "depth": 88
+   },
+   {
+    "key": "multicall(bytes[] data)",
+    "effects": [
+     "Delegatecalls each data[i] into the SpokePool itself with the signer as msg.sender and msg.value 0 (non-payable); each nested deposit pulls its tokens from the signer.",
+     "Reverts everything if any call fails."
+    ],
+    "shown": "A batch notice plus each nested SpokePool call decoded with its own screen.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "multicall: nested SpokePool calls outside this descriptor (e.g. fillRelay) cannot be decoded.",
+      "evidence": "MultiCallerUpgradeable.multicall: `address(this).delegatecall(data[i])` accepts any SpokePool function; the descriptor covers only deposit and speed-up selectors, while fill functions pull output tokens from msg.sender.",
+      "fix": "Add formats for relayer fill functions, or accept that wallets fall back for them.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 14,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Empty batch; no effects."
+     }
+    ],
+    "glance": 55,
+    "depth": 85
+   },
+   {
+    "key": "speedUpDeposit(bytes32 depositor,uint256 depositId,uint256 updatedOutputAmount,bytes32 updatedRecipient,bytes updatedMessage,bytes depositorSignature)",
+    "effects": [
+     "Verifies the depositor's signature and emits RequestedSpeedUpDeposit; no assets move.",
+     "Lets relayers fill the depositor's deposit depositId with the new output amount, recipient and message."
+    ],
+    "shown": "Request an update of a deposit id for a depositor: a raw new output amount and a raw bytes32 new recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "speedUpDeposit: new output amount is raw; its token is not in the calldata.",
+      "evidence": "SpokePool.speedUpDeposit only takes depositId; the output token is in the original deposit event. Descriptor 'New Output (raw)' format raw; case 6 '305000000000000000'.",
+      "fix": "None in the descriptor; the label already says raw.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "speedUpDeposit: new recipient shows as 32-byte padded hex.",
+      "evidence": "descriptor updatedRecipient format raw; case 6 'New Recipient 0x0000000000000000000000005cf0e7fe...'.",
+      "fix": "None reliable for non-EVM recipients.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 65,
+    "depth": 62
+   },
+   {
+    "key": "speedUpV3Deposit(address depositor,uint256 depositId,uint256 updatedOutputAmount,address updatedRecipient,bytes updatedMessage,bytes depositorSignature)",
+    "effects": [
+     "Verifies the depositor's signature and emits RequestedSpeedUpDeposit; no assets move.",
+     "Lets relayers fill the depositor's deposit depositId with the new output amount, recipient and message."
+    ],
+    "shown": "Request an update of a deposit id for a depositor: a raw new output amount and the named new recipient.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "speedUpV3Deposit: new output amount is raw; its token is not in the calldata.",
+      "evidence": "SpokePool.speedUpV3Deposit has no token parameter; case 7 'New Output (raw) 305000000000000000'; the reader was unsure of the token and decimals.",
+      "fix": "None in the descriptor; the label already says raw.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No asset effects; event only."
+     }
+    ],
+    "glance": 68,
+    "depth": 68
+   },
+   {
+    "key": "tryMulticall(bytes[] data)",
+    "effects": [
+     "Delegatecalls each data[i] into the SpokePool with the signer as msg.sender and msg.value 0; failed calls are skipped and the others still run, so deposits may partly execute."
+    ],
+    "shown": "A batch notice saying failed actions are skipped, plus each nested SpokePool call decoded.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "tryMulticall: nested SpokePool calls outside this descriptor (e.g. fillRelay) cannot be decoded.",
+      "evidence": "MultiCallerUpgradeable.tryMulticall: `address(this).delegatecall(data[i])` with any selector; the descriptor covers only deposit and speed-up formats.",
+      "fix": "Add formats for the remaining public SpokePool functions.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 15,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "Empty batch; no effects."
+     }
+    ],
+    "glance": 55,
+    "depth": 85
+   },
+   {
+    "key": "unsafeDeposit(bytes32 depositor,bytes32 recipient,bytes32 inputToken,bytes32 outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,bytes32 exclusiveRelayer,uint256 depositNonce,uint32 quoteTimestamp,uint32 fillDeadline,uint32 exclusivityParameter,bytes message)",
+    "effects": [
+     "Pulls inputAmount of inputToken from the signer, or takes equal native ETH and wraps it when inputToken is WETH and value is sent.",
+     "Creates a deposit whose id is keccak(msg.sender, depositor, depositNonce); a relayer is to send outputAmount of outputToken to recipient on destinationChainId.",
+     "The depositor gets the refund if unfilled; a reused nonce can make the deposit unfillable until it is refunded after the deadline."
+    ],
+    "shown": "Bridge with a chosen nonce: amount, native value, chain, raw recipient, relayer output, depositor, fill deadline, nonce.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "unsafeDeposit: with native value, the sentence says WETH is bridged while ETH is paid.",
+      "evidence": "SpokePool._depositV3 wraps msg.value; case 8 shows 'Amount to Bridge 0.005 WETH' and 'Native Value Sent 0.005 ETH'.",
+      "fix": "Add {@.value} to the interpolatedIntent or relabel the amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "unsafeDeposit: chain IDs in neither ifNotIn list show both destination fields.",
+      "evidence": "descriptor destinationChainId chainId/enum fields with incomplete complementary ifNotIn lists.",
+      "fix": "Extend the enum field's ifNotIn list.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "unsafeDeposit: nothing says a reused nonce can leave the deposit unfillable until the refund.",
+      "evidence": "SpokePool.unsafeDeposit natspec: a colliding deposit id 'would make this deposit unfillable... the depositor would subsequently receive a refund'. The intent only says 'with a chosen deposit nonce'.",
+      "fix": "Optional: label 'Deposit Nonce (reuse makes the deposit unfillable)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "unsafeDeposit: bytes32 recipient shows as padded hex.",
+      "evidence": "descriptor recipient format raw; case 8 'Recipient 0x00000000000000000000000007fa0333...'.",
+      "fix": "None reliable for non-EVM destinations.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 70,
+    "depth": 82
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 1.104,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 224,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "deposit(bytes32 depositor,bytes32 recipient,bytes32 inputToken,bytes32 outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,bytes32 exclusiveRelayer,uint32 quoteTimestamp,uint32 fillDeadline,uint32 exclusivityParameter,bytes message)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 81,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "deposit: native ETH deposits show 'Bridge X WETH' while the signer pays ETH, not WETH.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "depositNow(bytes32 depositor,bytes32 recipient,bytes32 inputToken,bytes32 outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,bytes32 exclusiveRelayer,uint32 fillDeadlineOffset,uint32 exclusivityParameter,bytes message)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "depositNow: with native value sent, the sentence says WETH is bridged while ETH is paid.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "depositV3(address depositor,address recipient,address inputToken,address outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,address exclusiveRelayer,uint32 quoteTimestamp,uint32 fillDeadline,uint32 exclusivityParameter,bytes message)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "depositV3: native ETH deposits show 'Bridge X WETH' while the signer pays ETH.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "depositV3Now(address depositor,address recipient,address inputToken,address outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,address exclusiveRelayer,uint32 fillDeadlineOffset,uint32 exclusivityParameter,bytes message)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 83,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "depositV3Now: native ETH deposit shown as 'Bridge 0.0035 WETH' while the signer pays ETH.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "multicall(bytes[] data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "speedUpDeposit(bytes32 depositor,uint256 depositId,uint256 updatedOutputAmount,bytes32 updatedRecipient,bytes updatedMessage,bytes depositorSignature)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 64,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "speedUpV3Deposit(address depositor,uint256 depositId,uint256 updatedOutputAmount,address updatedRecipient,bytes updatedMessage,bytes depositorSignature)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 68,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "tryMulticall(bytes[] data)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 70,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "unsafeDeposit(bytes32 depositor,bytes32 recipient,bytes32 inputToken,bytes32 outputToken,uint256 inputAmount,uint256 outputAmount,uint256 destinationChainId,bytes32 exclusiveRelayer,uint256 depositNonce,uint32 quoteTimestamp,uint32 fillDeadline,uint32 exclusivityParameter,bytes message)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 66,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "unsafeDeposit: with native value, the sentence says WETH is bridged while ETH is paid.",
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 73,
+  "functions": "3A 6B",
+  "incomplete": false,
+  "worst": "depositNow: with native value sent, the sentence says WETH is bridged while ETH is paid."
+ }
+}

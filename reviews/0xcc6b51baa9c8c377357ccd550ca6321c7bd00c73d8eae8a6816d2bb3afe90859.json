@@ -1,0 +1,129 @@
+{
+ "hash": "0xcc6b51baa9c8c377357ccd550ca6321c7bd00c73d8eae8a6816d2bb3afe90859",
+ "file": "registry/harbor/calldata-HarborRouterV5.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x1f21d09c65bc8af92634dcd5a100b6d04f0c81c3"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:45Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "depositWithExpiry(address vault,address asset,uint256 amount,string memo,uint256 expiration)",
+    "effects": [
+     "Reverts if block.timestamp is at or past `expiration`.",
+     "When `asset` is the zero address, the signer's whole msg.value in ETH goes through the router to `vault`; the `amount` parameter is ignored.",
+     "When `asset` is a token, msg.value must be 0, and the router pulls `amount` of `asset` from the signer with transferFrom, using the signer's existing allowance to the router.",
+     "For a token, the router keeps the tokens and credits the received balance difference to `vault`'s internal allowance; the vault controls them from then on.",
+     "The `memo` string tells the off-chain vault what to do with the deposit (swap destination, limit, affiliate). The contract only emits it in the Deposit event."
+    ],
+    "shown": "\"Deposit to Harbor\" with ETH Sent (@.value), Amount (if token) in the asset's token or ETH, the vault address, the raw memo string and the expiry date; the asset is hidden but resolves the amount's token.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "misleading-label",
+      "title": "depositWithExpiry shows the `amount` parameter as ETH on native deposits, but the code ignores it and sends msg.value.",
+      "evidence": "Harbor_RouterV5.sol deposit(): `if(asset == address(0)){ safeAmount = msg.value; bool success = vault.send(safeAmount);` — `amount` is not read. Descriptor: field `amount` 'Amount (if token)' with `nativeCurrencyAddress: [0x000…000]`, so case 0 shows 'Amount (if token): 0.086371658133783935 ETH' next to 'ETH Sent'. In the cases the two values match, but nothing in the code makes them match, so the screen can show two different ETH amounts.",
+      "fix": "Remove `nativeCurrencyAddress` from the `amount` field, or change its label to \"Token amount (ignored for ETH)\", so that only 'ETH Sent' states the native amount.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "depositWithExpiry puts the real action (swap destination, minimum out, affiliate fee) in a raw memo string.",
+      "evidence": "Harbor_RouterV5.sol deposit(): `emit Deposit(vault, asset, safeAmount, memo);` — the contract does not act on memo. Case 2 memo '=:b:bc1qfgndd…/0xB681…:12485043/300:sk/t:5/50'. The intent says only 'Deposit to Harbor'. The blind readers in cases 1–3 could not tell what arrives or what the minimum is.",
+      "fix": "No descriptor change can decode the memo. Consider an intent such as \"Deposit to Harbor vault (memo sets the action)\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "depositWithExpiry shows the vault as a bare address, so the signer cannot check that it is a real Harbor vault.",
+      "evidence": "Descriptor field `vault` 'Vault' format addressName, types ['eoa'], no sources. All cases render '0x00dE4d8658ab249627286fCf9f920B3078aEa4fe'. The ETH or the token credit goes to this address (`vault.send` / `_vaultAllowance[vault][asset] += safeAmount`). The vault set rotates off-chain, so no constant can name it.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.086371658133783935 ETH out to the vault through the router. 'ETH Sent' shows it right. The ignored `amount` parameter has the same value."
+     },
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.062828923946576571 ETH out to the vault. Shown right."
+     },
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "10000 USDT out to the router, credited to the vault. The reader said 'up to', but asset, amount and direction are right."
+     },
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "3620.814976 USDT out to the router, credited to the vault. Shown right."
+     }
+    ],
+    "glance": 55,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.368,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 92,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "depositWithExpiry(address vault,address asset,uint256 amount,string memo,uint256 expiration)": {
+   "grade": "A",
+   "truth": 90,
+   "clarity": 86,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "depositWithExpiry shows the `amount` parameter as ETH on native deposits, but the code ignores it and sends msg.value.",
+   "disputed": 0,
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "A",
+  "truth": 90,
+  "clarity": 86,
+  "functions": "1A",
+  "incomplete": false,
+  "worst": "depositWithExpiry shows the `amount` parameter as ETH on native deposits, but the code ignores it and sends msg.value."
+ }
+}

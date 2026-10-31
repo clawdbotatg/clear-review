@@ -1,0 +1,433 @@
+{
+ "hash": "0x298836c48c84e2b26b60fd9a3097a7792498818b1fd8f67e6b7d031a4d4c17cb",
+ "file": "registry/uniswap/calldata-UniswapV3SwapRouter.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0xe592427a0aece92de3edee1f18e0157c05861564"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:49Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96) params)",
+    "effects": [
+     "Exactly amountIn of tokenIn is pulled from the signer to the pool; when tokenIn is WETH and the router holds enough ETH, the signer's sent ETH is wrapped and paid instead.",
+     "Native ETH sent as msg.value leaves the signer; any part not used for a WETH payment stays in the router.",
+     "At least amountOutMinimum of tokenOut goes to recipient, or the call reverts.",
+     "A nonzero sqrtPriceLimitX96 can stop the swap early and spend less than amountIn.",
+     "The call reverts after the deadline."
+    ],
+    "shown": "Swap <amountIn tokenIn> for at least <amountOutMinimum tokenOut>, with the recipient, deadline, pool fee and ETH sent; a nonzero price limit is shown raw.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "exactInputSingle labels WETH as 'Amount to Send' when native ETH is what actually leaves.",
+      "evidence": "Case 0: the screen shows 'Amount to Send 0.551044464601797306 WETH' and 'ETH Sent 0.551044464601797306 ETH'. The mined signer effect is native ETH out only; the router wraps it (PeripheryPayments.pay: token == WETH9 && address(this).balance >= value -> deposit). No WETH leaves the signer. The reader was unsure 'whether it spends WETH, native ETH, or both'.",
+      "fix": "Relabel the field 'Amount to Swap' (paid from ETH sent when tokenIn is WETH and ETH is attached).",
+      "groundTruth": true
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "exactInputSingle shows a nonzero price limit as a raw sqrtPriceX96 number.",
+      "evidence": "descriptor field params.sqrtPriceLimitX96 has format raw with visible mustMatch [0]. SwapRouter.exactInputInternal passes it to pool.swap, where it can stop the swap partway.",
+      "fix": "No format turns sqrtPriceX96 into a price; keep it visible as it is.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "ETH out is shown by 'ETH Sent'; DACITY in with a bound of 0 goes to the signer. The extra WETH line confused the reader but did not change what they expected."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "exactOutputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountOut,uint256 amountInMaximum,uint160 sqrtPriceLimitX96) params)",
+    "effects": [
+     "The pool decides amountIn, capped at amountInMaximum; that much tokenIn is pulled from the signer, or paid from the signer's sent ETH when tokenIn is WETH.",
+     "Exactly amountOut of tokenOut goes to recipient when the price limit is 0.",
+     "All msg.value leaves the signer; ETH the swap does not use stays in the router and is not refunded in this call.",
+     "The call reverts after the deadline."
+    ],
+    "shown": "Swap at most <amountInMaximum tokenIn> for <amountOut tokenOut>, with the recipient, deadline, pool fee and ETH sent.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "exactOutputSingle 'at most' wording hides that unused ETH stays in the router.",
+      "evidence": "SwapRouter.exactOutputSingle never refunds msg.value; PeripheryPayments.pay wraps only 'value' and refundETH sends address(this).balance to whoever calls it. The descriptor says 'Swap at most {params.amountInMaximum} for {params.amountOut}' and shows ETH Sent with no note.",
+      "fix": "Add a note or label saying ETH sent above the amount actually used is not returned unless refundETH runs in the same multicall.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "exactOutputSingle shows a nonzero price limit as a raw sqrtPriceX96 number.",
+      "evidence": "field params.sqrtPriceLimitX96 format raw. With a nonzero limit, exactOutputInternal skips the require(amountOutReceived == amountOut) check, so less than amountOut can arrive.",
+      "fix": "None possible beyond keeping it visible.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 2,
+      "shownRight": 2,
+      "reader": [
+       "right",
+       "right"
+      ],
+      "notes": "39.538 ADI out, within the 40.339 maximum; exactly 321.2412 USDC in to the signer."
+     }
+    ],
+    "glance": 80,
+    "depth": 82
+   },
+   {
+    "key": "refundETH()",
+    "effects": [
+     "The router's whole ETH balance, including any msg.value, is sent to the signer.",
+     "Native ETH sent with the call leaves the signer and comes straight back."
+    ],
+    "shown": "Refund ETH held by the router, with ETH sent.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The router held no ETH, so nothing moved."
+     }
+    ],
+    "glance": 82,
+    "depth": 78
+   },
+   {
+    "key": "selfPermit(address token,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "Calls token.permit(signer, router, value, ...), which sets the signer's allowance for the router to value and uses up a permit nonce.",
+     "Any ETH sent stays in the router."
+    ],
+    "shown": "Let router spend <value token>, with ETH sent; unlimited above the threshold.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 85
+   },
+   {
+    "key": "selfPermitAllowed(address token,uint256 nonce,uint256 expiry,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "Calls a DAI-style permit with allowed=true, which sets the signer's allowance for the router to the maximum.",
+     "Any ETH sent stays in the router."
+    ],
+    "shown": "Let router spend all <token>, with ETH sent.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 88
+   },
+   {
+    "key": "selfPermitAllowedIfNecessary(address token,uint256 nonce,uint256 expiry,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "When the current allowance is below the maximum, calls a DAI-style permit, which sets the router's allowance to the maximum.",
+     "Any ETH sent stays in the router."
+    ],
+    "shown": "Let router spend all <token>, with ETH sent.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 88
+   },
+   {
+    "key": "selfPermitIfNecessary(address token,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)",
+    "effects": [
+     "When the signer's allowance for the router is below value, calls token.permit, which sets the allowance to value.",
+     "Any ETH sent stays in the router."
+    ],
+    "shown": "Let router spend <value token>, with ETH sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "truth",
+      "kind": "other",
+      "title": "selfPermitIfNecessary on WETH claims an approval, but WETH's fallback silently does nothing.",
+      "evidence": "Case 6: the screen says 'Let router spend 0.012 WETH'. The mined effects show only a 0-amount WETH deposit from the router, i.e. the permit call hit WETH9's fallback (SelfPermit.selfPermit -> IERC20Permit(token).permit). No approval was granted.",
+      "fix": "No descriptor change can detect a token without permit; wallets could warn when the token is WETH9.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "No signer effect; the reader believed a 0.012 WETH allowance was set, which did not happen."
+     }
+    ],
+    "glance": 82,
+    "depth": 80
+   },
+   {
+    "key": "sweepToken(address token,uint256 amountMinimum,address recipient)",
+    "effects": [
+     "The router's entire balance of token, which must be at least amountMinimum, is sent to recipient.",
+     "Any ETH sent stays in the router."
+    ],
+    "shown": "Sweep at least <amountMinimum token> to <recipient>, with the token, recipient and ETH sent.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.016286 WETH arrived at the signer, equal to the minimum."
+     }
+    ],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "sweepTokenWithFee(address token,uint256 amountMinimum,address recipient,uint256 feeBips,address feeRecipient)",
+    "effects": [
+     "The router's whole token balance (at least amountMinimum, checked before the fee) is split: feeBips/10000 to feeRecipient, the rest to recipient.",
+     "feeBips must be between 1 and 100.",
+     "Any ETH sent stays in the router."
+    ],
+    "shown": "Sweep at least <amountMinimum token> less <feeBips>% fee to <recipient>, with the fee, fee recipient and ETH sent.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "unwrapWETH9(uint256 amountMinimum,address recipient)",
+    "effects": [
+     "The router's whole WETH balance (at least amountMinimum) is unwrapped and sent as ETH to recipient; none of the signer's WETH is touched.",
+     "Any ETH sent stays in the router."
+    ],
+    "shown": "Unwrap at least <amountMinimum ETH> to <recipient>, with ETH sent.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "unwrapWETH9 intent does not say it unwraps router-held WETH, not the signer's.",
+      "evidence": "PeripheryPayments.unwrapWETH9 uses IWETH9(WETH9).balanceOf(address(this)). The descriptor says 'Unwrap WETH' / 'Unwrap at least {amountMinimum} to {recipient}'. The case 9 reader believed 'WETH ... to Uniswap to be unwrapped' would leave their wallet; mined effects are empty.",
+      "fix": "interpolatedIntent: 'Unwrap WETH held by the router (at least {amountMinimum}) and send ETH to {recipient}'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 9,
+      "signerEffects": 0,
+      "shownRight": 0,
+      "reader": [],
+      "notes": "The router held no WETH; nothing moved. The reader wrongly expected WETH to leave their wallet."
+     }
+    ],
+    "glance": 65,
+    "depth": 80
+   },
+   {
+    "key": "unwrapWETH9WithFee(uint256 amountMinimum,address recipient,uint256 feeBips,address feeRecipient)",
+    "effects": [
+     "The router's whole WETH balance (at least amountMinimum, checked before the fee) is unwrapped; feeBips/10000 of it goes as ETH to feeRecipient and the rest to recipient.",
+     "feeBips must be between 1 and 100.",
+     "Any ETH sent stays in the router."
+    ],
+    "shown": "Unwrap at least <amountMinimum ETH> less <feeBips>% fee to <recipient>, with the fee, fee recipient and ETH sent.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "unwrapWETH9WithFee intent does not say the WETH is the router's balance.",
+      "evidence": "PeripheryPaymentsWithFee.unwrapWETH9WithFee reads IWETH9(WETH9).balanceOf(address(this)). The descriptor says 'Unwrap WETH' / 'Unwrap at least {amountMinimum} less {feeBips} fee to {recipient}'.",
+      "fix": "Say 'Unwrap WETH held by the router' in the interpolatedIntent.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 68,
+    "depth": 85
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.656,
+ "account": "slop_buidlguidl",
+ "hiddenValue": [],
+ "seconds": 169,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96) params)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "exactInputSingle labels WETH as 'Amount to Send' when native ETH is what actually leaves.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "exactOutputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 deadline,uint256 amountOut,uint256 amountInMaximum,uint160 sqrtPriceLimitX96) params)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 87,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "exactOutputSingle 'at most' wording hides that unused ETH stays in the router.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "refundETH()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 80,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "selfPermit(address token,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 85,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "selfPermitAllowed(address token,uint256 nonce,uint256 expiry,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "selfPermitAllowedIfNecessary(address token,uint256 nonce,uint256 expiry,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 89,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "selfPermitIfNecessary(address token,uint256 value,uint256 deadline,uint8 v,bytes32 r,bytes32 s)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 81,
+   "measured": false,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "sweepToken(address token,uint256 amountMinimum,address recipient)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 93,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "sweepTokenWithFee(address token,uint256 amountMinimum,address recipient,uint256 feeBips,address feeRecipient)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "unwrapWETH9(uint256 amountMinimum,address recipient)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "unwrapWETH9 intent does not say it unwraps router-held WETH, not the signer's.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "unwrapWETH9WithFee(uint256 amountMinimum,address recipient,uint256 feeBips,address feeRecipient)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 71,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "unwrapWETH9WithFee intent does not say the WETH is the router's balance.",
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 83,
+  "functions": "9A 2B",
+  "incomplete": false,
+  "worst": "unwrapWETH9 intent does not say it unwraps router-held WETH, not the signer's."
+ }
+}

@@ -1,0 +1,392 @@
+{
+ "hash": "0xa4d818e7bfe6858f5a6a7a41fbeb36467db9ab3bc7a753374102f4e6e5db49a9",
+ "file": "registry/relay/calldata-RelayDepository.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x4cd00e387622c35bddb9b4c962c136462338bc31"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:46Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "cancelOwnershipHandover()",
+    "effects": [
+     "Clears the caller's pending ownership-handover request (sets its expiry slot to 0).",
+     "Any ETH sent stays in the depository and is not credited to anyone."
+    ],
+    "shown": "\"Cancel ownership handover\" plus the ETH value sent.",
+    "findings": [],
+    "cases": [],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "completeOwnershipHandover(address pendingOwner)",
+    "effects": [
+     "Only the owner can call it. Ownership passes from the signer to pendingOwner, who must have an unexpired handover request; the signer loses all owner rights.",
+     "Any ETH sent stays in the depository."
+    ],
+    "shown": "\"Hand over to {pendingOwner}\", with the new owner's address and the ETH value sent.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Synthetic case, no mined tx. The new owner is shown in the sentence and in a field."
+     }
+    ],
+    "glance": 85,
+    "depth": 90
+   },
+   {
+    "key": "depositErc20(address depositor,address token,bytes32 id)",
+    "effects": [
+     "Reads the signer's whole allowance of `token` to the depository and pulls exactly that amount from the signer.",
+     "Off-chain, the deposit is credited to `depositor`, or to the signer when depositor is the zero address, under order id `id`."
+    ],
+    "shown": "\"Deposit all approved {token} for {depositor}\", with the token ticker, the credited address (shown as \"Sender\" for zero) and the raw order id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "depositErc20 (allowance): the amount pulled is the on-chain allowance and no field can show it.",
+      "evidence": "RelayDepository.sol depositErc20(address,address,bytes32): `uint256 amount = ERC20(token).allowance(msg.sender, address(this)); depositErc20(depositor, token, amount, id);`. The descriptor's label is 'Token (all approved)' and the intent is 'Deposit all approved {token}'.",
+      "fix": "Nothing to fix in the descriptor. The label already says the full allowance is used.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "depositErc20 (allowance): the order id stands for off-chain Relay terms (destination, output) that the screen cannot decode.",
+      "evidence": "Field `id` 'Relay Order ID' (raw). The contract only emits it in RelayErc20Deposit.",
+      "fix": "None possible today.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "partial"
+      ],
+      "notes": "Synthetic case, no mined tx. Token and the credited address (Sender) are right. The exact amount is the allowance, which the screen cannot show."
+     }
+    ],
+    "glance": 75,
+    "depth": 70
+   },
+   {
+    "key": "depositErc20(address depositor,address token,uint256 amount,bytes32 id)",
+    "effects": [
+     "Transfers `amount` of `token` from the signer to the RelayDepository.",
+     "Off-chain, the deposit is credited to `depositor`, or to the signer when depositor is the zero address, under order id `id`."
+    ],
+    "shown": "\"Deposit {amount} for {depositor}\", with the amount in its token, the credited address and the raw order id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "depositErc20: the order id stands for off-chain Relay terms (bridge or swap destination) the screen cannot decode.",
+      "evidence": "Field `id` 'Relay Order ID' (raw). Case 3: the reader was unsure 'What the credit on Relay turns into'.",
+      "fix": "None possible today.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 3,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1.21082 USDC left the signer for the depository, and the screen shows exactly that amount. Credited to the signer's own address."
+     }
+    ],
+    "glance": 90,
+    "depth": 88
+   },
+   {
+    "key": "depositNative(address depositor,bytes32 id)",
+    "effects": [
+     "The signer sends msg.value in ETH to the RelayDepository.",
+     "Off-chain, the deposit is credited to `depositor`, or to the signer when depositor is the zero address, under order id `id`."
+    ],
+    "shown": "\"Deposit {@.value} for {depositor}\", with the ETH amount, the credited address and the raw order id.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "spec-limitation",
+      "title": "depositNative: the order id stands for off-chain Relay terms that the screen cannot decode.",
+      "evidence": "Field `id` 'Relay Order ID' (raw). Case 4: the reader was unsure whether the ETH would be bridged or swapped.",
+      "fix": "None possible today.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.010999999999999999 ETH left the signer, which matches @.value on the screen."
+     }
+    ],
+    "glance": 90,
+    "depth": 88
+   },
+   {
+    "key": "renounceOwnership()",
+    "effects": [
+     "Only the owner can call it. Sets the owner to the zero address, so the signer permanently loses owner rights (setAllocator, ownership transfers).",
+     "Any ETH sent stays in the depository."
+    ],
+    "shown": "\"Renounce ownership permanently\" plus the ETH value sent.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Synthetic case. The intent states the permanent loss of ownership."
+     }
+    ],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "requestOwnershipHandover()",
+    "effects": [
+     "Records a request for the caller to become owner. The request expires after 48 hours.",
+     "Any ETH sent stays in the depository."
+    ],
+    "shown": "\"Request ownership handover\" plus the ETH value sent.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "requestOwnershipHandover: the intent does not say the signer asks to become owner, or that the request expires after 48h.",
+      "evidence": "Ownable.sol requestOwnershipHandover: `expires = block.timestamp + _ownershipHandoverValidFor()` (48 * 3600), stored for caller(). Descriptor intent: 'Request ownership handover'.",
+      "fix": "Intent: 'Request to become owner (valid 48h)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 6,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Synthetic case."
+     }
+    ],
+    "glance": 75,
+    "depth": 85
+   },
+   {
+    "key": "setAllocator(address _allocator)",
+    "effects": [
+     "Only the owner can call it. Replaces the allocator with _allocator; the zero address reverts. The allocator's signature authorizes execute(), which makes arbitrary calls and value transfers from the depository's funds."
+    ],
+    "shown": "\"Set allocator to {_allocator}\", with the new allocator's address.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "setAllocator: nothing tells the signer that the allocator can authorize any call that moves the depository's funds.",
+      "evidence": "RelayDepository.sol execute(): `if (!allocator.isValidSignatureNow(eip712Hash, signature)) revert` and then `c.to.call{value: c.value}(c.data)`. Descriptor intent 'Set allocator', label 'New Allocator'.",
+      "fix": "Intent 'Set allocator (signs all withdrawals)', or label 'New Allocator (controls withdrawals)'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [
+     {
+      "index": 7,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Synthetic case. The new allocator address is shown; the reach of the role is not."
+     }
+    ],
+    "glance": 65,
+    "depth": 80
+   },
+   {
+    "key": "transferOwnership(address newOwner)",
+    "effects": [
+     "Only the owner can call it. Ownership passes immediately, in one step, to newOwner; the zero address reverts. The signer loses owner rights.",
+     "Any ETH sent stays in the depository."
+    ],
+    "shown": "\"Make {newOwner} the owner\", with the new owner's address and the ETH value sent.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 8,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "Synthetic case."
+     }
+    ],
+    "glance": 88,
+    "depth": 90
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.357,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 95,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "cancelOwnershipHandover()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "completeOwnershipHandover(address pendingOwner)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 95,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "depositErc20(address depositor,address token,bytes32 id)": {
+   "grade": "C",
+   "truth": 100,
+   "clarity": 59,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 50
+  },
+  "depositErc20(address depositor,address token,uint256 amount,bytes32 id)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "depositNative(address depositor,bytes32 id)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "renounceOwnership()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "requestOwnershipHandover()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "setAllocator(address _allocator)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 84,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "setAllocator: nothing tells the signer that the allocator can authorize any call that moves the depository's funds.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "transferOwnership(address newOwner)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 96,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  }
+ },
+ "summary": {
+  "grade": "C",
+  "truth": 100,
+  "clarity": 89,
+  "functions": "8A 1C",
+  "incomplete": false,
+  "worst": null
+ }
+}

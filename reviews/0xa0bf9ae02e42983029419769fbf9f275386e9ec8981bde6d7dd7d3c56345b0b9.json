@@ -1,0 +1,310 @@
+{
+ "hash": "0xa0bf9ae02e42983029419769fbf9f275386e9ec8981bde6d7dd7d3c56345b0b9",
+ "file": "registry/blast/calldata-L1BlastBridge.json",
+ "kind": "calldata",
+ "registry": "352c5b19b9cf57dc11713893efa69a6be2bbcfa3",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x3a05e5d33d7ab3864d53aaec93c8301c1fa49115"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-31T20:42Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "bridgeERC20(address _localToken,address _remoteToken,uint256 _amount,uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Takes _amount of _localToken from the signer through an existing allowance (to the bridge, the USD yield manager for DAI/USDC/USDT, or the ETH yield manager for stETH).",
+     "For USDC/USDT the tokens are swapped to DAI on Curve 3pool with the minimum DAI out read from _extraData. The DAI received is what gets credited as USDB.",
+     "Credits _remoteToken on Blast to the signer's own address: USDB for USD tokens, ETH when _remoteToken is zero (stETH), and the paired token otherwise."
+    ],
+    "shown": "Bridge <amount> <local token> as <remote token ticker> to your address on Blast, plus a 'Min DAI if USDC/USDT' field read from the first 32 bytes of _extraData.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "bridgeERC20 shows the zero-address remote token (ETH on Blast) as a raw 0x000… address.",
+      "evidence": "Case 0 screen: interpolatedIntent 'Bridge 0.01073376997991687 stETH as 0x0000000000000000000000000000000000000000 to your address on Blast'. Descriptor field _remoteToken uses tokenTicker with only chainId 81457. The reader was unsure whether ETH or stETH arrives.",
+      "fix": "Add nativeCurrencyAddress ['0x0000000000000000000000000000000000000000'] to the _remoteToken tokenTicker params so it renders as ETH.",
+      "groundTruth": true
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "bridgeERC20 always shows 'Min DAI if USDC/USDT', even as 0 DAI for DAI and stETH.",
+      "evidence": "Descriptor field path '_extraData.[0:32]' label 'Min DAI if USDC/USDT' has no visibility rule. Cases 0 (stETH) and 2 (DAI) show '0 DAI' with empty _extraData. For other tokens _extraData is arbitrary data passed through to L2.",
+      "fix": "Add visible {ifNotIn: ['0']}. Relabel it 'Minimum received on Blast (USDC/USDT only)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "bridgeERC20 for USDC/USDT credits the swapped DAI amount as USDB, but the intent suggests the full amount.",
+      "evidence": "Case 1: 100 USDT out, and Curve 3pool (0xbebc…) returns 99.868286235712446682 DAI to the yield manager. The screen says 'Bridge 100 USDT as USDB'. The bound appears only as 'Min DAI if USDC/USDT', labelled in DAI rather than USDB.",
+      "fix": "Label the slice 'Min USDB received (USDC/USDT)'. Or say 'at least' in the intent for USD swaps.",
+      "groundTruth": true
+     }
+    ],
+    "cases": [
+     {
+      "index": 0,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "stETH 0.01073 out shown right. The stETH Approval event (allowance reduced to 0) is the same transferFrom spending the existing allowance, so it is merged with the transfer. The reader was unsure what arrives because the remote token is shown as the raw zero address."
+     },
+     {
+      "index": 1,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "100 USDT out to the USD yield manager, which swapped it to 99.868 DAI. The min-DAI bound is shown."
+     },
+     {
+      "index": 2,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "1890 DAI out to the USD yield manager. The '0 DAI' min field is noise."
+     }
+    ],
+    "glance": 75,
+    "depth": 72
+   },
+   {
+    "key": "bridgeERC20To(address _localToken,address _remoteToken,address _to,uint256 _amount,uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Takes _amount of _localToken from the signer through an existing allowance (to the bridge or a Blast yield manager).",
+     "For USDC/USDT the tokens are swapped to DAI on Curve with the minimum out read from _extraData.",
+     "Credits _remoteToken (USDB, ETH, or the paired token) on Blast to _to."
+    ],
+    "shown": "Bridge <amount> <local token> as <remote token ticker> to <_to> on Blast, with the recipient and a 'Min DAI if USDC/USDT' field.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "bridgeERC20To always shows 'Min DAI if USDC/USDT', even when it does not apply.",
+      "evidence": "Descriptor field '_extraData.[0:32]' label 'Min DAI if USDC/USDT' has no visibility rule. For DAI, stETH or standard tokens it shows 0 DAI or slices arbitrary pass-through data.",
+      "fix": "Add visible {ifNotIn: ['0']}. Relabel it 'Min USDB received (USDC/USDT only)'.",
+      "groundTruth": false
+     },
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "raw-value",
+      "title": "bridgeERC20To shows a zero remote token (ETH on Blast) as a raw address.",
+      "evidence": "Field _remoteToken uses tokenTicker with only chainId 81457, the same as bridgeERC20 case 0, where the zero address rendered raw.",
+      "fix": "Add nativeCurrencyAddress ['0x0000000000000000000000000000000000000000'] to the tokenTicker params.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 78,
+    "depth": 72
+   },
+   {
+    "key": "bridgeETH(uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Sends msg.value ETH from the signer through the messenger and portal into Blast's ETH yield manager.",
+     "Credits the same amount of ETH on Blast to the signer's own address."
+    ],
+    "shown": "Bridge <msg.value> ETH to your address on Blast.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 4,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.001 ETH out, shown as the amount."
+     }
+    ],
+    "glance": 95,
+    "depth": 92
+   },
+   {
+    "key": "bridgeETHTo(address _to,uint32 _minGasLimit,bytes _extraData)",
+    "effects": [
+     "Sends msg.value ETH from the signer through the messenger and portal into Blast's ETH yield manager.",
+     "Credits the same amount of ETH on Blast to _to."
+    ],
+    "shown": "Bridge <msg.value> ETH to <_to> on Blast.",
+    "findings": [],
+    "cases": [
+     {
+      "index": 5,
+      "signerEffects": 1,
+      "shownRight": 1,
+      "reader": [
+       "right"
+      ],
+      "notes": "0.0002 ETH out, and the recipient is shown."
+     }
+    ],
+    "glance": 95,
+    "depth": 92
+   },
+   {
+    "key": "finalizeBridgeERC20(address _localToken,address _remoteToken,address _from,address _to,uint256 _amount,bytes _extraData)",
+    "effects": [
+     "Only the L1CrossDomainMessenger can call it, relaying from the Blast L2 bridge. No EOA signer's assets move.",
+     "For a USDB withdrawal (local DAI), it queues a DAI withdrawal claim of up to _amount for _to in the USD yield manager.",
+     "For other tokens, it releases or mints _amount of _localToken directly to _to."
+    ],
+    "shown": "Queue a claim of up to <amount> <local token> for <_to>, withdrawn by <_from>.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "truth",
+      "kind": "wrong-action",
+      "title": "finalizeBridgeERC20 intent is fixed to 'Queue DAI claim for Blast USDB' for every token.",
+      "evidence": "Descriptor intent 'Queue DAI claim for Blast USDB'. For non-USDB withdrawals the standard bridge path pays _localToken directly to _to rather than queueing a claim. _localToken and _remoteToken are hidden (visible never).",
+      "fix": "Use a neutral intent, 'Finalize Blast withdrawal'. Or bind the format to DAI/USDB with constants or mustMatch.",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "finalizeBridgeERC20 can only be called by the cross-domain messenger, so no user signs it.",
+      "evidence": "Case 6 from = 0x5D4472f31Bd9385709ec61305AFc749F0fA8e9d0, the messenger seen forwarding ETH in cases 4 and 5. The standard bridge has an onlyOtherBridge guard.",
+      "fix": "None needed. Optionally drop the format.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 55,
+    "depth": 65
+   },
+   {
+    "key": "finalizeBridgeETH(address _from,address _to,uint256 _amount,bytes _extraData)",
+    "effects": [
+     "Only the L1CrossDomainMessenger can call it. The attached ETH (which must equal _amount) is forwarded to _to."
+    ],
+    "shown": "Pay up to <amount> ETH withdrawn by <_from> to <_to>, with the attached ETH shown separately.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "under-simplified",
+      "title": "finalizeBridgeETH shows _amount and @.value, which the bridge requires to be equal, and says 'up to'.",
+      "evidence": "Case 7 shows 'Maximum Amount 0.00105 ETH' and 'Max ETH Attached 0.00105 ETH'. StandardBridge.finalizeBridgeETH requires msg.value == _amount and pays exactly that amount.",
+      "fix": "Keep one amount field and say 'Pay <amount>'.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 75,
+    "depth": 75
+   }
+  ],
+  "couldNotCheck": [
+   "The implementation code (L1BlastBridge) behind proxy 0x3a05e5d33d7ab3864d53aaec93c8301c1fa49115 is not in the directory. The proxy is an L1ChugSplashProxy that delegatecalls to the implementation in the EIP-1967 slot, but meta.json reports isProxy false with no implementation. So bridgeERC20/bridgeERC20To token routing, the USDC/USDT swap minimum read from _extraData, the stETH-to-ETH crediting, and both finalize functions could not be checked in source."
+  ]
+ },
+ "cost": 0.625,
+ "account": "ethereum_foundation",
+ "hiddenValue": [],
+ "seconds": 152,
+ "rubric": "v1.2",
+ "result": "incomplete",
+ "formats": {
+  "bridgeERC20(address _localToken,address _remoteToken,uint256 _amount,uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 74,
+   "measured": true,
+   "groundTruth": true,
+   "critical": 0,
+   "warnings": 3,
+   "worst": "bridgeERC20 shows the zero-address remote token (ETH on Blast) as a raw 0x000… address.",
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "bridgeERC20To(address _localToken,address _remoteToken,address _to,uint256 _amount,uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 65,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 2,
+   "worst": "bridgeERC20To always shows 'Min DAI if USDC/USDT', even when it does not apply.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "bridgeETH(uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 97,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "bridgeETHTo(address _to,uint32 _minGasLimit,bytes _extraData)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 97,
+   "measured": true,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": 100
+  },
+  "finalizeBridgeERC20(address _localToken,address _remoteToken,address _from,address _to,uint256 _amount,bytes _extraData)": {
+   "grade": "B",
+   "truth": 90,
+   "clarity": 60,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "finalizeBridgeERC20 intent is fixed to 'Queue DAI claim for Blast USDB' for every token.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "finalizeBridgeETH(address _from,address _to,uint256 _amount,bytes _extraData)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 75,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 98,
+  "clarity": 78,
+  "functions": "2A 4B",
+  "incomplete": true,
+  "worst": "finalizeBridgeERC20 intent is fixed to 'Queue DAI claim for Blast USDB' for every token."
+ }
+}

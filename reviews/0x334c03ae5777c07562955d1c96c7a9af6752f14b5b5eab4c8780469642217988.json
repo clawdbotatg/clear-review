@@ -1,0 +1,354 @@
+{
+ "hash": "0x334c03ae5777c07562955d1c96c7a9af6752f14b5b5eab4c8780469642217988",
+ "file": "registry/candide/calldata-SocialRecovery-7d.json",
+ "kind": "calldata",
+ "registry": "21c3ac61559479b54fdccdd1a64ef91341aa7e50",
+ "deployments": [
+  {
+   "chainId": 1,
+   "address": "0x088f6cfd8bb1ddb1bb069ccb3fc1a98927d233f2"
+  },
+  {
+   "chainId": 10,
+   "address": "0x088f6cfd8bb1ddb1bb069ccb3fc1a98927d233f2"
+  },
+  {
+   "chainId": 100,
+   "address": "0x088f6cfd8bb1ddb1bb069ccb3fc1a98927d233f2"
+  },
+  {
+   "chainId": 137,
+   "address": "0x088f6cfd8bb1ddb1bb069ccb3fc1a98927d233f2"
+  },
+  {
+   "chainId": 8453,
+   "address": "0x088f6cfd8bb1ddb1bb069ccb3fc1a98927d233f2"
+  },
+  {
+   "chainId": 42161,
+   "address": "0x088f6cfd8bb1ddb1bb069ccb3fc1a98927d233f2"
+  },
+  {
+   "chainId": 42220,
+   "address": "0x088f6cfd8bb1ddb1bb069ccb3fc1a98927d233f2"
+  },
+  {
+   "chainId": 84532,
+   "address": "0x088f6cfd8bb1ddb1bb069ccb3fc1a98927d233f2"
+  },
+  {
+   "chainId": 11155111,
+   "address": "0x088f6cfd8bb1ddb1bb069ccb3fc1a98927d233f2"
+  }
+ ],
+ "auditedBy": [],
+ "model": "claude-opus-5-5 (high)",
+ "reader": "claude-sonnet-5-5",
+ "prompt": "32cde9badaf5",
+ "date": "2026-10-30T04:17Z",
+ "answer": {
+  "formats": [
+   {
+    "key": "addGuardianWithThreshold(address _guardian,uint256 _threshold)",
+    "effects": [
+     "The signer's Safe adds _guardian to its list of recovery guardians.",
+     "The signer's Safe sets its guardian threshold to _threshold when it differs from the current one.",
+     "The new guardian, together with others up to the threshold, can start a recovery that replaces all Safe owners after the 7-day recoveryPeriod (604800 s, constructor arg)."
+    ],
+    "shown": "Add a named helper to the Safe, with the number of helpers needed to replace the owners and a 7-day wait before takeover.",
+    "findings": [],
+    "cases": [],
+    "glance": 90,
+    "depth": 90
+   },
+   {
+    "key": "revokeGuardianWithThreshold(address _prevGuardian,address _guardian,uint256 _threshold)",
+    "effects": [
+     "The signer's Safe removes _guardian from its guardian list (_prevGuardian is only the linked-list pointer and must point to _guardian).",
+     "The signer's Safe sets its guardian threshold to _threshold when it differs.",
+     "The removed guardian's votes stop counting, but a recovery that has already started is not cancelled."
+    ],
+    "shown": "Remove a named helper and set the helpers needed after the removal.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "other",
+      "title": "revokeGuardianWithThreshold does not stop a recovery that has already started; the screen does not say so.",
+      "evidence": "GuardianStorage.revokeGuardianWithThreshold only edits entry.guardians, count and threshold. recoveryRequests[wallet] in SocialRecoveryModule stays as it is, and finalizeRecovery still runs after executeAfter. The descriptor's interpolatedIntent reads \"Remove {_guardian} as a recovery helper. Helpers needed after this: {_threshold}\".",
+      "fix": "Optionally add a note that a recovery already waiting must be stopped with Cancel recovery.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 88,
+    "depth": 88
+   },
+   {
+    "key": "changeThreshold(uint256 _threshold)",
+    "effects": [
+     "The signer's Safe sets the number of guardian approvals needed to start a recovery to _threshold (must be at most the guardian count, and above 0 when there are guardians)."
+    ],
+    "shown": "Helpers needed to replace this Safe's owners: N.",
+    "findings": [],
+    "cases": [],
+    "glance": 88,
+    "depth": 88
+   },
+   {
+    "key": "cancelRecovery()",
+    "effects": [
+     "Deletes the recovery request that is waiting on the signer's Safe, so the owner change does not happen."
+    ],
+    "shown": "Stop the recovery that is waiting on this Safe.",
+    "findings": [],
+    "cases": [],
+    "glance": 92,
+    "depth": 92
+   },
+   {
+    "key": "invalidateNonce()",
+    "effects": [
+     "Increments the signer's Safe nonce, so every guardian vote collected at the old nonce stops counting.",
+     "A recovery that has already started (recoveryRequests[wallet]) is not touched and can still be finalized after the wait."
+    ],
+    "shown": "Void every recovery vote helpers have signed for this Safe so far.",
+    "findings": [
+     {
+      "severity": "warning",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "invalidateNonce says it voids every helper vote, but a recovery that already started still completes.",
+      "evidence": "SocialRecoveryModule.invalidateNonce: `walletsNonces[msg.sender]++;` and nothing else. finalizeRecovery checks only recoveryRequests[_wallet].executeAfter, not the nonce. Descriptor interpolatedIntent: \"Void every recovery vote helpers have signed for this Safe so far\". An owner under attack may think this stops a takeover that is already waiting.",
+      "fix": "Change interpolatedIntent to \"Void helper votes not yet used. A recovery already waiting is not stopped\" or similar, and point to Cancel recovery.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 72,
+    "depth": 72
+   },
+   {
+    "key": "confirmRecovery(address _wallet,address[] _newOwners,uint256 _newThreshold,bool _execute)",
+    "effects": [
+     "Records the signer's (a guardian's) vote for replacing _wallet's owners with _newOwners at Safe threshold _newThreshold, at the current nonce.",
+     "If _execute is true and approvals reach the guardian threshold, starts the 7-day recovery wait and increments the nonce.",
+     "If _execute is true and a recovery is already waiting, it replaces that recovery when this one has more approvals."
+    ],
+    "shown": "Vote to make the listed new owners the only owners of the Safe, with the new threshold, whether to start the wait, and a 7-day wait.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "confirmRecovery labels the Safe owner threshold 'New threshold', next to helper-count labels elsewhere.",
+      "evidence": "Descriptor field `_newThreshold` label \"New threshold\" (raw). The code passes it to IOwnerManager.changeThreshold in finalizeRecovery, so it is the number of owner signatures the Safe needs. Other formats use \"Helpers needed\" for the guardian threshold.",
+      "fix": "Rename the label to \"Owner signatures needed\".",
+      "groundTruth": false
+     },
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "other",
+      "title": "confirmRecovery with start set to Yes can replace a recovery already waiting; the screen does not mention this.",
+      "evidence": "_executeRecovery: `if (request.executeAfter > 0) { require(_approvalCount > request.guardiansApprovalCount ...); delete recoveryRequests[_wallet]; emit RecoveryCanceled(...) }`. The descriptor's \"Start the wait\" field does not mention the replacement.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "multiConfirmRecovery(address _wallet,address[] _newOwners,uint256 _newThreshold,(address signer,bytes signature)[] _signatures,bool _execute)",
+    "effects": [
+     "Records a vote for each listed guardian whose signature checks out (or the sender, when the signature is empty) for replacing _wallet's owners with _newOwners at threshold _newThreshold.",
+     "If _execute is true and approvals reach the guardian threshold, starts the 7-day recovery wait, replaces any recovery already waiting that has fewer approvals, and increments the nonce."
+    ],
+    "shown": "Submit votes from the listed helpers to make the new owners the only owners of the Safe, with the new threshold, the start flag and a 7-day wait.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "multiConfirmRecovery labels the Safe owner threshold 'New threshold', which can be confused with helpers needed.",
+      "evidence": "Descriptor field `_newThreshold` label \"New threshold\". finalizeRecovery passes newThreshold to IOwnerManager.changeThreshold for the Safe owners.",
+      "fix": "Rename the label to \"Owner signatures needed\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 80,
+    "depth": 85
+   },
+   {
+    "key": "executeRecovery(address _wallet,address[] _newOwners,uint256 _newThreshold)",
+    "effects": [
+     "Starts the 7-day recovery wait for _wallet to move to _newOwners at threshold _newThreshold, when guardian approvals reach the threshold. Anyone can call it.",
+     "Replaces a recovery already waiting if this one has more approvals, and increments the nonce."
+    ],
+    "shown": "Start the wait to make the listed new owners the only owners of the Safe, with the new threshold and a 7-day wait.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "clarity",
+      "kind": "misleading-label",
+      "title": "executeRecovery labels the Safe owner threshold 'New threshold', which is ambiguous next to helper thresholds.",
+      "evidence": "Descriptor field `_newThreshold` label \"New threshold\". It becomes the Safe owner threshold in finalizeRecovery.",
+      "fix": "Rename the label to \"Owner signatures needed\".",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 85,
+    "depth": 88
+   },
+   {
+    "key": "finalizeRecovery(address _wallet)",
+    "effects": [
+     "After the wait, removes every current owner of _wallet except the first, swaps the first for newOwners[0], adds the other new owners, and sets the Safe threshold to the stored newThreshold. Anyone can call it.",
+     "Deletes the stored recovery request."
+    ],
+    "shown": "Remove every owner of the Safe and add the owners the helpers voted for.",
+    "findings": [
+     {
+      "severity": "info",
+      "axis": "completeness",
+      "kind": "spec-limitation",
+      "title": "finalizeRecovery takes the new owners and threshold from storage, so the screen cannot list them.",
+      "evidence": "SocialRecoveryModule.finalizeRecovery: `address[] memory newOwners = request.newOwners; uint256 newThreshold = request.newThreshold;` read from recoveryRequests[_wallet], not from calldata. The descriptor shows only the `_wallet` field.",
+      "groundTruth": false
+     }
+    ],
+    "cases": [],
+    "glance": 82,
+    "depth": 72
+   }
+  ],
+  "couldNotCheck": []
+ },
+ "cost": 0.501,
+ "account": "austingriffith",
+ "hiddenValue": [],
+ "seconds": 88,
+ "rubric": "v1.2",
+ "result": "pass",
+ "formats": {
+  "addGuardianWithThreshold(address _guardian,uint256 _threshold)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 90,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "revokeGuardianWithThreshold(address _prevGuardian,address _guardian,uint256 _threshold)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "changeThreshold(uint256 _threshold)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 88,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "cancelRecovery()": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 92,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "invalidateNonce()": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 67,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 1,
+   "worst": "invalidateNonce says it voids every helper vote, but a recovery that already started still completes.",
+   "disputed": 0,
+   "comprehension": null
+  },
+  "confirmRecovery(address _wallet,address[] _newOwners,uint256 _newThreshold,bool _execute)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "multiConfirmRecovery(address _wallet,address[] _newOwners,uint256 _newThreshold,(address signer,bytes signature)[] _signatures,bool _execute)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 82,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "executeRecovery(address _wallet,address[] _newOwners,uint256 _newThreshold)": {
+   "grade": "A",
+   "truth": 100,
+   "clarity": 86,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  },
+  "finalizeRecovery(address _wallet)": {
+   "grade": "B",
+   "truth": 100,
+   "clarity": 77,
+   "measured": false,
+   "groundTruth": false,
+   "critical": 0,
+   "warnings": 0,
+   "worst": null,
+   "disputed": 0,
+   "comprehension": null
+  }
+ },
+ "summary": {
+  "grade": "B",
+  "truth": 100,
+  "clarity": 84,
+  "functions": "7A 2B",
+  "incomplete": false,
+  "worst": "invalidateNonce says it voids every helper vote, but a recovery that already started still completes."
+ }
+}
